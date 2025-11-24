@@ -22,3 +22,6 @@ frontend/elm-stuff/
 proto-rust/pkg/
 backend/node_modules/
 frontend/node_modules/
+
+# Elm Artifacts
+frontend/elm.js

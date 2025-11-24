@@ -17,6 +17,7 @@ import Debug
 
 port rpcRequest : RpcRequest -> Cmd msg
 port rpcResponse : (RpcResponse -> msg) -> Sub msg
+port log : String -> Cmd msg
 
 -- RPC TYPES
 
@@ -96,7 +97,10 @@ update msg model =
 
         ( NewUuid reqType uuid, _ ) ->
             let
+                _ = Debug.log "NewUuid received" (toString uuid)
                 uuidString = toString uuid
+                debugCmd = log ("NewUuid fired: " ++ uuidString)
+
                 pendingRequests = 
                     case reqType of
                         ReqGetFeed ->
@@ -127,7 +131,7 @@ update msg model =
             in
             case pendingRequests of
                 ( pendingMap, cmd ) ->
-                    ( WaitingForRpc pendingMap, cmd )
+                    ( WaitingForRpc pendingMap, Cmd.batch [cmd, debugCmd] )
 
         ( RpcReceived response, WaitingForRpc pendingRequests ) ->
             case Dict.get response.correlationId pendingRequests of
@@ -167,7 +171,7 @@ update msg model =
 view : Model -> Html Msg
 view model =
     div [ style "font-family" "sans-serif", style "max-width" "800px", style "margin" "0 auto", style "padding" "20px" ]
-        [ h1 [] [ text "NaaaS Reader" ]
+        [ h1 [] [ text "Horatio Reader" ]
         , button [ onClick PerformSubmitItem, style "margin-bottom" "20px" ] [ text "Test: Submit Item" ]
         , viewContent model
         ]

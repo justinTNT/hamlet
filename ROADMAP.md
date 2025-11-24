@@ -12,43 +12,15 @@
 
 ---
 
-## NEXT: Phase 1 - The Shared Schema (Completed)
+## NEXT: Technical Debt - Repair Vite Build
 
-**Goal:** Define the canonical data model in Rust and auto-generate the Elm schema.
+**Goal:** Restore the `vite-plugin-elm` integration to enable Hot Module Replacement (HMR) and simplify the build process. Currently, we are using a manual `elm make` workaround.
 
-**Plan:**
-1.  **Refactor `shared_types.rs`:**
-    *   Remove `Student`/`Class` types.
-    *   Define `MicroblogItem` (id, title, link, image, extract, owner_comment, timestamp).
-    *   Define `Guest` (id, name, auth_provider).
-    *   Define `ItemComment` (id, item_id, guest_id, text, timestamp).
-    *   Define API Structs:
-        *   `GetFeedReq` (tenant_id/host).
-        *   `SubmitItemReq` (tenant_id, item_data).
-        *   `SubmitCommentReq` (tenant_id, comment_data).
-2.  **Validation:** Implement basic validation logic in `lib.rs` (e.g., valid URL check).
-3.  **Generate:** Run the `schema_generator` to update `Api/Schema.elm`.
-
----
-
-## Phase 2: The Backend (Multi-Tenant) (Completed)
-
-**Goal:** Update the Node.js server to support the new schema and multi-tenancy.
-
-**Plan:**
-1.  Update `server.js` to read the `Host` header (or a custom `X-Tenant-ID` header for local testing) to identify the tenant.
-2.  Implement in-memory storage partitioned by tenant.
-3.  Handle `SubmitItem`, `GetFeed`, and `SubmitComment`.
-
----
-
-## Phase 3: The Reader (Elm Website) (Completed)
-
-**Goal:** Convert the current Elm POC into the public Microblog feed.
-
-**Plan:**
-1.  Refactor `Main.elm` to render a list of `MicroblogItem` cards.
-2.  Add a "Login" / "Comment" flow for Guests.
+**Tasks:**
+1.  Investigate why `vite-plugin-elm` produced broken code (`ReferenceError`).
+2.  Re-enable the plugin in `vite.config.js`.
+3.  Restore `index.js` to import `Main.elm` directly.
+4.  Verify HMR works.
 
 ---
 
@@ -62,11 +34,41 @@
 3.  Create a popup UI to scrape the current tab and submit to the backend.
 
 ---
+
+## Phase 5: Persistence via Hasura
+
+**Goal:** Replace the in-memory backend storage with a persistent Hasura (GraphQL on Postgres) database.
+
+**Plan:**
+1.  **Infrastructure:** Provision a Hasura instance (local Docker or Cloud).
+2.  **Schema Mirroring:** Create Hasura tables matching the Rust `shared_types.rs` (Items, Guests, Comments).
+3.  **Backend Integration:** Update `backend/server.js` to:
+    *   Construct GraphQL mutations.
+    *   Forward validated `MicroblogItem` data to Hasura.
+    *   Retrieve feeds via GraphQL queries.
+4.  **Auth:** (Optional) Use the "Guest" identity to generate JWTs for Hasura role-based access.
+
+---
 ---
 
-# DONE (POC Phase)
+# DONE
 
-## Completed Achievements
+## Phase 3: The Reader (Elm Website)
+
+- **Status:** Completed.
+- **Outcome:** Refactored `Main.elm` to use the new `MicroblogItem` schema. Configured the app to fetch the feed on load and display items. Note: Currently using manual `elm make` for compilation.
+
+## Phase 2: The Backend (Multi-Tenant)
+
+- **Status:** Completed.
+- **Outcome:** Updated `server.js` to support the new schema and multi-tenancy. Implemented in-memory storage partitioned by tenant and handled `SubmitItem` and `GetFeed` requests using WASM for validation/encoding.
+
+## Phase 1 - The Shared Schema
+
+- **Status:** Completed.
+- **Outcome:** Refactored `shared_types.rs` with the new Microblog schema. Implemented basic validation in `lib.rs` and successfully generated the `Api/Schema.elm` file using the `schema_generator` (via `elm_rs`).
+
+## POC Phase Achievements
 *   **Isomorphic Rust Core:** Shared logic compiled to WASM.
 *   **Type-Safe Schemas:** Automated generation via `elm_rs`.
 *   **Robust RPC:** Correlation-ID based request/response.

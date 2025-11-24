@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import init, { decode_request, encode_response } from 'proto-rust';
+import { readFile } from 'fs/promises';
 
 const app = express();
 const port = 3000;
@@ -32,7 +33,10 @@ const getTenantDb = (host) => {
 };
 
 // Initialize WASM
-await init(); 
+// In Node.js, we must read the file manually and pass the buffer to init
+// because the default fetch-based loading doesn't work for local files.
+const wasmBuffer = await readFile('../proto-rust/pkg/proto_rust_bg.wasm');
+await init(wasmBuffer); 
 
 app.post('/api', (req, res) => {
   // Multi-tenancy: use Host header (or fallback for local dev)
@@ -90,5 +94,5 @@ app.post('/api', (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`NaaaS Backend running at http://localhost:${port}`);
+  console.log(`Horatio Backend running at http://localhost:${port}`);
 });

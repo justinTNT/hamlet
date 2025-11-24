@@ -5250,299 +5250,12 @@ var $elm$core$Task$perform = F2(
 				A2($elm$core$Task$map, toMessage, task)));
 	});
 var $elm$browser$Browser$element = _Browser_element;
-var $author$project$Main$Loaded = function (a) {
-	return {$: 'Loaded', a: a};
-};
-var $elm$core$Platform$Cmd$batch = _Platform_batch;
-var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
-var $author$project$Main$init = _Utils_Tuple2(
-	$author$project$Main$Loaded($elm$core$Maybe$Nothing),
-	$elm$core$Platform$Cmd$none);
-var $author$project$Main$RpcReceived = function (a) {
-	return {$: 'RpcReceived', a: a};
-};
-var $elm$json$Json$Decode$andThen = _Json_andThen;
-var $elm$json$Json$Decode$field = _Json_decodeField;
-var $elm$json$Json$Decode$string = _Json_decodeString;
-var $author$project$Main$rpcResponse = _Platform_incomingPort(
-	'rpcResponse',
-	A2(
-		$elm$json$Json$Decode$andThen,
-		function (endpoint) {
-			return A2(
-				$elm$json$Json$Decode$andThen,
-				function (correlationId) {
-					return A2(
-						$elm$json$Json$Decode$andThen,
-						function (body) {
-							return $elm$json$Json$Decode$succeed(
-								{body: body, correlationId: correlationId, endpoint: endpoint});
-						},
-						A2($elm$json$Json$Decode$field, 'body', $elm$json$Json$Decode$string));
-				},
-				A2($elm$json$Json$Decode$field, 'correlationId', $elm$json$Json$Decode$string));
-		},
-		A2($elm$json$Json$Decode$field, 'endpoint', $elm$json$Json$Decode$string)));
-var $author$project$Main$subscriptions = function (_v0) {
-	return $author$project$Main$rpcResponse($author$project$Main$RpcReceived);
-};
-var $author$project$Main$Errored = function (a) {
-	return {$: 'Errored', a: a};
-};
-var $author$project$Api$Schema$InternalError = function (a) {
-	return {$: 'InternalError', a: a};
-};
-var $author$project$Main$NewUuid = function (a) {
-	return {$: 'NewUuid', a: a};
-};
-var $author$project$Main$PendingRequest = F2(
-	function (decoder, toMsg) {
-		return {decoder: decoder, toMsg: toMsg};
+var $author$project$Main$Loading = {$: 'Loading'};
+var $author$project$Main$NewUuid = F2(
+	function (a, b) {
+		return {$: 'NewUuid', a: a, b: b};
 	});
-var $author$project$Main$RpcReceivedInternal = function (a) {
-	return {$: 'RpcReceivedInternal', a: a};
-};
-var $author$project$Main$WaitingForRpc = function (a) {
-	return {$: 'WaitingForRpc', a: a};
-};
-var $author$project$Api$Schema$NotFound = function (a) {
-	return {$: 'NotFound', a: a};
-};
-var $author$project$Api$Schema$ValidationError = function (a) {
-	return {$: 'ValidationError', a: a};
-};
-var $elm$json$Json$Decode$fail = _Json_fail;
-var $author$project$Api$Schema$apiErrorDecoder = function () {
-	var elmRsConstructValidationError = function (details) {
-		return $author$project$Api$Schema$ValidationError(
-			{details: details});
-	};
-	var elmRsConstructNotFound = function (details) {
-		return $author$project$Api$Schema$NotFound(
-			{details: details});
-	};
-	var elmRsConstructInternalError = function (details) {
-		return $author$project$Api$Schema$InternalError(
-			{details: details});
-	};
-	return A2(
-		$elm$json$Json$Decode$andThen,
-		function (tag) {
-			switch (tag) {
-				case 'ValidationError':
-					return A2(
-						$elm$json$Json$Decode$andThen,
-						function (x) {
-							return A2(
-								$elm$json$Json$Decode$map,
-								x,
-								A2($elm$json$Json$Decode$field, 'details', $elm$json$Json$Decode$string));
-						},
-						$elm$json$Json$Decode$succeed(elmRsConstructValidationError));
-				case 'NotFound':
-					return A2(
-						$elm$json$Json$Decode$andThen,
-						function (x) {
-							return A2(
-								$elm$json$Json$Decode$map,
-								x,
-								A2($elm$json$Json$Decode$field, 'details', $elm$json$Json$Decode$string));
-						},
-						$elm$json$Json$Decode$succeed(elmRsConstructNotFound));
-				case 'InternalError':
-					return A2(
-						$elm$json$Json$Decode$andThen,
-						function (x) {
-							return A2(
-								$elm$json$Json$Decode$map,
-								x,
-								A2($elm$json$Json$Decode$field, 'details', $elm$json$Json$Decode$string));
-						},
-						$elm$json$Json$Decode$succeed(elmRsConstructInternalError));
-				default:
-					var unexpected = tag;
-					return $elm$json$Json$Decode$fail('Unexpected variant ' + unexpected);
-			}
-		},
-		A2($elm$json$Json$Decode$field, 'type', $elm$json$Json$Decode$string));
-}();
-var $elm$json$Json$Encode$object = function (pairs) {
-	return _Json_wrap(
-		A3(
-			$elm$core$List$foldl,
-			F2(
-				function (_v0, obj) {
-					var k = _v0.a;
-					var v = _v0.b;
-					return A3(_Json_addField, k, v, obj);
-				}),
-			_Json_emptyObject(_Utils_Tuple0),
-			pairs));
-};
-var $elm$json$Json$Encode$string = _Json_wrap;
-var $author$project$Main$rpcRequest = _Platform_outgoingPort(
-	'rpcRequest',
-	function ($) {
-		return $elm$json$Json$Encode$object(
-			_List_fromArray(
-				[
-					_Utils_Tuple2(
-					'body',
-					$elm$core$Basics$identity($.body)),
-					_Utils_Tuple2(
-					'correlationId',
-					$elm$json$Json$Encode$string($.correlationId)),
-					_Utils_Tuple2(
-					'endpoint',
-					$elm$json$Json$Encode$string($.endpoint))
-				]));
-	});
-var $elm$core$Bitwise$and = _Bitwise_and;
-var $elm$core$String$cons = _String_cons;
-var $elm$core$String$fromChar = function (_char) {
-	return A2($elm$core$String$cons, _char, '');
-};
-var $elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
-var $elm$core$String$repeatHelp = F3(
-	function (n, chunk, result) {
-		return (n <= 0) ? result : A3(
-			$elm$core$String$repeatHelp,
-			n >> 1,
-			_Utils_ap(chunk, chunk),
-			(!(n & 1)) ? result : _Utils_ap(result, chunk));
-	});
-var $elm$core$String$repeat = F2(
-	function (n, chunk) {
-		return A3($elm$core$String$repeatHelp, n, chunk, '');
-	});
-var $elm$core$String$padLeft = F3(
-	function (n, _char, string) {
-		return _Utils_ap(
-			A2(
-				$elm$core$String$repeat,
-				n - $elm$core$String$length(string),
-				$elm$core$String$fromChar(_char)),
-			string);
-	});
-var $elm$core$Bitwise$shiftRightZfBy = _Bitwise_shiftRightZfBy;
-var $elm$core$String$fromList = _String_fromList;
-var $TSFoster$elm_uuid$UUID$toHex = F2(
-	function (acc, _int) {
-		toHex:
-		while (true) {
-			if (!_int) {
-				return $elm$core$String$fromList(acc);
-			} else {
-				var _char = function () {
-					var _v0 = 15 & _int;
-					switch (_v0) {
-						case 0:
-							return _Utils_chr('0');
-						case 1:
-							return _Utils_chr('1');
-						case 2:
-							return _Utils_chr('2');
-						case 3:
-							return _Utils_chr('3');
-						case 4:
-							return _Utils_chr('4');
-						case 5:
-							return _Utils_chr('5');
-						case 6:
-							return _Utils_chr('6');
-						case 7:
-							return _Utils_chr('7');
-						case 8:
-							return _Utils_chr('8');
-						case 9:
-							return _Utils_chr('9');
-						case 10:
-							return _Utils_chr('a');
-						case 11:
-							return _Utils_chr('b');
-						case 12:
-							return _Utils_chr('c');
-						case 13:
-							return _Utils_chr('d');
-						case 14:
-							return _Utils_chr('e');
-						default:
-							return _Utils_chr('f');
-					}
-				}();
-				var $temp$acc = A2($elm$core$List$cons, _char, acc),
-					$temp$int = _int >>> 4;
-				acc = $temp$acc;
-				_int = $temp$int;
-				continue toHex;
-			}
-		}
-	});
-var $TSFoster$elm_uuid$UUID$toStringWith = F2(
-	function (sep, _v0) {
-		var a = _v0.a;
-		var b = _v0.b;
-		var c = _v0.c;
-		var d = _v0.d;
-		return _Utils_ap(
-			A3(
-				$elm$core$String$padLeft,
-				8,
-				_Utils_chr('0'),
-				A2($TSFoster$elm_uuid$UUID$toHex, _List_Nil, a)),
-			_Utils_ap(
-				sep,
-				_Utils_ap(
-					A3(
-						$elm$core$String$padLeft,
-						4,
-						_Utils_chr('0'),
-						A2($TSFoster$elm_uuid$UUID$toHex, _List_Nil, b >>> 16)),
-					_Utils_ap(
-						sep,
-						_Utils_ap(
-							A3(
-								$elm$core$String$padLeft,
-								4,
-								_Utils_chr('0'),
-								A2($TSFoster$elm_uuid$UUID$toHex, _List_Nil, 65535 & b)),
-							_Utils_ap(
-								sep,
-								_Utils_ap(
-									A3(
-										$elm$core$String$padLeft,
-										4,
-										_Utils_chr('0'),
-										A2($TSFoster$elm_uuid$UUID$toHex, _List_Nil, c >>> 16)),
-									_Utils_ap(
-										sep,
-										_Utils_ap(
-											A3(
-												$elm$core$String$padLeft,
-												4,
-												_Utils_chr('0'),
-												A2($TSFoster$elm_uuid$UUID$toHex, _List_Nil, 65535 & c)),
-											A3(
-												$elm$core$String$padLeft,
-												8,
-												_Utils_chr('0'),
-												A2($TSFoster$elm_uuid$UUID$toHex, _List_Nil, d)))))))))));
-	});
-var $TSFoster$elm_uuid$UUID$toString = $TSFoster$elm_uuid$UUID$toStringWith('-');
-var $author$project$Main$call = F3(
-	function (correlationId, _v0, requestData) {
-		var name = _v0.a.name;
-		var encoder = _v0.a.encoder;
-		var decoder = _v0.a.decoder;
-		var correlationIdString = $TSFoster$elm_uuid$UUID$toString(correlationId);
-		var rpcReq = {
-			body: encoder(requestData),
-			correlationId: correlationIdString,
-			endpoint: name
-		};
-		return $author$project$Main$rpcRequest(rpcReq);
-	});
-var $elm$json$Json$Decode$decodeString = _Json_runOnString;
+var $author$project$Main$ReqGetFeed = {$: 'ReqGetFeed'};
 var $elm$random$Random$Generate = function (a) {
 	return {$: 'Generate', a: a};
 };
@@ -5550,6 +5263,7 @@ var $elm$random$Random$Seed = F2(
 	function (a, b) {
 		return {$: 'Seed', a: a, b: b};
 	});
+var $elm$core$Bitwise$shiftRightZfBy = _Bitwise_shiftRightZfBy;
 var $elm$random$Random$next = function (_v0) {
 	var state0 = _v0.a;
 	var incr = _v0.b;
@@ -5684,6 +5398,7 @@ var $elm$random$Random$map4 = F5(
 			});
 	});
 var $TSFoster$elm_uuid$UUID$forceUnsigned = $elm$core$Bitwise$shiftRightZfBy(0);
+var $elm$core$Bitwise$and = _Bitwise_and;
 var $elm$core$Basics$negate = function (n) {
 	return -n;
 };
@@ -5765,6 +5480,296 @@ var $TSFoster$elm_uuid$UUID$generator = A2(
 		$TSFoster$elm_uuid$UUID$toVersion(4),
 		$TSFoster$elm_uuid$UUID$toVariant1),
 	A5($elm$random$Random$map4, $TSFoster$elm_uuid$UUID$UUID, $TSFoster$elm_uuid$UUID$randomU32, $TSFoster$elm_uuid$UUID$randomU32, $TSFoster$elm_uuid$UUID$randomU32, $TSFoster$elm_uuid$UUID$randomU32));
+var $author$project$Main$init = _Utils_Tuple2(
+	$author$project$Main$Loading,
+	A2(
+		$elm$random$Random$generate,
+		$author$project$Main$NewUuid($author$project$Main$ReqGetFeed),
+		$TSFoster$elm_uuid$UUID$generator));
+var $author$project$Main$RpcReceived = function (a) {
+	return {$: 'RpcReceived', a: a};
+};
+var $elm$json$Json$Decode$andThen = _Json_andThen;
+var $elm$json$Json$Decode$field = _Json_decodeField;
+var $elm$json$Json$Decode$string = _Json_decodeString;
+var $author$project$Main$rpcResponse = _Platform_incomingPort(
+	'rpcResponse',
+	A2(
+		$elm$json$Json$Decode$andThen,
+		function (endpoint) {
+			return A2(
+				$elm$json$Json$Decode$andThen,
+				function (correlationId) {
+					return A2(
+						$elm$json$Json$Decode$andThen,
+						function (body) {
+							return $elm$json$Json$Decode$succeed(
+								{body: body, correlationId: correlationId, endpoint: endpoint});
+						},
+						A2($elm$json$Json$Decode$field, 'body', $elm$json$Json$Decode$string));
+				},
+				A2($elm$json$Json$Decode$field, 'correlationId', $elm$json$Json$Decode$string));
+		},
+		A2($elm$json$Json$Decode$field, 'endpoint', $elm$json$Json$Decode$string)));
+var $author$project$Main$subscriptions = function (_v0) {
+	return $author$project$Main$rpcResponse($author$project$Main$RpcReceived);
+};
+var $author$project$Main$Errored = function (a) {
+	return {$: 'Errored', a: a};
+};
+var $author$project$Api$Schema$InternalError = function (a) {
+	return {$: 'InternalError', a: a};
+};
+var $author$project$Main$LoadedFeed = function (a) {
+	return {$: 'LoadedFeed', a: a};
+};
+var $author$project$Main$PendingRequest = F2(
+	function (decoder, toMsg) {
+		return {decoder: decoder, toMsg: toMsg};
+	});
+var $author$project$Main$ReqSubmitItem = {$: 'ReqSubmitItem'};
+var $author$project$Main$ResGetFeed = function (a) {
+	return {$: 'ResGetFeed', a: a};
+};
+var $author$project$Main$ResSubmitItem = function (a) {
+	return {$: 'ResSubmitItem', a: a};
+};
+var $author$project$Main$RpcReceivedInternal = function (a) {
+	return {$: 'RpcReceivedInternal', a: a};
+};
+var $author$project$Main$WaitingForRpc = function (a) {
+	return {$: 'WaitingForRpc', a: a};
+};
+var $author$project$Api$Schema$NotFound = function (a) {
+	return {$: 'NotFound', a: a};
+};
+var $author$project$Api$Schema$ValidationError = function (a) {
+	return {$: 'ValidationError', a: a};
+};
+var $elm$json$Json$Decode$fail = _Json_fail;
+var $author$project$Api$Schema$apiErrorDecoder = function () {
+	var elmRsConstructValidationError = function (details) {
+		return $author$project$Api$Schema$ValidationError(
+			{details: details});
+	};
+	var elmRsConstructNotFound = function (details) {
+		return $author$project$Api$Schema$NotFound(
+			{details: details});
+	};
+	var elmRsConstructInternalError = function (details) {
+		return $author$project$Api$Schema$InternalError(
+			{details: details});
+	};
+	return A2(
+		$elm$json$Json$Decode$andThen,
+		function (tag) {
+			switch (tag) {
+				case 'ValidationError':
+					return A2(
+						$elm$json$Json$Decode$andThen,
+						function (x) {
+							return A2(
+								$elm$json$Json$Decode$map,
+								x,
+								A2($elm$json$Json$Decode$field, 'details', $elm$json$Json$Decode$string));
+						},
+						$elm$json$Json$Decode$succeed(elmRsConstructValidationError));
+				case 'NotFound':
+					return A2(
+						$elm$json$Json$Decode$andThen,
+						function (x) {
+							return A2(
+								$elm$json$Json$Decode$map,
+								x,
+								A2($elm$json$Json$Decode$field, 'details', $elm$json$Json$Decode$string));
+						},
+						$elm$json$Json$Decode$succeed(elmRsConstructNotFound));
+				case 'InternalError':
+					return A2(
+						$elm$json$Json$Decode$andThen,
+						function (x) {
+							return A2(
+								$elm$json$Json$Decode$map,
+								x,
+								A2($elm$json$Json$Decode$field, 'details', $elm$json$Json$Decode$string));
+						},
+						$elm$json$Json$Decode$succeed(elmRsConstructInternalError));
+				default:
+					var unexpected = tag;
+					return $elm$json$Json$Decode$fail('Unexpected variant ' + unexpected);
+			}
+		},
+		A2($elm$json$Json$Decode$field, 'type', $elm$json$Json$Decode$string));
+}();
+var $elm$core$Platform$Cmd$batch = _Platform_batch;
+var $elm$json$Json$Encode$object = function (pairs) {
+	return _Json_wrap(
+		A3(
+			$elm$core$List$foldl,
+			F2(
+				function (_v0, obj) {
+					var k = _v0.a;
+					var v = _v0.b;
+					return A3(_Json_addField, k, v, obj);
+				}),
+			_Json_emptyObject(_Utils_Tuple0),
+			pairs));
+};
+var $elm$json$Json$Encode$string = _Json_wrap;
+var $author$project$Main$rpcRequest = _Platform_outgoingPort(
+	'rpcRequest',
+	function ($) {
+		return $elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'body',
+					$elm$core$Basics$identity($.body)),
+					_Utils_Tuple2(
+					'correlationId',
+					$elm$json$Json$Encode$string($.correlationId)),
+					_Utils_Tuple2(
+					'endpoint',
+					$elm$json$Json$Encode$string($.endpoint))
+				]));
+	});
+var $elm$core$String$cons = _String_cons;
+var $elm$core$String$fromChar = function (_char) {
+	return A2($elm$core$String$cons, _char, '');
+};
+var $elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
+var $elm$core$String$repeatHelp = F3(
+	function (n, chunk, result) {
+		return (n <= 0) ? result : A3(
+			$elm$core$String$repeatHelp,
+			n >> 1,
+			_Utils_ap(chunk, chunk),
+			(!(n & 1)) ? result : _Utils_ap(result, chunk));
+	});
+var $elm$core$String$repeat = F2(
+	function (n, chunk) {
+		return A3($elm$core$String$repeatHelp, n, chunk, '');
+	});
+var $elm$core$String$padLeft = F3(
+	function (n, _char, string) {
+		return _Utils_ap(
+			A2(
+				$elm$core$String$repeat,
+				n - $elm$core$String$length(string),
+				$elm$core$String$fromChar(_char)),
+			string);
+	});
+var $elm$core$String$fromList = _String_fromList;
+var $TSFoster$elm_uuid$UUID$toHex = F2(
+	function (acc, _int) {
+		toHex:
+		while (true) {
+			if (!_int) {
+				return $elm$core$String$fromList(acc);
+			} else {
+				var _char = function () {
+					var _v0 = 15 & _int;
+					switch (_v0) {
+						case 0:
+							return _Utils_chr('0');
+						case 1:
+							return _Utils_chr('1');
+						case 2:
+							return _Utils_chr('2');
+						case 3:
+							return _Utils_chr('3');
+						case 4:
+							return _Utils_chr('4');
+						case 5:
+							return _Utils_chr('5');
+						case 6:
+							return _Utils_chr('6');
+						case 7:
+							return _Utils_chr('7');
+						case 8:
+							return _Utils_chr('8');
+						case 9:
+							return _Utils_chr('9');
+						case 10:
+							return _Utils_chr('a');
+						case 11:
+							return _Utils_chr('b');
+						case 12:
+							return _Utils_chr('c');
+						case 13:
+							return _Utils_chr('d');
+						case 14:
+							return _Utils_chr('e');
+						default:
+							return _Utils_chr('f');
+					}
+				}();
+				var $temp$acc = A2($elm$core$List$cons, _char, acc),
+					$temp$int = _int >>> 4;
+				acc = $temp$acc;
+				_int = $temp$int;
+				continue toHex;
+			}
+		}
+	});
+var $TSFoster$elm_uuid$UUID$toStringWith = F2(
+	function (sep, _v0) {
+		var a = _v0.a;
+		var b = _v0.b;
+		var c = _v0.c;
+		var d = _v0.d;
+		return _Utils_ap(
+			A3(
+				$elm$core$String$padLeft,
+				8,
+				_Utils_chr('0'),
+				A2($TSFoster$elm_uuid$UUID$toHex, _List_Nil, a)),
+			_Utils_ap(
+				sep,
+				_Utils_ap(
+					A3(
+						$elm$core$String$padLeft,
+						4,
+						_Utils_chr('0'),
+						A2($TSFoster$elm_uuid$UUID$toHex, _List_Nil, b >>> 16)),
+					_Utils_ap(
+						sep,
+						_Utils_ap(
+							A3(
+								$elm$core$String$padLeft,
+								4,
+								_Utils_chr('0'),
+								A2($TSFoster$elm_uuid$UUID$toHex, _List_Nil, 65535 & b)),
+							_Utils_ap(
+								sep,
+								_Utils_ap(
+									A3(
+										$elm$core$String$padLeft,
+										4,
+										_Utils_chr('0'),
+										A2($TSFoster$elm_uuid$UUID$toHex, _List_Nil, c >>> 16)),
+									_Utils_ap(
+										sep,
+										_Utils_ap(
+											A3(
+												$elm$core$String$padLeft,
+												4,
+												_Utils_chr('0'),
+												A2($TSFoster$elm_uuid$UUID$toHex, _List_Nil, 65535 & c)),
+											A3(
+												$elm$core$String$padLeft,
+												8,
+												_Utils_chr('0'),
+												A2($TSFoster$elm_uuid$UUID$toHex, _List_Nil, d)))))))))));
+	});
+var $TSFoster$elm_uuid$UUID$toString = $TSFoster$elm_uuid$UUID$toStringWith('-');
+var $author$project$Main$call = F3(
+	function (correlationId, endpoint, body) {
+		var correlationIdString = $TSFoster$elm_uuid$UUID$toString(correlationId);
+		var rpcReq = {body: body, correlationId: correlationIdString, endpoint: endpoint};
+		return $author$project$Main$rpcRequest(rpcReq);
+	});
+var $elm$json$Json$Decode$decodeString = _Json_runOnString;
 var $elm$core$Basics$compare = _Utils_compare;
 var $elm$core$Dict$get = F2(
 	function (targetKey, dict) {
@@ -5797,38 +5802,31 @@ var $elm$core$Dict$get = F2(
 			}
 		}
 	});
-var $author$project$Main$Endpoint = function (a) {
-	return {$: 'Endpoint', a: a};
-};
-var $elm$json$Json$Encode$int = _Json_wrap;
-var $author$project$Api$Schema$getClassWithStudentsReqEncoder = function (struct) {
+var $author$project$Api$Schema$getFeedReqEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
 				_Utils_Tuple2(
-				'classId',
-				$elm$json$Json$Encode$int(struct.classId))
+				'host',
+				$elm$json$Json$Encode$string(struct.host))
 			]));
 };
-var $author$project$Api$Schema$GetClassWithStudentsRes = function (payload) {
-	return {payload: payload};
+var $author$project$Api$Schema$GetFeedRes = function (items) {
+	return {items: items};
 };
-var $author$project$Api$Schema$ClassWithStudentsSchema = F2(
-	function (_class, students) {
-		return {_class: _class, students: students};
-	});
-var $author$project$Api$Schema$ClassSchema = F2(
-	function (id, name) {
-		return {id: id, name: name};
+var $elm$json$Json$Decode$list = _Json_decodeList;
+var $author$project$Api$Schema$MicroblogItem = F7(
+	function (id, title, link, image, extract, ownerComment, timestamp) {
+		return {extract: extract, id: id, image: image, link: link, ownerComment: ownerComment, timestamp: timestamp, title: title};
 	});
 var $elm$json$Json$Decode$int = _Json_decodeInt;
-var $author$project$Api$Schema$classSchemaDecoder = A2(
+var $author$project$Api$Schema$microblogItemDecoder = A2(
 	$elm$json$Json$Decode$andThen,
 	function (x) {
 		return A2(
 			$elm$json$Json$Decode$map,
 			x,
-			A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string));
+			A2($elm$json$Json$Decode$field, 'timestamp', $elm$json$Json$Decode$int));
 	},
 	A2(
 		$elm$json$Json$Decode$andThen,
@@ -5836,32 +5834,50 @@ var $author$project$Api$Schema$classSchemaDecoder = A2(
 			return A2(
 				$elm$json$Json$Decode$map,
 				x,
-				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$int));
+				A2($elm$json$Json$Decode$field, 'owner_comment', $elm$json$Json$Decode$string));
 		},
-		$elm$json$Json$Decode$succeed($author$project$Api$Schema$ClassSchema)));
-var $elm$json$Json$Decode$list = _Json_decodeList;
-var $author$project$Api$Schema$StudentSchema = F2(
-	function (id, name) {
-		return {id: id, name: name};
-	});
-var $author$project$Api$Schema$studentSchemaDecoder = A2(
-	$elm$json$Json$Decode$andThen,
-	function (x) {
-		return A2(
-			$elm$json$Json$Decode$map,
-			x,
-			A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string));
-	},
-	A2(
-		$elm$json$Json$Decode$andThen,
-		function (x) {
-			return A2(
-				$elm$json$Json$Decode$map,
-				x,
-				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$int));
-		},
-		$elm$json$Json$Decode$succeed($author$project$Api$Schema$StudentSchema)));
-var $author$project$Api$Schema$classWithStudentsSchemaDecoder = A2(
+		A2(
+			$elm$json$Json$Decode$andThen,
+			function (x) {
+				return A2(
+					$elm$json$Json$Decode$map,
+					x,
+					A2($elm$json$Json$Decode$field, 'extract', $elm$json$Json$Decode$string));
+			},
+			A2(
+				$elm$json$Json$Decode$andThen,
+				function (x) {
+					return A2(
+						$elm$json$Json$Decode$map,
+						x,
+						A2($elm$json$Json$Decode$field, 'image', $elm$json$Json$Decode$string));
+				},
+				A2(
+					$elm$json$Json$Decode$andThen,
+					function (x) {
+						return A2(
+							$elm$json$Json$Decode$map,
+							x,
+							A2($elm$json$Json$Decode$field, 'link', $elm$json$Json$Decode$string));
+					},
+					A2(
+						$elm$json$Json$Decode$andThen,
+						function (x) {
+							return A2(
+								$elm$json$Json$Decode$map,
+								x,
+								A2($elm$json$Json$Decode$field, 'title', $elm$json$Json$Decode$string));
+						},
+						A2(
+							$elm$json$Json$Decode$andThen,
+							function (x) {
+								return A2(
+									$elm$json$Json$Decode$map,
+									x,
+									A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string));
+							},
+							$elm$json$Json$Decode$succeed($author$project$Api$Schema$MicroblogItem))))))));
+var $author$project$Api$Schema$getFeedResDecoder = A2(
 	$elm$json$Json$Decode$andThen,
 	function (x) {
 		return A2(
@@ -5869,29 +5885,13 @@ var $author$project$Api$Schema$classWithStudentsSchemaDecoder = A2(
 			x,
 			A2(
 				$elm$json$Json$Decode$field,
-				'students',
-				$elm$json$Json$Decode$list($author$project$Api$Schema$studentSchemaDecoder)));
+				'items',
+				$elm$json$Json$Decode$list($author$project$Api$Schema$microblogItemDecoder)));
 	},
-	A2(
-		$elm$json$Json$Decode$andThen,
-		function (x) {
-			return A2(
-				$elm$json$Json$Decode$map,
-				x,
-				A2($elm$json$Json$Decode$field, 'class', $author$project$Api$Schema$classSchemaDecoder));
-		},
-		$elm$json$Json$Decode$succeed($author$project$Api$Schema$ClassWithStudentsSchema)));
-var $author$project$Api$Schema$getClassWithStudentsResDecoder = A2(
-	$elm$json$Json$Decode$andThen,
-	function (x) {
-		return A2(
-			$elm$json$Json$Decode$map,
-			x,
-			A2($elm$json$Json$Decode$field, 'payload', $author$project$Api$Schema$classWithStudentsSchemaDecoder));
-	},
-	$elm$json$Json$Decode$succeed($author$project$Api$Schema$GetClassWithStudentsRes));
-var $author$project$Main$getClassWithStudents = $author$project$Main$Endpoint(
-	{decoder: $author$project$Api$Schema$getClassWithStudentsResDecoder, encoder: $author$project$Api$Schema$getClassWithStudentsReqEncoder, name: 'GetClassWithStudents'});
+	$elm$json$Json$Decode$succeed($author$project$Api$Schema$GetFeedRes));
+var $elm$core$Debug$log = _Debug_log;
+var $author$project$Main$log = _Platform_outgoingPort('log', $elm$json$Json$Encode$string);
+var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
 var $elm$core$Tuple$pair = F2(
 	function (a, b) {
 		return _Utils_Tuple2(a, b);
@@ -5906,38 +5906,108 @@ var $elm$core$Dict$singleton = F2(
 	function (key, value) {
 		return A5($elm$core$Dict$RBNode_elm_builtin, $elm$core$Dict$Black, key, value, $elm$core$Dict$RBEmpty_elm_builtin, $elm$core$Dict$RBEmpty_elm_builtin);
 	});
+var $author$project$Api$Schema$submitItemReqEncoder = function (struct) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'host',
+				$elm$json$Json$Encode$string(struct.host)),
+				_Utils_Tuple2(
+				'title',
+				$elm$json$Json$Encode$string(struct.title)),
+				_Utils_Tuple2(
+				'link',
+				$elm$json$Json$Encode$string(struct.link)),
+				_Utils_Tuple2(
+				'image',
+				$elm$json$Json$Encode$string(struct.image)),
+				_Utils_Tuple2(
+				'extract',
+				$elm$json$Json$Encode$string(struct.extract)),
+				_Utils_Tuple2(
+				'owner_comment',
+				$elm$json$Json$Encode$string(struct.ownerComment))
+			]));
+};
+var $author$project$Api$Schema$SubmitItemRes = function (item) {
+	return {item: item};
+};
+var $author$project$Api$Schema$submitItemResDecoder = A2(
+	$elm$json$Json$Decode$andThen,
+	function (x) {
+		return A2(
+			$elm$json$Json$Decode$map,
+			x,
+			A2($elm$json$Json$Decode$field, 'item', $author$project$Api$Schema$microblogItemDecoder));
+	},
+	$elm$json$Json$Decode$succeed($author$project$Api$Schema$SubmitItemRes));
 var $elm$core$Debug$toString = _Debug_toString;
 var $author$project$Main$update = F2(
 	function (msg, model) {
 		var _v0 = _Utils_Tuple2(msg, model);
 		switch (_v0.a.$) {
-			case 'FetchData':
+			case 'PerformSubmitItem':
 				var _v1 = _v0.a;
 				return _Utils_Tuple2(
 					model,
-					A2($elm$random$Random$generate, $author$project$Main$NewUuid, $TSFoster$elm_uuid$UUID$generator));
+					A2(
+						$elm$random$Random$generate,
+						$author$project$Main$NewUuid($author$project$Main$ReqSubmitItem),
+						$TSFoster$elm_uuid$UUID$generator));
 			case 'NewUuid':
-				var uuid = _v0.a.a;
-				var req = {classId: 1};
-				var pendingRequest = A2($author$project$Main$PendingRequest, $author$project$Api$Schema$getClassWithStudentsResDecoder, $author$project$Main$RpcReceivedInternal);
-				var pendingRequests = A2(
-					$elm$core$Dict$singleton,
-					$TSFoster$elm_uuid$UUID$toString(uuid),
-					pendingRequest);
+				var _v2 = _v0.a;
+				var reqType = _v2.a;
+				var uuid = _v2.b;
+				var uuidString = $TSFoster$elm_uuid$UUID$toString(uuid);
+				var pendingRequests = function () {
+					if (reqType.$ === 'ReqGetFeed') {
+						var req = {host: 'localhost'};
+						var decoder = A2($elm$json$Json$Decode$map, $author$project$Main$ResGetFeed, $author$project$Api$Schema$getFeedResDecoder);
+						var pending = A2($author$project$Main$PendingRequest, decoder, $author$project$Main$RpcReceivedInternal);
+						return _Utils_Tuple2(
+							A2($elm$core$Dict$singleton, uuidString, pending),
+							A3(
+								$author$project$Main$call,
+								uuid,
+								'GetFeed',
+								$author$project$Api$Schema$getFeedReqEncoder(req)));
+					} else {
+						var req = {extract: 'This item was submitted via the Elm Reader app.', host: 'localhost', image: 'https://placehold.co/100x100', link: 'https://elm-lang.org', ownerComment: 'Pretty cool.', title: 'New Item from Elm'};
+						var decoder = A2($elm$json$Json$Decode$map, $author$project$Main$ResSubmitItem, $author$project$Api$Schema$submitItemResDecoder);
+						var pending = A2($author$project$Main$PendingRequest, decoder, $author$project$Main$RpcReceivedInternal);
+						return _Utils_Tuple2(
+							A2($elm$core$Dict$singleton, uuidString, pending),
+							A3(
+								$author$project$Main$call,
+								uuid,
+								'SubmitItem',
+								$author$project$Api$Schema$submitItemReqEncoder(req)));
+					}
+				}();
+				var debugCmd = $author$project$Main$log('NewUuid fired: ' + uuidString);
+				var _v3 = A2(
+					$elm$core$Debug$log,
+					'NewUuid received',
+					$TSFoster$elm_uuid$UUID$toString(uuid));
+				var pendingMap = pendingRequests.a;
+				var cmd = pendingRequests.b;
 				return _Utils_Tuple2(
-					$author$project$Main$WaitingForRpc(pendingRequests),
-					A3($author$project$Main$call, uuid, $author$project$Main$getClassWithStudents, req));
+					$author$project$Main$WaitingForRpc(pendingMap),
+					$elm$core$Platform$Cmd$batch(
+						_List_fromArray(
+							[cmd, debugCmd])));
 			case 'RpcReceived':
 				if (_v0.b.$ === 'WaitingForRpc') {
 					var response = _v0.a.a;
 					var pendingRequests = _v0.b.a;
-					var _v2 = A2($elm$core$Dict$get, response.correlationId, pendingRequests);
-					if (_v2.$ === 'Just') {
-						var decoder = _v2.a.decoder;
-						var toMsg = _v2.a.toMsg;
-						var _v3 = A2($elm$json$Json$Decode$decodeString, $author$project$Api$Schema$apiErrorDecoder, response.body);
-						if (_v3.$ === 'Ok') {
-							var apiError = _v3.a;
+					var _v6 = A2($elm$core$Dict$get, response.correlationId, pendingRequests);
+					if (_v6.$ === 'Just') {
+						var decoder = _v6.a.decoder;
+						var toMsg = _v6.a.toMsg;
+						var _v7 = A2($elm$json$Json$Decode$decodeString, $author$project$Api$Schema$apiErrorDecoder, response.body);
+						if (_v7.$ === 'Ok') {
+							var apiError = _v7.a;
 							return A2(
 								$elm$core$Tuple$pair,
 								model,
@@ -5947,9 +6017,9 @@ var $author$project$Main$update = F2(
 									$elm$core$Task$succeed(
 										$elm$core$Result$Err(apiError))));
 						} else {
-							var _v4 = A2($elm$json$Json$Decode$decodeString, decoder, response.body);
-							if (_v4.$ === 'Ok') {
-								var decodedData = _v4.a;
+							var _v8 = A2($elm$json$Json$Decode$decodeString, decoder, response.body);
+							if (_v8.$ === 'Ok') {
+								var decodedData = _v8.a;
 								return A2(
 									$elm$core$Tuple$pair,
 									model,
@@ -5959,7 +6029,7 @@ var $author$project$Main$update = F2(
 										$elm$core$Task$succeed(
 											$elm$core$Result$Ok(decodedData))));
 							} else {
-								var err = _v4.a;
+								var err = _v8.a;
 								return A2(
 									$elm$core$Tuple$pair,
 									model,
@@ -5982,11 +6052,20 @@ var $author$project$Main$update = F2(
 				}
 			default:
 				if (_v0.a.a.$ === 'Ok') {
-					var res = _v0.a.a.a;
-					return _Utils_Tuple2(
-						$author$project$Main$Loaded(
-							$elm$core$Maybe$Just(res.payload)),
-						$elm$core$Platform$Cmd$none);
+					var response = _v0.a.a.a;
+					if (response.$ === 'ResGetFeed') {
+						var data = response.a;
+						return _Utils_Tuple2(
+							$author$project$Main$LoadedFeed(data.items),
+							$elm$core$Platform$Cmd$none);
+					} else {
+						return _Utils_Tuple2(
+							$author$project$Main$Loading,
+							A2(
+								$elm$random$Random$generate,
+								$author$project$Main$NewUuid($author$project$Main$ReqGetFeed),
+								$TSFoster$elm_uuid$UUID$generator));
+					}
 				} else {
 					var apiError = _v0.a.a.a;
 					return _Utils_Tuple2(
@@ -5995,7 +6074,7 @@ var $author$project$Main$update = F2(
 				}
 		}
 	});
-var $author$project$Main$FetchData = {$: 'FetchData'};
+var $author$project$Main$PerformSubmitItem = {$: 'PerformSubmitItem'};
 var $elm$html$Html$button = _VirtualDom_node('button');
 var $elm$html$Html$div = _VirtualDom_node('div');
 var $elm$html$Html$h1 = _VirtualDom_node('h1');
@@ -6016,56 +6095,104 @@ var $elm$html$Html$Events$onClick = function (msg) {
 		'click',
 		$elm$json$Json$Decode$succeed(msg));
 };
+var $elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
+var $elm$html$Html$Attributes$style = $elm$virtual_dom$VirtualDom$style;
 var $elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
 var $elm$html$Html$text = $elm$virtual_dom$VirtualDom$text;
-var $author$project$Api$Schema$classSchemaEncoder = function (struct) {
-	return $elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'id',
-				$elm$json$Json$Encode$int(struct.id)),
-				_Utils_Tuple2(
-				'name',
-				$elm$json$Json$Encode$string(struct.name))
-			]));
-};
-var $elm$json$Json$Encode$list = F2(
-	function (func, entries) {
-		return _Json_wrap(
-			A3(
-				$elm$core$List$foldl,
-				_Json_addEntry(func),
-				_Json_emptyArray(_Utils_Tuple0),
-				entries));
-	});
-var $author$project$Api$Schema$studentSchemaEncoder = function (struct) {
-	return $elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'id',
-				$elm$json$Json$Encode$int(struct.id)),
-				_Utils_Tuple2(
-				'name',
-				$elm$json$Json$Encode$string(struct.name))
-			]));
-};
-var $author$project$Api$Schema$classWithStudentsSchemaEncoder = function (struct) {
-	return $elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'class',
-				$author$project$Api$Schema$classSchemaEncoder(struct._class)),
-				_Utils_Tuple2(
-				'students',
-				$elm$json$Json$Encode$list($author$project$Api$Schema$studentSchemaEncoder)(struct.students))
-			]));
-};
 var $elm$html$Html$h2 = _VirtualDom_node('h2');
-var $elm$html$Html$pre = _VirtualDom_node('pre');
-var $author$project$Main$viewData = function (model) {
+var $elm$html$Html$a = _VirtualDom_node('a');
+var $elm$html$Html$Attributes$stringProperty = F2(
+	function (key, string) {
+		return A2(
+			_VirtualDom_property,
+			key,
+			$elm$json$Json$Encode$string(string));
+	});
+var $elm$html$Html$Attributes$href = function (url) {
+	return A2(
+		$elm$html$Html$Attributes$stringProperty,
+		'href',
+		_VirtualDom_noJavaScriptUri(url));
+};
+var $elm$html$Html$img = _VirtualDom_node('img');
+var $elm$html$Html$p = _VirtualDom_node('p');
+var $elm$html$Html$section = _VirtualDom_node('section');
+var $elm$html$Html$Attributes$src = function (url) {
+	return A2(
+		$elm$html$Html$Attributes$stringProperty,
+		'src',
+		_VirtualDom_noJavaScriptOrHtmlUri(url));
+};
+var $author$project$Main$viewItem = function (item) {
+	return A2(
+		$elm$html$Html$section,
+		_List_fromArray(
+			[
+				A2($elm$html$Html$Attributes$style, 'border', '1px solid #ddd'),
+				A2($elm$html$Html$Attributes$style, 'padding', '15px'),
+				A2($elm$html$Html$Attributes$style, 'margin-bottom', '15px'),
+				A2($elm$html$Html$Attributes$style, 'border-radius', '8px')
+			]),
+		_List_fromArray(
+			[
+				A2(
+				$elm$html$Html$h2,
+				_List_Nil,
+				_List_fromArray(
+					[
+						$elm$html$Html$text(item.title)
+					])),
+				A2(
+				$elm$html$Html$a,
+				_List_fromArray(
+					[
+						$elm$html$Html$Attributes$href(item.link),
+						A2($elm$html$Html$Attributes$style, 'color', 'blue')
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text(item.link)
+					])),
+				A2(
+				$elm$html$Html$div,
+				_List_fromArray(
+					[
+						A2($elm$html$Html$Attributes$style, 'margin', '10px 0')
+					]),
+				_List_fromArray(
+					[
+						A2(
+						$elm$html$Html$img,
+						_List_fromArray(
+							[
+								$elm$html$Html$Attributes$src(item.image),
+								A2($elm$html$Html$Attributes$style, 'max-width', '100%'),
+								A2($elm$html$Html$Attributes$style, 'height', 'auto')
+							]),
+						_List_Nil)
+					])),
+				A2(
+				$elm$html$Html$p,
+				_List_Nil,
+				_List_fromArray(
+					[
+						$elm$html$Html$text(item.extract)
+					])),
+				A2(
+				$elm$html$Html$div,
+				_List_fromArray(
+					[
+						A2($elm$html$Html$Attributes$style, 'background', '#f9f9f9'),
+						A2($elm$html$Html$Attributes$style, 'padding', '10px'),
+						A2($elm$html$Html$Attributes$style, 'font-style', 'italic')
+					]),
+				_List_fromArray(
+					[
+						$elm$html$Html$text('Owner: ' + item.ownerComment)
+					]))
+			]));
+};
+var $author$project$Main$viewContent = function (model) {
 	switch (model.$) {
 		case 'Loading':
 			return A2(
@@ -6073,37 +6200,22 @@ var $author$project$Main$viewData = function (model) {
 				_List_Nil,
 				_List_fromArray(
 					[
-						$elm$html$Html$text('Loading...')
+						$elm$html$Html$text('Loading Feed...')
 					]));
-		case 'Loaded':
-			var maybeData = model.a;
-			if (maybeData.$ === 'Just') {
-				var data = maybeData.a;
-				return A2(
-					$elm$html$Html$pre,
-					_List_Nil,
-					_List_fromArray(
-						[
-							$elm$html$Html$text(
-							A2(
-								$elm$json$Json$Encode$encode,
-								4,
-								$author$project$Api$Schema$classWithStudentsSchemaEncoder(data)))
-						]));
-			} else {
-				return A2(
-					$elm$html$Html$div,
-					_List_Nil,
-					_List_fromArray(
-						[
-							$elm$html$Html$text('No data loaded yet.')
-						]));
-			}
+		case 'LoadedFeed':
+			var items = model.a;
+			return A2(
+				$elm$html$Html$div,
+				_List_Nil,
+				A2($elm$core$List$map, $author$project$Main$viewItem, items));
 		case 'Errored':
 			var apiError = model.a;
 			return A2(
 				$elm$html$Html$div,
-				_List_Nil,
+				_List_fromArray(
+					[
+						A2($elm$html$Html$Attributes$style, 'color', 'red')
+					]),
 				_List_fromArray(
 					[
 						A2(
@@ -6111,7 +6223,7 @@ var $author$project$Main$viewData = function (model) {
 						_List_Nil,
 						_List_fromArray(
 							[
-								$elm$html$Html$text('An API error occurred:')
+								$elm$html$Html$text('Error')
 							])),
 						function () {
 						switch (apiError.$) {
@@ -6151,14 +6263,20 @@ var $author$project$Main$viewData = function (model) {
 				_List_Nil,
 				_List_fromArray(
 					[
-						$elm$html$Html$text('Waiting for RPC response...')
+						$elm$html$Html$text('Waiting...')
 					]));
 	}
 };
 var $author$project$Main$view = function (model) {
 	return A2(
 		$elm$html$Html$div,
-		_List_Nil,
+		_List_fromArray(
+			[
+				A2($elm$html$Html$Attributes$style, 'font-family', 'sans-serif'),
+				A2($elm$html$Html$Attributes$style, 'max-width', '800px'),
+				A2($elm$html$Html$Attributes$style, 'margin', '0 auto'),
+				A2($elm$html$Html$Attributes$style, 'padding', '20px')
+			]),
 		_List_fromArray(
 			[
 				A2(
@@ -6166,19 +6284,20 @@ var $author$project$Main$view = function (model) {
 				_List_Nil,
 				_List_fromArray(
 					[
-						$elm$html$Html$text('Hamlet POC')
+						$elm$html$Html$text('Horatio Reader')
 					])),
 				A2(
 				$elm$html$Html$button,
 				_List_fromArray(
 					[
-						$elm$html$Html$Events$onClick($author$project$Main$FetchData)
+						$elm$html$Html$Events$onClick($author$project$Main$PerformSubmitItem),
+						A2($elm$html$Html$Attributes$style, 'margin-bottom', '20px')
 					]),
 				_List_fromArray(
 					[
-						$elm$html$Html$text('Fetch Class Data')
+						$elm$html$Html$text('Test: Submit Item')
 					])),
-				$author$project$Main$viewData(model)
+				$author$project$Main$viewContent(model)
 			]));
 };
 var $author$project$Main$main = $elm$browser$Browser$element(
