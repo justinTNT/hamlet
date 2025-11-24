@@ -1,0 +1,8 @@
+[package]
+name = "schema_generator"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+elm_rs = "0.2"
+proto-rust = { path = "../proto-rust" }

@@ -1,0 +1,24 @@
+# Rust
+target/
+**/*.rs.bk
+
+# Node
+node_modules/
+.npm
+npm-debug.log
+
+# Elm
+elm-stuff/
+frontend/elm-stuff/
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# WASM artifacts
+proto-rust/pkg/
+backend/node_modules/
+frontend/node_modules/
