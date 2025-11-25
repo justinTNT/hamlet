@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Extension Test Harness</title>
+    <style>
+        body {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            font-family: sans-serif;
+        }
+
+        #popup-container {
+            border: 2px solid #333;
+            padding: 10px;
+            width: 320px;
+        }
+
+        #logs {
+            flex: 1;
+            background: #f0f0f0;
+            padding: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            height: 400px;
+            overflow: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="popup-container">
+        <h2>Popup UI</h2>
+        <div id="app"></div>
+    </div>
+    <div id="logs">
+        <h3>Logs</h3>
+        <div id="log-content"></div>
+    </div>
+
+    <script type="module">
+        // MOCK CHROME RUNTIME
+        const listeners = [];
+
+        window.chrome = {
+            runtime: {
+                onMessage: {
+                    addListener: (callback) => {
+                        listeners.push(callback);
+                        log("Background: Listener added");
+                    }
+                },
+                sendMessage: (msg, responseCallback) => {
+                    log("Popup -> Background: " + JSON.stringify(msg));
+
+                    // Simulate async message passing
+                    setTimeout(() => {
+                        // Notify all listeners (simulating background.js receiving it)
+                        listeners.forEach(listener => {
+                            const result = listener(msg, {}, (response) => {
+                                log("Background -> Popup: " + JSON.stringify(response));
+                                responseCallback(response);
+                            });
+                            // If listener returns true, it's async, but here we just handle the callback
+                        });
+                    }, 10);
+                },
+                lastError: null
+            }
+        };
+
+        function log(msg) {
+            const el = document.getElementById('log-content');
+            el.innerText += msg + "\n";
+            console.log("[Harness]", msg);
+        }
+
+        // LOAD BACKGROUND SCRIPT
+        import './background.js';
+
+        // LOAD POPUP GLUE (which loads Elm)
+        import './popup-glue.js';
+
+    </script>
+</body>
+
+</html>
