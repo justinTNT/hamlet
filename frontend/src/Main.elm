@@ -1,170 +1,80 @@
-port module Main exposing (main)
+module Main exposing (main)
 
+import Api
+import Api.Http
 import Api.Schema
 import Browser
-import Dict exposing (Dict)
 import Html exposing (Html, button, div, h1, h2, h3, p, a, img, text, section)
 import Html.Attributes exposing (src, href, style, class)
 import Html.Events exposing (onClick)
-import Json.Decode as Decode exposing (Decoder)
-import Json.Encode as Encode
-import Random
-import Task
-import UUID exposing (UUID, toString)
-import Debug
-
--- PORTS
-
-port rpcRequest : RpcRequest -> Cmd msg
-port rpcResponse : (RpcResponse -> msg) -> Sub msg
-port log : String -> Cmd msg
-
--- RPC TYPES
-
-type alias RpcRequest =
-    { endpoint : String
-    , body : Encode.Value
-    , correlationId : String
-    }
-
-type alias RpcResponse =
-    { endpoint : String
-    , body : String
-    , correlationId : String
-    }
-
-type Endpoint req res
-    = Endpoint
-        { name : String
-        , encoder : req -> Encode.Value
-        , decoder : Decoder res
-        }
+import Http
 
 -- MODEL
-
-type ApiResponse
-    = ResGetFeed Api.Schema.GetFeedRes
-    | ResSubmitItem Api.Schema.SubmitItemRes
-
-type alias PendingRequest =
-    { decoder : Decoder ApiResponse
-    , toMsg : Result Api.Schema.ApiError ApiResponse -> Msg
-    }
 
 type Model
     = Loading
     | LoadedFeed (List Api.Schema.MicroblogItem)
-    | Errored Api.Schema.ApiError
-    | WaitingForRpc (Dict String PendingRequest)
+    | Errored String
 
 init : ( Model, Cmd Msg )
 init =
-    ( Loading, Random.generate (NewUuid ReqGetFeed) UUID.generator )
+    ( Loading
+    , getFeed
+    )
 
--- HELPER FUNCTIONS
+-- API CALLS
 
-call : UUID -> String -> Encode.Value -> Cmd Msg
-call correlationId endpoint body =
-    let
-        correlationIdString =
-            toString correlationId
+getFeed : Cmd Msg
+getFeed =
+    Api.getFeed { host = "localhost" }
+        |> Api.Http.send GotFeed
 
-        rpcReq =
-            { endpoint = endpoint
-            , body = body
-            , correlationId = correlationIdString
-            }
-    in
-    rpcRequest rpcReq
+submitItem : Cmd Msg
+submitItem =
+    Api.submitItem
+        { host = "localhost"
+        , title = "New Item from Elm"
+        , link = "https://elm-lang.org"
+        , image = "https://placehold.co/100x100"
+        , extract = "This item was submitted via the generated Elm API."
+        , ownerComment = "So much cleaner!"
+        }
+        |> Api.Http.send SubmittedItem
 
 -- UPDATE
 
-type RequestType
-    = ReqGetFeed
-    | ReqSubmitItem
-
 type Msg
     = PerformSubmitItem
-    | NewUuid RequestType UUID
-    | RpcReceived RpcResponse
-    | RpcReceivedInternal (Result Api.Schema.ApiError ApiResponse)
+    | GotFeed (Result Http.Error Api.Schema.GetFeedRes)
+    | SubmittedItem (Result Http.Error Api.Schema.SubmitItemRes)
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case ( msg, model ) of
-        ( PerformSubmitItem, _ ) ->
-            ( model, Random.generate (NewUuid ReqSubmitItem) UUID.generator )
+    case msg of
+        PerformSubmitItem ->
+            ( model, submitItem )
 
-        ( NewUuid reqType uuid, _ ) ->
-            let
-                _ = Debug.log "NewUuid received" (toString uuid)
-                uuidString = toString uuid
-                debugCmd = log ("NewUuid fired: " ++ uuidString)
+        GotFeed (Ok res) ->
+            ( LoadedFeed res.items, Cmd.none )
 
-                pendingRequests = 
-                    case reqType of
-                        ReqGetFeed ->
-                            let
-                                req = { host = "localhost" } -- Host is implicit in header usually, but schema has it
-                                decoder = Decode.map ResGetFeed Api.Schema.getFeedResDecoder
-                                pending = PendingRequest decoder RpcReceivedInternal
-                            in
-                            ( Dict.singleton uuidString pending
-                            , call uuid "GetFeed" (Api.Schema.getFeedReqEncoder req)
-                            )
+        GotFeed (Err err) ->
+            ( Errored ("Failed to fetch feed: " ++ httpErrorToString err), Cmd.none )
 
-                        ReqSubmitItem ->
-                            let
-                                req = { host = "localhost"
-                                      , title = "New Item from Elm"
-                                      , link = "https://elm-lang.org"
-                                      , image = "https://placehold.co/100x100"
-                                      , extract = "This item was submitted via the Elm Reader app."
-                                      , ownerComment = "Pretty cool."
-                                      }
-                                decoder = Decode.map ResSubmitItem Api.Schema.submitItemResDecoder
-                                pending = PendingRequest decoder RpcReceivedInternal
-                            in
-                            ( Dict.singleton uuidString pending
-                            , call uuid "SubmitItem" (Api.Schema.submitItemReqEncoder req)
-                            )
-            in
-            case pendingRequests of
-                ( pendingMap, cmd ) ->
-                    ( WaitingForRpc pendingMap, Cmd.batch [cmd, debugCmd] )
+        SubmittedItem (Ok res) ->
+            -- Refresh feed after submit
+            ( Loading, getFeed )
 
-        ( RpcReceived response, WaitingForRpc pendingRequests ) ->
-            case Dict.get response.correlationId pendingRequests of
-                Just { decoder, toMsg } ->
-                    case Decode.decodeString Api.Schema.apiErrorDecoder response.body of
-                        Ok apiError ->
-                            Task.succeed (Err apiError) |> Task.perform toMsg |> Tuple.pair model
+        SubmittedItem (Err err) ->
+            ( Errored ("Failed to submit item: " ++ httpErrorToString err), Cmd.none )
 
-                        Err _ ->
-                            case Decode.decodeString decoder response.body of
-                                Ok decodedData ->
-                                    Task.succeed (Ok decodedData) |> Task.perform toMsg |> Tuple.pair model
-
-                                Err err ->
-                                    Task.succeed (Err (Api.Schema.InternalError { details = Debug.toString err })) |> Task.perform toMsg |> Tuple.pair model
-
-                Nothing ->
-                    ( model, Cmd.none )
-        
-        ( RpcReceivedInternal (Ok response), _ ) ->
-            case response of
-                ResGetFeed data ->
-                    ( LoadedFeed data.items, Cmd.none )
-                
-                ResSubmitItem _ ->
-                    -- Refresh feed after submit
-                    ( Loading, Random.generate (NewUuid ReqGetFeed) UUID.generator )
-
-        ( RpcReceivedInternal (Err apiError), _ ) ->
-            ( Errored apiError, Cmd.none )
-        
-        _ ->
-            (model, Cmd.none)
+httpErrorToString : Http.Error -> String
+httpErrorToString err =
+    case err of
+        Http.BadUrl url -> "Bad Url: " ++ url
+        Http.Timeout -> "Timeout"
+        Http.NetworkError -> "Network Error"
+        Http.BadStatus status -> "Bad Status: " ++ String.fromInt status
+        Http.BadBody body -> "Bad Body: " ++ body
 
 -- VIEW
 
@@ -185,22 +95,11 @@ viewContent model =
         LoadedFeed items ->
             div [] (List.map viewItem items)
 
-        Errored apiError ->
+        Errored errorMsg ->
             div [ style "color" "red" ]
                 [ h2 [] [ text "Error" ]
-                , case apiError of
-                    Api.Schema.ValidationError details ->
-                        div [] [ text ("Validation Error: " ++ details.details) ]
-
-                    Api.Schema.NotFound details ->
-                        div [] [ text ("Not Found: " ++ details.details) ]
-
-                    Api.Schema.InternalError details ->
-                        div [] [ text ("Internal Error: " ++ details.details) ]
+                , div [] [ text errorMsg ]
                 ]
-
-        WaitingForRpc _ ->
-            div [] [ text "Waiting..." ]
 
 viewItem : Api.Schema.MicroblogItem -> Html Msg
 viewItem item =
@@ -214,12 +113,6 @@ viewItem item =
             [ text ("Owner: " ++ item.ownerComment) ]
         ]
 
--- SUBSCRIPTIONS
-
-subscriptions : Model -> Sub Msg
-subscriptions _ =
-    rpcResponse RpcReceived
-
 -- MAIN
 
 main : Program () Model Msg
@@ -228,5 +121,6 @@ main =
         { init = \_ -> init
         , view = view
         , update = update
-        , subscriptions = subscriptions
+        , subscriptions = \_ -> Sub.none
         }
+
