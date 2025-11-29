@@ -1,13 +1,4 @@
 import { defineConfig } from 'vite';
-if (!globalThis.File) {
-    globalThis.File = class File extends Blob {
-        constructor(fileBits, fileName, options) {
-            super(fileBits, options);
-            this.name = fileName;
-            this.lastModified = options?.lastModified ?? Date.now();
-        }
-    };
-}
 
 import { crx } from '@crxjs/vite-plugin';
 import elmPlugin from 'vite-plugin-elm';
