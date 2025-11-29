@@ -9,11 +9,11 @@
         "declarativeContent"
     ],
     "background": {
-        "service_worker": "background.js",
+        "service_worker": "src/background.js",
         "type": "module"
     },
     "action": {
-        "default_popup": "popup.html"
+        "default_popup": "src/popup.html"
     },
     "content_security_policy": {
         "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"

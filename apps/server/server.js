@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
-import * as wasm from '../proto-rust/pkg-node/proto_rust.js';
+import * as wasm from '../../shared/proto-rust/pkg-node/proto_rust.js';
 const { decode_request, encode_response } = wasm;
 
 const app = express();

@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "vite"
+    "dev": "vite",
+    "build": "vite build"
   },
   "keywords": [],
   "author": "",
@@ -19,6 +20,6 @@
     "vite-plugin-wasm": "^3.5.0"
   },
   "dependencies": {
-    "proto-rust": "file:../proto-rust/pkg-web"
+    "proto-rust": "file:../../shared/proto-rust/pkg-web"
   }
 }

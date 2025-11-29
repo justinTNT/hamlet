@@ -1,16 +1,11 @@
-import init, { decode_request, encode_response } from './pkg/proto_rust.js';
+import init, { decode_request, encode_response } from 'proto-rust';
 
 console.log("Horatio Extension Background Service Worker Starting...");
 
-let wasmInitialized = false;
+// Vite plugin handles WASM init automatically via top-level await usually,
+// but for background workers we might need to be explicit or rely on the plugin's injection.
+// With vite-plugin-wasm, we can just import it.
 
-async function ensureWasm() {
-    if (!wasmInitialized) {
-        await init();
-        wasmInitialized = true;
-        console.log("WASM initialized.");
-    }
-}
 
 chrome.runtime.onInstalled.addListener(() => {
     chrome.action.disable();
@@ -48,7 +43,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function handleRequest(req) {
-    await ensureWasm();
+    // await ensureWasm(); // Handled by import
+
 
     const { endpoint, body, correlationId } = req;
     const bodyJson = JSON.stringify(body);

@@ -1,4 +1,5 @@
-// Elm is loaded globally via script tag
+import { Elm } from './Popup.elm';
+
 
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const activeTab = tabs[0];

@@ -1,4 +1,4 @@
-import init, { encode_request, decode_response } from '../../proto-rust/pkg-web/proto_rust.js';
+import init, { decode_request, encode_response } from 'proto-rust';
 import { Elm } from './Main.elm';
 
 console.log("Horatio Client v1.0.0 - Ports Debug");
