@@ -14,7 +14,8 @@
     "body-parser": "^2.2.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
-    "proto-rust": "file:../proto-rust/pkg"
+    "pg": "^8.11.3",
+    "proto-rust": "file:../../shared/proto-rust/pkg-node"
   },
   "devDependencies": {
     "nodemon": "^3.1.11"

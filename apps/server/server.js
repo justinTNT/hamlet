@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
+import pg from 'pg';
+import fs from 'fs';
 import * as wasm from '../../shared/proto-rust/pkg-node/proto_rust.js';
 const { decode_request, encode_response } = wasm;
 
@@ -11,34 +13,31 @@ const port = 3000;
 app.use(cors());
 app.use(bodyParser.text({ type: 'application/json' }));
 
-// In-memory Database: { "host": { items: [], comments: [] } }
-const db = {};
+// Postgres Connection
+const pool = new pg.Pool({
+    user: process.env.POSTGRES_USER || 'admin',
+    password: process.env.POSTGRES_PASSWORD || 'password',
+    host: process.env.POSTGRES_HOST || '127.0.0.1',
+    database: process.env.POSTGRES_DB || 'horatio',
+    port: 5432,
+});
 
-// Helper to get or create tenant DB
-const getTenantDb = (host) => {
-    if (!db[host]) {
-        db[host] = { items: [], comments: [] };
-        // Seed some data
-        db[host].items.push({
-            id: "1",
-            title: `Welcome to ${host}`,
-            link: "https://example.com",
-            image: "https://placehold.co/600x400",
-            extract: "This is the first post on this microblog.",
-            owner_comment: "Enjoy the feed!",
-            timestamp: Date.now()
-        });
+// Run Migrations
+async function runMigrations() {
+    try {
+        const sql = fs.readFileSync('./migrations/001_init.sql', 'utf8');
+        await pool.query(sql);
+        console.log("Migrations applied successfully.");
+    } catch (err) {
+        console.error("Migration failed:", err);
+        process.exit(1);
     }
-    return db[host];
-};
+}
 
 // WASM is initialized automatically on import in nodejs target
 
-app.post('/api', (req, res) => {
+app.post('/api', async (req, res) => {
     // Multi-tenancy: use Host header (or fallback for local dev)
-    // In local dev, Vite proxies, so Host might be localhost:3000. 
-    // Ideally, we'd use a custom header X-Tenant-ID for explicit testing, 
-    // but let's use Host and strip port for simplicity.
     const host = req.header('X-Tenant-ID') || req.hostname;
     const endpoint = req.header('X-RPC-Endpoint');
 
@@ -55,13 +54,23 @@ app.post('/api', (req, res) => {
         }
 
         // 2. Business Logic
-        const tenantDb = getTenantDb(host);
         let responseData;
 
         if (endpoint === "GetFeed") {
-            responseData = {
-                items: tenantDb.items
-            };
+            const result = await pool.query(
+                'SELECT id, title, link, image, extract, owner_comment, timestamp FROM microblog_items WHERE host = $1 ORDER BY timestamp DESC',
+                [host]
+            );
+            // Convert timestamp string (bigint) to number if needed, or keep as is. 
+            // Postgres bigint comes as string in JS. Our Rust struct expects u64 (number in JSON).
+            // We need to map it.
+            const items = result.rows.map(row => ({
+                ...row,
+                timestamp: Number(row.timestamp)
+            }));
+
+            responseData = { items };
+
         } else if (endpoint === "SubmitItem") {
             const reqObj = JSON.parse(wireRequest);
             const newItem = {
@@ -73,8 +82,15 @@ app.post('/api', (req, res) => {
                 owner_comment: reqObj.owner_comment,
                 timestamp: Date.now()
             };
-            tenantDb.items.unshift(newItem); // Add to top
+
+            await pool.query(
+                `INSERT INTO microblog_items (id, host, title, link, image, extract, owner_comment, timestamp)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                [newItem.id, host, newItem.title, newItem.link, newItem.image, newItem.extract, newItem.owner_comment, newItem.timestamp]
+            );
+
             responseData = { item: newItem };
+
         } else {
             throw new Error(`Unknown endpoint: ${endpoint}`);
         }
@@ -89,6 +105,10 @@ app.post('/api', (req, res) => {
     }
 });
 
-app.listen(port, () => {
-    console.log(`Horatio Backend running at http://localhost:${port}`);
+// Start Server
+runMigrations().then(() => {
+    app.listen(port, () => {
+        console.log(`Horatio Backend running at http://localhost:${port}`);
+    });
 });
+
