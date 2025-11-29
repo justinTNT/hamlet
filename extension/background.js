@@ -12,6 +12,21 @@ async function ensureWasm() {
     }
 }
 
+chrome.runtime.onInstalled.addListener(() => {
+    chrome.action.disable();
+
+    chrome.declarativeContent.onPageChanged.removeRules(undefined, () => {
+        chrome.declarativeContent.onPageChanged.addRules([{
+            conditions: [
+                new chrome.declarativeContent.PageStateMatcher({
+                    pageUrl: { schemes: ['http', 'https'] },
+                })
+            ],
+            actions: [new chrome.declarativeContent.ShowAction()]
+        }]);
+    });
+});
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log("Background received:", request);
 

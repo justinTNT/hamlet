@@ -4,16 +4,22 @@
 <head>
     <meta charset="UTF-8" />
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            width: 300px;
-            padding: 10px;
+            width: 750px;
+            max-height: 600px;
+            overflow-y: auto;
+            margin: 0;
+            padding: 0;
             font-family: sans-serif;
         }
     </style>
 </head>
 
 <body>
-    <h3>Horatio Writer</h3>
     <div id="app">Loading...</div>
     <!-- We will inject Elm here later -->
     <script src="popup.js"></script>

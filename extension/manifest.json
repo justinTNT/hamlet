@@ -5,7 +5,8 @@
     "description": "Curate content for your Horatio Microblog.",
     "permissions": [
         "activeTab",
-        "scripting"
+        "scripting",
+        "declarativeContent"
     ],
     "background": {
         "service_worker": "background.js",
