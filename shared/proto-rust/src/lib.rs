@@ -25,6 +25,17 @@ pub fn decode_request(endpoint: String, wire: String) -> String {
                 }
             }
         }
+        "GetTags" => {
+            match serde_json::from_str::<GetTagsReq>(&wire) {
+                Ok(_) => wire,
+                Err(e) => {
+                    let error = ApiResponse::<()>::Error(ApiError::ValidationError {
+                        details: format!("Invalid GetTagsReq: {}", e),
+                    });
+                    serde_json::to_string(&error).unwrap_or_else(|_| "{}".to_string())
+                }
+            }
+        }
         "SubmitItem" => {
             match serde_json::from_str::<SubmitItemReq>(&wire) {
                 Ok(req) => {
@@ -63,6 +74,11 @@ pub fn decode_response(endpoint: String, wire: String) -> String {
     // Client-side validation could go here
     if endpoint == "GetFeed" {
          if let Ok(_) = serde_json::from_str::<GetFeedRes>(&wire) {
+             return wire;
+         }
+    }
+    if endpoint == "GetTags" {
+         if let Ok(_) = serde_json::from_str::<GetTagsRes>(&wire) {
              return wire;
          }
     }

@@ -38,6 +38,7 @@ submitItem =
         , image = "https://placehold.co/100x100"
         , extract = "This item was submitted via the generated Elm API."
         , ownerComment = "So much cleaner!"
+        , tags = []
         }
         |> Api.Http.send SubmittedItem
 
@@ -109,9 +110,24 @@ viewItem item =
         , div [ style "margin" "10px 0" ] 
             [ img [ src item.image, style "max-width" "100%", style "height" "auto" ] [] ]
         , p [] [ text item.extract ]
+        , div [ style "margin-bottom" "10px" ]
+            (List.map viewTag item.tags)
         , div [ style "background" "#f9f9f9", style "padding" "10px", style "font-style" "italic" ]
             [ text ("Owner: " ++ item.ownerComment) ]
         ]
+
+viewTag : String -> Html Msg
+viewTag tag =
+    div 
+        [ style "display" "inline-block"
+        , style "background-color" "#e0e0e0"
+        , style "color" "#333"
+        , style "padding" "2px 8px"
+        , style "border-radius" "12px"
+        , style "font-size" "0.85em"
+        , style "margin-right" "5px"
+        ] 
+        [ text tag ]
 
 -- MAIN
 

@@ -35,6 +35,7 @@ type alias MicroblogItem =
     , image : String
     , extract : String
     , ownerComment : String
+    , tags : List String
     , timestamp : Int
     }
 
@@ -48,6 +49,7 @@ microblogItemEncoder struct =
         , ( "image", (Json.Encode.string) struct.image )
         , ( "extract", (Json.Encode.string) struct.extract )
         , ( "owner_comment", (Json.Encode.string) struct.ownerComment )
+        , ( "tags", (Json.Encode.list Json.Encode.string) struct.tags )
         , ( "timestamp", (Json.Encode.int) struct.timestamp )
         ]
 
@@ -110,6 +112,30 @@ getFeedResEncoder struct =
         ]
 
 
+type alias GetTagsReq =
+    { host : String
+    }
+
+
+getTagsReqEncoder : GetTagsReq -> Json.Encode.Value
+getTagsReqEncoder struct =
+    Json.Encode.object
+        [ ( "host", (Json.Encode.string) struct.host )
+        ]
+
+
+type alias GetTagsRes =
+    { tags : List String
+    }
+
+
+getTagsResEncoder : GetTagsRes -> Json.Encode.Value
+getTagsResEncoder struct =
+    Json.Encode.object
+        [ ( "tags", (Json.Encode.list Json.Encode.string) struct.tags )
+        ]
+
+
 type alias SubmitItemReq =
     { host : String
     , title : String
@@ -117,6 +143,7 @@ type alias SubmitItemReq =
     , image : String
     , extract : String
     , ownerComment : String
+    , tags : List String
     }
 
 
@@ -129,6 +156,7 @@ submitItemReqEncoder struct =
         , ( "image", (Json.Encode.string) struct.image )
         , ( "extract", (Json.Encode.string) struct.extract )
         , ( "owner_comment", (Json.Encode.string) struct.ownerComment )
+        , ( "tags", (Json.Encode.list Json.Encode.string) struct.tags )
         ]
 
 
@@ -199,6 +227,7 @@ microblogItemDecoder =
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "image" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "extract" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "owner_comment" (Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.oneOf [ Json.Decode.field "tags" (Json.Decode.list Json.Decode.string), Json.Decode.succeed [] ]))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "timestamp" (Json.Decode.int)))
 
 
@@ -231,6 +260,18 @@ getFeedResDecoder =
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "items" (Json.Decode.list (microblogItemDecoder))))
 
 
+getTagsReqDecoder : Json.Decode.Decoder GetTagsReq
+getTagsReqDecoder =
+    Json.Decode.succeed GetTagsReq
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "host" (Json.Decode.string)))
+
+
+getTagsResDecoder : Json.Decode.Decoder GetTagsRes
+getTagsResDecoder =
+    Json.Decode.succeed GetTagsRes
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "tags" (Json.Decode.list Json.Decode.string)))
+
+
 submitItemReqDecoder : Json.Decode.Decoder SubmitItemReq
 submitItemReqDecoder =
     Json.Decode.succeed SubmitItemReq
@@ -240,6 +281,7 @@ submitItemReqDecoder =
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "image" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "extract" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "owner_comment" (Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "tags" (Json.Decode.list Json.Decode.string)))
 
 
 submitItemResDecoder : Json.Decode.Decoder SubmitItemRes

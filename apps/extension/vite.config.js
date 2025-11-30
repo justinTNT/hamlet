@@ -11,15 +11,18 @@ const manifest = JSON.parse(readFileSync('./manifest.json'));
 export default defineConfig({
     plugins: [
         elmPlugin(),
+        crx({ manifest }),
         wasm(),
         topLevelAwait(),
-        crx({ manifest }),
     ],
     server: {
         port: 5174,
         strictPort: true,
         hmr: {
             port: 5174,
+        },
+        fs: {
+            allow: ['../../'],
         },
     },
 });

@@ -5,20 +5,23 @@
     "src": "../../../../../../@crx/manifest",
     "isEntry": true
   },
-  "../../shared/proto-rust/pkg-web/proto_rust_bg.wasm": {
-    "file": "assets/proto_rust_bg-o6QjJTyU.wasm",
-    "src": "../../shared/proto-rust/pkg-web/proto_rust_bg.wasm"
-  },
   "src/background.js": {
-    "file": "assets/background.js-CgwHtWXK.js",
+    "file": "assets/background.js-CiWqSxDG.js",
     "name": "background.js",
     "src": "src/background.js",
-    "isEntry": true
+    "isEntry": true,
+    "assets": [
+      "assets/proto_rust_bg-BaopduL-.wasm"
+    ]
   },
   "src/popup.html": {
-    "file": "assets/popup.html-DmthIyTq.js",
+    "file": "assets/popup.html-BCBO84Qi.js",
     "name": "popup.html",
     "src": "src/popup.html",
     "isEntry": true
+  },
+  "src/proto-rust/proto_rust_bg.wasm": {
+    "file": "assets/proto_rust_bg-BaopduL-.wasm",
+    "src": "src/proto-rust/proto_rust_bg.wasm"
   }
 }

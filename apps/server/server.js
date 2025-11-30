@@ -23,11 +23,18 @@ const pool = new pg.Pool({
 });
 
 // Run Migrations
+// Run Migrations
 async function runMigrations() {
     try {
-        const sql = fs.readFileSync('./migrations/001_init.sql', 'utf8');
-        await pool.query(sql);
-        console.log("Migrations applied successfully.");
+        const files = fs.readdirSync('./migrations').sort();
+        for (const file of files) {
+            if (file.endsWith('.sql')) {
+                console.log(`Applying migration: ${file}`);
+                const sql = fs.readFileSync(`./migrations/${file}`, 'utf8');
+                await pool.query(sql);
+            }
+        }
+        console.log("All migrations applied successfully.");
     } catch (err) {
         console.error("Migration failed:", err);
         process.exit(1);
@@ -58,18 +65,31 @@ app.post('/api', async (req, res) => {
 
         if (endpoint === "GetFeed") {
             const result = await pool.query(
-                'SELECT id, title, link, image, extract, owner_comment, timestamp FROM microblog_items WHERE host = $1 ORDER BY timestamp DESC',
+                `SELECT i.id, i.title, i.link, i.image, i.extract, i.owner_comment, i.timestamp,
+                        COALESCE(array_agg(t.name) FILTER (WHERE t.name IS NOT NULL), '{}') as tags
+                 FROM microblog_items i
+                 LEFT JOIN item_tags it ON i.id = it.item_id
+                 LEFT JOIN tags t ON it.tag_id = t.id
+                 WHERE i.host = $1
+                 GROUP BY i.id
+                 ORDER BY i.timestamp DESC`,
                 [host]
             );
-            // Convert timestamp string (bigint) to number if needed, or keep as is. 
-            // Postgres bigint comes as string in JS. Our Rust struct expects u64 (number in JSON).
-            // We need to map it.
+
             const items = result.rows.map(row => ({
                 ...row,
-                timestamp: Number(row.timestamp)
+                timestamp: Number(row.timestamp),
+                tags: row.tags || []
             }));
 
             responseData = { items };
+
+        } else if (endpoint === "GetTags") {
+            const result = await pool.query(
+                'SELECT name FROM tags WHERE host = $1 ORDER BY name ASC',
+                [host]
+            );
+            responseData = { tags: result.rows.map(r => r.name) };
 
         } else if (endpoint === "SubmitItem") {
             const reqObj = JSON.parse(wireRequest);
@@ -80,14 +100,55 @@ app.post('/api', async (req, res) => {
                 image: reqObj.image,
                 extract: reqObj.extract,
                 owner_comment: reqObj.owner_comment,
+                tags: reqObj.tags || [],
                 timestamp: Date.now()
             };
 
-            await pool.query(
-                `INSERT INTO microblog_items (id, host, title, link, image, extract, owner_comment, timestamp)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                [newItem.id, host, newItem.title, newItem.link, newItem.image, newItem.extract, newItem.owner_comment, newItem.timestamp]
-            );
+            // Transaction for item + tags
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+
+                await client.query(
+                    `INSERT INTO microblog_items (id, host, title, link, image, extract, owner_comment, timestamp)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                    [newItem.id, host, newItem.title, newItem.link, newItem.image, newItem.extract, newItem.owner_comment, newItem.timestamp]
+                );
+
+                if (newItem.tags && newItem.tags.length > 0) {
+                    for (const tagName of newItem.tags) {
+                        // 1. Ensure tag exists
+                        let tagRes = await client.query(
+                            'SELECT id FROM tags WHERE host = $1 AND name = $2',
+                            [host, tagName]
+                        );
+
+                        let tagId;
+                        if (tagRes.rows.length === 0) {
+                            const insertRes = await client.query(
+                                'INSERT INTO tags (host, name) VALUES ($1, $2) RETURNING id',
+                                [host, tagName]
+                            );
+                            tagId = insertRes.rows[0].id;
+                        } else {
+                            tagId = tagRes.rows[0].id;
+                        }
+
+                        // 2. Link tag to item
+                        await client.query(
+                            'INSERT INTO item_tags (item_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+                            [newItem.id, tagId]
+                        );
+                    }
+                }
+
+                await client.query('COMMIT');
+            } catch (e) {
+                await client.query('ROLLBACK');
+                throw e;
+            } finally {
+                client.release();
+            }
 
             responseData = { item: newItem };
 

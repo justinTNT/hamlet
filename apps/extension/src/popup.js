@@ -1,10 +1,14 @@
-import { Elm } from './Popup.elm';
+// import { Elm } from './Popup.elm';
+const Elm = window.Elm;
 
+console.log("Popup script loaded. Window.Elm:", window.Elm);
 
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    console.log("Tabs query result:", tabs);
     const activeTab = tabs[0];
 
     if (!activeTab) {
+        console.log("No active tab found.");
         initElm({
             title: "",
             url: "",
@@ -24,6 +28,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             return { selection, images };
         }
     }, (results) => {
+        console.log("Script execution results:", results);
         let pageData = {
             title: activeTab.title || "",
             url: activeTab.url || "",
@@ -41,12 +46,17 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
 });
 
 function initElm(flags) {
-    const app = Elm.Popup.init({
-        node: document.getElementById('app'),
-        flags: flags
-    });
-
-    setupPorts(app);
+    console.log("Initializing Elm with flags:", flags);
+    try {
+        const app = Elm.Popup.init({
+            node: document.getElementById('app'),
+            flags: flags
+        });
+        console.log("Elm initialized successfully.");
+        setupPorts(app);
+    } catch (e) {
+        console.error("Failed to initialize Elm:", e);
+    }
 }
 
 function setupPorts(app) {

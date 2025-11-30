@@ -21,6 +21,13 @@ getFeed req =
     , decoder = getFeedResDecoder
     }
 
+getTags : GetTagsReq -> Request GetTagsRes
+getTags req =
+    { endpoint = "GetTags"
+    , body = getTagsReqEncoder req
+    , decoder = getTagsResDecoder
+    }
+
 submitItem : SubmitItemReq -> Request SubmitItemRes
 submitItem req =
     { endpoint = "SubmitItem"

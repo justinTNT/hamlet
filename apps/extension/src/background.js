@@ -1,4 +1,4 @@
-import init, { decode_request, encode_response } from 'proto-rust';
+import init, { decode_request, encode_response } from './proto-rust/proto_rust.js';
 
 console.log("Horatio Extension Background Service Worker Starting...");
 
@@ -42,8 +42,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // Keep channel open for async response
 });
 
+// Initialize WASM
+const wasmInit = init().then(() => console.log("WASM initialized successfully")).catch(e => console.error("WASM init failed:", e));
+
 async function handleRequest(req) {
-    // await ensureWasm(); // Handled by import
+    await wasmInit;
 
 
     const { endpoint, body, correlationId } = req;

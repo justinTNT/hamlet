@@ -21,6 +21,12 @@ pub enum ApiResponse<T> {
 // --- Data Models ---
 
 #[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
+pub struct Tag {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
 pub struct MicroblogItem {
     pub id: String,
     pub title: String,
@@ -28,6 +34,7 @@ pub struct MicroblogItem {
     pub image: String,
     pub extract: String,
     pub owner_comment: String,
+    pub tags: Vec<String>, // List of tag names
     pub timestamp: u64,
 }
 
@@ -60,6 +67,16 @@ pub struct GetFeedRes {
 }
 
 #[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
+pub struct GetTagsReq {
+    pub host: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
+pub struct GetTagsRes {
+    pub tags: Vec<String>, // Just names for now, or full Tag objects? Plan said strings in dropdown.
+}
+
+#[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
 pub struct SubmitItemReq {
     pub host: String,
     pub title: String,
@@ -67,6 +84,7 @@ pub struct SubmitItemReq {
     pub image: String,
     pub extract: String,
     pub owner_comment: String,
+    pub tags: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
