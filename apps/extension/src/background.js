@@ -71,7 +71,8 @@ async function handleRequest(req) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-RPC-Endpoint': endpoint
+                'X-RPC-Endpoint': endpoint,
+                'X-Hamlet-Source': 'extension'
             },
             body: bodyJson
         });

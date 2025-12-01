@@ -4,7 +4,7 @@ import bodyParser from 'body-parser';
 import pg from 'pg';
 import fs from 'fs';
 import * as wasm from '../../shared/proto-rust/pkg-node/proto_rust.js';
-const { decode_request, encode_response } = wasm;
+const { decode_request, encode_response, get_openapi_spec } = wasm;
 
 const app = express();
 const port = 3000;
@@ -43,17 +43,82 @@ async function runMigrations() {
 
 // WASM is initialized automatically on import in nodejs target
 
-app.post('/api', async (req, res) => {
+
+
+app.get('/api/spec', (req, res) => {
+    res.json(JSON.parse(get_openapi_spec()));
+});
+
+// Swagger UI
+app.get('/api/docs', (req, res) => {
+    res.send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <title>Horatio API Docs</title>
+            <link rel="stylesheet" type="text/css" href="/api/docs/swagger-ui.css" />
+            <link rel="stylesheet" type="text/css" href="/api/docs/index.css" />
+            <link rel="icon" type="image/png" href="/api/docs/favicon-32x32.png" sizes="32x32" />
+            <link rel="icon" type="image/png" href="/api/docs/favicon-16x16.png" sizes="16x16" />
+        </head>
+        <body>
+            <div id="swagger-ui"></div>
+            <script src="/api/docs/swagger-ui-bundle.js" charset="UTF-8"> </script>
+            <script src="/api/docs/swagger-ui-standalone-preset.js" charset="UTF-8"> </script>
+            <script>
+                window.onload = function() {
+                    const ui = SwaggerUIBundle({
+                        url: "/api/spec",
+                        dom_id: '#swagger-ui',
+                        deepLinking: true,
+                        presets: [
+                            SwaggerUIBundle.presets.apis,
+                            SwaggerUIStandalonePreset
+                        ],
+                        plugins: [
+                            SwaggerUIBundle.plugins.DownloadUrl
+                        ],
+                        layout: "StandaloneLayout"
+                    });
+                    window.ui = ui;
+                };
+            </script>
+        </body>
+        </html>
+    `);
+});
+// Try to serve from root node_modules (hoisted) or local
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const swaggerPath = path.resolve(__dirname, '../../node_modules/swagger-ui-dist');
+app.use('/api/docs', express.static(swaggerPath));
+
+app.post(['/api', '/:endpoint'], async (req, res) => {
     // Multi-tenancy: use Host header (or fallback for local dev)
     const host = req.header('X-Tenant-ID') || req.hostname;
-    const endpoint = req.header('X-RPC-Endpoint');
+
+    // Determine endpoint: URL param > Header
+    let endpoint = req.params.endpoint;
+    if (!endpoint || endpoint === 'api') {
+        endpoint = req.header('X-RPC-Endpoint');
+    }
 
     console.log(`[${host}] Request: ${endpoint}`);
     const wireRequest = req.body;
 
     try {
-        // 1. Validate with WASM
-        const decodedReqJson = decode_request(endpoint, wireRequest);
+        // 1. Construct Context
+        const context = {
+            host: req.headers.host,
+            user_id: "user_123", // Hardcoded for now
+            role: "user",
+            is_extension: req.headers['x-hamlet-source'] === 'extension'
+        };
+
+        // 2. Validate with WASM
+        const decodedReqJson = decode_request(endpoint, wireRequest, JSON.stringify(context));
 
         if (decodedReqJson.includes('"type":"ValidationError"') || decodedReqJson.includes('"type":"NotFound"')) {
             console.log("Validation failed:", decodedReqJson);

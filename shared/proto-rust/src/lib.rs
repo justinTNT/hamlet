@@ -1,9 +1,11 @@
 use wasm_bindgen::prelude::*;
 use serde::{Serialize, Deserialize};
 use serde_json;
+use utoipa::OpenApi;
 
 mod shared_types;
 pub use shared_types::*;
+pub use horatio_macro::HoratioEndpoint;
 
 #[wasm_bindgen]
 pub fn encode_request(_endpoint: String, json_in: String) -> String {
@@ -12,56 +14,28 @@ pub fn encode_request(_endpoint: String, json_in: String) -> String {
 }
 
 #[wasm_bindgen]
-pub fn decode_request(endpoint: String, wire: String) -> String {
-    match endpoint.as_str() {
-        "GetFeed" => {
-            match serde_json::from_str::<GetFeedReq>(&wire) {
-                Ok(_) => wire,
-                Err(e) => {
-                    let error = ApiResponse::<()>::Error(ApiError::ValidationError {
-                        details: format!("Invalid GetFeedReq: {}", e),
-                    });
-                    serde_json::to_string(&error).unwrap_or_else(|_| "{}".to_string())
-                }
-            }
-        }
-        "GetTags" => {
-            match serde_json::from_str::<GetTagsReq>(&wire) {
-                Ok(_) => wire,
-                Err(e) => {
-                    let error = ApiResponse::<()>::Error(ApiError::ValidationError {
-                        details: format!("Invalid GetTagsReq: {}", e),
-                    });
-                    serde_json::to_string(&error).unwrap_or_else(|_| "{}".to_string())
-                }
-            }
-        }
-        "SubmitItem" => {
-            match serde_json::from_str::<SubmitItemReq>(&wire) {
-                Ok(req) => {
-                    if req.title.is_empty() {
-                         let error = ApiResponse::<()>::Error(ApiError::ValidationError {
-                            details: "Title cannot be empty".to_string(),
-                        });
-                        return serde_json::to_string(&error).unwrap_or_else(|_| "{}".to_string());
-                    }
-                    wire
-                }, 
-                Err(e) => {
-                    let error = ApiResponse::<()>::Error(ApiError::ValidationError {
-                        details: format!("Invalid SubmitItemReq: {}", e),
-                    });
-                    serde_json::to_string(&error).unwrap_or_else(|_| "{}".to_string())
-                }
-            }
-        }
-        _ => {
-             let error = ApiResponse::<()>::Error(ApiError::NotFound {
-                details: format!("Unknown endpoint: {}", endpoint),
-            });
-            serde_json::to_string(&error).unwrap_or_else(|_| "{}".to_string())
-        }
-    }
+pub fn decode_request(endpoint: String, wire: String, context_json: String) -> String {
+    use horatio_macro::generate_dispatcher;
+    // Deserialize context or use default if empty/error
+    let context: Context = serde_json::from_str(&context_json).unwrap_or_default();
+    generate_dispatcher!(
+        (GetFeedReq, GetFeedRes), 
+        (GetTagsReq, GetTagsRes), 
+        (SubmitItemReq, SubmitItemRes)
+    )
+}
+
+#[wasm_bindgen]
+pub fn get_openapi_spec() -> String {
+    use horatio_macro::generate_openapi_spec;
+    generate_openapi_spec!(
+        (GetFeedReq, GetFeedRes), 
+        (GetTagsReq, GetTagsRes), 
+        (SubmitItemReq, SubmitItemRes),
+        MicroblogItem,
+        Tag
+    );
+    get_openapi_spec()
 }
 
 #[wasm_bindgen]
