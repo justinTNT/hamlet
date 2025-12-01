@@ -129,6 +129,27 @@ pub struct SubmitCommentReq {
     pub text: String,
 }
 
+// --- Session Slices ---
+
+#[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
+pub struct SubmitItemSlice {
+    pub input: SubmitItemReq,
+    pub existing_tags: Vec<Tag>,
+    // pub user: Option<User>, // Future
+}
+
+#[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
+pub enum BackendAction {
+    SubmitItem(SubmitItemSlice),
+    // Add other actions here
+}
+
+#[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
+pub enum BackendResult {
+    SubmitItemSuccess(MicroblogItem),
+    Error(String),
+}
+
 #[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
 pub struct SubmitCommentRes {
     pub comment: ItemComment,

@@ -14,7 +14,7 @@ pub fn encode_request(_endpoint: String, json_in: String) -> String {
 }
 
 #[wasm_bindgen]
-pub fn decode_request(endpoint: String, wire: String, context_json: String) -> String {
+pub fn dispatcher(endpoint: String, wire: String, context_json: String) -> String {
     use horatio_macro::generate_dispatcher;
     // Deserialize context or use default if empty/error
     let context: Context = serde_json::from_str(&context_json).unwrap_or_default();

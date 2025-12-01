@@ -2,16 +2,21 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import pg from 'pg';
+const { Pool } = pg;
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 import fs from 'fs';
 import * as wasm from '../../shared/proto-rust/pkg-node/proto_rust.js';
-const { decode_request, encode_response, get_openapi_spec } = wasm;
+const { dispatcher } = require('../../shared/proto-rust/pkg-node/proto_rust.js');
+const { Elm } = require('./elm-logic.cjs');
+const { encode_response, get_openapi_spec } = wasm;
 
 const app = express();
 const port = 3000;
 
 // Middleware
 app.use(cors());
-app.use(bodyParser.text({ type: 'application/json' }));
+app.use(bodyParser.json());
 
 // Postgres Connection
 const pool = new pg.Pool({
@@ -108,6 +113,19 @@ app.post(['/api', '/:endpoint'], async (req, res) => {
     console.log(`[${host}] Request: ${endpoint}`);
     const wireRequest = req.body;
 
+    // --- Elm Backend Integration ---
+    if (endpoint === 'ElmTest') {
+        return new Promise((resolve) => {
+            const app = Elm.Logic.init();
+            app.ports.result.subscribe((data) => {
+                res.json(data);
+                resolve();
+            });
+            app.ports.process.send(wireRequest);
+        });
+    }
+    // -------------------------------
+
     try {
         // 1. Construct Context
         const context = {
@@ -118,7 +136,7 @@ app.post(['/api', '/:endpoint'], async (req, res) => {
         };
 
         // 2. Validate with WASM
-        const decodedReqJson = decode_request(endpoint, wireRequest, JSON.stringify(context));
+        const decodedReqJson = dispatcher(endpoint, JSON.stringify(wireRequest), JSON.stringify(context));
 
         if (decodedReqJson.includes('"type":"ValidationError"') || decodedReqJson.includes('"type":"NotFound"')) {
             console.log("Validation failed:", decodedReqJson);

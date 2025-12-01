@@ -19,6 +19,7 @@
     "swagger-ui-dist": "^5.30.3"
   },
   "devDependencies": {
+    "elm": "^0.19.1-6",
     "nodemon": "^3.1.11"
   },
   "type": "module"
