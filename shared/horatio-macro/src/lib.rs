@@ -1,24 +1,48 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput, Data, Fields};
+use syn::{parse_macro_input, DeriveInput, Data, Fields, Ident};
+use syn::spanned::Spanned;
 
-#[proc_macro_derive(HoratioEndpoint, attributes(horatio))]
+mod slice;
+
+#[proc_macro_derive(HoratioEndpoint, attributes(api))]
 pub fn derive_horatio_endpoint(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let name = input.ident;
+    let name = &input.ident;
     let name_str = name.to_string();
 
     let mut validation_checks = Vec::new();
     let mut schema_fields = Vec::new();
     let mut endpoint_path = String::new();
+    let mut bundle_data: Option<String> = None;
+    let mut generate_bundle = false;
 
     // Parse struct attributes
     for attr in &input.attrs {
-        if attr.path().is_ident("horatio") {
-            let _ = attr.parse_nested_meta(|meta| {
+        if attr.path().is_ident("api") {
+            if let Err(e) = attr.parse_nested_meta(|meta| {
+                if name_str == "SubmitCommentReq" {
+                    let key = meta.path.get_ident().unwrap().to_string();
+                    // let msg = format!("SubmitCommentReq sees: {}", key);
+                    // return Err(syn::Error::new(meta.path.span(), msg));
+                }
                 if meta.path.is_ident("path") {
                     let content: syn::LitStr = meta.value()?.parse()?;
                     endpoint_path = content.value();
+                    return Ok(());
+                }
+                if meta.path.is_ident("bundle_with") {
+                    generate_bundle = true;
+                    // compile_error!("Found bundle_with!"); 
+                    if let Ok(value) = meta.value() {
+                         if let Ok(content) = value.parse::<syn::LitStr>() {
+                             bundle_data = Some(content.value());
+                         }
+                    }
+                    return Ok(());
+                }
+                if meta.path.is_ident("bundle") {
+                    generate_bundle = true;
                     return Ok(());
                 }
                 if meta.path.is_ident("Auth") {
@@ -38,7 +62,9 @@ pub fn derive_horatio_endpoint(input: TokenStream) -> TokenStream {
                     return Ok(());
                 }
                 Ok(())
-            });
+            }) {
+                return e.to_compile_error().into();
+            }
         }
     }
 
@@ -58,7 +84,7 @@ pub fn derive_horatio_endpoint(input: TokenStream) -> TokenStream {
                 let mut format: Option<String> = None;
 
                 for attr in &field.attrs {
-                    if attr.path().is_ident("horatio") {
+                    if attr.path().is_ident("api") {
                         let _ = attr.parse_nested_meta(|meta| {
                             // #[horatio(Trim)]
                             if meta.path.is_ident("Trim") {
@@ -274,6 +300,30 @@ pub fn derive_horatio_endpoint(input: TokenStream) -> TokenStream {
         }
     }
 
+    let bundle_struct = if generate_bundle {
+        let bundle_name = Ident::new(&format!("{}Bundle", name), name.span());
+        let data_field = if let Some(data) = bundle_data {
+            let data_ident = Ident::new(&data, name.span());
+            quote! {
+                #[serde(flatten)]
+                pub data: #data_ident,
+            }
+        } else {
+             quote! {}
+        };
+        quote! {
+            #[derive(serde::Serialize, serde::Deserialize, Debug, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, crate::HoratioElm)]
+            pub struct #bundle_name {
+                pub context: crate::ServerContext,
+                pub input: #name,
+                #data_field
+            }
+        }
+
+    } else {
+        quote! {}
+    };
+
     let expanded = quote! {
         impl #name {
             pub fn validate(&mut self, _context: &crate::Context) -> Result<(), String> {
@@ -300,6 +350,8 @@ pub fn derive_horatio_endpoint(input: TokenStream) -> TokenStream {
                 (#name_str, utoipa::openapi::RefOr::T(Schema::Object(schema)))
             }
         }
+
+        #bundle_struct
     };
     TokenStream::from(expanded)
 }
@@ -440,5 +492,32 @@ pub fn generate_openapi_spec(input: TokenStream) -> TokenStream {
         }
     };
 
+    TokenStream::from(expanded)
+}
+#[proc_macro_derive(HoratioElm)]
+pub fn derive_horatio_elm(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = input.ident;
+
+    let expanded = quote! {
+        inventory::submit! {
+            crate::elm_export::ElmDefinition {
+                name: stringify!(#name),
+                get_def: <#name as elm_rs::Elm>::elm_definition,
+            }
+        }
+        inventory::submit! {
+            crate::elm_export::ElmEncoder {
+                name: stringify!(#name),
+                get_enc: <#name as elm_rs::ElmEncode>::encoder_definition,
+            }
+        }
+        inventory::submit! {
+            crate::elm_export::ElmDecoder {
+                name: stringify!(#name),
+                get_dec: <#name as elm_rs::ElmDecode>::decoder_definition,
+            }
+        }
+    };
     TokenStream::from(expanded)
 }

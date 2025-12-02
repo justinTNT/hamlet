@@ -600,11 +600,11 @@ function _Debug_crash_UNUSED(identifier, fact1, fact2, fact3, fact4)
 
 function _Debug_regionToString(region)
 {
-	if (region.X.C === region.af.C)
+	if (region.Y.D === region.ag.D)
 	{
-		return 'on line ' + region.X.C;
+		return 'on line ' + region.Y.D;
 	}
-	return 'on lines ' + region.X.C + ' through ' + region.af.C;
+	return 'on lines ' + region.Y.D + ' through ' + region.ag.D;
 }
 
 
@@ -1861,9 +1861,9 @@ var _Platform_worker = F4(function(impl, flagDecoder, debugMetadata, args)
 	return _Platform_initialize(
 		flagDecoder,
 		args,
-		impl.a_,
+		impl.a$,
+		impl.a5,
 		impl.a4,
-		impl.a3,
 		function() { return function() {} }
 	);
 });
@@ -2858,12 +2858,12 @@ var $elm$json$Json$Decode$map = _Json_map1;
 var $elm$json$Json$Decode$oneOf = _Json_oneOf;
 var $author$project$Api$Backend$SubmitCommentSlice = F5(
 	function (context, input, existingGuest, freshGuestId, freshCommentId) {
-		return {H: context, ai: existingGuest, al: freshCommentId, am: freshGuestId, K: input};
+		return {I: context, aj: existingGuest, am: freshCommentId, an: freshGuestId, L: input};
 	});
 var $elm$json$Json$Decode$andThen = _Json_andThen;
 var $author$project$Api$Backend$Guest = F2(
 	function (id, name) {
-		return {p: id, N: name};
+		return {p: id, O: name};
 	});
 var $elm$json$Json$Decode$string = _Json_decodeString;
 var $author$project$Api$Backend$guestDecoder = A2(
@@ -2894,7 +2894,7 @@ var $elm$json$Json$Decode$nullable = function (decoder) {
 };
 var $author$project$Api$Backend$ServerContext = F4(
 	function (requestId, sessionId, userId, host) {
-		return {j: host, aE: requestId, aH: sessionId, aL: userId};
+		return {j: host, aF: requestId, aI: sessionId, aM: userId};
 	});
 var $author$project$Api$Backend$serverContextDecoder = A2(
 	$elm$json$Json$Decode$andThen,
@@ -2937,7 +2937,7 @@ var $author$project$Api$Backend$serverContextDecoder = A2(
 				$elm$json$Json$Decode$succeed($author$project$Api$Backend$ServerContext)))));
 var $author$project$Api$Backend$SubmitCommentReq = F5(
 	function (host, itemId, parentId, text, authorName) {
-		return {G: authorName, j: host, L: itemId, P: parentId, Q: text};
+		return {H: authorName, j: host, M: itemId, Q: parentId, R: text};
 	});
 var $author$project$Api$Backend$submitCommentReqDecoder = A2(
 	$elm$json$Json$Decode$andThen,
@@ -3032,12 +3032,12 @@ var $author$project$Api$Backend$submitCommentSliceDecoder = A2(
 					$elm$json$Json$Decode$succeed($author$project$Api$Backend$SubmitCommentSlice))))));
 var $author$project$Api$Backend$SubmitItemSlice = F4(
 	function (context, input, existingTags, freshTagIds) {
-		return {H: context, aj: existingTags, an: freshTagIds, K: input};
+		return {I: context, ak: existingTags, ao: freshTagIds, L: input};
 	});
 var $elm$json$Json$Decode$list = _Json_decodeList;
 var $author$project$Api$Backend$SubmitItemReq = F7(
 	function (host, title, link, image, extract, ownerComment, tags) {
-		return {I: extract, j: host, J: image, M: link, O: ownerComment, z: tags, S: title};
+		return {J: extract, j: host, K: image, N: link, P: ownerComment, A: tags, T: title};
 	});
 var $author$project$Api$Backend$submitItemReqDecoder = A2(
 	$elm$json$Json$Decode$andThen,
@@ -3101,7 +3101,7 @@ var $author$project$Api$Backend$submitItemReqDecoder = A2(
 							$elm$json$Json$Decode$succeed($author$project$Api$Backend$SubmitItemReq))))))));
 var $author$project$Api$Backend$Tag = F2(
 	function (id, name) {
-		return {p: id, N: name};
+		return {p: id, O: name};
 	});
 var $author$project$Api$Backend$tagDecoder = A2(
 	$elm$json$Json$Decode$andThen,
@@ -3187,8 +3187,8 @@ var $elm$json$Json$Encode$object = function (pairs) {
 var $elm$json$Json$Encode$string = _Json_wrap;
 var $author$project$Api$Backend$backendEffectEncoder = function (_enum) {
 	if (!_enum.$) {
-		var table = _enum.a.aJ;
-		var data = _enum.a.ac;
+		var table = _enum.a.aK;
+		var data = _enum.a.ad;
 		return $elm$json$Json$Encode$object(
 			_List_fromArray(
 				[
@@ -3256,19 +3256,19 @@ var $author$project$Api$Backend$backendOutputEncoder = function (struct) {
 			[
 				_Utils_Tuple2(
 				'effects',
-				$elm$json$Json$Encode$list($author$project$Api$Backend$backendEffectEncoder)(struct.ae)),
+				$elm$json$Json$Encode$list($author$project$Api$Backend$backendEffectEncoder)(struct.af)),
 				_Utils_Tuple2(
 				'response',
 				A2(
 					$elm$core$Basics$composeL,
 					$elm$core$Maybe$withDefault($elm$json$Json$Encode$null),
-					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.aF)),
+					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.aG)),
 				_Utils_Tuple2(
 				'error',
 				A2(
 					$elm$core$Basics$composeL,
 					$elm$core$Maybe$withDefault($elm$json$Json$Encode$null),
-					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.ag))
+					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.ah))
 			]));
 };
 var $elm$json$Json$Decode$decodeValue = _Json_run;
@@ -3363,25 +3363,25 @@ var $author$project$Api$Backend$itemCommentEncoder = function (struct) {
 				$elm$json$Json$Encode$string(struct.p)),
 				_Utils_Tuple2(
 				'item_id',
-				$elm$json$Json$Encode$string(struct.L)),
+				$elm$json$Json$Encode$string(struct.M)),
 				_Utils_Tuple2(
 				'guest_id',
-				$elm$json$Json$Encode$string(struct.ao)),
+				$elm$json$Json$Encode$string(struct.ap)),
 				_Utils_Tuple2(
 				'parent_id',
 				A2(
 					$elm$core$Basics$composeL,
 					$elm$core$Maybe$withDefault($elm$json$Json$Encode$null),
-					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.P)),
+					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.Q)),
 				_Utils_Tuple2(
 				'author_name',
-				$elm$json$Json$Encode$string(struct.G)),
+				$elm$json$Json$Encode$string(struct.H)),
 				_Utils_Tuple2(
 				'text',
-				$elm$json$Json$Encode$string(struct.Q)),
+				$elm$json$Json$Encode$string(struct.R)),
 				_Utils_Tuple2(
 				'timestamp',
-				$elm$json$Json$Encode$int(struct.R))
+				$elm$json$Json$Encode$int(struct.S))
 			]));
 };
 var $author$project$Api$Backend$microblogItemEncoder = function (struct) {
@@ -3393,28 +3393,28 @@ var $author$project$Api$Backend$microblogItemEncoder = function (struct) {
 				$elm$json$Json$Encode$string(struct.p)),
 				_Utils_Tuple2(
 				'title',
-				$elm$json$Json$Encode$string(struct.S)),
+				$elm$json$Json$Encode$string(struct.T)),
 				_Utils_Tuple2(
 				'link',
-				$elm$json$Json$Encode$string(struct.M)),
+				$elm$json$Json$Encode$string(struct.N)),
 				_Utils_Tuple2(
 				'image',
-				$elm$json$Json$Encode$string(struct.J)),
+				$elm$json$Json$Encode$string(struct.K)),
 				_Utils_Tuple2(
 				'extract',
-				$elm$json$Json$Encode$string(struct.I)),
+				$elm$json$Json$Encode$string(struct.J)),
 				_Utils_Tuple2(
 				'owner_comment',
-				$elm$json$Json$Encode$string(struct.O)),
+				$elm$json$Json$Encode$string(struct.P)),
 				_Utils_Tuple2(
 				'tags',
-				$elm$json$Json$Encode$list($elm$json$Json$Encode$string)(struct.z)),
+				$elm$json$Json$Encode$list($elm$json$Json$Encode$string)(struct.A)),
 				_Utils_Tuple2(
 				'comments',
-				$elm$json$Json$Encode$list($author$project$Api$Backend$itemCommentEncoder)(struct.ab)),
+				$elm$json$Json$Encode$list($author$project$Api$Backend$itemCommentEncoder)(struct.ac)),
 				_Utils_Tuple2(
 				'timestamp',
-				$elm$json$Json$Encode$int(struct.R))
+				$elm$json$Json$Encode$int(struct.S))
 			]));
 };
 var $author$project$Api$Backend$submitCommentResEncoder = function (struct) {
@@ -3423,13 +3423,13 @@ var $author$project$Api$Backend$submitCommentResEncoder = function (struct) {
 			[
 				_Utils_Tuple2(
 				'comment',
-				$author$project$Api$Backend$itemCommentEncoder(struct.aa))
+				$author$project$Api$Backend$itemCommentEncoder(struct.ab))
 			]));
 };
 var $author$project$Logic$handleAction = function (action) {
 	if (!action.$) {
 		var slice = action.a;
-		var item = {ab: _List_Nil, I: slice.K.I, p: slice.H.aE, J: slice.K.J, M: slice.K.M, O: slice.K.O, z: slice.K.z, R: 0, S: slice.K.S};
+		var item = {ac: _List_Nil, J: slice.L.J, p: slice.I.aF, K: slice.L.K, N: slice.L.N, P: slice.L.P, A: slice.L.A, S: 0, T: slice.L.T};
 		var itemJson = A2(
 			$elm$json$Json$Encode$encode,
 			0,
@@ -3441,28 +3441,28 @@ var $author$project$Logic$handleAction = function (action) {
 						$elm$json$Json$Encode$string(item.p)),
 						_Utils_Tuple2(
 						'title',
-						$elm$json$Json$Encode$string(item.S)),
+						$elm$json$Json$Encode$string(item.T)),
 						_Utils_Tuple2(
 						'link',
-						$elm$json$Json$Encode$string(item.M)),
+						$elm$json$Json$Encode$string(item.N)),
 						_Utils_Tuple2(
 						'image',
-						$elm$json$Json$Encode$string(item.J)),
+						$elm$json$Json$Encode$string(item.K)),
 						_Utils_Tuple2(
 						'extract',
-						$elm$json$Json$Encode$string(item.I)),
+						$elm$json$Json$Encode$string(item.J)),
 						_Utils_Tuple2(
 						'owner_comment',
-						$elm$json$Json$Encode$string(item.O)),
+						$elm$json$Json$Encode$string(item.P)),
 						_Utils_Tuple2(
 						'timestamp',
-						$elm$json$Json$Encode$int(item.R)),
+						$elm$json$Json$Encode$int(item.S)),
 						_Utils_Tuple2(
 						'host',
-						$elm$json$Json$Encode$string(slice.H.j))
+						$elm$json$Json$Encode$string(slice.I.j))
 					])));
 		var itemEffect = $author$project$Api$Backend$Insert(
-			{ac: itemJson, aJ: 'microblog_items'});
+			{ad: itemJson, aK: 'microblog_items'});
 		var logJson = A2(
 			$elm$json$Json$Encode$encode,
 			0,
@@ -3471,20 +3471,20 @@ var $author$project$Logic$handleAction = function (action) {
 					[
 						_Utils_Tuple2(
 						'msg',
-						$elm$json$Json$Encode$string('Submitting item \'' + (item.S + '\''))),
+						$elm$json$Json$Encode$string('Submitting item \'' + (item.T + '\''))),
 						_Utils_Tuple2(
 						'request_id',
-						$elm$json$Json$Encode$string(slice.H.aE)),
+						$elm$json$Json$Encode$string(slice.I.aF)),
 						_Utils_Tuple2(
 						'item_id',
 						$elm$json$Json$Encode$string(item.p)),
 						_Utils_Tuple2(
 						'tag_count',
 						$elm$json$Json$Encode$int(
-							$elm$core$List$length(item.z))),
+							$elm$core$List$length(item.A))),
 						_Utils_Tuple2(
 						'host',
-						$elm$json$Json$Encode$string(slice.H.j))
+						$elm$json$Json$Encode$string(slice.I.j))
 					])));
 		var logEffect = $author$project$Api$Backend$Log(logJson);
 		var responseJson = A2(
@@ -3508,7 +3508,7 @@ var $author$project$Logic$handleAction = function (action) {
 						A2(
 							$elm$core$List$filter,
 							function (t) {
-								return _Utils_eq(t.N, name);
+								return _Utils_eq(t.O, name);
 							},
 							tags)));
 			});
@@ -3518,7 +3518,7 @@ var $author$project$Logic$handleAction = function (action) {
 				function (tagName, _v2) {
 					var effects = _v2.a;
 					var remainingIds = _v2.b;
-					var _v3 = A2(findTagId, tagName, slice.aj);
+					var _v3 = A2(findTagId, tagName, slice.ak);
 					if (!_v3.$) {
 						var id = _v3.a;
 						var linkData = A2(
@@ -3535,7 +3535,7 @@ var $author$project$Logic$handleAction = function (action) {
 										$elm$json$Json$Encode$string(id))
 									])));
 						var linkEffect = $author$project$Api$Backend$Insert(
-							{ac: linkData, aJ: 'item_tags'});
+							{ad: linkData, aK: 'item_tags'});
 						return _Utils_Tuple2(
 							A2($elm$core$List$cons, linkEffect, effects),
 							remainingIds);
@@ -3557,10 +3557,10 @@ var $author$project$Logic$handleAction = function (action) {
 											$elm$json$Json$Encode$string(tagName)),
 											_Utils_Tuple2(
 											'host',
-											$elm$json$Json$Encode$string(slice.H.j))
+											$elm$json$Json$Encode$string(slice.I.j))
 										])));
 							var tagEffect = $author$project$Api$Backend$Insert(
-								{ac: tagData, aJ: 'tags'});
+								{ad: tagData, aK: 'tags'});
 							var linkData = A2(
 								$elm$json$Json$Encode$encode,
 								0,
@@ -3575,7 +3575,7 @@ var $author$project$Logic$handleAction = function (action) {
 											$elm$json$Json$Encode$string(newId))
 										])));
 							var linkEffect = $author$project$Api$Backend$Insert(
-								{ac: linkData, aJ: 'item_tags'});
+								{ad: linkData, aK: 'item_tags'});
 							return _Utils_Tuple2(
 								A2(
 									$elm$core$List$cons,
@@ -3587,26 +3587,26 @@ var $author$project$Logic$handleAction = function (action) {
 						}
 					}
 				}),
-			_Utils_Tuple2(_List_Nil, slice.an),
-			slice.K.z);
+			_Utils_Tuple2(_List_Nil, slice.ao),
+			slice.L.A);
 		var tagEffects = _v1.a;
 		return {
-			ae: A2(
+			af: A2(
 				$elm$core$List$cons,
 				logEffect,
 				A2($elm$core$List$cons, itemEffect, tagEffects)),
-			ag: $elm$core$Maybe$Nothing,
-			aF: $elm$core$Maybe$Just(responseJson)
+			ah: $elm$core$Maybe$Nothing,
+			aG: $elm$core$Maybe$Just(responseJson)
 		};
 	} else {
 		var slice = action.a;
 		var _v5 = function () {
-			var _v6 = slice.ai;
+			var _v6 = slice.aj;
 			if (!_v6.$) {
 				var guest = _v6.a;
-				return _Utils_Tuple3(_List_Nil, guest.p, guest.N);
+				return _Utils_Tuple3(_List_Nil, guest.p, guest.O);
 			} else {
-				var _v7 = slice.K.G;
+				var _v7 = slice.L.H;
 				if (!_v7.$) {
 					var name = _v7.a;
 					var guestData = A2(
@@ -3617,20 +3617,20 @@ var $author$project$Logic$handleAction = function (action) {
 								[
 									_Utils_Tuple2(
 									'id',
-									$elm$json$Json$Encode$string(slice.am)),
+									$elm$json$Json$Encode$string(slice.an)),
 									_Utils_Tuple2(
 									'name',
 									$elm$json$Json$Encode$string(name)),
 									_Utils_Tuple2(
 									'host',
-									$elm$json$Json$Encode$string(slice.H.j))
+									$elm$json$Json$Encode$string(slice.I.j))
 								])));
 					var insertGuest = $author$project$Api$Backend$Insert(
-						{ac: guestData, aJ: 'guests'});
+						{ad: guestData, aK: 'guests'});
 					return _Utils_Tuple3(
 						_List_fromArray(
 							[insertGuest]),
-						slice.am,
+						slice.an,
 						name);
 				} else {
 					return _Utils_Tuple3(_List_Nil, '', '');
@@ -3645,25 +3645,25 @@ var $author$project$Logic$handleAction = function (action) {
 				[
 					_Utils_Tuple2(
 					'id',
-					$elm$json$Json$Encode$string(slice.al)),
+					$elm$json$Json$Encode$string(slice.am)),
 					_Utils_Tuple2(
 					'host',
-					$elm$json$Json$Encode$string(slice.H.j)),
+					$elm$json$Json$Encode$string(slice.I.j)),
 					_Utils_Tuple2(
 					'item_id',
-					$elm$json$Json$Encode$string(slice.K.L)),
+					$elm$json$Json$Encode$string(slice.L.M)),
 					_Utils_Tuple2(
 					'guest_id',
 					$elm$json$Json$Encode$string(guestId)),
 					_Utils_Tuple2(
 					'text',
-					$elm$json$Json$Encode$string(slice.K.Q)),
+					$elm$json$Json$Encode$string(slice.L.R)),
 					_Utils_Tuple2(
 					'timestamp',
 					$elm$json$Json$Encode$int(0))
 				]);
 			var fields = function () {
-				var _v8 = slice.K.P;
+				var _v8 = slice.L.Q;
 				if (!_v8.$) {
 					var pid = _v8.a;
 					return A2(
@@ -3682,7 +3682,7 @@ var $author$project$Logic$handleAction = function (action) {
 				$elm$json$Json$Encode$object(fields));
 		}();
 		var commentEffect = $author$project$Api$Backend$Insert(
-			{ac: commentData, aJ: 'item_comments'});
+			{ad: commentData, aK: 'item_comments'});
 		var logJson = A2(
 			$elm$json$Json$Encode$encode,
 			0,
@@ -3694,32 +3694,32 @@ var $author$project$Logic$handleAction = function (action) {
 						$elm$json$Json$Encode$string('Submitting comment')),
 						_Utils_Tuple2(
 						'request_id',
-						$elm$json$Json$Encode$string(slice.H.aE)),
+						$elm$json$Json$Encode$string(slice.I.aF)),
 						_Utils_Tuple2(
 						'item_id',
-						$elm$json$Json$Encode$string(slice.K.L)),
+						$elm$json$Json$Encode$string(slice.L.M)),
 						_Utils_Tuple2(
 						'guest_id',
 						$elm$json$Json$Encode$string(guestId))
 					])));
 		var logEffect = $author$project$Api$Backend$Log(logJson);
-		var comment = {G: guestName, ao: guestId, p: slice.al, L: slice.K.L, P: slice.K.P, Q: slice.K.Q, R: 0};
+		var comment = {H: guestName, ap: guestId, p: slice.am, M: slice.L.M, Q: slice.L.Q, R: slice.L.R, S: 0};
 		var responseJson = A2(
 			$elm$json$Json$Encode$encode,
 			0,
 			$author$project$Api$Backend$submitCommentResEncoder(
-				{aa: comment}));
-		return (_Utils_eq(slice.ai, $elm$core$Maybe$Nothing) && _Utils_eq(slice.K.G, $elm$core$Maybe$Nothing)) ? {
-			ae: _List_Nil,
-			ag: $elm$core$Maybe$Just('Name required for first-time commenters'),
-			aF: $elm$core$Maybe$Nothing
+				{ab: comment}));
+		return (_Utils_eq(slice.aj, $elm$core$Maybe$Nothing) && _Utils_eq(slice.L.H, $elm$core$Maybe$Nothing)) ? {
+			af: _List_Nil,
+			ah: $elm$core$Maybe$Just('Name required for first-time commenters'),
+			aG: $elm$core$Maybe$Nothing
 		} : {
-			ae: A2(
+			af: A2(
 				$elm$core$List$cons,
 				logEffect,
 				A2($elm$core$List$cons, commentEffect, guestEffects)),
-			ag: $elm$core$Maybe$Nothing,
-			aF: $elm$core$Maybe$Just(responseJson)
+			ah: $elm$core$Maybe$Nothing,
+			aG: $elm$core$Maybe$Just(responseJson)
 		};
 	}
 };
@@ -3738,10 +3738,10 @@ var $author$project$Logic$update = F2(
 		} else {
 			var error = _v1.a;
 			var errOutput = {
-				ae: _List_Nil,
-				ag: $elm$core$Maybe$Just(
+				af: _List_Nil,
+				ah: $elm$core$Maybe$Just(
 					$elm$json$Json$Decode$errorToString(error)),
-				aF: $elm$core$Maybe$Nothing
+				aG: $elm$core$Maybe$Nothing
 			};
 			return _Utils_Tuple2(
 				model,
@@ -3752,11 +3752,11 @@ var $author$project$Logic$update = F2(
 var $elm$core$Platform$worker = _Platform_worker;
 var $author$project$Logic$main = $elm$core$Platform$worker(
 	{
-		a_: function (_v0) {
+		a$: function (_v0) {
 			return _Utils_Tuple2(0, $elm$core$Platform$Cmd$none);
 		},
-		a3: $author$project$Logic$subscriptions,
-		a4: $author$project$Logic$update
+		a4: $author$project$Logic$subscriptions,
+		a5: $author$project$Logic$update
 	});
 _Platform_export({'Logic':{'init':$author$project$Logic$main(
 	$elm$json$Json$Decode$succeed(0))(0)}});}(this));

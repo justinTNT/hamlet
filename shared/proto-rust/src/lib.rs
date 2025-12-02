@@ -5,7 +5,8 @@ use utoipa::OpenApi;
 
 mod shared_types;
 pub use shared_types::*;
-pub use horatio_macro::HoratioEndpoint;
+pub mod elm_export;
+pub use horatio_macro::{HoratioEndpoint, HoratioElm};
 
 #[wasm_bindgen]
 pub fn encode_request(_endpoint: String, json_in: String) -> String {
