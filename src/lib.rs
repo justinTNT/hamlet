@@ -21,7 +21,7 @@ pub mod fingerprint {
 pub use fingerprint::*;
 
 pub mod elm_export;
-pub use horatio_macro::{HoratioEndpoint, HoratioElm, HoratioContext};
+pub use horatio_macro::{BuildAmpEndpoint, BuildAmpElm, BuildAmpContext};
 
 #[wasm_bindgen]
 pub fn create_session_id(fingerprint_data: String) -> String {

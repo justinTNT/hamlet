@@ -16,8 +16,8 @@ pub fn buildamp_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     buildamp_macros::buildamp_api(attr, item)
 }
 
-#[proc_macro_derive(HoratioEndpoint, attributes(api))]
-pub fn derive_horatio_endpoint(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(BuildAmpEndpoint, attributes(api))]
+pub fn derive_buildamp_endpoint(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
     let name_str = name.to_string();
@@ -323,7 +323,7 @@ pub fn derive_horatio_endpoint(input: TokenStream) -> TokenStream {
              quote! {}
         };
         quote! {
-            #[derive(serde::Serialize, serde::Deserialize, Debug, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, proto_rust::HoratioElm)]
+            #[derive(serde::Serialize, serde::Deserialize, Debug, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, proto_rust::BuildAmpElm)]
             pub struct #bundle_name {
                 pub context: proto_rust::ServerContext,
                 pub input: #name,
@@ -519,8 +519,10 @@ pub fn generate_openapi_spec(input: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
-#[proc_macro_derive(HoratioElm)]
-pub fn derive_horatio_elm(input: TokenStream) -> TokenStream {
+// ... (Dispatcher and OpenAPI macros remain unchanged)
+
+#[proc_macro_derive(BuildAmpElm)]
+pub fn derive_buildamp_elm(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
 
@@ -546,8 +548,8 @@ pub fn derive_horatio_elm(input: TokenStream) -> TokenStream {
     };
     TokenStream::from(expanded)
 }
-#[proc_macro_derive(HoratioContext, attributes(dependency))]
-pub fn derive_horatio_context(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(BuildAmpContext, attributes(dependency))]
+pub fn derive_buildamp_context(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
     let name_str = name.to_string();

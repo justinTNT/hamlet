@@ -10,12 +10,10 @@
     "devDependencies": {
         "@crxjs/vite-plugin": "^2.0.0-beta.28",
         "node-stdlib-browser": "^1.3.1",
-        "vite": "^7.2.4",
-        "vite-plugin-elm": "^3.0.1",
-        "vite-plugin-top-level-await": "^1.4.1",
-        "vite-plugin-wasm": "^3.3.0"
+        "vite": "^5.0.0",
+        "vite-plugin-buildamp": "file:../../packages/vite-plugin-buildamp"
     },
     "dependencies": {
-        "proto-rust": "file:../../shared/proto-rust/pkg-web"
+        "proto-rust": "file:../../pkg-web"
     }
 }

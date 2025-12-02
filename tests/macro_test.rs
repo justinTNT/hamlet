@@ -1,4 +1,4 @@
-use proto_rust::{SubmitItemReq, HoratioEndpoint, Context};
+use proto_rust::{SubmitItemReq, BuildAmpEndpoint, Context};
 
 #[test]
 fn test_submit_item_validation() {
@@ -33,7 +33,7 @@ fn test_submit_item_validation() {
     assert_eq!(result.unwrap_err(), "title is required");
 }
 
-#[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
+#[derive(serde::Serialize, serde::Deserialize, BuildAmpEndpoint)]
 #[api(path = "TestMinLength")]
 pub struct TestMinLengthReq {
     #[api(MinLength(3))]
@@ -55,7 +55,7 @@ fn test_min_length() {
     assert_eq!(res.unwrap_err(), "code must be at least 3 characters");
 }
 
-#[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
+#[derive(serde::Serialize, serde::Deserialize, BuildAmpEndpoint)]
 #[api(path = "TestEmail")]
 pub struct TestEmailReq {
     #[api(Email)]
@@ -77,7 +77,7 @@ fn test_email() {
     assert_eq!(res.unwrap_err(), "email is invalid");
 }
 
-#[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
+#[derive(serde::Serialize, serde::Deserialize, BuildAmpEndpoint)]
 #[api(path = "TestAuth", Auth)]
 pub struct TestAuthReq {
     pub data: String,
@@ -99,7 +99,7 @@ fn test_auth() {
     assert!(req.validate(&context).is_ok());
 }
 
-#[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
+#[derive(serde::Serialize, serde::Deserialize, BuildAmpEndpoint)]
 #[api(path = "TestTrim")]
 pub struct TestTrimReq {
     #[api(Trim)]
@@ -115,7 +115,7 @@ fn test_trim() {
     assert_eq!(req.name, "hello");
 }
 
-#[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
+#[derive(serde::Serialize, serde::Deserialize, BuildAmpEndpoint)]
 #[api(path = "TestInject")]
 pub struct TestInjectReq {
     #[api(Inject = "user_id")]
@@ -133,7 +133,7 @@ fn test_inject() {
     assert_eq!(req.user, Some("user_456".to_string()));
 }
 
-#[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
+#[derive(serde::Serialize, serde::Deserialize, BuildAmpEndpoint)]
 #[api(path = "TestReadOnly")]
 pub struct TestReadOnlyReq {
     #[api(ReadOnly)]
@@ -149,7 +149,7 @@ fn test_read_only() {
     assert_eq!(req.system_flag, false); // Should be reset to default
 }
 
-#[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
+#[derive(serde::Serialize, serde::Deserialize, BuildAmpEndpoint)]
 #[api(path = "TestUrl")]
 pub struct TestUrlReq {
     #[api(Url)]
@@ -181,7 +181,7 @@ fn test_url() {
     assert!(empty_url.validate(&context).is_ok());
 }
 
-#[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
+#[derive(serde::Serialize, serde::Deserialize, BuildAmpEndpoint)]
 #[api(path = "TestMaxLen")]
 pub struct TestMaxLenReq {
     #[api(MaxLength(5))]
@@ -220,7 +220,7 @@ fn test_max_length() {
     assert_eq!(res2.unwrap_err(), "list must be at most 2 characters/items");
 }
 
-#[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
+#[derive(serde::Serialize, serde::Deserialize, BuildAmpEndpoint)]
 #[api(path = "TestExtensionOnly", ExtensionOnly)]
 pub struct TestExtensionOnlyReq {
     pub data: String,
@@ -242,7 +242,7 @@ fn test_extension_only() {
     assert!(req.validate(&context).is_ok());
 }
 
-#[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
+#[derive(serde::Serialize, serde::Deserialize, BuildAmpEndpoint)]
 #[api(path = "TestDefault")]
 pub struct TestDefaultReq {
     #[serde(default)]

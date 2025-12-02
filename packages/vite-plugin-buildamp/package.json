@@ -1,0 +1,28 @@
+{
+    "name": "vite-plugin-buildamp",
+    "version": "0.1.0",
+    "type": "module",
+    "description": "Vite plugin for BuildAmp framework integration",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [
+        "vite",
+        "buildamp",
+        "rust",
+        "wasm",
+        "elm"
+    ],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "vite-plugin-elm": "^3.0.1",
+        "vite-plugin-wasm": "^3.2.2",
+        "vite-plugin-top-level-await": "^1.3.0",
+        "chokidar": "^3.5.3"
+    },
+    "peerDependencies": {
+        "vite": "^4.0.0 || ^5.0.0"
+    }
+}

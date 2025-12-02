@@ -1,8 +1,5 @@
 import { defineConfig } from 'vite';
-import elmPlugin from 'vite-plugin-elm';
-import wasm from 'vite-plugin-wasm';
-import topLevelAwait from 'vite-plugin-top-level-await';
-
+import buildampPlugin from 'vite-plugin-buildamp';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -10,9 +7,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [
-    elmPlugin(),
-    wasm(),
-    topLevelAwait()
+    buildampPlugin({
+      crateDir: path.resolve(__dirname, '../../'),
+      wasmOutDirWeb: 'pkg-web',
+      wasmOutDirNode: 'pkg-node'
+    })
   ],
   server: {
     fs: {
@@ -22,9 +21,6 @@ export default defineConfig({
       '/api': 'http://localhost:3000',
     },
   },
-  resolve: {
-    alias: {
-      'proto-rust': path.resolve(__dirname, '../../pkg-web/proto_rust.js')
-    }
-  }
+  // Alias is handled by the plugin now, but we can keep it explicit if needed.
+  // The plugin adds 'proto-rust' alias.
 });
