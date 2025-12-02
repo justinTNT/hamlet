@@ -1,0 +1,8 @@
+{
+    "watch": [
+        "server.js",
+        "src/**/*.elm"
+    ],
+    "ext": "js,json,elm",
+    "exec": "npm run build:elm && node server.js"
+}

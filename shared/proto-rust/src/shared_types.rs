@@ -40,6 +40,7 @@ pub struct Tag {
 #[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode, ToSchema)]
 pub struct MicroblogItem {
     pub id: String,
+    pub host: String,
     pub title: String,
     pub link: String,
     pub image: String,
@@ -132,10 +133,19 @@ pub struct SubmitCommentReq {
 // --- Session Slices ---
 
 #[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
+pub struct ServerContext {
+    pub request_id: String,
+    pub session_id: Option<String>,
+    pub user_id: Option<String>,
+    pub host: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
 pub struct SubmitItemSlice {
+    pub context: ServerContext,
     pub input: SubmitItemReq,
     pub existing_tags: Vec<Tag>,
-    // pub user: Option<User>, // Future
+    pub fresh_tag_ids: Vec<String>, // Pre-generated UUIDs for new tags
 }
 
 #[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
@@ -145,10 +155,24 @@ pub enum BackendAction {
 }
 
 #[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
-pub enum BackendResult {
-    SubmitItemSuccess(MicroblogItem),
-    Error(String),
+pub enum BackendEffect {
+    Insert { table: String, data: String }, // Using String for JSON data to simplify Elm generation for now
+    Log(String),
 }
+
+#[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
+pub struct BackendOutput {
+    pub effects: Vec<BackendEffect>,
+    pub response: Option<String>, // JSON string for response
+    pub error: Option<String>,
+}
+
+// Deprecated: Replaced by BackendOutput
+// #[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
+// pub enum BackendResult {
+//     SubmitItemSuccess(MicroblogItem),
+//     Error(String),
+// }
 
 #[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
 pub struct SubmitCommentRes {

@@ -5,6 +5,7 @@ import pg from 'pg';
 const { Pool } = pg;
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
+import crypto from 'node:crypto';
 import fs from 'fs';
 import * as wasm from '../../shared/proto-rust/pkg-node/proto_rust.js';
 const { dispatcher } = require('../../shared/proto-rust/pkg-node/proto_rust.js');
@@ -175,71 +176,96 @@ app.post(['/api', '/:endpoint'], async (req, res) => {
             responseData = { tags: result.rows.map(r => r.name) };
 
         } else if (endpoint === "SubmitItem") {
-            const reqObj = JSON.parse(wireRequest);
-            const newItem = {
-                id: Date.now().toString(),
-                title: reqObj.title,
-                link: reqObj.link,
-                image: reqObj.image,
-                extract: reqObj.extract,
-                owner_comment: reqObj.owner_comment,
-                tags: reqObj.tags || [],
-                timestamp: Date.now()
+            // 1. Context: Fetch existing tags
+            const tagsResult = await pool.query(
+                'SELECT id, name FROM tags WHERE host = $1',
+                [host]
+            );
+            const existingTags = tagsResult.rows;
+
+            // 2. Construct Slice
+            // wireRequest is already an object due to bodyParser.json()
+            const inputTags = wireRequest.tags || [];
+            const freshTagIds = inputTags.map(() => crypto.randomUUID());
+            const requestId = crypto.randomUUID();
+
+            const slice = {
+                context: {
+                    request_id: requestId,
+                    session_id: null, // TODO: Extract from headers
+                    user_id: null,    // TODO: Extract from auth
+                    host: host
+                },
+                input: wireRequest,
+                existing_tags: existingTags,
+                fresh_tag_ids: freshTagIds
             };
 
-            // Transaction for item + tags
+            // 3. Call Elm
+            const output = await new Promise((resolve) => {
+                const app = Elm.Logic.init();
+                const sub = (data) => {
+                    app.ports.result.unsubscribe(sub);
+                    resolve(data);
+                };
+                app.ports.result.subscribe(sub);
+                app.ports.process.send({ SubmitItem: slice });
+            });
+
+            // 4. Handle Output
+            if (output.error) {
+                return res.status(500).json({ type: "InternalError", details: output.error });
+            }
+
+            // 5. Execute Effects
             const client = await pool.connect();
             try {
                 await client.query('BEGIN');
 
-                await client.query(
-                    `INSERT INTO microblog_items (id, host, title, link, image, extract, owner_comment, timestamp)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                    [newItem.id, host, newItem.title, newItem.link, newItem.image, newItem.extract, newItem.owner_comment, newItem.timestamp]
-                );
+                for (const effect of output.effects) {
+                    if (effect.Insert) {
+                        const { table, data } = effect.Insert;
+                        const row = JSON.parse(data); // data is JSON string
+                        const keys = Object.keys(row);
+                        const values = Object.values(row);
+                        const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
 
-                if (newItem.tags && newItem.tags.length > 0) {
-                    for (const tagName of newItem.tags) {
-                        // 1. Ensure tag exists
-                        let tagRes = await client.query(
-                            'SELECT id FROM tags WHERE host = $1 AND name = $2',
-                            [host, tagName]
-                        );
-
-                        let tagId;
-                        if (tagRes.rows.length === 0) {
-                            const insertRes = await client.query(
-                                'INSERT INTO tags (host, name) VALUES ($1, $2) RETURNING id',
-                                [host, tagName]
-                            );
-                            tagId = insertRes.rows[0].id;
-                        } else {
-                            tagId = tagRes.rows[0].id;
-                        }
-
-                        // 2. Link tag to item
                         await client.query(
-                            'INSERT INTO item_tags (item_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-                            [newItem.id, tagId]
+                            `INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`,
+                            values
                         );
+                    } else if (effect.Log) {
+                        try {
+                            const logObj = JSON.parse(effect.Log);
+                            console.log(JSON.stringify(logObj)); // Print as JSON line
+                        } catch (e) {
+                            console.log("Elm Log:", effect.Log);
+                        }
                     }
                 }
 
                 await client.query('COMMIT');
+
+                // 6. Send Response
+                if (output.response) {
+                    res.json(JSON.parse(output.response));
+                } else {
+                    res.status(200).send();
+                }
+
             } catch (e) {
                 await client.query('ROLLBACK');
-                throw e;
+                console.error("Effect Execution Failed:", e);
+                res.status(500).json({ type: "InternalError", details: e.message });
             } finally {
                 client.release();
             }
-
-            responseData = { item: newItem };
+            return;
 
         } else {
             throw new Error(`Unknown endpoint: ${endpoint}`);
         }
 
-        // 3. Encode Response
         const wireResponse = encode_response(endpoint, JSON.stringify(responseData));
         res.send(wireResponse);
 

@@ -5,6 +5,14 @@ import Json.Encode
 import Dict exposing (Dict)
 import Set exposing (Set)
 
+type alias ServerContext =
+    { requestId : String
+    , sessionId : Maybe (String)
+    , userId : Maybe (String)
+    , host : String
+    }
+
+
 type alias Tag =
     { id : String
     , name : String
@@ -13,6 +21,7 @@ type alias Tag =
 
 type alias MicroblogItem =
     { id : String
+    , host : String
     , title : String
     , link : String
     , image : String
@@ -35,8 +44,10 @@ type alias SubmitItemReq =
 
 
 type alias SubmitItemSlice =
-    { input : SubmitItemReq
+    { context : ServerContext
+    , input : SubmitItemReq
     , existingTags : List (Tag)
+    , freshTagIds : List (String)
     }
 
 
@@ -44,9 +55,16 @@ type BackendAction
     = SubmitItem (SubmitItemSlice)
 
 
-type BackendResult
-    = SubmitItemSuccess (MicroblogItem)
-    | Error (String)
+type BackendEffect
+    = Insert { table : String, data : String }
+    | Log (String)
+
+
+type alias BackendOutput =
+    { effects : List (BackendEffect)
+    , response : Maybe (String)
+    , error : Maybe (String)
+    }
 
 
 type alias ItemComment =
@@ -91,6 +109,16 @@ type alias GetFeedReq =
     }
 
 
+serverContextEncoder : ServerContext -> Json.Encode.Value
+serverContextEncoder struct =
+    Json.Encode.object
+        [ ( "request_id", (Json.Encode.string) struct.requestId )
+        , ( "session_id", (Maybe.withDefault Json.Encode.null << Maybe.map (Json.Encode.string)) struct.sessionId )
+        , ( "user_id", (Maybe.withDefault Json.Encode.null << Maybe.map (Json.Encode.string)) struct.userId )
+        , ( "host", (Json.Encode.string) struct.host )
+        ]
+
+
 tagEncoder : Tag -> Json.Encode.Value
 tagEncoder struct =
     Json.Encode.object
@@ -103,6 +131,7 @@ microblogItemEncoder : MicroblogItem -> Json.Encode.Value
 microblogItemEncoder struct =
     Json.Encode.object
         [ ( "id", (Json.Encode.string) struct.id )
+        , ( "host", (Json.Encode.string) struct.host )
         , ( "title", (Json.Encode.string) struct.title )
         , ( "link", (Json.Encode.string) struct.link )
         , ( "image", (Json.Encode.string) struct.image )
@@ -129,8 +158,10 @@ submitItemReqEncoder struct =
 submitItemSliceEncoder : SubmitItemSlice -> Json.Encode.Value
 submitItemSliceEncoder struct =
     Json.Encode.object
-        [ ( "input", (submitItemReqEncoder) struct.input )
+        [ ( "context", (serverContextEncoder) struct.context )
+        , ( "input", (submitItemReqEncoder) struct.input )
         , ( "existing_tags", (Json.Encode.list (tagEncoder)) struct.existingTags )
+        , ( "fresh_tag_ids", (Json.Encode.list (Json.Encode.string)) struct.freshTagIds )
         ]
 
 
@@ -140,13 +171,22 @@ backendActionEncoder enum =
         SubmitItem inner ->
             Json.Encode.object [ ( "SubmitItem", submitItemSliceEncoder inner ) ]
 
-backendResultEncoder : BackendResult -> Json.Encode.Value
-backendResultEncoder enum =
+backendEffectEncoder : BackendEffect -> Json.Encode.Value
+backendEffectEncoder enum =
     case enum of
-        SubmitItemSuccess inner ->
-            Json.Encode.object [ ( "SubmitItemSuccess", microblogItemEncoder inner ) ]
-        Error inner ->
-            Json.Encode.object [ ( "Error", Json.Encode.string inner ) ]
+        Insert { table, data } ->
+            Json.Encode.object [ ( "Insert", Json.Encode.object [ ( "table", (Json.Encode.string) table ), ( "data", (Json.Encode.string) data ) ] ) ]
+        Log inner ->
+            Json.Encode.object [ ( "Log", Json.Encode.string inner ) ]
+
+backendOutputEncoder : BackendOutput -> Json.Encode.Value
+backendOutputEncoder struct =
+    Json.Encode.object
+        [ ( "effects", (Json.Encode.list (backendEffectEncoder)) struct.effects )
+        , ( "response", (Maybe.withDefault Json.Encode.null << Maybe.map (Json.Encode.string)) struct.response )
+        , ( "error", (Maybe.withDefault Json.Encode.null << Maybe.map (Json.Encode.string)) struct.error )
+        ]
+
 
 itemCommentEncoder : ItemComment -> Json.Encode.Value
 itemCommentEncoder struct =
@@ -204,6 +244,15 @@ getFeedReqEncoder struct =
         ]
 
 
+serverContextDecoder : Json.Decode.Decoder ServerContext
+serverContextDecoder =
+    Json.Decode.succeed ServerContext
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "request_id" (Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "session_id" (Json.Decode.nullable (Json.Decode.string))))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "user_id" (Json.Decode.nullable (Json.Decode.string))))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "host" (Json.Decode.string)))
+
+
 tagDecoder : Json.Decode.Decoder Tag
 tagDecoder =
     Json.Decode.succeed Tag
@@ -215,6 +264,7 @@ microblogItemDecoder : Json.Decode.Decoder MicroblogItem
 microblogItemDecoder =
     Json.Decode.succeed MicroblogItem
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "id" (Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "host" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "title" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "link" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "image" (Json.Decode.string)))
@@ -239,8 +289,10 @@ submitItemReqDecoder =
 submitItemSliceDecoder : Json.Decode.Decoder SubmitItemSlice
 submitItemSliceDecoder =
     Json.Decode.succeed SubmitItemSlice
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "context" (serverContextDecoder)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "input" (submitItemReqDecoder)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "existing_tags" (Json.Decode.list (tagDecoder))))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "fresh_tag_ids" (Json.Decode.list (Json.Decode.string))))
 
 
 backendActionDecoder : Json.Decode.Decoder BackendAction
@@ -249,12 +301,24 @@ backendActionDecoder =
         [ Json.Decode.map SubmitItem (Json.Decode.field "SubmitItem" (submitItemSliceDecoder))
         ]
 
-backendResultDecoder : Json.Decode.Decoder BackendResult
-backendResultDecoder = 
+backendEffectDecoder : Json.Decode.Decoder BackendEffect
+backendEffectDecoder = 
+        let
+            elmRsConstructInsert table data =
+                        Insert { table = table, data = data }
+        in
     Json.Decode.oneOf
-        [ Json.Decode.map SubmitItemSuccess (Json.Decode.field "SubmitItemSuccess" (microblogItemDecoder))
-        , Json.Decode.map Error (Json.Decode.field "Error" (Json.Decode.string))
+        [ Json.Decode.field "Insert" (Json.Decode.succeed elmRsConstructInsert |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "table" (Json.Decode.string))) |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "data" (Json.Decode.string))))
+        , Json.Decode.map Log (Json.Decode.field "Log" (Json.Decode.string))
         ]
+
+backendOutputDecoder : Json.Decode.Decoder BackendOutput
+backendOutputDecoder =
+    Json.Decode.succeed BackendOutput
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "effects" (Json.Decode.list (backendEffectDecoder))))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "response" (Json.Decode.nullable (Json.Decode.string))))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "error" (Json.Decode.nullable (Json.Decode.string))))
+
 
 itemCommentDecoder : Json.Decode.Decoder ItemComment
 itemCommentDecoder =

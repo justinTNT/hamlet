@@ -1,6 +1,7 @@
 use proto_rust::{
-    SubmitItemSlice, BackendAction, BackendResult, Tag, MicroblogItem, SubmitItemReq,
-    ItemComment, SubmitCommentReq, SubmitCommentRes, GetFeedRes, GetTagsRes, GetTagsReq, GetFeedReq
+    SubmitItemSlice, BackendAction, BackendEffect, BackendOutput, Tag, MicroblogItem, SubmitItemReq,
+    ItemComment, SubmitCommentReq, SubmitCommentRes, GetFeedRes, GetTagsRes, GetTagsReq, GetFeedReq,
+    ServerContext
 };
 use std::fs::File;
 use std::io::Write;
@@ -22,12 +23,14 @@ fn generate_elm_types() {
     // Write definitions manually
     
     let types = vec![
+        <ServerContext as Elm>::elm_definition(),
         <Tag as Elm>::elm_definition(),
         <MicroblogItem as Elm>::elm_definition(),
         <SubmitItemReq as Elm>::elm_definition(),
         <SubmitItemSlice as Elm>::elm_definition(),
         <BackendAction as Elm>::elm_definition(),
-        <BackendResult as Elm>::elm_definition(),
+        <BackendEffect as Elm>::elm_definition(),
+        <BackendOutput as Elm>::elm_definition(),
         <ItemComment as Elm>::elm_definition(),
         <SubmitCommentReq as Elm>::elm_definition(),
         <SubmitCommentRes as Elm>::elm_definition(),
@@ -46,12 +49,14 @@ fn generate_elm_types() {
     
     // Generate Encoders
     let encoders = vec![
+        <ServerContext as ElmEncode>::encoder_definition(),
         <Tag as ElmEncode>::encoder_definition(),
         <MicroblogItem as ElmEncode>::encoder_definition(),
         <SubmitItemReq as ElmEncode>::encoder_definition(),
         <SubmitItemSlice as ElmEncode>::encoder_definition(),
         <BackendAction as ElmEncode>::encoder_definition(),
-        <BackendResult as ElmEncode>::encoder_definition(),
+        <BackendEffect as ElmEncode>::encoder_definition(),
+        <BackendOutput as ElmEncode>::encoder_definition(),
         <ItemComment as ElmEncode>::encoder_definition(),
         <SubmitCommentReq as ElmEncode>::encoder_definition(),
         <SubmitCommentRes as ElmEncode>::encoder_definition(),
@@ -70,12 +75,14 @@ fn generate_elm_types() {
 
     // Generate Decoders
     let decoders = vec![
+        <ServerContext as ElmDecode>::decoder_definition(),
         <Tag as ElmDecode>::decoder_definition(),
         <MicroblogItem as ElmDecode>::decoder_definition(),
         <SubmitItemReq as ElmDecode>::decoder_definition(),
         <SubmitItemSlice as ElmDecode>::decoder_definition(),
         <BackendAction as ElmDecode>::decoder_definition(),
-        <BackendResult as ElmDecode>::decoder_definition(),
+        <BackendEffect as ElmDecode>::decoder_definition(),
+        <BackendOutput as ElmDecode>::decoder_definition(),
         <ItemComment as ElmDecode>::decoder_definition(),
         <SubmitCommentReq as ElmDecode>::decoder_definition(),
         <SubmitCommentRes as ElmDecode>::decoder_definition(),
