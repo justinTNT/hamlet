@@ -1,5 +1,6 @@
-import init, { encode_request, decode_response } from 'proto-rust';
+import init, { encode_request, decode_response, create_session_id } from 'proto-rust';
 import { Elm } from './Main.elm';
+import { collectFingerprintData } from './fingerprint.js';
 
 console.log("Horatio Client v1.0.0 - Ports Debug");
 
@@ -11,6 +12,17 @@ async function run() {
     } catch (e) {
         console.error("Failed to initialize WASM module:", e);
         return;
+    }
+
+    // Generate Session ID
+    try {
+        const fingerprintData = await collectFingerprintData();
+        const sessionId = create_session_id(JSON.stringify(fingerprintData));
+        window.HAMLET_SESSION_ID = sessionId;
+        console.log("Generated Session ID:", sessionId);
+    } catch (e) {
+        console.error("Failed to generate session ID:", e);
+        window.HAMLET_SESSION_ID = "fallback-session-id";
     }
 
     const app = Elm.Main.init({
@@ -63,6 +75,7 @@ async function run() {
                     headers: {
                         'Content-Type': 'application/json',
                         'X-RPC-Endpoint': endpoint,
+                        'X-Session-ID': window.HAMLET_SESSION_ID || 'unknown-session'
                     },
                     body: encodedBody,
                 })

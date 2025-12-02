@@ -8,15 +8,25 @@ pub mod models {
     pub mod tags;
     pub mod comments;
     pub mod feed;
+    pub mod fingerprint;
 }
 pub use models::common::*;
 pub use models::identity::*;
 pub use models::tags::*;
 pub use models::comments::*;
 pub use models::feed::*;
+pub mod fingerprint {
+    pub use crate::models::fingerprint::*;
+}
+pub use fingerprint::*;
 
 pub mod elm_export;
 pub use horatio_macro::{HoratioEndpoint, HoratioElm, HoratioContext};
+
+#[wasm_bindgen]
+pub fn create_session_id(fingerprint_data: String) -> String {
+    models::fingerprint::generate_fingerprint(fingerprint_data)
+}
 
 #[wasm_bindgen]
 pub fn encode_request(_endpoint: String, json_in: String) -> String {
