@@ -17,7 +17,7 @@
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "pg": "^8.11.3",
-    "proto-rust": "file:../../shared/proto-rust/pkg-node",
+    "proto-rust": "file:../../pkg-node",
     "swagger-ui-dist": "^5.30.3"
   },
   "devDependencies": {

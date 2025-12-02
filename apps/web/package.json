@@ -20,6 +20,6 @@
     "vite-plugin-wasm": "^3.3.0"
   },
   "dependencies": {
-    "proto-rust": "file:../../shared/proto-rust/pkg-web"
+    "proto-rust": "file:../../pkg-web"
   }
 }

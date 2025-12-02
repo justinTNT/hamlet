@@ -600,11 +600,11 @@ function _Debug_crash_UNUSED(identifier, fact1, fact2, fact3, fact4)
 
 function _Debug_regionToString(region)
 {
-	if (region.Y.D === region.ag.D)
+	if (region.Z.E === region.ag.E)
 	{
-		return 'on line ' + region.Y.D;
+		return 'on line ' + region.Z.E;
 	}
-	return 'on lines ' + region.Y.D + ' through ' + region.ag.D;
+	return 'on lines ' + region.Z.E + ' through ' + region.ag.E;
 }
 
 
@@ -2856,33 +2856,15 @@ var $author$project$Api$Backend$SubmitItem = function (a) {
 var $elm$json$Json$Decode$field = _Json_decodeField;
 var $elm$json$Json$Decode$map = _Json_map1;
 var $elm$json$Json$Decode$oneOf = _Json_oneOf;
-var $author$project$Api$Backend$SubmitCommentSlice = F5(
-	function (context, input, existingGuest, freshGuestId, freshCommentId) {
-		return {I: context, aj: existingGuest, am: freshCommentId, an: freshGuestId, L: input};
+var $author$project$Api$Backend$SubmitCommentReqBundle = F3(
+	function (context, input, data) {
+		return {J: context, x: data, M: input};
 	});
 var $elm$json$Json$Decode$andThen = _Json_andThen;
-var $author$project$Api$Backend$Guest = F2(
-	function (id, name) {
-		return {p: id, O: name};
+var $author$project$Api$Backend$StandardServerContext = F4(
+	function (requestId, sessionId, userId, host) {
+		return {j: host, aF: requestId, aI: sessionId, aM: userId};
 	});
-var $elm$json$Json$Decode$string = _Json_decodeString;
-var $author$project$Api$Backend$guestDecoder = A2(
-	$elm$json$Json$Decode$andThen,
-	function (x) {
-		return A2(
-			$elm$json$Json$Decode$map,
-			x,
-			A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string));
-	},
-	A2(
-		$elm$json$Json$Decode$andThen,
-		function (x) {
-			return A2(
-				$elm$json$Json$Decode$map,
-				x,
-				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string));
-		},
-		$elm$json$Json$Decode$succeed($author$project$Api$Backend$Guest)));
 var $elm$json$Json$Decode$null = _Json_decodeNull;
 var $elm$json$Json$Decode$nullable = function (decoder) {
 	return $elm$json$Json$Decode$oneOf(
@@ -2892,11 +2874,8 @@ var $elm$json$Json$Decode$nullable = function (decoder) {
 				A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, decoder)
 			]));
 };
-var $author$project$Api$Backend$ServerContext = F4(
-	function (requestId, sessionId, userId, host) {
-		return {j: host, aF: requestId, aI: sessionId, aM: userId};
-	});
-var $author$project$Api$Backend$serverContextDecoder = A2(
+var $elm$json$Json$Decode$string = _Json_decodeString;
+var $author$project$Api$Backend$standardServerContextDecoder = A2(
 	$elm$json$Json$Decode$andThen,
 	function (x) {
 		return A2(
@@ -2934,10 +2913,63 @@ var $author$project$Api$Backend$serverContextDecoder = A2(
 						x,
 						A2($elm$json$Json$Decode$field, 'request_id', $elm$json$Json$Decode$string));
 				},
-				$elm$json$Json$Decode$succeed($author$project$Api$Backend$ServerContext)))));
+				$elm$json$Json$Decode$succeed($author$project$Api$Backend$StandardServerContext)))));
+var $author$project$Api$Backend$SubmitCommentData = F3(
+	function (existingGuest, freshGuestId, freshCommentId) {
+		return {aj: existingGuest, am: freshCommentId, an: freshGuestId};
+	});
+var $author$project$Api$Backend$Guest = F2(
+	function (id, name) {
+		return {p: id, P: name};
+	});
+var $author$project$Api$Backend$guestDecoder = A2(
+	$elm$json$Json$Decode$andThen,
+	function (x) {
+		return A2(
+			$elm$json$Json$Decode$map,
+			x,
+			A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string));
+	},
+	A2(
+		$elm$json$Json$Decode$andThen,
+		function (x) {
+			return A2(
+				$elm$json$Json$Decode$map,
+				x,
+				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string));
+		},
+		$elm$json$Json$Decode$succeed($author$project$Api$Backend$Guest)));
+var $author$project$Api$Backend$submitCommentDataDecoder = A2(
+	$elm$json$Json$Decode$andThen,
+	function (x) {
+		return A2(
+			$elm$json$Json$Decode$map,
+			x,
+			A2($elm$json$Json$Decode$field, 'fresh_comment_id', $elm$json$Json$Decode$string));
+	},
+	A2(
+		$elm$json$Json$Decode$andThen,
+		function (x) {
+			return A2(
+				$elm$json$Json$Decode$map,
+				x,
+				A2($elm$json$Json$Decode$field, 'fresh_guest_id', $elm$json$Json$Decode$string));
+		},
+		A2(
+			$elm$json$Json$Decode$andThen,
+			function (x) {
+				return A2(
+					$elm$json$Json$Decode$map,
+					x,
+					A2(
+						$elm$json$Json$Decode$field,
+						'existing_guest',
+						$elm$json$Json$Decode$nullable($author$project$Api$Backend$guestDecoder)));
+			},
+			$elm$json$Json$Decode$succeed($author$project$Api$Backend$SubmitCommentData))));
 var $author$project$Api$Backend$SubmitCommentReq = F5(
 	function (host, itemId, parentId, text, authorName) {
-		return {H: authorName, j: host, M: itemId, Q: parentId, R: text};
+		return {I: authorName, j: host, N: itemId, R: parentId, S: text};
 	});
 var $author$project$Api$Backend$submitCommentReqDecoder = A2(
 	$elm$json$Json$Decode$andThen,
@@ -2986,13 +3018,13 @@ var $author$project$Api$Backend$submitCommentReqDecoder = A2(
 							A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
 					},
 					$elm$json$Json$Decode$succeed($author$project$Api$Backend$SubmitCommentReq))))));
-var $author$project$Api$Backend$submitCommentSliceDecoder = A2(
+var $author$project$Api$Backend$submitCommentReqBundleDecoder = A2(
 	$elm$json$Json$Decode$andThen,
 	function (x) {
 		return A2(
 			$elm$json$Json$Decode$map,
 			x,
-			A2($elm$json$Json$Decode$field, 'fresh_comment_id', $elm$json$Json$Decode$string));
+			A2($elm$json$Json$Decode$field, 'data', $author$project$Api$Backend$submitCommentDataDecoder));
 	},
 	A2(
 		$elm$json$Json$Decode$andThen,
@@ -3000,7 +3032,7 @@ var $author$project$Api$Backend$submitCommentSliceDecoder = A2(
 			return A2(
 				$elm$json$Json$Decode$map,
 				x,
-				A2($elm$json$Json$Decode$field, 'fresh_guest_id', $elm$json$Json$Decode$string));
+				A2($elm$json$Json$Decode$field, 'input', $author$project$Api$Backend$submitCommentReqDecoder));
 		},
 		A2(
 			$elm$json$Json$Decode$andThen,
@@ -3008,36 +3040,65 @@ var $author$project$Api$Backend$submitCommentSliceDecoder = A2(
 				return A2(
 					$elm$json$Json$Decode$map,
 					x,
-					A2(
-						$elm$json$Json$Decode$field,
-						'existing_guest',
-						$elm$json$Json$Decode$nullable($author$project$Api$Backend$guestDecoder)));
+					A2($elm$json$Json$Decode$field, 'context', $author$project$Api$Backend$standardServerContextDecoder));
 			},
-			A2(
-				$elm$json$Json$Decode$andThen,
-				function (x) {
-					return A2(
-						$elm$json$Json$Decode$map,
-						x,
-						A2($elm$json$Json$Decode$field, 'input', $author$project$Api$Backend$submitCommentReqDecoder));
-				},
-				A2(
-					$elm$json$Json$Decode$andThen,
-					function (x) {
-						return A2(
-							$elm$json$Json$Decode$map,
-							x,
-							A2($elm$json$Json$Decode$field, 'context', $author$project$Api$Backend$serverContextDecoder));
-					},
-					$elm$json$Json$Decode$succeed($author$project$Api$Backend$SubmitCommentSlice))))));
-var $author$project$Api$Backend$SubmitItemSlice = F4(
-	function (context, input, existingTags, freshTagIds) {
-		return {I: context, ak: existingTags, ao: freshTagIds, L: input};
+			$elm$json$Json$Decode$succeed($author$project$Api$Backend$SubmitCommentReqBundle))));
+var $author$project$Api$Backend$SubmitItemReqBundle = F3(
+	function (context, input, data) {
+		return {J: context, x: data, M: input};
+	});
+var $author$project$Api$Backend$SubmitItemData = F2(
+	function (existingTags, freshTagIds) {
+		return {ak: existingTags, ao: freshTagIds};
 	});
 var $elm$json$Json$Decode$list = _Json_decodeList;
+var $author$project$Api$Backend$Tag = F2(
+	function (id, name) {
+		return {p: id, P: name};
+	});
+var $author$project$Api$Backend$tagDecoder = A2(
+	$elm$json$Json$Decode$andThen,
+	function (x) {
+		return A2(
+			$elm$json$Json$Decode$map,
+			x,
+			A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string));
+	},
+	A2(
+		$elm$json$Json$Decode$andThen,
+		function (x) {
+			return A2(
+				$elm$json$Json$Decode$map,
+				x,
+				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string));
+		},
+		$elm$json$Json$Decode$succeed($author$project$Api$Backend$Tag)));
+var $author$project$Api$Backend$submitItemDataDecoder = A2(
+	$elm$json$Json$Decode$andThen,
+	function (x) {
+		return A2(
+			$elm$json$Json$Decode$map,
+			x,
+			A2(
+				$elm$json$Json$Decode$field,
+				'fresh_tag_ids',
+				$elm$json$Json$Decode$list($elm$json$Json$Decode$string)));
+	},
+	A2(
+		$elm$json$Json$Decode$andThen,
+		function (x) {
+			return A2(
+				$elm$json$Json$Decode$map,
+				x,
+				A2(
+					$elm$json$Json$Decode$field,
+					'existing_tags',
+					$elm$json$Json$Decode$list($author$project$Api$Backend$tagDecoder)));
+		},
+		$elm$json$Json$Decode$succeed($author$project$Api$Backend$SubmitItemData)));
 var $author$project$Api$Backend$SubmitItemReq = F7(
 	function (host, title, link, image, extract, ownerComment, tags) {
-		return {J: extract, j: host, K: image, N: link, P: ownerComment, A: tags, T: title};
+		return {K: extract, j: host, L: image, O: link, Q: ownerComment, B: tags, U: title};
 	});
 var $author$project$Api$Backend$submitItemReqDecoder = A2(
 	$elm$json$Json$Decode$andThen,
@@ -3099,17 +3160,13 @@ var $author$project$Api$Backend$submitItemReqDecoder = A2(
 									A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
 							},
 							$elm$json$Json$Decode$succeed($author$project$Api$Backend$SubmitItemReq))))))));
-var $author$project$Api$Backend$Tag = F2(
-	function (id, name) {
-		return {p: id, O: name};
-	});
-var $author$project$Api$Backend$tagDecoder = A2(
+var $author$project$Api$Backend$submitItemReqBundleDecoder = A2(
 	$elm$json$Json$Decode$andThen,
 	function (x) {
 		return A2(
 			$elm$json$Json$Decode$map,
 			x,
-			A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string));
+			A2($elm$json$Json$Decode$field, 'data', $author$project$Api$Backend$submitItemDataDecoder));
 	},
 	A2(
 		$elm$json$Json$Decode$andThen,
@@ -3117,30 +3174,7 @@ var $author$project$Api$Backend$tagDecoder = A2(
 			return A2(
 				$elm$json$Json$Decode$map,
 				x,
-				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string));
-		},
-		$elm$json$Json$Decode$succeed($author$project$Api$Backend$Tag)));
-var $author$project$Api$Backend$submitItemSliceDecoder = A2(
-	$elm$json$Json$Decode$andThen,
-	function (x) {
-		return A2(
-			$elm$json$Json$Decode$map,
-			x,
-			A2(
-				$elm$json$Json$Decode$field,
-				'fresh_tag_ids',
-				$elm$json$Json$Decode$list($elm$json$Json$Decode$string)));
-	},
-	A2(
-		$elm$json$Json$Decode$andThen,
-		function (x) {
-			return A2(
-				$elm$json$Json$Decode$map,
-				x,
-				A2(
-					$elm$json$Json$Decode$field,
-					'existing_tags',
-					$elm$json$Json$Decode$list($author$project$Api$Backend$tagDecoder)));
+				A2($elm$json$Json$Decode$field, 'input', $author$project$Api$Backend$submitItemReqDecoder));
 		},
 		A2(
 			$elm$json$Json$Decode$andThen,
@@ -3148,28 +3182,20 @@ var $author$project$Api$Backend$submitItemSliceDecoder = A2(
 				return A2(
 					$elm$json$Json$Decode$map,
 					x,
-					A2($elm$json$Json$Decode$field, 'input', $author$project$Api$Backend$submitItemReqDecoder));
+					A2($elm$json$Json$Decode$field, 'context', $author$project$Api$Backend$standardServerContextDecoder));
 			},
-			A2(
-				$elm$json$Json$Decode$andThen,
-				function (x) {
-					return A2(
-						$elm$json$Json$Decode$map,
-						x,
-						A2($elm$json$Json$Decode$field, 'context', $author$project$Api$Backend$serverContextDecoder));
-				},
-				$elm$json$Json$Decode$succeed($author$project$Api$Backend$SubmitItemSlice)))));
+			$elm$json$Json$Decode$succeed($author$project$Api$Backend$SubmitItemReqBundle))));
 var $author$project$Api$Backend$backendActionDecoder = $elm$json$Json$Decode$oneOf(
 	_List_fromArray(
 		[
 			A2(
 			$elm$json$Json$Decode$map,
 			$author$project$Api$Backend$SubmitItem,
-			A2($elm$json$Json$Decode$field, 'SubmitItem', $author$project$Api$Backend$submitItemSliceDecoder)),
+			A2($elm$json$Json$Decode$field, 'SubmitItem', $author$project$Api$Backend$submitItemReqBundleDecoder)),
 			A2(
 			$elm$json$Json$Decode$map,
 			$author$project$Api$Backend$SubmitComment,
-			A2($elm$json$Json$Decode$field, 'SubmitComment', $author$project$Api$Backend$submitCommentSliceDecoder))
+			A2($elm$json$Json$Decode$field, 'SubmitComment', $author$project$Api$Backend$submitCommentReqBundleDecoder))
 		]));
 var $elm$json$Json$Encode$object = function (pairs) {
 	return _Json_wrap(
@@ -3188,7 +3214,7 @@ var $elm$json$Json$Encode$string = _Json_wrap;
 var $author$project$Api$Backend$backendEffectEncoder = function (_enum) {
 	if (!_enum.$) {
 		var table = _enum.a.aK;
-		var data = _enum.a.ad;
+		var data = _enum.a.x;
 		return $elm$json$Json$Encode$object(
 			_List_fromArray(
 				[
@@ -3363,7 +3389,7 @@ var $author$project$Api$Backend$itemCommentEncoder = function (struct) {
 				$elm$json$Json$Encode$string(struct.p)),
 				_Utils_Tuple2(
 				'item_id',
-				$elm$json$Json$Encode$string(struct.M)),
+				$elm$json$Json$Encode$string(struct.N)),
 				_Utils_Tuple2(
 				'guest_id',
 				$elm$json$Json$Encode$string(struct.ap)),
@@ -3372,16 +3398,16 @@ var $author$project$Api$Backend$itemCommentEncoder = function (struct) {
 				A2(
 					$elm$core$Basics$composeL,
 					$elm$core$Maybe$withDefault($elm$json$Json$Encode$null),
-					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.Q)),
+					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.R)),
 				_Utils_Tuple2(
 				'author_name',
-				$elm$json$Json$Encode$string(struct.H)),
+				$elm$json$Json$Encode$string(struct.I)),
 				_Utils_Tuple2(
 				'text',
-				$elm$json$Json$Encode$string(struct.R)),
+				$elm$json$Json$Encode$string(struct.S)),
 				_Utils_Tuple2(
 				'timestamp',
-				$elm$json$Json$Encode$int(struct.S))
+				$elm$json$Json$Encode$int(struct.T))
 			]));
 };
 var $author$project$Api$Backend$microblogItemEncoder = function (struct) {
@@ -3393,28 +3419,28 @@ var $author$project$Api$Backend$microblogItemEncoder = function (struct) {
 				$elm$json$Json$Encode$string(struct.p)),
 				_Utils_Tuple2(
 				'title',
-				$elm$json$Json$Encode$string(struct.T)),
+				$elm$json$Json$Encode$string(struct.U)),
 				_Utils_Tuple2(
 				'link',
-				$elm$json$Json$Encode$string(struct.N)),
+				$elm$json$Json$Encode$string(struct.O)),
 				_Utils_Tuple2(
 				'image',
-				$elm$json$Json$Encode$string(struct.K)),
+				$elm$json$Json$Encode$string(struct.L)),
 				_Utils_Tuple2(
 				'extract',
-				$elm$json$Json$Encode$string(struct.J)),
+				$elm$json$Json$Encode$string(struct.K)),
 				_Utils_Tuple2(
 				'owner_comment',
-				$elm$json$Json$Encode$string(struct.P)),
+				$elm$json$Json$Encode$string(struct.Q)),
 				_Utils_Tuple2(
 				'tags',
-				$elm$json$Json$Encode$list($elm$json$Json$Encode$string)(struct.A)),
+				$elm$json$Json$Encode$list($elm$json$Json$Encode$string)(struct.B)),
 				_Utils_Tuple2(
 				'comments',
-				$elm$json$Json$Encode$list($author$project$Api$Backend$itemCommentEncoder)(struct.ac)),
+				$elm$json$Json$Encode$list($author$project$Api$Backend$itemCommentEncoder)(struct.ad)),
 				_Utils_Tuple2(
 				'timestamp',
-				$elm$json$Json$Encode$int(struct.S))
+				$elm$json$Json$Encode$int(struct.T))
 			]));
 };
 var $author$project$Api$Backend$submitCommentResEncoder = function (struct) {
@@ -3423,13 +3449,13 @@ var $author$project$Api$Backend$submitCommentResEncoder = function (struct) {
 			[
 				_Utils_Tuple2(
 				'comment',
-				$author$project$Api$Backend$itemCommentEncoder(struct.ab))
+				$author$project$Api$Backend$itemCommentEncoder(struct.ac))
 			]));
 };
 var $author$project$Logic$handleAction = function (action) {
 	if (!action.$) {
 		var slice = action.a;
-		var item = {ac: _List_Nil, J: slice.L.J, p: slice.I.aF, K: slice.L.K, N: slice.L.N, P: slice.L.P, A: slice.L.A, S: 0, T: slice.L.T};
+		var item = {ad: _List_Nil, K: slice.M.K, p: slice.J.aF, L: slice.M.L, O: slice.M.O, Q: slice.M.Q, B: slice.M.B, T: 0, U: slice.M.U};
 		var itemJson = A2(
 			$elm$json$Json$Encode$encode,
 			0,
@@ -3441,28 +3467,28 @@ var $author$project$Logic$handleAction = function (action) {
 						$elm$json$Json$Encode$string(item.p)),
 						_Utils_Tuple2(
 						'title',
-						$elm$json$Json$Encode$string(item.T)),
+						$elm$json$Json$Encode$string(item.U)),
 						_Utils_Tuple2(
 						'link',
-						$elm$json$Json$Encode$string(item.N)),
+						$elm$json$Json$Encode$string(item.O)),
 						_Utils_Tuple2(
 						'image',
-						$elm$json$Json$Encode$string(item.K)),
+						$elm$json$Json$Encode$string(item.L)),
 						_Utils_Tuple2(
 						'extract',
-						$elm$json$Json$Encode$string(item.J)),
+						$elm$json$Json$Encode$string(item.K)),
 						_Utils_Tuple2(
 						'owner_comment',
-						$elm$json$Json$Encode$string(item.P)),
+						$elm$json$Json$Encode$string(item.Q)),
 						_Utils_Tuple2(
 						'timestamp',
-						$elm$json$Json$Encode$int(item.S)),
+						$elm$json$Json$Encode$int(item.T)),
 						_Utils_Tuple2(
 						'host',
-						$elm$json$Json$Encode$string(slice.I.j))
+						$elm$json$Json$Encode$string(slice.J.j))
 					])));
 		var itemEffect = $author$project$Api$Backend$Insert(
-			{ad: itemJson, aK: 'microblog_items'});
+			{x: itemJson, aK: 'microblog_items'});
 		var logJson = A2(
 			$elm$json$Json$Encode$encode,
 			0,
@@ -3471,20 +3497,20 @@ var $author$project$Logic$handleAction = function (action) {
 					[
 						_Utils_Tuple2(
 						'msg',
-						$elm$json$Json$Encode$string('Submitting item \'' + (item.T + '\''))),
+						$elm$json$Json$Encode$string('Submitting item \'' + (item.U + '\''))),
 						_Utils_Tuple2(
 						'request_id',
-						$elm$json$Json$Encode$string(slice.I.aF)),
+						$elm$json$Json$Encode$string(slice.J.aF)),
 						_Utils_Tuple2(
 						'item_id',
 						$elm$json$Json$Encode$string(item.p)),
 						_Utils_Tuple2(
 						'tag_count',
 						$elm$json$Json$Encode$int(
-							$elm$core$List$length(item.A))),
+							$elm$core$List$length(item.B))),
 						_Utils_Tuple2(
 						'host',
-						$elm$json$Json$Encode$string(slice.I.j))
+						$elm$json$Json$Encode$string(slice.J.j))
 					])));
 		var logEffect = $author$project$Api$Backend$Log(logJson);
 		var responseJson = A2(
@@ -3508,7 +3534,7 @@ var $author$project$Logic$handleAction = function (action) {
 						A2(
 							$elm$core$List$filter,
 							function (t) {
-								return _Utils_eq(t.O, name);
+								return _Utils_eq(t.P, name);
 							},
 							tags)));
 			});
@@ -3518,7 +3544,7 @@ var $author$project$Logic$handleAction = function (action) {
 				function (tagName, _v2) {
 					var effects = _v2.a;
 					var remainingIds = _v2.b;
-					var _v3 = A2(findTagId, tagName, slice.ak);
+					var _v3 = A2(findTagId, tagName, slice.x.ak);
 					if (!_v3.$) {
 						var id = _v3.a;
 						var linkData = A2(
@@ -3535,7 +3561,7 @@ var $author$project$Logic$handleAction = function (action) {
 										$elm$json$Json$Encode$string(id))
 									])));
 						var linkEffect = $author$project$Api$Backend$Insert(
-							{ad: linkData, aK: 'item_tags'});
+							{x: linkData, aK: 'item_tags'});
 						return _Utils_Tuple2(
 							A2($elm$core$List$cons, linkEffect, effects),
 							remainingIds);
@@ -3557,10 +3583,10 @@ var $author$project$Logic$handleAction = function (action) {
 											$elm$json$Json$Encode$string(tagName)),
 											_Utils_Tuple2(
 											'host',
-											$elm$json$Json$Encode$string(slice.I.j))
+											$elm$json$Json$Encode$string(slice.J.j))
 										])));
 							var tagEffect = $author$project$Api$Backend$Insert(
-								{ad: tagData, aK: 'tags'});
+								{x: tagData, aK: 'tags'});
 							var linkData = A2(
 								$elm$json$Json$Encode$encode,
 								0,
@@ -3575,7 +3601,7 @@ var $author$project$Logic$handleAction = function (action) {
 											$elm$json$Json$Encode$string(newId))
 										])));
 							var linkEffect = $author$project$Api$Backend$Insert(
-								{ad: linkData, aK: 'item_tags'});
+								{x: linkData, aK: 'item_tags'});
 							return _Utils_Tuple2(
 								A2(
 									$elm$core$List$cons,
@@ -3587,8 +3613,8 @@ var $author$project$Logic$handleAction = function (action) {
 						}
 					}
 				}),
-			_Utils_Tuple2(_List_Nil, slice.ao),
-			slice.L.A);
+			_Utils_Tuple2(_List_Nil, slice.x.ao),
+			slice.M.B);
 		var tagEffects = _v1.a;
 		return {
 			af: A2(
@@ -3601,12 +3627,12 @@ var $author$project$Logic$handleAction = function (action) {
 	} else {
 		var slice = action.a;
 		var _v5 = function () {
-			var _v6 = slice.aj;
+			var _v6 = slice.x.aj;
 			if (!_v6.$) {
 				var guest = _v6.a;
-				return _Utils_Tuple3(_List_Nil, guest.p, guest.O);
+				return _Utils_Tuple3(_List_Nil, guest.p, guest.P);
 			} else {
-				var _v7 = slice.L.H;
+				var _v7 = slice.M.I;
 				if (!_v7.$) {
 					var name = _v7.a;
 					var guestData = A2(
@@ -3617,20 +3643,20 @@ var $author$project$Logic$handleAction = function (action) {
 								[
 									_Utils_Tuple2(
 									'id',
-									$elm$json$Json$Encode$string(slice.an)),
+									$elm$json$Json$Encode$string(slice.x.an)),
 									_Utils_Tuple2(
 									'name',
 									$elm$json$Json$Encode$string(name)),
 									_Utils_Tuple2(
 									'host',
-									$elm$json$Json$Encode$string(slice.I.j))
+									$elm$json$Json$Encode$string(slice.J.j))
 								])));
 					var insertGuest = $author$project$Api$Backend$Insert(
-						{ad: guestData, aK: 'guests'});
+						{x: guestData, aK: 'guests'});
 					return _Utils_Tuple3(
 						_List_fromArray(
 							[insertGuest]),
-						slice.an,
+						slice.x.an,
 						name);
 				} else {
 					return _Utils_Tuple3(_List_Nil, '', '');
@@ -3645,25 +3671,25 @@ var $author$project$Logic$handleAction = function (action) {
 				[
 					_Utils_Tuple2(
 					'id',
-					$elm$json$Json$Encode$string(slice.am)),
+					$elm$json$Json$Encode$string(slice.x.am)),
 					_Utils_Tuple2(
 					'host',
-					$elm$json$Json$Encode$string(slice.I.j)),
+					$elm$json$Json$Encode$string(slice.J.j)),
 					_Utils_Tuple2(
 					'item_id',
-					$elm$json$Json$Encode$string(slice.L.M)),
+					$elm$json$Json$Encode$string(slice.M.N)),
 					_Utils_Tuple2(
 					'guest_id',
 					$elm$json$Json$Encode$string(guestId)),
 					_Utils_Tuple2(
 					'text',
-					$elm$json$Json$Encode$string(slice.L.R)),
+					$elm$json$Json$Encode$string(slice.M.S)),
 					_Utils_Tuple2(
 					'timestamp',
 					$elm$json$Json$Encode$int(0))
 				]);
 			var fields = function () {
-				var _v8 = slice.L.Q;
+				var _v8 = slice.M.R;
 				if (!_v8.$) {
 					var pid = _v8.a;
 					return A2(
@@ -3682,7 +3708,7 @@ var $author$project$Logic$handleAction = function (action) {
 				$elm$json$Json$Encode$object(fields));
 		}();
 		var commentEffect = $author$project$Api$Backend$Insert(
-			{ad: commentData, aK: 'item_comments'});
+			{x: commentData, aK: 'item_comments'});
 		var logJson = A2(
 			$elm$json$Json$Encode$encode,
 			0,
@@ -3694,22 +3720,22 @@ var $author$project$Logic$handleAction = function (action) {
 						$elm$json$Json$Encode$string('Submitting comment')),
 						_Utils_Tuple2(
 						'request_id',
-						$elm$json$Json$Encode$string(slice.I.aF)),
+						$elm$json$Json$Encode$string(slice.J.aF)),
 						_Utils_Tuple2(
 						'item_id',
-						$elm$json$Json$Encode$string(slice.L.M)),
+						$elm$json$Json$Encode$string(slice.M.N)),
 						_Utils_Tuple2(
 						'guest_id',
 						$elm$json$Json$Encode$string(guestId))
 					])));
 		var logEffect = $author$project$Api$Backend$Log(logJson);
-		var comment = {H: guestName, ap: guestId, p: slice.am, M: slice.L.M, Q: slice.L.Q, R: slice.L.R, S: 0};
+		var comment = {I: guestName, ap: guestId, p: slice.x.am, N: slice.M.N, R: slice.M.R, S: slice.M.S, T: 0};
 		var responseJson = A2(
 			$elm$json$Json$Encode$encode,
 			0,
 			$author$project$Api$Backend$submitCommentResEncoder(
-				{ab: comment}));
-		return (_Utils_eq(slice.aj, $elm$core$Maybe$Nothing) && _Utils_eq(slice.L.H, $elm$core$Maybe$Nothing)) ? {
+				{ac: comment}));
+		return (_Utils_eq(slice.x.aj, $elm$core$Maybe$Nothing) && _Utils_eq(slice.M.I, $elm$core$Maybe$Nothing)) ? {
 			af: _List_Nil,
 			ah: $elm$core$Maybe$Just('Name required for first-time commenters'),
 			aG: $elm$core$Maybe$Nothing

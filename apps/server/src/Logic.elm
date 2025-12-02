@@ -100,7 +100,7 @@ handleAction action =
                 (tagEffects, _) =
                     slice.input.tags
                         |> List.foldl (\tagName (effects, remainingIds) ->
-                            case findTagId tagName slice.existingTags of
+                            case findTagId tagName slice.data.existingTags of
                                 Just id ->
                                     -- Link existing
                                     let
@@ -145,7 +145,7 @@ handleAction action =
                                             -- Should not happen if Node.js provides enough IDs
                                             (effects, [])
 
-                        ) ([], slice.freshTagIds)
+                        ) ([], slice.data.freshTagIds)
 
                 -- 3. Construct Response
                 responseJson = 
@@ -174,7 +174,7 @@ handleAction action =
             let
                 -- 1. Determine Guest
                 (guestEffects, guestId, guestName) =
-                    case slice.existingGuest of
+                    case slice.data.existingGuest of
                         Just guest ->
                             ([], guest.id, guest.name)
                         
@@ -184,7 +184,7 @@ handleAction action =
                                     let
                                         guestData =
                                             Encode.object
-                                                [ ("id", Encode.string slice.freshGuestId)
+                                                [ ("id", Encode.string slice.data.freshGuestId)
                                                 , ("name", Encode.string name)
                                                 , ("host", Encode.string slice.context.host)
                                                 ]
@@ -193,7 +193,7 @@ handleAction action =
                                         insertGuest =
                                             Api.Backend.Insert { table = "guests", data = guestData }
                                     in
-                                    ([insertGuest], slice.freshGuestId, name)
+                                    ([insertGuest], slice.data.freshGuestId, name)
                                 
                                 Nothing ->
                                     ([], "", "") -- Error case handled below
@@ -202,7 +202,7 @@ handleAction action =
                 commentData =
                     let
                         baseFields =
-                            [ ("id", Encode.string slice.freshCommentId)
+                            [ ("id", Encode.string slice.data.freshCommentId)
                             , ("host", Encode.string slice.context.host)
                             , ("item_id", Encode.string slice.input.itemId)
                             , ("guest_id", Encode.string guestId)
@@ -235,7 +235,7 @@ handleAction action =
 
                 -- 4. Construct Response
                 comment =
-                    { id = slice.freshCommentId
+                    { id = slice.data.freshCommentId
                     , itemId = slice.input.itemId
                     , guestId = guestId
                     , parentId = slice.input.parentId
@@ -248,7 +248,7 @@ handleAction action =
                     Api.Backend.submitCommentResEncoder { comment = comment }
                         |> Encode.encode 0
             in
-            if slice.existingGuest == Nothing && slice.input.authorName == Nothing then
+            if slice.data.existingGuest == Nothing && slice.input.authorName == Nothing then
                 { effects = []
                 , response = Nothing
                 , error = Just "Name required for first-time commenters"

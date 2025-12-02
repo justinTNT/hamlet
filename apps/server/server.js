@@ -7,10 +7,48 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 import crypto from 'node:crypto';
 import fs from 'fs';
-import * as wasm from '../../shared/proto-rust/pkg-node/proto_rust.js';
-const { dispatcher } = require('../../shared/proto-rust/pkg-node/proto_rust.js');
+import * as wasm from '../../pkg-node/proto_rust.js';
+const { dispatcher } = require('../../pkg-node/proto_rust.js');
 const { Elm } = require('./elm-logic.cjs');
-const { encode_response, get_openapi_spec } = wasm;
+const { encode_response, get_openapi_spec, get_context_manifest, get_endpoint_manifest } = wasm;
+
+const contextManifest = JSON.parse(get_context_manifest());
+const endpointManifest = JSON.parse(get_endpoint_manifest());
+
+console.log("Loaded Context Manifest:", contextManifest.length, "items");
+console.log("Loaded Endpoint Manifest:", endpointManifest.length, "items");
+
+async function hydrateContext(endpoint, wireRequest, serverContext) {
+    const endpointDef = endpointManifest.find(e => e.endpoint === endpoint);
+    if (!endpointDef || !endpointDef.context_type) {
+        return { context: serverContext, input: wireRequest };
+    }
+    const contextType = endpointDef.context_type;
+    const contextDefs = contextManifest.filter(c => c.type === contextType);
+
+    const data = {};
+
+    for (const def of contextDefs) {
+        if (def.source === "table:tags") {
+            const res = await pool.query('SELECT id, name FROM tags WHERE host = $1', [serverContext.host]);
+            data[def.field] = res.rows;
+        } else if (def.source === "table:guests:by_session") {
+            const sessionId = serverContext.session_id;
+            if (sessionId) {
+                const res = await pool.query('SELECT * FROM guests WHERE id = $1', [sessionId]);
+                data[def.field] = res.rows.length > 0 ? res.rows[0] : null;
+            } else {
+                data[def.field] = null;
+            }
+        }
+    }
+
+    return {
+        context: serverContext,
+        input: wireRequest,
+        data: data
+    };
+}
 
 const app = express();
 const port = 3000;
@@ -200,30 +238,19 @@ app.post(['/api', '/:endpoint'], async (req, res) => {
             responseData = { tags: result.rows.map(r => r.name) };
 
         } else if (endpoint === "SubmitItem") {
-            // 1. Context: Fetch existing tags
-            const tagsResult = await pool.query(
-                'SELECT id, name FROM tags WHERE host = $1',
-                [host]
-            );
-            const existingTags = tagsResult.rows;
+            // 1. Hydrate Context (Declarative)
+            const bundle = await hydrateContext(endpoint, wireRequest, {
+                request_id: crypto.randomUUID(),
+                session_id: null,
+                user_id: null,
+                host: host
+            });
 
-            // 2. Construct Slice
-            // wireRequest is already an object due to bodyParser.json()
+            // 2. Add Generated Data (Imperative)
             const inputTags = wireRequest.tags || [];
-            const freshTagIds = inputTags.map(() => crypto.randomUUID());
-            const requestId = crypto.randomUUID();
+            bundle.data.fresh_tag_ids = inputTags.map(() => crypto.randomUUID());
 
-            const slice = {
-                context: {
-                    request_id: requestId,
-                    session_id: null, // TODO: Extract from headers
-                    user_id: null,    // TODO: Extract from auth
-                    host: host
-                },
-                input: wireRequest,
-                existing_tags: existingTags,
-                fresh_tag_ids: freshTagIds
-            };
+            const slice = bundle; // Alias for consistency
 
             // 3. Call Elm
             const output = await new Promise((resolve) => {
@@ -293,36 +320,19 @@ app.post(['/api', '/:endpoint'], async (req, res) => {
             }
             const sessionId = req.get('X-Session-ID') || 'unknown-session'; // Simple Session ID
 
-            // 1. Fetch Context (Existing Guest)
-            // Assuming session_id maps to guest_id for now (Soft Identity)
-            const client = await pool.connect();
-            let existingGuest = null;
-            try {
-                const res = await client.query('SELECT * FROM guests WHERE id = $1', [sessionId]);
-                if (res.rows.length > 0) {
-                    existingGuest = res.rows[0];
-                }
-            } finally {
-                client.release();
-            }
+            // 1. Hydrate Context (Declarative)
+            const bundle = await hydrateContext(endpoint, wireRequest, {
+                request_id: crypto.randomUUID(),
+                session_id: sessionId,
+                user_id: null,
+                host: host
+            });
 
-            // 2. Construct Slice
-            const freshGuestId = sessionId; // Use session ID as guest ID
-            const freshCommentId = crypto.randomUUID();
-            const requestId = crypto.randomUUID();
+            // 2. Add Generated Data (Imperative)
+            bundle.data.fresh_guest_id = sessionId;
+            bundle.data.fresh_comment_id = crypto.randomUUID();
 
-            const slice = {
-                context: {
-                    request_id: requestId,
-                    session_id: sessionId,
-                    user_id: null,
-                    host: host
-                },
-                input: wireRequest,
-                existing_guest: existingGuest,
-                fresh_guest_id: freshGuestId,
-                fresh_comment_id: freshCommentId
-            };
+            const slice = bundle;
 
             // 3. Call Elm
             const output = await new Promise((resolve) => {
@@ -403,4 +413,3 @@ runMigrations().then(() => {
         console.log(`Horatio Backend running at http://localhost:${port}`);
     });
 });
-

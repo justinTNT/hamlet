@@ -4,6 +4,17 @@ use syn::{parse_macro_input, DeriveInput, Data, Fields, Ident};
 use syn::spanned::Spanned;
 
 mod slice;
+mod buildamp_macros;
+
+#[proc_macro_attribute]
+pub fn buildamp_domain(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp_domain(attr, item)
+}
+
+#[proc_macro_attribute]
+pub fn buildamp_api(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp_api(attr, item)
+}
 
 #[proc_macro_derive(HoratioEndpoint, attributes(api))]
 pub fn derive_horatio_endpoint(input: TokenStream) -> TokenStream {
@@ -31,7 +42,7 @@ pub fn derive_horatio_endpoint(input: TokenStream) -> TokenStream {
                     endpoint_path = content.value();
                     return Ok(());
                 }
-                if meta.path.is_ident("bundle_with") {
+                if meta.path.is_ident("bundle_with") || meta.path.is_ident("server_context") {
                     generate_bundle = true;
                     // compile_error!("Found bundle_with!"); 
                     if let Ok(value) = meta.value() {
@@ -302,7 +313,7 @@ pub fn derive_horatio_endpoint(input: TokenStream) -> TokenStream {
 
     let bundle_struct = if generate_bundle {
         let bundle_name = Ident::new(&format!("{}Bundle", name), name.span());
-        let data_field = if let Some(data) = bundle_data {
+        let data_field = if let Some(ref data) = bundle_data {
             let data_ident = Ident::new(&data, name.span());
             quote! {
                 #[serde(flatten)]
@@ -312,9 +323,9 @@ pub fn derive_horatio_endpoint(input: TokenStream) -> TokenStream {
              quote! {}
         };
         quote! {
-            #[derive(serde::Serialize, serde::Deserialize, Debug, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, crate::HoratioElm)]
+            #[derive(serde::Serialize, serde::Deserialize, Debug, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, proto_rust::HoratioElm)]
             pub struct #bundle_name {
-                pub context: crate::ServerContext,
+                pub context: proto_rust::ServerContext,
                 pub input: #name,
                 #data_field
             }
@@ -324,9 +335,15 @@ pub fn derive_horatio_endpoint(input: TokenStream) -> TokenStream {
         quote! {}
     };
 
+    let context_type_option = if let Some(data) = &bundle_data {
+        quote! { Some(#data) }
+    } else {
+        quote! { None }
+    };
+
     let expanded = quote! {
         impl #name {
-            pub fn validate(&mut self, _context: &crate::Context) -> Result<(), String> {
+            pub fn validate(&mut self, _context: &proto_rust::Context) -> Result<(), String> {
                 #(#validation_checks)*
                 Ok(())
             }
@@ -352,6 +369,14 @@ pub fn derive_horatio_endpoint(input: TokenStream) -> TokenStream {
         }
 
         #bundle_struct
+
+        inventory::submit! {
+            proto_rust::elm_export::EndpointDefinition {
+                endpoint: #endpoint_path,
+                request_type: stringify!(#name),
+                context_type: #context_type_option,
+            }
+        }
     };
     TokenStream::from(expanded)
 }
@@ -501,23 +526,68 @@ pub fn derive_horatio_elm(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         inventory::submit! {
-            crate::elm_export::ElmDefinition {
+            proto_rust::elm_export::ElmDefinition {
                 name: stringify!(#name),
                 get_def: <#name as elm_rs::Elm>::elm_definition,
             }
         }
         inventory::submit! {
-            crate::elm_export::ElmEncoder {
+            proto_rust::elm_export::ElmEncoder {
                 name: stringify!(#name),
                 get_enc: <#name as elm_rs::ElmEncode>::encoder_definition,
             }
         }
         inventory::submit! {
-            crate::elm_export::ElmDecoder {
+            proto_rust::elm_export::ElmDecoder {
                 name: stringify!(#name),
                 get_dec: <#name as elm_rs::ElmDecode>::decoder_definition,
             }
         }
+    };
+    TokenStream::from(expanded)
+}
+#[proc_macro_derive(HoratioContext, attributes(dependency))]
+pub fn derive_horatio_context(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = input.ident;
+    let name_str = name.to_string();
+
+    let mut context_registrations = Vec::new();
+
+    if let Data::Struct(data) = input.data {
+        if let Fields::Named(fields) = data.fields {
+            for field in fields.named {
+                let field_name = field.ident.unwrap();
+                let field_name_str = field_name.to_string();
+
+                for attr in field.attrs {
+                    if attr.path().is_ident("dependency") {
+                        let _ = attr.parse_nested_meta(|meta| {
+                            if meta.path.is_ident("source") {
+                                let content: syn::LitStr = meta.value()?.parse()?;
+                                let source = content.value();
+                                
+                                context_registrations.push(quote! {
+                                    inventory::submit! {
+                                        proto_rust::elm_export::ContextDefinition {
+                                            type_name: #name_str,
+                                            field_name: #field_name_str,
+                                            source: #source,
+                                        }
+                                    }
+                                });
+                                return Ok(());
+                            }
+                            Ok(())
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    let expanded = quote! {
+        #(#context_registrations)*
     };
     TokenStream::from(expanded)
 }

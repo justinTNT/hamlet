@@ -20,7 +20,7 @@ fn test_submit_item_validation() {
     // 2. Invalid Request (Empty Title)
     let mut invalid_req = SubmitItemReq {
         host: "example.com".to_string(),
-        title: "".to_string(), // Should fail #[horatio(Required)]
+        title: "".to_string(), // Should fail #[api(Required)]
         link: "http://example.com".to_string(),
         image: "".to_string(),
         extract: "".to_string(),
@@ -34,9 +34,9 @@ fn test_submit_item_validation() {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
-#[horatio(path = "TestMinLength")]
+#[api(path = "TestMinLength")]
 pub struct TestMinLengthReq {
-    #[horatio(MinLength(3))]
+    #[api(MinLength(3))]
     pub code: String,
 }
 
@@ -56,9 +56,9 @@ fn test_min_length() {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
-#[horatio(path = "TestEmail")]
+#[api(path = "TestEmail")]
 pub struct TestEmailReq {
-    #[horatio(Email)]
+    #[api(Email)]
     pub email: String,
 }
 
@@ -78,7 +78,7 @@ fn test_email() {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
-#[horatio(path = "TestAuth", Auth)]
+#[api(path = "TestAuth", Auth)]
 pub struct TestAuthReq {
     pub data: String,
 }
@@ -100,9 +100,9 @@ fn test_auth() {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
-#[horatio(path = "TestTrim")]
+#[api(path = "TestTrim")]
 pub struct TestTrimReq {
-    #[horatio(Trim)]
+    #[api(Trim)]
     pub name: String,
 }
 
@@ -116,9 +116,9 @@ fn test_trim() {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
-#[horatio(path = "TestInject")]
+#[api(path = "TestInject")]
 pub struct TestInjectReq {
-    #[horatio(Inject = "user_id")]
+    #[api(Inject = "user_id")]
     pub user: Option<String>,
 }
 
@@ -134,9 +134,9 @@ fn test_inject() {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
-#[horatio(path = "TestReadOnly")]
+#[api(path = "TestReadOnly")]
 pub struct TestReadOnlyReq {
-    #[horatio(ReadOnly)]
+    #[api(ReadOnly)]
     pub system_flag: bool,
 }
 
@@ -150,9 +150,9 @@ fn test_read_only() {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
-#[horatio(path = "TestUrl")]
+#[api(path = "TestUrl")]
 pub struct TestUrlReq {
-    #[horatio(Url)]
+    #[api(Url)]
     pub link: String,
 }
 
@@ -182,11 +182,11 @@ fn test_url() {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
-#[horatio(path = "TestMaxLen")]
+#[api(path = "TestMaxLen")]
 pub struct TestMaxLenReq {
-    #[horatio(MaxLength(5))]
+    #[api(MaxLength(5))]
     pub text: String,
-    #[horatio(MaxLength(2))]
+    #[api(MaxLength(2))]
     pub list: Vec<String>,
 }
 
@@ -221,7 +221,7 @@ fn test_max_length() {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
-#[horatio(path = "TestExtensionOnly", ExtensionOnly)]
+#[api(path = "TestExtensionOnly", ExtensionOnly)]
 pub struct TestExtensionOnlyReq {
     pub data: String,
 }
@@ -243,13 +243,13 @@ fn test_extension_only() {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, HoratioEndpoint)]
-#[horatio(path = "TestDefault")]
+#[api(path = "TestDefault")]
 pub struct TestDefaultReq {
     #[serde(default)]
-    #[horatio(Default = "default_val")]
+    #[api(Default = "default_val")]
     pub field1: String,
     
-    #[horatio(Default = "opt_default")]
+    #[api(Default = "opt_default")]
     pub field2: Option<String>,
 }
 

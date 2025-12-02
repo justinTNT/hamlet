@@ -5,7 +5,7 @@ use elm_rs::{Elm, ElmEncode, ElmDecode};
 
 #[test]
 fn generate_elm_types() {
-    let path = "../../apps/server/src/Api/Backend.elm";
+    let path = "apps/server/src/Api/Backend.elm";
     let mut file = File::create(path).expect("Failed to create file");
     
     writeln!(file, "module Api.Backend exposing (..)").unwrap();
@@ -54,7 +54,7 @@ fn generate_elm_types() {
     }
 
     // Generate Schema for Web App
-    let schema_path = "../../apps/web/src/Api/Schema.elm";
+    let schema_path = "apps/web/src/Api/Schema.elm";
     let mut schema_file = File::create(schema_path).expect("Failed to create schema file");
     
     writeln!(schema_file, "module Api.Schema exposing (..)").unwrap();
