@@ -60,13 +60,13 @@ handleAction action =
                 item : Api.Backend.MicroblogItem
                 item =
                     { id = slice.context.requestId
-                    , host = slice.context.host
                     , title = slice.input.title
                     , link = slice.input.link
                     , image = slice.input.image
                     , extract = slice.input.extract
                     , ownerComment = slice.input.ownerComment
                     , tags = slice.input.tags
+                    , comments = []
                     , timestamp = 0 -- Placeholder
                     }
 
@@ -169,6 +169,95 @@ handleAction action =
             , response = Just responseJson
             , error = Nothing
             }
+
+        SubmitComment slice ->
+            let
+                -- 1. Determine Guest
+                (guestEffects, guestId, guestName) =
+                    case slice.existingGuest of
+                        Just guest ->
+                            ([], guest.id, guest.name)
+                        
+                        Nothing ->
+                            case slice.input.authorName of
+                                Just name ->
+                                    let
+                                        guestData =
+                                            Encode.object
+                                                [ ("id", Encode.string slice.freshGuestId)
+                                                , ("name", Encode.string name)
+                                                , ("host", Encode.string slice.context.host)
+                                                ]
+                                            |> Encode.encode 0
+                                        
+                                        insertGuest =
+                                            Api.Backend.Insert { table = "guests", data = guestData }
+                                    in
+                                    ([insertGuest], slice.freshGuestId, name)
+                                
+                                Nothing ->
+                                    ([], "", "") -- Error case handled below
+
+                -- 2. Create Comment
+                commentData =
+                    let
+                        baseFields =
+                            [ ("id", Encode.string slice.freshCommentId)
+                            , ("host", Encode.string slice.context.host)
+                            , ("item_id", Encode.string slice.input.itemId)
+                            , ("guest_id", Encode.string guestId)
+                            , ("text", Encode.string slice.input.text)
+                            , ("timestamp", Encode.int 0) -- Placeholder
+                            ]
+                        
+                        fields =
+                            case slice.input.parentId of
+                                Just pid -> ("parent_id", Encode.string pid) :: baseFields
+                                Nothing -> baseFields
+                    in
+                    Encode.object fields
+                    |> Encode.encode 0
+                
+                commentEffect =
+                    Api.Backend.Insert { table = "item_comments", data = commentData }
+
+                -- 3. Log Intent
+                logJson =
+                    Encode.object
+                        [ ( "msg", Encode.string "Submitting comment" )
+                        , ( "request_id", Encode.string slice.context.requestId )
+                        , ( "item_id", Encode.string slice.input.itemId )
+                        , ( "guest_id", Encode.string guestId )
+                        ]
+                    |> Encode.encode 0
+                
+                logEffect = Api.Backend.Log logJson
+
+                -- 4. Construct Response
+                comment =
+                    { id = slice.freshCommentId
+                    , itemId = slice.input.itemId
+                    , guestId = guestId
+                    , parentId = slice.input.parentId
+                    , authorName = guestName
+                    , text = slice.input.text
+                    , timestamp = 0
+                    }
+                
+                responseJson =
+                    Api.Backend.submitCommentResEncoder { comment = comment }
+                        |> Encode.encode 0
+            in
+            if slice.existingGuest == Nothing && slice.input.authorName == Nothing then
+                { effects = []
+                , response = Nothing
+                , error = Just "Name required for first-time commenters"
+                }
+            else
+                { effects = logEffect :: commentEffect :: guestEffects
+                , response = Just responseJson
+                , error = Nothing
+                }
 
 -- SUBSCRIPTIONS
 

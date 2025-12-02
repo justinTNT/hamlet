@@ -13,6 +13,12 @@ type alias ServerContext =
     }
 
 
+type alias Guest =
+    { id : String
+    , name : String
+    }
+
+
 type alias Tag =
     { id : String
     , name : String
@@ -21,13 +27,13 @@ type alias Tag =
 
 type alias MicroblogItem =
     { id : String
-    , host : String
     , title : String
     , link : String
     , image : String
     , extract : String
     , ownerComment : String
     , tags : List (String)
+    , comments : List (ItemComment)
     , timestamp : Int
     }
 
@@ -43,6 +49,11 @@ type alias SubmitItemReq =
     }
 
 
+type alias SubmitItemRes =
+    { item : MicroblogItem
+    }
+
+
 type alias SubmitItemSlice =
     { context : ServerContext
     , input : SubmitItemReq
@@ -51,8 +62,18 @@ type alias SubmitItemSlice =
     }
 
 
+type alias SubmitCommentSlice =
+    { context : ServerContext
+    , input : SubmitCommentReq
+    , existingGuest : Maybe (Guest)
+    , freshGuestId : String
+    , freshCommentId : String
+    }
+
+
 type BackendAction
     = SubmitItem (SubmitItemSlice)
+    | SubmitComment (SubmitCommentSlice)
 
 
 type BackendEffect
@@ -71,6 +92,8 @@ type alias ItemComment =
     { id : String
     , itemId : String
     , guestId : String
+    , parentId : Maybe (String)
+    , authorName : String
     , text : String
     , timestamp : Int
     }
@@ -79,8 +102,9 @@ type alias ItemComment =
 type alias SubmitCommentReq =
     { host : String
     , itemId : String
-    , guestId : String
+    , parentId : Maybe (String)
     , text : String
+    , authorName : Maybe (String)
     }
 
 
@@ -119,6 +143,14 @@ serverContextEncoder struct =
         ]
 
 
+guestEncoder : Guest -> Json.Encode.Value
+guestEncoder struct =
+    Json.Encode.object
+        [ ( "id", (Json.Encode.string) struct.id )
+        , ( "name", (Json.Encode.string) struct.name )
+        ]
+
+
 tagEncoder : Tag -> Json.Encode.Value
 tagEncoder struct =
     Json.Encode.object
@@ -131,13 +163,13 @@ microblogItemEncoder : MicroblogItem -> Json.Encode.Value
 microblogItemEncoder struct =
     Json.Encode.object
         [ ( "id", (Json.Encode.string) struct.id )
-        , ( "host", (Json.Encode.string) struct.host )
         , ( "title", (Json.Encode.string) struct.title )
         , ( "link", (Json.Encode.string) struct.link )
         , ( "image", (Json.Encode.string) struct.image )
         , ( "extract", (Json.Encode.string) struct.extract )
         , ( "owner_comment", (Json.Encode.string) struct.ownerComment )
         , ( "tags", (Json.Encode.list (Json.Encode.string)) struct.tags )
+        , ( "comments", (Json.Encode.list (itemCommentEncoder)) struct.comments )
         , ( "timestamp", (Json.Encode.int) struct.timestamp )
         ]
 
@@ -155,6 +187,13 @@ submitItemReqEncoder struct =
         ]
 
 
+submitItemResEncoder : SubmitItemRes -> Json.Encode.Value
+submitItemResEncoder struct =
+    Json.Encode.object
+        [ ( "item", (microblogItemEncoder) struct.item )
+        ]
+
+
 submitItemSliceEncoder : SubmitItemSlice -> Json.Encode.Value
 submitItemSliceEncoder struct =
     Json.Encode.object
@@ -165,11 +204,24 @@ submitItemSliceEncoder struct =
         ]
 
 
+submitCommentSliceEncoder : SubmitCommentSlice -> Json.Encode.Value
+submitCommentSliceEncoder struct =
+    Json.Encode.object
+        [ ( "context", (serverContextEncoder) struct.context )
+        , ( "input", (submitCommentReqEncoder) struct.input )
+        , ( "existing_guest", (Maybe.withDefault Json.Encode.null << Maybe.map (guestEncoder)) struct.existingGuest )
+        , ( "fresh_guest_id", (Json.Encode.string) struct.freshGuestId )
+        , ( "fresh_comment_id", (Json.Encode.string) struct.freshCommentId )
+        ]
+
+
 backendActionEncoder : BackendAction -> Json.Encode.Value
 backendActionEncoder enum =
     case enum of
         SubmitItem inner ->
             Json.Encode.object [ ( "SubmitItem", submitItemSliceEncoder inner ) ]
+        SubmitComment inner ->
+            Json.Encode.object [ ( "SubmitComment", submitCommentSliceEncoder inner ) ]
 
 backendEffectEncoder : BackendEffect -> Json.Encode.Value
 backendEffectEncoder enum =
@@ -194,6 +246,8 @@ itemCommentEncoder struct =
         [ ( "id", (Json.Encode.string) struct.id )
         , ( "item_id", (Json.Encode.string) struct.itemId )
         , ( "guest_id", (Json.Encode.string) struct.guestId )
+        , ( "parent_id", (Maybe.withDefault Json.Encode.null << Maybe.map (Json.Encode.string)) struct.parentId )
+        , ( "author_name", (Json.Encode.string) struct.authorName )
         , ( "text", (Json.Encode.string) struct.text )
         , ( "timestamp", (Json.Encode.int) struct.timestamp )
         ]
@@ -204,8 +258,9 @@ submitCommentReqEncoder struct =
     Json.Encode.object
         [ ( "host", (Json.Encode.string) struct.host )
         , ( "item_id", (Json.Encode.string) struct.itemId )
-        , ( "guest_id", (Json.Encode.string) struct.guestId )
+        , ( "parent_id", (Maybe.withDefault Json.Encode.null << Maybe.map (Json.Encode.string)) struct.parentId )
         , ( "text", (Json.Encode.string) struct.text )
+        , ( "author_name", (Maybe.withDefault Json.Encode.null << Maybe.map (Json.Encode.string)) struct.authorName )
         ]
 
 
@@ -253,6 +308,13 @@ serverContextDecoder =
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "host" (Json.Decode.string)))
 
 
+guestDecoder : Json.Decode.Decoder Guest
+guestDecoder =
+    Json.Decode.succeed Guest
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "id" (Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "name" (Json.Decode.string)))
+
+
 tagDecoder : Json.Decode.Decoder Tag
 tagDecoder =
     Json.Decode.succeed Tag
@@ -264,13 +326,13 @@ microblogItemDecoder : Json.Decode.Decoder MicroblogItem
 microblogItemDecoder =
     Json.Decode.succeed MicroblogItem
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "id" (Json.Decode.string)))
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "host" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "title" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "link" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "image" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "extract" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "owner_comment" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "tags" (Json.Decode.list (Json.Decode.string))))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "comments" (Json.Decode.list (itemCommentDecoder))))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "timestamp" (Json.Decode.int)))
 
 
@@ -286,6 +348,12 @@ submitItemReqDecoder =
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "tags" (Json.Decode.list (Json.Decode.string))))
 
 
+submitItemResDecoder : Json.Decode.Decoder SubmitItemRes
+submitItemResDecoder =
+    Json.Decode.succeed SubmitItemRes
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "item" (microblogItemDecoder)))
+
+
 submitItemSliceDecoder : Json.Decode.Decoder SubmitItemSlice
 submitItemSliceDecoder =
     Json.Decode.succeed SubmitItemSlice
@@ -295,10 +363,21 @@ submitItemSliceDecoder =
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "fresh_tag_ids" (Json.Decode.list (Json.Decode.string))))
 
 
+submitCommentSliceDecoder : Json.Decode.Decoder SubmitCommentSlice
+submitCommentSliceDecoder =
+    Json.Decode.succeed SubmitCommentSlice
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "context" (serverContextDecoder)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "input" (submitCommentReqDecoder)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "existing_guest" (Json.Decode.nullable (guestDecoder))))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "fresh_guest_id" (Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "fresh_comment_id" (Json.Decode.string)))
+
+
 backendActionDecoder : Json.Decode.Decoder BackendAction
 backendActionDecoder = 
     Json.Decode.oneOf
         [ Json.Decode.map SubmitItem (Json.Decode.field "SubmitItem" (submitItemSliceDecoder))
+        , Json.Decode.map SubmitComment (Json.Decode.field "SubmitComment" (submitCommentSliceDecoder))
         ]
 
 backendEffectDecoder : Json.Decode.Decoder BackendEffect
@@ -326,6 +405,8 @@ itemCommentDecoder =
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "id" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "item_id" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "guest_id" (Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "parent_id" (Json.Decode.nullable (Json.Decode.string))))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "author_name" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "text" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "timestamp" (Json.Decode.int)))
 
@@ -335,8 +416,9 @@ submitCommentReqDecoder =
     Json.Decode.succeed SubmitCommentReq
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "host" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "item_id" (Json.Decode.string)))
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "guest_id" (Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "parent_id" (Json.Decode.nullable (Json.Decode.string))))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "text" (Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "author_name" (Json.Decode.nullable (Json.Decode.string))))
 
 
 submitCommentResDecoder : Json.Decode.Decoder SubmitCommentRes

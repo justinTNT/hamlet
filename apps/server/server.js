@@ -112,6 +112,7 @@ app.post(['/api', '/:endpoint'], async (req, res) => {
     }
 
     console.log(`[${host}] Request: ${endpoint}`);
+    console.log("Endpoint debug:", endpoint, endpoint === 'SubmitComment');
     const wireRequest = req.body;
 
     // --- Elm Backend Integration ---
@@ -160,10 +161,33 @@ app.post(['/api', '/:endpoint'], async (req, res) => {
                 [host]
             );
 
+            // Fetch comments
+            const commentsResult = await pool.query(
+                `SELECT c.id, c.item_id, c.guest_id, c.parent_id, c.text, c.timestamp, g.name as author_name
+                 FROM item_comments c
+                 JOIN guests g ON c.guest_id = g.id
+                 WHERE c.host = $1
+                 ORDER BY c.timestamp ASC`,
+                [host]
+            );
+
+            const commentsByItem = {};
+            for (const comment of commentsResult.rows) {
+                if (!commentsByItem[comment.item_id]) {
+                    commentsByItem[comment.item_id] = [];
+                }
+                commentsByItem[comment.item_id].push({
+                    ...comment,
+                    timestamp: Number(comment.timestamp),
+                    parent_id: comment.parent_id || null // Ensure null if missing
+                });
+            }
+
             const items = result.rows.map(row => ({
                 ...row,
                 timestamp: Number(row.timestamp),
-                tags: row.tags || []
+                tags: row.tags || [],
+                comments: commentsByItem[row.id] || []
             }));
 
             responseData = { items };
@@ -262,6 +286,104 @@ app.post(['/api', '/:endpoint'], async (req, res) => {
             }
             return;
 
+        } else if (endpoint === 'SubmitComment') {
+            const wireRequest = req.body;
+            if (wireRequest.author_name === undefined) {
+                wireRequest.author_name = null;
+            }
+            const sessionId = req.get('X-Session-ID') || 'unknown-session'; // Simple Session ID
+
+            // 1. Fetch Context (Existing Guest)
+            // Assuming session_id maps to guest_id for now (Soft Identity)
+            const client = await pool.connect();
+            let existingGuest = null;
+            try {
+                const res = await client.query('SELECT * FROM guests WHERE id = $1', [sessionId]);
+                if (res.rows.length > 0) {
+                    existingGuest = res.rows[0];
+                }
+            } finally {
+                client.release();
+            }
+
+            // 2. Construct Slice
+            const freshGuestId = sessionId; // Use session ID as guest ID
+            const freshCommentId = crypto.randomUUID();
+            const requestId = crypto.randomUUID();
+
+            const slice = {
+                context: {
+                    request_id: requestId,
+                    session_id: sessionId,
+                    user_id: null,
+                    host: host
+                },
+                input: wireRequest,
+                existing_guest: existingGuest,
+                fresh_guest_id: freshGuestId,
+                fresh_comment_id: freshCommentId
+            };
+
+            // 3. Call Elm
+            const output = await new Promise((resolve) => {
+                const app = Elm.Logic.init();
+                const sub = (data) => {
+                    app.ports.result.unsubscribe(sub);
+                    resolve(data);
+                };
+                app.ports.result.subscribe(sub);
+                app.ports.process.send({ SubmitComment: slice });
+            });
+
+            // 4. Execute Effects (Generic Executor)
+            const executorClient = await pool.connect();
+            try {
+                await executorClient.query('BEGIN');
+
+                if (output.error) {
+                    await executorClient.query('ROLLBACK');
+                    res.status(400).json({ error: output.error });
+                    return;
+                }
+
+                for (const effect of output.effects) {
+                    if (effect.Insert) {
+                        const { table, data } = effect.Insert;
+                        const row = JSON.parse(data);
+                        const keys = Object.keys(row);
+                        const values = Object.values(row);
+                        const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+
+                        await executorClient.query(
+                            `INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`,
+                            values
+                        );
+                    } else if (effect.Log) {
+                        try {
+                            const logObj = JSON.parse(effect.Log);
+                            console.log(JSON.stringify(logObj));
+                        } catch (e) {
+                            console.log("Elm Log:", effect.Log);
+                        }
+                    }
+                }
+
+                await executorClient.query('COMMIT');
+
+                if (output.response) {
+                    res.json(JSON.parse(output.response));
+                } else {
+                    res.status(200).send();
+                }
+
+            } catch (e) {
+                await executorClient.query('ROLLBACK');
+                console.error("Effect Execution Failed:", e);
+                res.status(500).json({ type: "InternalError", details: e.message });
+            } finally {
+                executorClient.release();
+            }
+            return;
         } else {
             throw new Error(`Unknown endpoint: ${endpoint}`);
         }

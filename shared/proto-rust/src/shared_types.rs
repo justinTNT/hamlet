@@ -40,13 +40,14 @@ pub struct Tag {
 #[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode, ToSchema)]
 pub struct MicroblogItem {
     pub id: String,
-    pub host: String,
     pub title: String,
     pub link: String,
     pub image: String,
     pub extract: String,
     pub owner_comment: String,
     pub tags: Vec<String>, // List of tag names
+    #[serde(default)]
+    pub comments: Vec<ItemComment>, // Nested comments
     pub timestamp: u64,
 }
 
@@ -57,11 +58,13 @@ pub struct Guest {
     // Simplified auth for now
 }
 
-#[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
+#[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode, ToSchema)]
 pub struct ItemComment {
     pub id: String,
     pub item_id: String,
     pub guest_id: String,
+    pub parent_id: Option<String>,
+    pub author_name: String, // Fetched via join
     pub text: String,
     pub timestamp: u64,
 }
@@ -122,12 +125,23 @@ pub struct SubmitItemRes {
     pub item: MicroblogItem,
 }
 
-#[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
+#[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode, HoratioEndpoint)]
+#[horatio(path = "SubmitComment", response = "SubmitCommentRes")]
 pub struct SubmitCommentReq {
     pub host: String,
     pub item_id: String,
-    pub guest_id: String,
+    pub parent_id: Option<String>,
     pub text: String,
+    pub author_name: Option<String>, // Required for new guests
+}
+
+#[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
+pub struct SubmitCommentSlice {
+    pub context: ServerContext,
+    pub input: SubmitCommentReq,
+    pub existing_guest: Option<Guest>, // Found via session_id
+    pub fresh_guest_id: String,        // Pre-generated if needed
+    pub fresh_comment_id: String,      // Pre-generated
 }
 
 // --- Session Slices ---
@@ -151,7 +165,7 @@ pub struct SubmitItemSlice {
 #[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
 pub enum BackendAction {
     SubmitItem(SubmitItemSlice),
-    // Add other actions here
+    SubmitComment(SubmitCommentSlice),
 }
 
 #[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
@@ -174,7 +188,7 @@ pub struct BackendOutput {
 //     Error(String),
 // }
 
-#[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode)]
+#[derive(Serialize, Deserialize, Debug, Elm, ElmEncode, ElmDecode, ToSchema)]
 pub struct SubmitCommentRes {
     pub comment: ItemComment,
 }

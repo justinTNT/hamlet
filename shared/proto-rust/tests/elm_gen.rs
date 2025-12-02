@@ -1,7 +1,7 @@
 use proto_rust::{
     SubmitItemSlice, BackendAction, BackendEffect, BackendOutput, Tag, MicroblogItem, SubmitItemReq,
     ItemComment, SubmitCommentReq, SubmitCommentRes, GetFeedRes, GetTagsRes, GetTagsReq, GetFeedReq,
-    ServerContext
+    ServerContext, SubmitCommentSlice, Guest, SubmitItemRes
 };
 use std::fs::File;
 use std::io::Write;
@@ -24,10 +24,13 @@ fn generate_elm_types() {
     
     let types = vec![
         <ServerContext as Elm>::elm_definition(),
+        <Guest as Elm>::elm_definition(),
         <Tag as Elm>::elm_definition(),
         <MicroblogItem as Elm>::elm_definition(),
         <SubmitItemReq as Elm>::elm_definition(),
+        <SubmitItemRes as Elm>::elm_definition(),
         <SubmitItemSlice as Elm>::elm_definition(),
+        <SubmitCommentSlice as Elm>::elm_definition(),
         <BackendAction as Elm>::elm_definition(),
         <BackendEffect as Elm>::elm_definition(),
         <BackendOutput as Elm>::elm_definition(),
@@ -40,7 +43,7 @@ fn generate_elm_types() {
         <GetFeedReq as Elm>::elm_definition(),
     ];
     
-    for def in types {
+    for def in &types {
         if let Some(d) = def {
             writeln!(file, "{}", d).unwrap();
             writeln!(file, "").unwrap();
@@ -50,10 +53,13 @@ fn generate_elm_types() {
     // Generate Encoders
     let encoders = vec![
         <ServerContext as ElmEncode>::encoder_definition(),
+        <Guest as ElmEncode>::encoder_definition(),
         <Tag as ElmEncode>::encoder_definition(),
         <MicroblogItem as ElmEncode>::encoder_definition(),
         <SubmitItemReq as ElmEncode>::encoder_definition(),
+        <SubmitItemRes as ElmEncode>::encoder_definition(),
         <SubmitItemSlice as ElmEncode>::encoder_definition(),
+        <SubmitCommentSlice as ElmEncode>::encoder_definition(),
         <BackendAction as ElmEncode>::encoder_definition(),
         <BackendEffect as ElmEncode>::encoder_definition(),
         <BackendOutput as ElmEncode>::encoder_definition(),
@@ -66,7 +72,7 @@ fn generate_elm_types() {
         <GetFeedReq as ElmEncode>::encoder_definition(),
     ];
     
-    for enc in encoders {
+    for enc in &encoders {
         if let Some(e) = enc {
             writeln!(file, "{}", e).unwrap();
             writeln!(file, "").unwrap();
@@ -76,10 +82,13 @@ fn generate_elm_types() {
     // Generate Decoders
     let decoders = vec![
         <ServerContext as ElmDecode>::decoder_definition(),
+        <Guest as ElmDecode>::decoder_definition(),
         <Tag as ElmDecode>::decoder_definition(),
         <MicroblogItem as ElmDecode>::decoder_definition(),
         <SubmitItemReq as ElmDecode>::decoder_definition(),
+        <SubmitItemRes as ElmDecode>::decoder_definition(),
         <SubmitItemSlice as ElmDecode>::decoder_definition(),
+        <SubmitCommentSlice as ElmDecode>::decoder_definition(),
         <BackendAction as ElmDecode>::decoder_definition(),
         <BackendEffect as ElmDecode>::decoder_definition(),
         <BackendOutput as ElmDecode>::decoder_definition(),
@@ -92,10 +101,42 @@ fn generate_elm_types() {
         <GetFeedReq as ElmDecode>::decoder_definition(),
     ];
 
-    for dec in decoders {
+    for dec in &decoders {
         if let Some(d) = dec {
             writeln!(file, "{}", d).unwrap();
             writeln!(file, "").unwrap();
+        }
+    }
+
+    // Generate Schema for Web App
+    let schema_path = "../../apps/web/src/Api/Schema.elm";
+    let mut schema_file = File::create(schema_path).expect("Failed to create schema file");
+    
+    writeln!(schema_file, "module Api.Schema exposing (..)").unwrap();
+    writeln!(schema_file, "").unwrap();
+    writeln!(schema_file, "import Json.Decode").unwrap();
+    writeln!(schema_file, "import Json.Encode").unwrap();
+    writeln!(schema_file, "import Dict exposing (Dict)").unwrap();
+    writeln!(schema_file, "import Set exposing (Set)").unwrap();
+    writeln!(schema_file, "").unwrap();
+
+    // Write definitions (same as backend for now)
+    for def in &types {
+        if let Some(d) = def {
+            writeln!(schema_file, "{}", d).unwrap();
+            writeln!(schema_file, "").unwrap();
+        }
+    }
+    for enc in &encoders {
+        if let Some(e) = enc {
+            writeln!(schema_file, "{}", e).unwrap();
+            writeln!(schema_file, "").unwrap();
+        }
+    }
+    for dec in &decoders {
+        if let Some(d) = dec {
+            writeln!(schema_file, "{}", d).unwrap();
+            writeln!(schema_file, "").unwrap();
         }
     }
 }

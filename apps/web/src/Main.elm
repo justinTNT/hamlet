@@ -4,21 +4,32 @@ import Api
 import Api.Http
 import Api.Schema
 import Browser
-import Html exposing (Html, button, div, h1, h2, h3, p, a, img, text, section)
-import Html.Attributes exposing (src, href, style, class)
-import Html.Events exposing (onClick)
+import Html exposing (Html, button, div, h1, h2, h3, h4, p, a, img, text, section, input, textarea, label)
+import Html.Attributes exposing (src, href, style, class, value, placeholder)
+import Html.Events exposing (onClick, onInput)
 import Http
 
 -- MODEL
 
-type Model
+type alias Model =
+    { feed : FeedState
+    , replyingTo : Maybe { itemId : String, parentId : Maybe String }
+    , newComment : String
+    , authorName : String
+    }
+
+type FeedState
     = Loading
     | LoadedFeed (List Api.Schema.MicroblogItem)
     | Errored String
 
 init : ( Model, Cmd Msg )
 init =
-    ( Loading
+    ( { feed = Loading
+      , replyingTo = Nothing
+      , newComment = ""
+      , authorName = ""
+      }
     , getFeed
     )
 
@@ -42,12 +53,34 @@ submitItem =
         }
         |> Api.Http.send SubmittedItem
 
+submitComment : Model -> Cmd Msg
+submitComment model =
+    case model.replyingTo of
+        Just { itemId, parentId } ->
+            Api.submitComment
+                { host = "localhost"
+                , itemId = itemId
+                , parentId = parentId
+                , text = model.newComment
+                , authorName = if String.isEmpty model.authorName then Nothing else Just model.authorName
+                }
+                |> Api.Http.send SubmittedComment
+        
+        Nothing ->
+            Cmd.none
+
 -- UPDATE
 
 type Msg
     = PerformSubmitItem
     | GotFeed (Result Http.Error Api.Schema.GetFeedRes)
     | SubmittedItem (Result Http.Error Api.Schema.SubmitItemRes)
+    | SetReplyTo String (Maybe String)
+    | SetCommentText String
+    | SetAuthorName String
+    | PerformSubmitComment
+    | SubmittedComment (Result Http.Error Api.Schema.SubmitCommentRes)
+    | CancelReply
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -56,17 +89,38 @@ update msg model =
             ( model, submitItem )
 
         GotFeed (Ok res) ->
-            ( LoadedFeed res.items, Cmd.none )
+            ( { model | feed = LoadedFeed res.items }, Cmd.none )
 
         GotFeed (Err err) ->
-            ( Errored ("Failed to fetch feed: " ++ httpErrorToString err), Cmd.none )
+            ( { model | feed = Errored ("Failed to fetch feed: " ++ httpErrorToString err) }, Cmd.none )
 
         SubmittedItem (Ok res) ->
             -- Refresh feed after submit
-            ( Loading, getFeed )
+            ( { model | feed = Loading }, getFeed )
 
         SubmittedItem (Err err) ->
-            ( Errored ("Failed to submit item: " ++ httpErrorToString err), Cmd.none )
+            ( { model | feed = Errored ("Failed to submit item: " ++ httpErrorToString err) }, Cmd.none )
+
+        SetReplyTo itemId parentId ->
+            ( { model | replyingTo = Just { itemId = itemId, parentId = parentId }, newComment = "" }, Cmd.none )
+
+        SetCommentText text ->
+            ( { model | newComment = text }, Cmd.none )
+
+        SetAuthorName name ->
+            ( { model | authorName = name }, Cmd.none )
+
+        PerformSubmitComment ->
+            ( model, submitComment model )
+
+        SubmittedComment (Ok _) ->
+            ( { model | replyingTo = Nothing, newComment = "", feed = Loading }, getFeed ) -- Refresh feed to show new comment
+
+        SubmittedComment (Err err) ->
+            ( { model | feed = Errored ("Failed to submit comment: " ++ httpErrorToString err) }, Cmd.none )
+
+        CancelReply ->
+            ( { model | replyingTo = Nothing, newComment = "" }, Cmd.none )
 
 httpErrorToString : Http.Error -> String
 httpErrorToString err =
@@ -89,12 +143,12 @@ view model =
 
 viewContent : Model -> Html Msg
 viewContent model =
-    case model of
+    case model.feed of
         Loading ->
             div [] [ text "Loading Feed..." ]
 
         LoadedFeed items ->
-            div [] (List.map viewItem items)
+            div [] (List.map (viewItem model) items)
 
         Errored errorMsg ->
             div [ style "color" "red" ]
@@ -102,8 +156,8 @@ viewContent model =
                 , div [] [ text errorMsg ]
                 ]
 
-viewItem : Api.Schema.MicroblogItem -> Html Msg
-viewItem item =
+viewItem : Model -> Api.Schema.MicroblogItem -> Html Msg
+viewItem model item =
     section [ style "border" "1px solid #ddd", style "padding" "15px", style "margin-bottom" "15px", style "border-radius" "8px" ]
         [ h2 [] [ text item.title ]
         , a [ href item.link, style "color" "blue" ] [ text item.link ]
@@ -114,7 +168,65 @@ viewItem item =
             (List.map viewTag item.tags)
         , div [ style "background" "#f9f9f9", style "padding" "10px", style "font-style" "italic" ]
             [ text ("Owner: " ++ item.ownerComment) ]
+        
+        -- Comments Section
+        , div [ style "margin-top" "20px", style "border-top" "1px solid #eee", style "padding-top" "10px" ]
+            [ h3 [] [ text "Comments" ]
+            , div [] (List.map (viewComment model item.id item.comments) (filterRootComments item.comments))
+            , viewReplyButton model item.id Nothing
+            ]
         ]
+
+filterRootComments : List Api.Schema.ItemComment -> List Api.Schema.ItemComment
+filterRootComments comments =
+    List.filter (\c -> c.parentId == Nothing) comments
+
+viewComment : Model -> String -> List Api.Schema.ItemComment -> Api.Schema.ItemComment -> Html Msg
+viewComment model itemId allComments comment =
+    div [ style "margin-left" "20px", style "margin-top" "10px", style "border-left" "2px solid #eee", style "padding-left" "10px" ]
+        [ div [ style "font-weight" "bold", style "font-size" "0.9em" ] [ text comment.authorName ]
+        , div [] [ text comment.text ]
+        , viewReplyButton model itemId (Just comment.id)
+        
+        -- Nested Comments (Recursive)
+        , div [] (List.map (viewComment model itemId allComments) (filterChildComments comment.id allComments))
+        ]
+
+filterChildComments : String -> List Api.Schema.ItemComment -> List Api.Schema.ItemComment
+filterChildComments parentId allComments =
+    List.filter (\c -> c.parentId == Just parentId) allComments
+
+viewReplyButton : Model -> String -> Maybe String -> Html Msg
+viewReplyButton model itemId parentId =
+    case model.replyingTo of
+        Just activeReply ->
+            if activeReply.itemId == itemId && activeReply.parentId == parentId then
+                div [ style "margin-top" "5px", style "background" "#f0f0f0", style "padding" "10px" ]
+                    [ input 
+                        [ placeholder "Your Name (Optional for returning users)"
+                        , value model.authorName
+                        , onInput SetAuthorName
+                        , style "display" "block"
+                        , style "margin-bottom" "5px"
+                        , style "width" "100%"
+                        ] []
+                    , textarea 
+                        [ placeholder "Write a reply..."
+                        , value model.newComment
+                        , onInput SetCommentText
+                        , style "width" "100%"
+                        , style "height" "60px"
+                        ] []
+                    , div [ style "margin-top" "5px" ]
+                        [ button [ onClick PerformSubmitComment, style "margin-right" "5px" ] [ text "Submit" ]
+                        , button [ onClick CancelReply ] [ text "Cancel" ]
+                        ]
+                    ]
+            else
+                button [ onClick (SetReplyTo itemId parentId), style "font-size" "0.8em", style "color" "gray", style "background" "none", style "border" "none", style "cursor" "pointer", style "text-decoration" "underline" ] [ text "Reply" ]
+        
+        Nothing ->
+            button [ onClick (SetReplyTo itemId parentId), style "font-size" "0.8em", style "color" "gray", style "background" "none", style "border" "none", style "cursor" "pointer", style "text-decoration" "underline" ] [ text "Reply" ]
 
 viewTag : String -> Html Msg
 viewTag tag =

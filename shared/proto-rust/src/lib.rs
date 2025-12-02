@@ -21,7 +21,8 @@ pub fn dispatcher(endpoint: String, wire: String, context_json: String) -> Strin
     generate_dispatcher!(
         (GetFeedReq, GetFeedRes), 
         (GetTagsReq, GetTagsRes), 
-        (SubmitItemReq, SubmitItemRes)
+        (SubmitItemReq, SubmitItemRes),
+        (SubmitCommentReq, SubmitCommentRes)
     )
 }
 
@@ -32,6 +33,7 @@ pub fn get_openapi_spec() -> String {
         (GetFeedReq, GetFeedRes), 
         (GetTagsReq, GetTagsRes), 
         (SubmitItemReq, SubmitItemRes),
+        (SubmitCommentReq, SubmitCommentRes),
         MicroblogItem,
         Tag
     );

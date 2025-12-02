@@ -14,10 +14,10 @@
   "description": "",
   "devDependencies": {
     "elm": "^0.19.1-6",
-    "vite": "^7.2.4",
+    "vite": "^5.0.0",
     "vite-plugin-elm": "^3.0.1",
-    "vite-plugin-top-level-await": "^1.6.0",
-    "vite-plugin-wasm": "^3.5.0"
+    "vite-plugin-top-level-await": "^1.4.1",
+    "vite-plugin-wasm": "^3.3.0"
   },
   "dependencies": {
     "proto-rust": "file:../../shared/proto-rust/pkg-web"
