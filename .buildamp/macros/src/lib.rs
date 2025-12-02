@@ -1,9 +1,7 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput, Data, Fields, Ident};
-use syn::spanned::Spanned;
 
-mod slice;
 mod buildamp_macros;
 
 #[proc_macro_attribute]
@@ -33,7 +31,7 @@ pub fn derive_buildamp_endpoint(input: TokenStream) -> TokenStream {
         if attr.path().is_ident("api") {
             if let Err(e) = attr.parse_nested_meta(|meta| {
                 if name_str == "SubmitCommentReq" {
-                    let key = meta.path.get_ident().unwrap().to_string();
+                    let _key = meta.path.get_ident().unwrap().to_string();
                     // let msg = format!("SubmitCommentReq sees: {}", key);
                     // return Err(syn::Error::new(meta.path.span(), msg));
                 }

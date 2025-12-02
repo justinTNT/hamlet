@@ -1,4 +1,4 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Api
 import Api.Http
@@ -8,6 +8,8 @@ import Html exposing (Html, button, div, h1, h2, h3, h4, p, a, img, text, sectio
 import Html.Attributes exposing (src, href, style, class, value, placeholder)
 import Html.Events exposing (onClick, onInput)
 import Http
+
+port log : String -> Cmd msg
 
 -- MODEL
 
