@@ -1,8 +1,7 @@
-use super::comments_domain::{ItemComment, SubmitCommentData};
+use super::comments_domain::ItemComment;
 use horatio_macro::{buildamp_api, buildamp_domain};
 
-#[buildamp_api]
-#[api(server_context = "SubmitCommentData", path = "SubmitComment")]
+#[buildamp_api(path = "SubmitComment", server_context = "SubmitCommentData")]
 pub struct SubmitCommentReq {
     #[api(Inject = "host")]
     #[serde(default)]

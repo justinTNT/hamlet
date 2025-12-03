@@ -191,10 +191,50 @@ Since registration is invisible, we need a way to "reveal" what happened.
 -   Check for missing context sources (e.g., an endpoint requests `MyData` but `MyData` isn't registered).
 -   Report these validation errors clearly on startup.
 
+### 4. Domain-Specific Error Scenarios
+We should tailor error messages to the specific "tripwires" of our architecture:
+
+#### A. The "Ghost Dependency" (Context Mismatch)
+**Scenario**: Endpoint requests `#[dependency(source = "table:unknown")]`.
+**Report**:
+> "Endpoint `SubmitItem` needs context from `table:unknown`, but I don't know how to fetch that.
+> Known sources: `table:guests`, `table:items`, `table:tags`."
+
+#### B. The "Orphaned Relationship" (Foreign Key Mismatch)
+**Scenario**: A `SubmitComment` payload refers to an `item_id` that doesn't exist, or the relationship is misconfigured in the DB.
+**Report**:
+> "Constraint Violation: You tried to attach a comment to item `123`, but that item doesn't exist.
+> (Database error: `foreign key constraint "item_comments_item_id_fkey"`)
+
+#### C. The "Shape Mismatch" (Rust vs DB)
+**Scenario**: Rust struct expects `author_name`, but DB query returns `name`.
+**Report**:
+> "Data Shape Mismatch: The context query for `SubmitCommentData` returned a row missing the field `author_name`.
+> Received keys: `[id, name, host]`. Expected: `[id, author_name, host]`."
+
+#### D. The "Duplicate Endpoint"
+**Scenario**: Copy-paste error leads to two endpoints with `path = "SubmitComment"`.
+**Report**:
+> "Ambiguous Routing: Both `SubmitCommentReq` and `SubmitReplyReq` claim the path `SubmitComment`.
+> Please rename one of them."
+
+### 5. Migration Integration (Schema Validation)
+To validate "Ghost Dependencies" and "Shape Mismatches", the server must know the *actual* database schema.
+
+**Strategy: Runtime Introspection**
+1.  **Run Migrations**: Ensure DB is up-to-date.
+2.  **Introspect**: Query `information_schema` to build a map of `Table -> Set<Column>`.
+3.  **Cross-Check**:
+    -   For every `#[dependency(source = "table:T")]`, verify table `T` exists.
+    -   (Advanced) Verify that the columns expected by the Rust struct (if we can infer them) exist in `T`.
+
 ## Implementation Plan
 1.  **Refactor `src/lib.rs`**: Update `get_context_manifest` and `get_endpoint_manifest` to handle errors.
 2.  **Update `server.js`**:
-    -   Call the manifest functions safely.
-    -   Implement the "Startup Log" using the data returned.
-    -   Fail startup if manifest is invalid.
-3.  **Verify**: Intentionally break a manifest (e.g., invalid JSON serialization) and verify it reports the error instead of failing silently.
+    -   **Step 1: Run Migrations** (Existing).
+    -   **Step 2: Load Manifests** (Handle errors).
+    -   **Step 3: Introspect DB**: Fetch schema metadata.
+    -   **Step 4: Validate**: Check Manifest against DB Schema.
+    -   **Step 5: Report**: Print the "Startup Log" with validation results.
+    -   **Step 6: Start Server** (or fail if strict mode).
+3.  **Verify**: Create a migration that drops a column, then try to start the server with a Manifest that expects it.

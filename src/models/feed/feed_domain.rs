@@ -1,19 +1,20 @@
 use crate::models::tags::Tag;
 use crate::models::comments::ItemComment;
+use crate::framework::database_types::*;
 use horatio_macro::buildamp_domain;
 
 #[buildamp_domain]
 pub struct MicroblogItem {
-    pub id: String,
+    pub id: DatabaseId<String>,
     pub title: String,
-    pub link: String,
-    pub image: String,
-    pub extract: String,
-    pub owner_comment: String,
+    pub link: Option<String>,
+    pub image: Option<String>,
+    pub extract: Option<String>,
+    pub owner_comment: DefaultComment,
     pub tags: Vec<String>,
     #[serde(default)]
     pub comments: Vec<ItemComment>,
-    pub timestamp: u64,
+    pub timestamp: Timestamp,
 }
 
 #[buildamp_domain]

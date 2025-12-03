@@ -1,7 +1,6 @@
 use horatio_macro::{buildamp_api, buildamp_domain};
 
-#[buildamp_api]
-#[api(path = "GetTags")]
+#[buildamp_api(path = "GetTags")]
 pub struct GetTagsReq {
     #[serde(default)]
     #[api(Inject = "host")]

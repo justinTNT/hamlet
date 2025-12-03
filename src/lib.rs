@@ -5,6 +5,7 @@ use serde_json;
 pub mod framework {
     pub mod common;
     pub mod fingerprint;
+    pub mod database_types;
 }
 pub mod models {
     pub mod identity;
@@ -13,6 +14,7 @@ pub mod models {
     pub mod feed;
 }
 pub use framework::common::*;
+pub use framework::database_types::*;
 pub use models::identity::*;
 pub use models::tags::*;
 pub use models::comments::*;

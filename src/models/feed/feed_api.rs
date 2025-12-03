@@ -1,8 +1,7 @@
-use super::feed_domain::{MicroblogItem, SubmitItemData};
+use super::feed_domain::MicroblogItem;
 use horatio_macro::{buildamp_api, buildamp_domain};
 
-#[buildamp_api]
-#[api(path = "GetFeed")]
+#[buildamp_api(path = "GetFeed")]
 pub struct GetFeedReq {
     #[serde(default)]
     #[api(Inject = "host")]
@@ -14,8 +13,7 @@ pub struct GetFeedRes {
     pub items: Vec<MicroblogItem>,
 }
 
-#[buildamp_api]
-#[api(path = "SubmitItem", bundle_with = "SubmitItemData")]
+#[buildamp_api(path = "SubmitItem", bundle_with = "SubmitItemData")]
 pub struct SubmitItemReq {
     #[serde(default)]
     pub host: String,
