@@ -10,13 +10,22 @@ import fs from 'fs';
 import * as wasm from '../../pkg-node/proto_rust.js';
 const { dispatcher } = require('../../pkg-node/proto_rust.js');
 const { Elm } = require('./elm-logic.cjs');
-const { encode_response, get_openapi_spec, get_context_manifest, get_endpoint_manifest } = wasm;
+const { encode_response, get_openapi_spec, get_context_manifest, get_endpoint_manifest, validate_manifest } = wasm;
 
+// Run BuildAmp validation and display results
+const validationReport = validate_manifest();
+console.log(validationReport);
+
+// Parse manifests (these now include error handling)
 const contextManifest = JSON.parse(get_context_manifest());
 const endpointManifest = JSON.parse(get_endpoint_manifest());
 
-console.log("Loaded Context Manifest:", contextManifest.length, "items");
-console.log("Loaded Endpoint Manifest:", endpointManifest.length, "items");
+// Warn about validation errors but keep running with last good build
+if (contextManifest.error || endpointManifest.error) {
+    console.warn("[BuildAmp] ⚠️  Validation errors detected - continuing with last working build");
+    console.warn("[BuildAmp] Fix the errors above and save a file to rebuild");
+    // Server keeps running with previous WASM build
+}
 
 async function hydrateContext(endpoint, wireRequest, serverContext) {
     const endpointDef = endpointManifest.find(e => e.endpoint === endpoint);
