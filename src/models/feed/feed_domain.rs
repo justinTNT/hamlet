@@ -15,6 +15,10 @@ pub struct MicroblogItem {
     #[serde(default)]
     pub comments: Vec<ItemComment>,
     pub timestamp: Timestamp,
+    // NEW FIELD: This demonstrates BuildAmp's type evolution
+    // When we add this field in Rust, Elm automatically gets it
+    #[serde(default)]
+    pub view_count: i32,
 }
 
 #[buildamp_domain]
