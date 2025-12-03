@@ -1,4 +1,4 @@
-use super::comments_domain::ItemComment;
+use super::comments_domain::{ItemComment, SubmitCommentData};
 use horatio_macro::{buildamp_api, buildamp_domain};
 
 #[buildamp_api(path = "SubmitComment", server_context = "SubmitCommentData")]

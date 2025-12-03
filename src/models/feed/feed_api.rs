@@ -1,4 +1,4 @@
-use super::feed_domain::MicroblogItem;
+use super::feed_domain::{MicroblogItem, SubmitItemData};
 use horatio_macro::{buildamp_api, buildamp_domain};
 
 #[buildamp_api(path = "GetFeed")]

@@ -188,6 +188,7 @@ fn generate_field_definition(field: &FieldDefinition) -> String {
 #[derive(Debug, Clone)]
 struct FieldDefinition {
     name: String,
+    #[allow(dead_code)]
     rust_type: RustType,
     sql_type: SqlType,
     constraints: Vec<Constraint>,
@@ -197,6 +198,7 @@ struct FieldDefinition {
 enum RustType {
     Required,           // String
     Optional,           // Option<String>
+    #[allow(dead_code)]
     DefaultValue(String), // DefaultValue<T>
     DatabaseId,         // DatabaseId<T>
     Timestamp,          // Timestamp
@@ -206,6 +208,7 @@ enum RustType {
 enum SqlType {
     Text,
     BigInt,
+    #[allow(dead_code)]
     Uuid,
 }
 
