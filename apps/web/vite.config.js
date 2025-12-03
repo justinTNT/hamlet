@@ -8,9 +8,28 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   plugins: [
     buildampPlugin({
+      // Core paths
       crateDir: path.resolve(__dirname, '../../'),
       wasmOutDirWeb: 'pkg-web',
-      wasmOutDirNode: 'pkg-node'
+      wasmOutDirNode: 'pkg-node',
+      
+      // Enhanced configuration examples
+      logging: {
+        level: 'info' // Can be 'silent', 'error', 'warn', 'info', 'verbose'
+      },
+      
+      hmr: {
+        enabled: true,
+        mode: 'full-reload', // 'full-reload' | 'module-reload' | 'custom'
+        debounce: 100 // Debounce file changes
+      },
+      
+      // Build hooks example (commented out)
+      // buildHooks: {
+      //   beforeBuild: async () => console.log('Starting WASM build...'),
+      //   afterBuild: async () => console.log('WASM build completed!'),
+      //   onBuildError: async (error) => console.error('Build failed:', error)
+      // }
     })
   ],
   server: {
