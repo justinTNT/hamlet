@@ -6,9 +6,32 @@ import elmPlugin from 'vite-plugin-elm';
 import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
 
-function runWasmPack(crateDir, outDir, target) {
+function runBuildAmpBuild(crateDir, target) {
     return new Promise((resolve, reject) => {
         console.log(`[BuildAmp] Building WASM for ${target}...`);
+        
+        // Try to use the buildamp CLI if available, fall back to direct wasm-pack
+        const cmd = 'cargo';
+        const args = ['run', '--bin', 'buildamp', '--features', 'cli', '--', 'build', '--target', target, '--crate-dir', '.'];
+
+        const child = spawn(cmd, args, { cwd: crateDir, stdio: 'inherit' });
+
+        child.on('close', (code) => {
+            if (code === 0) {
+                console.log(`[BuildAmp] WASM build for ${target} complete.`);
+                resolve();
+            } else {
+                console.log(`[BuildAmp] CLI failed, falling back to direct wasm-pack...`);
+                // Fallback to direct wasm-pack call
+                fallbackWasmPack(crateDir, target).then(resolve).catch(reject);
+            }
+        });
+    });
+}
+
+function fallbackWasmPack(crateDir, target) {
+    return new Promise((resolve, reject) => {
+        const outDir = target === 'web' ? 'pkg-web' : 'pkg-node';
         const cmd = 'wasm-pack';
         const args = ['build', '--target', target, '--out-dir', outDir];
 
@@ -16,7 +39,7 @@ function runWasmPack(crateDir, outDir, target) {
 
         child.on('close', (code) => {
             if (code === 0) {
-                console.log(`[BuildAmp] WASM build for ${target} complete.`);
+                console.log(`[BuildAmp] Fallback WASM build for ${target} complete.`);
                 resolve();
             } else {
                 console.error(`[BuildAmp] WASM build failed with code ${code}`);
@@ -39,8 +62,8 @@ export default function buildampPlugin(options = {}) {
         isBuilding = true;
         try {
             // Build for both targets sequentially to avoid lock contention
-            await runWasmPack(crateDir, wasmOutDirNode, 'nodejs');
-            await runWasmPack(crateDir, wasmOutDirWeb, 'web');
+            await runBuildAmpBuild(crateDir, 'nodejs');
+            await runBuildAmpBuild(crateDir, 'web');
         } catch (e) {
             console.error('[BuildAmp] Build failed:', e);
         } finally {

@@ -7,6 +7,7 @@ pub mod framework {
     pub mod fingerprint;
     pub mod database_types;
     pub mod migration_gen;
+    pub mod core;
 }
 pub mod models {
     pub mod identity;
