@@ -2,6 +2,9 @@
 name = "proto-rust"
 version = "0.1.0"
 edition = "2021"
+description = "BuildAmp core Rust crate"
+repository = "https://github.com/example/buildamp"
+license = "MIT"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

@@ -81,9 +81,11 @@ export default function buildampPlugin(options = {}) {
                     }
                 };
             },
-            configureServer(server) {
-                // Initial build
-                buildWasm();
+            async configureServer(server) {
+                // Initial build - MUST complete before serving
+                console.log('[BuildAmp] Building initial WASM before starting dev server...');
+                await buildWasm();
+                console.log('[BuildAmp] WASM ready, dev server can now serve requests');
 
                 // Watch Rust files
                 const watcher = chokidar.watch(path.join(crateDir, watchPattern), {

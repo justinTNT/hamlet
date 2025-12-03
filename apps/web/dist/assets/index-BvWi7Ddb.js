@@ -112,7 +112,7 @@ function Ae(r, n) {
 }
 async function ht(r) {
   if (F !== void 0) return F;
-  typeof r < "u" && (Object.getPrototypeOf(r) === Object.prototype ? { module_or_path: r } = r : console.warn("using deprecated parameters for the initialization function; pass a single object instead")), typeof r > "u" && (r = new URL("/assets/proto_rust_bg-BHLFMifk.wasm", import.meta.url));
+  typeof r < "u" && (Object.getPrototypeOf(r) === Object.prototype ? { module_or_path: r } = r : console.warn("using deprecated parameters for the initialization function; pass a single object instead")), typeof r > "u" && (r = new URL("/assets/proto_rust_bg-CTPddTsw.wasm", import.meta.url));
   const n = De();
   (typeof r == "string" || typeof Request == "function" && r instanceof Request || typeof URL == "function" && r instanceof URL) && (r = fetch(r));
   const { instance: t, module: e } = await Se(await r, n);

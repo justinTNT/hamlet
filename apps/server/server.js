@@ -238,6 +238,9 @@ app.post(['/api', '/:endpoint'], async (req, res) => {
             responseData = { tags: result.rows.map(r => r.name) };
 
         } else if (endpoint === "SubmitItem") {
+            // Inject host for Elm
+            wireRequest.host = host;
+
             // 1. Hydrate Context (Declarative)
             const bundle = await hydrateContext(endpoint, wireRequest, {
                 request_id: crypto.randomUUID(),
@@ -318,6 +321,9 @@ app.post(['/api', '/:endpoint'], async (req, res) => {
             if (wireRequest.author_name === undefined) {
                 wireRequest.author_name = null;
             }
+            // Inject host for Elm
+            wireRequest.host = host;
+
             const sessionId = req.get('X-Session-ID') || 'unknown-session'; // Simple Session ID
 
             // 1. Hydrate Context (Declarative)

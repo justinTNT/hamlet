@@ -1,0 +1,24 @@
+{
+    "name": "create-buildamp",
+    "version": "0.1.0",
+    "description": "Scaffold a new BuildAmp project",
+    "bin": {
+        "create-buildamp": "./index.js"
+    },
+    "type": "module",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [
+        "buildamp",
+        "cli",
+        "scaffold",
+        "generator"
+    ],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "prompts": "^2.4.2",
+        "kolorist": "^1.8.0"
+    }
+}

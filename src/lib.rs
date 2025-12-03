@@ -2,30 +2,29 @@ use wasm_bindgen::prelude::*;
 extern crate self as proto_rust;
 use serde_json;
 
-pub mod models {
+pub mod framework {
     pub mod common;
+    pub mod fingerprint;
+}
+pub mod models {
     pub mod identity;
     pub mod tags;
     pub mod comments;
     pub mod feed;
-    pub mod fingerprint;
 }
-pub use models::common::*;
+pub use framework::common::*;
 pub use models::identity::*;
 pub use models::tags::*;
 pub use models::comments::*;
 pub use models::feed::*;
-pub mod fingerprint {
-    pub use crate::models::fingerprint::*;
-}
-pub use fingerprint::*;
+pub use framework::fingerprint::*;
 
 pub mod elm_export;
 pub use horatio_macro::{BuildAmpEndpoint, BuildAmpElm, BuildAmpContext};
 
 #[wasm_bindgen]
 pub fn create_session_id(fingerprint_data: String) -> String {
-    models::fingerprint::generate_fingerprint(fingerprint_data)
+    framework::fingerprint::generate_fingerprint(fingerprint_data)
 }
 
 #[wasm_bindgen]

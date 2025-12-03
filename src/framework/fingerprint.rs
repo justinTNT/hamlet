@@ -12,8 +12,10 @@ pub struct FingerprintData {
 
 #[wasm_bindgen]
 pub fn generate_fingerprint(data_json: String) -> String {
-    let data: FingerprintData = serde_json::from_str(&data_json)
-        .expect("Invalid fingerprint data");
+    let data: FingerprintData = match serde_json::from_str(&data_json) {
+        Ok(data) => data,
+        Err(_) => return String::new(), // Return empty string for invalid data
+    };
 
     // Hash each component separately to extract maximum entropy
     let canvas_hash = blake3::hash(data.canvas.as_bytes());

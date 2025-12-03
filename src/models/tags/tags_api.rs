@@ -1,10 +1,4 @@
-use horatio_macro::{buildamp_domain, buildamp_api};
-
-#[buildamp_domain]
-pub struct Tag {
-    pub id: String,
-    pub name: String,
-}
+use horatio_macro::{buildamp_api, buildamp_domain};
 
 #[buildamp_api]
 #[api(path = "GetTags")]

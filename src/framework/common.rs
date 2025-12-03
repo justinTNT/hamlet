@@ -41,17 +41,12 @@ pub struct StandardServerContext {
 pub type ServerContext = StandardServerContext;
 
 // --- Effects ---
-// We need to forward declare the bundles or use a generic approach if we want to avoid circular deps,
-// but BackendAction depends on specific bundles.
-// For now, we will import them.
-use crate::models::feed::SubmitItemReqBundle;
-use crate::models::comments::SubmitCommentReqBundle;
-
-#[buildamp_domain]
-pub enum BackendAction {
-    SubmitItem(SubmitItemReqBundle),
-    SubmitComment(SubmitCommentReqBundle),
-}
+// Temporarily commenting out BackendAction until we understand the bundle generation
+// #[buildamp_domain]
+// pub enum BackendAction {
+//     SubmitItem(SubmitItemReqBundle),
+//     SubmitComment(SubmitCommentReqBundle),
+// }
 
 #[buildamp_domain]
 pub enum BackendEffect {
