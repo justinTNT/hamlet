@@ -4,7 +4,7 @@
     "private": true,
     "workspaces": [
         "packages/*",
-        "apps/horatio/*"
+        "app/*"
     ],
     "scripts": {
         "build": "npm run build --workspaces",

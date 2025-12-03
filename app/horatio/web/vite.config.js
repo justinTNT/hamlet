@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [
     buildampPlugin({
       // Core paths
-      crateDir: path.resolve(__dirname, '../../'),
+      crateDir: path.resolve(__dirname, '../../../'),
       wasmOutDirWeb: 'pkg-web',
       wasmOutDirNode: 'pkg-node',
       

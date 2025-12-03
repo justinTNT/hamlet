@@ -69,7 +69,7 @@ function T() {
     n.set(0, void 0), n.set(t + 0, void 0), n.set(t + 1, null), n.set(t + 2, true), n.set(t + 3, false);
   }, e;
 }
-function O(e, n) {
+function x(e, n) {
   return c = e.exports, p.__wbindgen_wasm_module = n, l = null, c.__wbindgen_start(), c;
 }
 async function p(e) {
@@ -78,7 +78,7 @@ async function p(e) {
   const n = T();
   (typeof e == "string" || typeof Request == "function" && e instanceof Request || typeof URL == "function" && e instanceof URL) && (e = fetch(e));
   const { instance: t, module: o } = await R(await e, n);
-  return O(t, o);
+  return x(t, o);
 }
 console.log("Horatio Extension Background Service Worker Starting...");
 chrome.runtime.onInstalled.addListener(() => {
@@ -86,18 +86,18 @@ chrome.runtime.onInstalled.addListener(() => {
     chrome.declarativeContent.onPageChanged.addRules([{ conditions: [new chrome.declarativeContent.PageStateMatcher({ pageUrl: { schemes: ["http", "https"] } })], actions: [new chrome.declarativeContent.ShowAction()] }]);
   });
 });
-chrome.runtime.onMessage.addListener((e, n, t) => (console.log("Background received:", e), x(e).then((o) => {
+chrome.runtime.onMessage.addListener((e, n, t) => (console.log("Background received:", e), W(e).then((o) => {
   console.log("Background sending response:", o), t(o);
 }).catch((o) => {
   console.error("Background error:", o), t({ correlationId: e.correlationId, body: null, error: o.toString() });
 }), true));
-const W = p().then(() => console.log("WASM initialized successfully")).catch((e) => console.error("WASM init failed:", e));
-async function x(e) {
-  await W;
+const O = p().then(() => console.log("WASM initialized successfully")).catch((e) => console.error("WASM init failed:", e));
+async function W(e) {
+  await O;
   const { endpoint: n, body: t, correlationId: o } = e, i = JSON.stringify(t), d = A(n, i), r = JSON.parse(d);
   if (r.type && (r.type === "ValidationError" || r.type === "NotFound")) return { correlationId: o, body: null, error: JSON.stringify(r) };
   try {
-    const a = await (await fetch("http://localhost:3000/api", { method: "POST", headers: { "Content-Type": "application/json", "X-RPC-Endpoint": n }, body: i })).text(), h = JSON.parse(a);
+    const a = await (await fetch("http://localhost:3000/api", { method: "POST", headers: { "Content-Type": "application/json", "X-RPC-Endpoint": n, "X-Hamlet-Source": "extension" }, body: i })).text(), h = JSON.parse(a);
     return { correlationId: o, body: h, error: null };
   } catch (s) {
     return console.error("Network error:", s), { correlationId: o, body: null, error: "Network Error: " + s.message };
