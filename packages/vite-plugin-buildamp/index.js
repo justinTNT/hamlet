@@ -6,32 +6,52 @@ import elmPlugin from 'vite-plugin-elm';
 import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
 
-function runBuildAmpBuild(crateDir, target) {
+function runBuildAmpBuild(crateDir, target, config) {
     return new Promise((resolve, reject) => {
-        console.log(`[BuildAmp] Building WASM for ${target}...`);
+        const log = (level, message) => {
+            if (!config.logging.enabled) return;
+            const levels = { error: 1, warn: 2, info: 3, verbose: 4 };
+            const currentLevel = levels[config.logging.level] || 3;
+            if (levels[level] <= currentLevel) {
+                console[level === 'verbose' ? 'log' : level](`${config.logging.prefix} ${message}`);
+            }
+        };
+
+        log('info', `Building WASM for ${target}...`);
         
-        // Try to use the buildamp CLI if available, fall back to direct wasm-pack
+        // Build CLI command with configurable features
         const cmd = 'cargo';
-        const args = ['run', '--bin', 'buildamp', '--features', 'cli', '--', 'build', '--target', target, '--crate-dir', '.'];
+        const features = config.cliFeatures.join(',');
+        const args = ['run', '--bin', 'buildamp', '--features', features, '--', 'build', '--target', target, '--crate-dir', '.'];
 
         const child = spawn(cmd, args, { cwd: crateDir, stdio: 'inherit' });
 
         child.on('close', (code) => {
             if (code === 0) {
-                console.log(`[BuildAmp] WASM build for ${target} complete.`);
+                log('verbose', `CLI WASM build for ${target} complete.`);
                 resolve();
             } else {
-                console.log(`[BuildAmp] CLI failed, falling back to direct wasm-pack...`);
+                log('warn', `CLI failed, falling back to direct wasm-pack...`);
                 // Fallback to direct wasm-pack call
-                fallbackWasmPack(crateDir, target).then(resolve).catch(reject);
+                fallbackWasmPack(crateDir, target, config).then(resolve).catch(reject);
             }
         });
     });
 }
 
-function fallbackWasmPack(crateDir, target) {
+function fallbackWasmPack(crateDir, target, config = {}) {
     return new Promise((resolve, reject) => {
-        const outDir = target === 'web' ? 'pkg-web' : 'pkg-node';
+        const log = (level, message) => {
+            if (!config.logging?.enabled) return;
+            const levels = { error: 1, warn: 2, info: 3, verbose: 4 };
+            const currentLevel = levels[config.logging?.level || 'info'] || 3;
+            if (levels[level] <= currentLevel) {
+                const prefix = config.logging?.prefix || '[BuildAmp]';
+                console[level === 'verbose' ? 'log' : level](`${prefix} ${message}`);
+            }
+        };
+
+        const outDir = target === 'web' ? (config.wasmOutDirWeb || 'pkg-web') : (config.wasmOutDirNode || 'pkg-node');
         const cmd = 'wasm-pack';
         const args = ['build', '--target', target, '--out-dir', outDir];
 
@@ -39,10 +59,10 @@ function fallbackWasmPack(crateDir, target) {
 
         child.on('close', (code) => {
             if (code === 0) {
-                console.log(`[BuildAmp] Fallback WASM build for ${target} complete.`);
+                log('verbose', `Fallback WASM build for ${target} complete.`);
                 resolve();
             } else {
-                console.error(`[BuildAmp] WASM build failed with code ${code}`);
+                log('error', `WASM build failed with code ${code}`);
                 reject(new Error(`wasm-pack exited with code ${code}`));
             }
         });
@@ -50,84 +70,201 @@ function fallbackWasmPack(crateDir, target) {
 }
 
 export default function buildampPlugin(options = {}) {
-    const crateDir = options.crateDir || path.resolve(process.cwd(), '../../'); // Default assumption: monorepo root
-    const wasmOutDirWeb = options.wasmOutDirWeb || 'pkg-web';
-    const wasmOutDirNode = options.wasmOutDirNode || 'pkg-node';
-    const watchPattern = options.watchPattern || 'src/**/*.rs';
+    // Core configuration - paths and compilation
+    const config = {
+        crateDir: options.crateDir || path.resolve(process.cwd(), '../../'),
+        wasmOutDirWeb: options.wasmOutDirWeb || 'pkg-web',
+        wasmOutDirNode: options.wasmOutDirNode || 'pkg-node',
+        watchPattern: options.watchPattern || 'src/**/*.rs',
+        
+        // Build configuration
+        buildTargets: options.buildTargets || ['nodejs', 'web'], // Which WASM targets to build
+        preferCli: options.preferCli !== false, // Use CLI by default, disable with false
+        cliFeatures: options.cliFeatures || ['cli'], // Cargo features for CLI build
+        
+        // Development experience
+        hmr: {
+            enabled: options.hmr?.enabled !== false, // HMR enabled by default
+            mode: options.hmr?.mode || 'full-reload', // 'full-reload' | 'module-reload' | 'custom'
+            debounce: options.hmr?.debounce || 100, // Debounce file changes (ms)
+            ...options.hmr
+        },
+        
+        // File watching
+        watch: {
+            ignored: options.watch?.ignored || ['**/target/**', '**/pkg-web/**', '**/pkg-node/**', '**/.git/**'],
+            polling: options.watch?.polling || false, // Enable polling for network drives
+            usePolling: options.watch?.usePolling || false,
+            interval: options.watch?.interval || 1000,
+            ...options.watch
+        },
+        
+        // Logging and feedback
+        logging: {
+            enabled: options.logging?.enabled !== false,
+            level: options.logging?.level || 'info', // 'silent' | 'error' | 'warn' | 'info' | 'verbose'
+            prefix: options.logging?.prefix || '[BuildAmp]',
+            ...options.logging
+        },
+        
+        // Integration with other plugins
+        elm: options.elm || {}, // Pass-through to vite-plugin-elm
+        wasm: options.wasm || {}, // Pass-through to vite-plugin-wasm
+        
+        // Advanced options
+        alias: options.alias || 'proto-rust', // Import alias for generated WASM
+        buildHooks: {
+            beforeBuild: options.buildHooks?.beforeBuild || null,
+            afterBuild: options.buildHooks?.afterBuild || null,
+            onBuildError: options.buildHooks?.onBuildError || null,
+            ...options.buildHooks
+        }
+    };
 
     let isBuilding = false;
+    let debounceTimer = null;
+
+    // Logging helper
+    const log = (level, message, ...args) => {
+        if (!config.logging.enabled) return;
+        
+        const levels = { silent: 0, error: 1, warn: 2, info: 3, verbose: 4 };
+        const currentLevel = levels[config.logging.level] || 3;
+        const messageLevel = levels[level] || 3;
+        
+        if (messageLevel <= currentLevel) {
+            const prefix = config.logging.prefix;
+            console[level === 'verbose' ? 'log' : level](`${prefix} ${message}`, ...args);
+        }
+    };
 
     const buildWasm = async () => {
         if (isBuilding) return;
         isBuilding = true;
+        
         try {
-            // Build for both targets sequentially to avoid lock contention
-            await runBuildAmpBuild(crateDir, 'nodejs');
-            await runBuildAmpBuild(crateDir, 'web');
+            // Call beforeBuild hook
+            if (config.buildHooks.beforeBuild) {
+                await config.buildHooks.beforeBuild();
+            }
+
+            // Build specified targets sequentially to avoid lock contention
+            for (const target of config.buildTargets) {
+                if (config.preferCli) {
+                    await runBuildAmpBuild(config.crateDir, target, config);
+                } else {
+                    await fallbackWasmPack(config.crateDir, target);
+                }
+            }
+
+            // Call afterBuild hook
+            if (config.buildHooks.afterBuild) {
+                await config.buildHooks.afterBuild();
+            }
+
+            log('info', 'WASM build complete for all targets');
         } catch (e) {
-            console.error('[BuildAmp] Build failed:', e);
+            log('error', 'Build failed:', e);
+            
+            // Call error hook
+            if (config.buildHooks.onBuildError) {
+                await config.buildHooks.onBuildError(e);
+            }
+            throw e;
         } finally {
             isBuilding = false;
         }
     };
 
-    // Initialize Elm plugin
-    // vite-plugin-elm default export might be the function or an object with plugin property
-    // Based on usage `elmPlugin.plugin` in CJS, in ESM it might be `elmPlugin` or `elmPlugin.default`.
-    // Let's assume standard ESM import behavior. If `vite-plugin-elm` exports `plugin` named export, we use that.
-    // Actually, looking at docs or typical usage: `import elmPlugin from 'vite-plugin-elm'` -> `elmPlugin()`
-    // But in CJS it was `require('vite-plugin-elm').plugin`.
-    // Let's try `elmPlugin()` first, as that's standard for Vite plugins.
-    // Wait, the previous code used `elmPlugin.plugin(options.elm || {})`.
-    // Let's check how `vite-plugin-elm` exports.
+    const debouncedBuildWasm = () => {
+        if (debounceTimer) {
+            clearTimeout(debounceTimer);
+        }
+        debounceTimer = setTimeout(buildWasm, config.hmr.debounce);
+    };
 
-    const elm = elmPlugin(options.elm || {});
+    // Initialize Elm plugin with configuration
+    const elm = elmPlugin(config.elm);
 
     return [
         elm, // Include Elm plugin automatically
-        wasm(), // Handle WASM loading
+        wasm(config.wasm), // Handle WASM loading with config
         topLevelAwait(), // Handle top-level await for WASM
         {
             name: 'vite-plugin-buildamp',
-            config(config, { command }) {
-                // Ensure WASM is built before Vite starts
-                if (command === 'serve' || command === 'build') {
-                    // We can't easily block config resolution, but we can start the build
-                    // For 'serve', it's fine if it finishes slightly after start
-                    // For 'build', we might need to be more careful, but usually build scripts handle this
-                }
+            config(viteConfig, { command }) {
                 return {
                     resolve: {
                         alias: {
-                            'proto-rust': path.resolve(crateDir, wasmOutDirWeb, 'proto_rust.js')
+                            [config.alias]: path.resolve(config.crateDir, config.wasmOutDirWeb, 'proto_rust.js')
                         }
                     }
                 };
             },
             async configureServer(server) {
-                // Initial build - MUST complete before serving
-                console.log('[BuildAmp] Building initial WASM before starting dev server...');
-                await buildWasm();
-                console.log('[BuildAmp] WASM ready, dev server can now serve requests');
+                if (!config.hmr.enabled) {
+                    log('info', 'HMR disabled, skipping file watching setup');
+                    return;
+                }
 
-                // Watch Rust files
-                const watcher = chokidar.watch(path.join(crateDir, watchPattern), {
-                    ignored: ['**/target/**', '**/pkg-web/**', '**/pkg-node/**', '**/.git/**'],
-                    ignoreInitial: true
-                });
+                // Initial build - MUST complete before serving
+                log('info', 'Building initial WASM before starting dev server...');
+                await buildWasm();
+                log('info', 'WASM ready, dev server can now serve requests');
+
+                // Setup file watching with configuration
+                const watchOptions = {
+                    ignored: config.watch.ignored,
+                    ignoreInitial: true,
+                    usePolling: config.watch.usePolling,
+                    interval: config.watch.interval
+                };
+
+                if (config.watch.polling) {
+                    watchOptions.usePolling = true;
+                }
+
+                log('verbose', `Watching pattern: ${config.watchPattern}`);
+                log('verbose', `Watch options:`, watchOptions);
+
+                const watcher = chokidar.watch(path.join(config.crateDir, config.watchPattern), watchOptions);
 
                 watcher.on('change', async (file) => {
-                    console.log(`[BuildAmp] Rust change detected: ${file}`);
-                    await buildWasm();
-                    // Trigger full reload after WASM rebuild
-                    server.ws.send({ type: 'full-reload' });
+                    log('info', `Rust change detected: ${file}`);
+                    
+                    // Use debounced build for better performance
+                    if (config.hmr.debounce > 0) {
+                        debouncedBuildWasm();
+                    } else {
+                        await buildWasm();
+                    }
+                    
+                    // Handle different HMR modes
+                    if (config.hmr.mode === 'full-reload') {
+                        server.ws.send({ type: 'full-reload' });
+                    } else if (config.hmr.mode === 'module-reload') {
+                        // Attempt to reload just the WASM module
+                        server.ws.send({
+                            type: 'update',
+                            updates: [{
+                                type: 'js-update',
+                                path: `/${config.alias}`,
+                                acceptedPath: `/${config.alias}`,
+                                timestamp: Date.now()
+                            }]
+                        });
+                    }
+                    // 'custom' mode - let user handle via hooks
+                });
+
+                watcher.on('error', (error) => {
+                    log('error', 'File watcher error:', error);
                 });
             },
             async buildStart() {
-                // Ensure WASM is built for production builds too
-                if (process.env.NODE_ENV === 'production') {
-                    await buildWasm();
-                }
+                // Ensure WASM is built for production builds
+                log('info', 'Building WASM for production...');
+                await buildWasm();
             }
         }
     ];

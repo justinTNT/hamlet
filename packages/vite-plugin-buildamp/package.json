@@ -1,21 +1,35 @@
 {
     "name": "vite-plugin-buildamp",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "type": "module",
-    "description": "Vite plugin for BuildAmp framework integration",
+    "description": "Vite plugin for BuildAmp framework - seamless Rust + Elm development with HMR",
     "main": "index.js",
+    "files": ["index.js", "README.md"],
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "keywords": [
         "vite",
+        "vite-plugin",
         "buildamp",
-        "rust",
+        "rust", 
         "wasm",
-        "elm"
+        "elm",
+        "hot-reload",
+        "hmr",
+        "typescript"
     ],
-    "author": "",
-    "license": "ISC",
+    "author": "BuildAmp Team",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/buildamp/buildamp",
+        "directory": "packages/vite-plugin-buildamp"
+    },
+    "homepage": "https://buildamp.dev",
+    "bugs": {
+        "url": "https://github.com/buildamp/buildamp/issues"
+    },
     "dependencies": {
         "vite-plugin-elm": "^3.0.1",
         "vite-plugin-wasm": "^3.2.2",
