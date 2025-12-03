@@ -6,6 +6,7 @@ pub mod framework {
     pub mod common;
     pub mod fingerprint;
     pub mod database_types;
+    pub mod migration_gen;
 }
 pub mod models {
     pub mod identity;
@@ -203,6 +204,11 @@ pub fn validate_manifest() -> String {
     report.push(String::new());
 
     report.join("\n")
+}
+
+#[wasm_bindgen] 
+pub fn generate_migrations() -> String {
+    framework::migration_gen::generate_migration_sql()
 }
 
 #[wasm_bindgen]
