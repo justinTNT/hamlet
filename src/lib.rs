@@ -10,6 +10,10 @@ pub mod framework {
     pub mod core;
 }
 pub mod models {
+    pub mod domain;
+    pub mod universal;
+    
+    // Legacy modules for backwards compatibility (will be removed eventually)
     pub mod identity;
     pub mod tags;
     pub mod comments;
@@ -17,10 +21,10 @@ pub mod models {
 }
 pub use framework::common::*;
 pub use framework::database_types::*;
-pub use models::identity::*;
-pub use models::tags::*;
-pub use models::comments::*;
-pub use models::feed::*;
+pub use models::domain::*;
+
+// Note: Removing legacy re-exports to avoid ambiguous imports
+// Legacy modules still available via explicit paths (models::comments::* etc.)
 pub use framework::fingerprint::*;
 
 pub mod elm_export;
@@ -58,8 +62,8 @@ pub fn get_openapi_spec() -> String {
         (GetTagsReq, GetTagsRes), 
         (SubmitItemReq, SubmitItemRes),
         (SubmitCommentReq, SubmitCommentRes),
-        MicroblogItem,
-        Tag
+        crate::models::feed::MicroblogItem,
+        crate::models::tags::Tag
     );
     get_openapi_spec()
 }
