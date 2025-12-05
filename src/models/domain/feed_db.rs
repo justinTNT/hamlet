@@ -1,5 +1,5 @@
-use crate::models::tags::Tag;
-use crate::models::comments::ItemComment;
+use crate::domain_tags_db::Tag;
+use crate::domain_comments_db::ItemComment;
 use crate::framework::database_types::*;
 use horatio_macro::buildamp_domain;
 

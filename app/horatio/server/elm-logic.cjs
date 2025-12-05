@@ -600,11 +600,11 @@ function _Debug_crash_UNUSED(identifier, fact1, fact2, fact3, fact4)
 
 function _Debug_regionToString(region)
 {
-	if (region.Z.E === region.ag.E)
+	if (region.Z.E === region.ah.E)
 	{
 		return 'on line ' + region.Z.E;
 	}
-	return 'on lines ' + region.Z.E + ' through ' + region.ag.E;
+	return 'on lines ' + region.Z.E + ' through ' + region.ah.E;
 }
 
 
@@ -1861,9 +1861,9 @@ var _Platform_worker = F4(function(impl, flagDecoder, debugMetadata, args)
 	return _Platform_initialize(
 		flagDecoder,
 		args,
-		impl.a$,
-		impl.a5,
-		impl.a4,
+		impl.a2,
+		impl.a8,
+		impl.a7,
 		function() { return function() {} }
 	);
 });
@@ -2863,7 +2863,7 @@ var $author$project$Api$Backend$SubmitCommentReqBundle = F3(
 var $elm$json$Json$Decode$andThen = _Json_andThen;
 var $author$project$Api$Backend$StandardServerContext = F4(
 	function (requestId, sessionId, userId, host) {
-		return {j: host, aF: requestId, aI: sessionId, aM: userId};
+		return {j: host, aI: requestId, aL: sessionId, aP: userId};
 	});
 var $elm$json$Json$Decode$null = _Json_decodeNull;
 var $elm$json$Json$Decode$nullable = function (decoder) {
@@ -2916,7 +2916,7 @@ var $author$project$Api$Backend$standardServerContextDecoder = A2(
 				$elm$json$Json$Decode$succeed($author$project$Api$Backend$StandardServerContext)))));
 var $author$project$Api$Backend$SubmitCommentData = F3(
 	function (existingGuest, freshGuestId, freshCommentId) {
-		return {aj: existingGuest, am: freshCommentId, an: freshGuestId};
+		return {al: existingGuest, ao: freshCommentId, ap: freshGuestId};
 	});
 var $author$project$Api$Backend$Guest = F2(
 	function (id, name) {
@@ -3049,7 +3049,7 @@ var $author$project$Api$Backend$SubmitItemReqBundle = F3(
 	});
 var $author$project$Api$Backend$SubmitItemData = F2(
 	function (existingTags, freshTagIds) {
-		return {ak: existingTags, ao: freshTagIds};
+		return {am: existingTags, aq: freshTagIds};
 	});
 var $elm$json$Json$Decode$list = _Json_decodeList;
 var $author$project$Api$Backend$Tag = F2(
@@ -3197,6 +3197,7 @@ var $author$project$Api$Backend$backendActionDecoder = $elm$json$Json$Decode$one
 			$author$project$Api$Backend$SubmitComment,
 			A2($elm$json$Json$Decode$field, 'SubmitComment', $author$project$Api$Backend$submitCommentReqBundleDecoder))
 		]));
+var $elm$json$Json$Encode$int = _Json_wrap;
 var $elm$json$Json$Encode$object = function (pairs) {
 	return _Json_wrap(
 		A3(
@@ -3212,34 +3213,58 @@ var $elm$json$Json$Encode$object = function (pairs) {
 };
 var $elm$json$Json$Encode$string = _Json_wrap;
 var $author$project$Api$Backend$backendEffectEncoder = function (_enum) {
-	if (!_enum.$) {
-		var table = _enum.a.aK;
-		var data = _enum.a.x;
-		return $elm$json$Json$Encode$object(
-			_List_fromArray(
-				[
-					_Utils_Tuple2(
-					'Insert',
-					$elm$json$Json$Encode$object(
-						_List_fromArray(
-							[
-								_Utils_Tuple2(
-								'table',
-								$elm$json$Json$Encode$string(table)),
-								_Utils_Tuple2(
-								'data',
-								$elm$json$Json$Encode$string(data))
-							])))
-				]));
-	} else {
-		var inner = _enum.a;
-		return $elm$json$Json$Encode$object(
-			_List_fromArray(
-				[
-					_Utils_Tuple2(
-					'Log',
-					$elm$json$Json$Encode$string(inner))
-				]));
+	switch (_enum.$) {
+		case 0:
+			var table = _enum.a.aN;
+			var data = _enum.a.x;
+			return $elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'Insert',
+						$elm$json$Json$Encode$object(
+							_List_fromArray(
+								[
+									_Utils_Tuple2(
+									'table',
+									$elm$json$Json$Encode$string(table)),
+									_Utils_Tuple2(
+									'data',
+									$elm$json$Json$Encode$string(data))
+								])))
+					]));
+		case 1:
+			var inner = _enum.a;
+			return $elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'Log',
+						$elm$json$Json$Encode$string(inner))
+					]));
+		default:
+			var eventType = _enum.a.ak;
+			var payload = _enum.a.az;
+			var delayMinutes = _enum.a.af;
+			return $elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'ScheduleEvent',
+						$elm$json$Json$Encode$object(
+							_List_fromArray(
+								[
+									_Utils_Tuple2(
+									'event_type',
+									$elm$json$Json$Encode$string(eventType)),
+									_Utils_Tuple2(
+									'payload',
+									$elm$json$Json$Encode$string(payload)),
+									_Utils_Tuple2(
+									'delay_minutes',
+									$elm$json$Json$Encode$int(delayMinutes))
+								])))
+					]));
 	}
 };
 var $elm$core$Basics$composeL = F3(
@@ -3282,19 +3307,19 @@ var $author$project$Api$Backend$backendOutputEncoder = function (struct) {
 			[
 				_Utils_Tuple2(
 				'effects',
-				$elm$json$Json$Encode$list($author$project$Api$Backend$backendEffectEncoder)(struct.af)),
+				$elm$json$Json$Encode$list($author$project$Api$Backend$backendEffectEncoder)(struct.ag)),
 				_Utils_Tuple2(
 				'response',
 				A2(
 					$elm$core$Basics$composeL,
 					$elm$core$Maybe$withDefault($elm$json$Json$Encode$null),
-					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.aG)),
+					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.aJ)),
 				_Utils_Tuple2(
 				'error',
 				A2(
 					$elm$core$Basics$composeL,
 					$elm$core$Maybe$withDefault($elm$json$Json$Encode$null),
-					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.ah))
+					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.ai))
 			]));
 };
 var $elm$json$Json$Decode$decodeValue = _Json_run;
@@ -3303,6 +3328,9 @@ var $author$project$Api$Backend$Insert = function (a) {
 };
 var $author$project$Api$Backend$Log = function (a) {
 	return {$: 1, a: a};
+};
+var $author$project$Api$Backend$ScheduleEvent = function (a) {
+	return {$: 2, a: a};
 };
 var $elm$core$List$foldrHelper = F4(
 	function (fn, acc, ctr, ls) {
@@ -3379,7 +3407,6 @@ var $elm$core$List$head = function (list) {
 		return $elm$core$Maybe$Nothing;
 	}
 };
-var $elm$json$Json$Encode$int = _Json_wrap;
 var $author$project$Api$Backend$itemCommentEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
@@ -3392,7 +3419,7 @@ var $author$project$Api$Backend$itemCommentEncoder = function (struct) {
 				$elm$json$Json$Encode$string(struct.N)),
 				_Utils_Tuple2(
 				'guest_id',
-				$elm$json$Json$Encode$string(struct.ap)),
+				$elm$json$Json$Encode$string(struct.ar)),
 				_Utils_Tuple2(
 				'parent_id',
 				A2(
@@ -3455,7 +3482,7 @@ var $author$project$Api$Backend$submitCommentResEncoder = function (struct) {
 var $author$project$Logic$handleAction = function (action) {
 	if (!action.$) {
 		var slice = action.a;
-		var item = {ad: _List_Nil, K: slice.M.K, p: slice.J.aF, L: slice.M.L, O: slice.M.O, Q: slice.M.Q, B: slice.M.B, T: 0, U: slice.M.U};
+		var item = {ad: _List_Nil, K: slice.M.K, p: slice.J.aI, L: slice.M.L, O: slice.M.O, Q: slice.M.Q, B: slice.M.B, T: 0, U: slice.M.U};
 		var itemJson = A2(
 			$elm$json$Json$Encode$encode,
 			0,
@@ -3488,7 +3515,7 @@ var $author$project$Logic$handleAction = function (action) {
 						$elm$json$Json$Encode$string(slice.J.j))
 					])));
 		var itemEffect = $author$project$Api$Backend$Insert(
-			{x: itemJson, aK: 'microblog_items'});
+			{x: itemJson, aN: 'microblog_items'});
 		var logJson = A2(
 			$elm$json$Json$Encode$encode,
 			0,
@@ -3500,7 +3527,7 @@ var $author$project$Logic$handleAction = function (action) {
 						$elm$json$Json$Encode$string('Submitting item \'' + (item.U + '\''))),
 						_Utils_Tuple2(
 						'request_id',
-						$elm$json$Json$Encode$string(slice.J.aF)),
+						$elm$json$Json$Encode$string(slice.J.aI)),
 						_Utils_Tuple2(
 						'item_id',
 						$elm$json$Json$Encode$string(item.p)),
@@ -3544,7 +3571,7 @@ var $author$project$Logic$handleAction = function (action) {
 				function (tagName, _v2) {
 					var effects = _v2.a;
 					var remainingIds = _v2.b;
-					var _v3 = A2(findTagId, tagName, slice.x.ak);
+					var _v3 = A2(findTagId, tagName, slice.x.am);
 					if (!_v3.$) {
 						var id = _v3.a;
 						var linkData = A2(
@@ -3561,7 +3588,7 @@ var $author$project$Logic$handleAction = function (action) {
 										$elm$json$Json$Encode$string(id))
 									])));
 						var linkEffect = $author$project$Api$Backend$Insert(
-							{x: linkData, aK: 'item_tags'});
+							{x: linkData, aN: 'item_tags'});
 						return _Utils_Tuple2(
 							A2($elm$core$List$cons, linkEffect, effects),
 							remainingIds);
@@ -3586,7 +3613,7 @@ var $author$project$Logic$handleAction = function (action) {
 											$elm$json$Json$Encode$string(slice.J.j))
 										])));
 							var tagEffect = $author$project$Api$Backend$Insert(
-								{x: tagData, aK: 'tags'});
+								{x: tagData, aN: 'tags'});
 							var linkData = A2(
 								$elm$json$Json$Encode$encode,
 								0,
@@ -3601,7 +3628,7 @@ var $author$project$Logic$handleAction = function (action) {
 											$elm$json$Json$Encode$string(newId))
 										])));
 							var linkEffect = $author$project$Api$Backend$Insert(
-								{x: linkData, aK: 'item_tags'});
+								{x: linkData, aN: 'item_tags'});
 							return _Utils_Tuple2(
 								A2(
 									$elm$core$List$cons,
@@ -3613,21 +3640,21 @@ var $author$project$Logic$handleAction = function (action) {
 						}
 					}
 				}),
-			_Utils_Tuple2(_List_Nil, slice.x.ao),
+			_Utils_Tuple2(_List_Nil, slice.x.aq),
 			slice.M.B);
 		var tagEffects = _v1.a;
 		return {
-			af: A2(
+			ag: A2(
 				$elm$core$List$cons,
 				logEffect,
 				A2($elm$core$List$cons, itemEffect, tagEffects)),
-			ah: $elm$core$Maybe$Nothing,
-			aG: $elm$core$Maybe$Just(responseJson)
+			ai: $elm$core$Maybe$Nothing,
+			aJ: $elm$core$Maybe$Just(responseJson)
 		};
 	} else {
 		var slice = action.a;
 		var _v5 = function () {
-			var _v6 = slice.x.aj;
+			var _v6 = slice.x.al;
 			if (!_v6.$) {
 				var guest = _v6.a;
 				return _Utils_Tuple3(_List_Nil, guest.p, guest.P);
@@ -3643,7 +3670,7 @@ var $author$project$Logic$handleAction = function (action) {
 								[
 									_Utils_Tuple2(
 									'id',
-									$elm$json$Json$Encode$string(slice.x.an)),
+									$elm$json$Json$Encode$string(slice.x.ap)),
 									_Utils_Tuple2(
 									'name',
 									$elm$json$Json$Encode$string(name)),
@@ -3652,11 +3679,11 @@ var $author$project$Logic$handleAction = function (action) {
 									$elm$json$Json$Encode$string(slice.J.j))
 								])));
 					var insertGuest = $author$project$Api$Backend$Insert(
-						{x: guestData, aK: 'guests'});
+						{x: guestData, aN: 'guests'});
 					return _Utils_Tuple3(
 						_List_fromArray(
 							[insertGuest]),
-						slice.x.an,
+						slice.x.ap,
 						name);
 				} else {
 					return _Utils_Tuple3(_List_Nil, '', '');
@@ -3671,7 +3698,7 @@ var $author$project$Logic$handleAction = function (action) {
 				[
 					_Utils_Tuple2(
 					'id',
-					$elm$json$Json$Encode$string(slice.x.am)),
+					$elm$json$Json$Encode$string(slice.x.ao)),
 					_Utils_Tuple2(
 					'host',
 					$elm$json$Json$Encode$string(slice.J.j)),
@@ -3708,7 +3735,7 @@ var $author$project$Logic$handleAction = function (action) {
 				$elm$json$Json$Encode$object(fields));
 		}();
 		var commentEffect = $author$project$Api$Backend$Insert(
-			{x: commentData, aK: 'item_comments'});
+			{x: commentData, aN: 'item_comments'});
 		var logJson = A2(
 			$elm$json$Json$Encode$encode,
 			0,
@@ -3720,7 +3747,7 @@ var $author$project$Logic$handleAction = function (action) {
 						$elm$json$Json$Encode$string('Submitting comment')),
 						_Utils_Tuple2(
 						'request_id',
-						$elm$json$Json$Encode$string(slice.J.aF)),
+						$elm$json$Json$Encode$string(slice.J.aI)),
 						_Utils_Tuple2(
 						'item_id',
 						$elm$json$Json$Encode$string(slice.M.N)),
@@ -3729,23 +3756,48 @@ var $author$project$Logic$handleAction = function (action) {
 						$elm$json$Json$Encode$string(guestId))
 					])));
 		var logEffect = $author$project$Api$Backend$Log(logJson);
-		var comment = {I: guestName, ap: guestId, p: slice.x.am, N: slice.M.N, R: slice.M.R, S: slice.M.S, T: 0};
+		var comment = {I: guestName, ar: guestId, p: slice.x.ao, N: slice.M.N, R: slice.M.R, S: slice.M.S, T: 0};
 		var responseJson = A2(
 			$elm$json$Json$Encode$encode,
 			0,
 			$author$project$Api$Backend$submitCommentResEncoder(
 				{ac: comment}));
-		return (_Utils_eq(slice.x.aj, $elm$core$Maybe$Nothing) && _Utils_eq(slice.M.I, $elm$core$Maybe$Nothing)) ? {
-			af: _List_Nil,
-			ah: $elm$core$Maybe$Just('Name required for first-time commenters'),
-			aG: $elm$core$Maybe$Nothing
+		var eventPayload = A2(
+			$elm$json$Json$Encode$encode,
+			0,
+			$elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'comment_id',
+						$elm$json$Json$Encode$string(slice.x.ao)),
+						_Utils_Tuple2(
+						'item_id',
+						$elm$json$Json$Encode$string(slice.M.N)),
+						_Utils_Tuple2(
+						'author_name',
+						$elm$json$Json$Encode$string(guestName)),
+						_Utils_Tuple2('item_owner_email', $elm$json$Json$Encode$null),
+						_Utils_Tuple2(
+						'delay_minutes',
+						$elm$json$Json$Encode$int(0))
+					])));
+		var eventEffect = $author$project$Api$Backend$ScheduleEvent(
+			{af: 0, ak: 'NotifyCommentAdded', az: eventPayload});
+		return (_Utils_eq(slice.x.al, $elm$core$Maybe$Nothing) && _Utils_eq(slice.M.I, $elm$core$Maybe$Nothing)) ? {
+			ag: _List_Nil,
+			ai: $elm$core$Maybe$Just('Name required for first-time commenters'),
+			aJ: $elm$core$Maybe$Nothing
 		} : {
-			af: A2(
+			ag: A2(
 				$elm$core$List$cons,
 				logEffect,
-				A2($elm$core$List$cons, commentEffect, guestEffects)),
-			ah: $elm$core$Maybe$Nothing,
-			aG: $elm$core$Maybe$Just(responseJson)
+				A2(
+					$elm$core$List$cons,
+					eventEffect,
+					A2($elm$core$List$cons, commentEffect, guestEffects))),
+			ai: $elm$core$Maybe$Nothing,
+			aJ: $elm$core$Maybe$Just(responseJson)
 		};
 	}
 };
@@ -3764,10 +3816,10 @@ var $author$project$Logic$update = F2(
 		} else {
 			var error = _v1.a;
 			var errOutput = {
-				af: _List_Nil,
-				ah: $elm$core$Maybe$Just(
+				ag: _List_Nil,
+				ai: $elm$core$Maybe$Just(
 					$elm$json$Json$Decode$errorToString(error)),
-				aG: $elm$core$Maybe$Nothing
+				aJ: $elm$core$Maybe$Nothing
 			};
 			return _Utils_Tuple2(
 				model,
@@ -3778,11 +3830,11 @@ var $author$project$Logic$update = F2(
 var $elm$core$Platform$worker = _Platform_worker;
 var $author$project$Logic$main = $elm$core$Platform$worker(
 	{
-		a$: function (_v0) {
+		a2: function (_v0) {
 			return _Utils_Tuple2(0, $elm$core$Platform$Cmd$none);
 		},
-		a4: $author$project$Logic$subscriptions,
-		a5: $author$project$Logic$update
+		a7: $author$project$Logic$subscriptions,
+		a8: $author$project$Logic$update
 	});
 _Platform_export({'Logic':{'init':$author$project$Logic$main(
 	$elm$json$Json$Decode$succeed(0))(0)}});}(this));

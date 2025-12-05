@@ -34,12 +34,19 @@ export default defineConfig({
   ],
   server: {
     fs: {
-      allow: ['../..'],
+      allow: ['../..', '../../../pkg-web'],
     },
     proxy: {
       '/api': 'http://localhost:3000',
     },
   },
+  define: {
+    global: 'globalThis',
+  },
+  optimizeDeps: {
+    exclude: ['proto-rust']
+  },
+  assetsInclude: ['**/*.wasm'],
   // Alias is handled by the plugin now, but we can keep it explicit if needed.
   // The plugin adds 'proto-rust' alias.
 });

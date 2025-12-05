@@ -233,7 +233,25 @@ handleAction action =
                 
                 logEffect = Api.Backend.Log logJson
 
-                -- 4. Construct Response
+                -- 4. Schedule Background Event: NotifyCommentAdded
+                eventPayload =
+                    Encode.object
+                        [ ( "comment_id", Encode.string slice.data.freshCommentId )
+                        , ( "item_id", Encode.string slice.input.itemId )
+                        , ( "author_name", Encode.string guestName )
+                        , ( "item_owner_email", Encode.null ) -- TODO: Get actual owner
+                        , ( "delay_minutes", Encode.int 0 ) -- Immediate notification
+                        ]
+                    |> Encode.encode 0
+                
+                eventEffect = 
+                    Api.Backend.ScheduleEvent 
+                        { eventType = "NotifyCommentAdded"
+                        , payload = eventPayload
+                        , delayMinutes = 0
+                        }
+
+                -- 5. Construct Response
                 comment =
                     { id = slice.data.freshCommentId
                     , itemId = slice.input.itemId
@@ -254,7 +272,7 @@ handleAction action =
                 , error = Just "Name required for first-time commenters"
                 }
             else
-                { effects = logEffect :: commentEffect :: guestEffects
+                { effects = logEffect :: eventEffect :: commentEffect :: guestEffects
                 , response = Just responseJson
                 , error = Nothing
                 }

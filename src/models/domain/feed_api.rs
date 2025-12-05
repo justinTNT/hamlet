@@ -1,4 +1,4 @@
-use crate::models::feed::{MicroblogItem, SubmitItemData};
+use crate::domain_feed_db::{MicroblogItem, SubmitItemData};
 use horatio_macro::{buildamp_api, buildamp_domain};
 
 #[buildamp_api(path = "GetFeed")]

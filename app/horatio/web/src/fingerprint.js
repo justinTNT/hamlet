@@ -3,7 +3,6 @@ export async function collectFingerprintData() {
         canvas: await getCanvasFingerprint(),
         webgl: await getWebGLFingerprint(),
         fonts: await getFontMetrics(),
-        audio: await getAudioFingerprint(),
         performance: getPerformanceFingerprint()
     };
 }
@@ -59,27 +58,6 @@ async function getFontMetrics() {
     return metrics;
 }
 
-async function getAudioFingerprint() {
-    if (!window.AudioContext && !window.webkitAudioContext) return 'no-audio';
-
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    const audioCtx = new AudioContext();
-    const oscillator = audioCtx.createOscillator();
-    const analyser = audioCtx.createAnalyser();
-
-    oscillator.connect(analyser);
-    analyser.connect(audioCtx.destination);
-    oscillator.start(0);
-
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    analyser.getByteFrequencyData(dataArray);
-
-    oscillator.stop();
-    audioCtx.close();
-
-    return Array.from(dataArray.slice(0, 32));
-}
 
 function getPerformanceFingerprint() {
     const start = performance.now();

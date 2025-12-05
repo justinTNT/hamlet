@@ -229,7 +229,37 @@ export default function buildampPlugin(options = {}) {
 
                 const watcher = chokidar.watch(path.join(config.crateDir, config.watchPattern), watchOptions);
 
+                // Clean up any auto-generated mod.rs files in models directory
+                const cleanupModFiles = () => {
+                    const modelsDir = path.join(config.crateDir, 'src/models');
+                    const findModFiles = (dir) => {
+                        try {
+                            const entries = fs.readdirSync(dir, { withFileTypes: true });
+                            for (const entry of entries) {
+                                const fullPath = path.join(dir, entry.name);
+                                if (entry.isDirectory()) {
+                                    findModFiles(fullPath);
+                                } else if (entry.name === 'mod.rs') {
+                                    try {
+                                        fs.unlinkSync(fullPath);
+                                    } catch (e) {
+                                        // Ignore errors - file might not exist
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            // Ignore errors - directory might not exist
+                        }
+                    };
+                    findModFiles(modelsDir);
+                };
+
                 watcher.on('change', async (file) => {
+                    // Ignore mod.rs files - they're auto-generated and not part of our build
+                    if (file.endsWith('mod.rs')) {
+                        return;
+                    }
+                    
                     log('info', `Rust change detected: ${file}`);
                     
                     // Use debounced build for better performance
@@ -238,6 +268,9 @@ export default function buildampPlugin(options = {}) {
                     } else {
                         await buildWasm();
                     }
+                    
+                    // Clean up any mod.rs files that cargo might have created
+                    cleanupModFiles();
                     
                     // Handle different HMR modes
                     if (config.hmr.mode === 'full-reload') {

@@ -7,7 +7,9 @@
     "start": "node server.js",
     "dev": "nodemon",
     "build:elm": "elm make src/Logic.elm --output elm-logic.js --optimize && mv elm-logic.js elm-logic.cjs",
-    "build": "npm run build:elm"
+    "build": "npm run build:elm",
+    "events": "node event-processor.js",
+    "events:dev": "nodemon event-processor.js"
   },
   "keywords": [],
   "author": "",

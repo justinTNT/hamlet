@@ -1,0 +1,2 @@
+# Ignore auto-generated mod.rs files
+**/mod.rs

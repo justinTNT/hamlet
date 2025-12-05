@@ -30,6 +30,7 @@ type ApiError
 type BackendEffect
     = Insert { table : String, data : String }
     | Log (String)
+    | ScheduleEvent { eventType : String, payload : String, delayMinutes : Int }
 
 
 type alias BackendOutput =
@@ -188,6 +189,8 @@ backendEffectEncoder enum =
             Json.Encode.object [ ( "Insert", Json.Encode.object [ ( "table", (Json.Encode.string) table ), ( "data", (Json.Encode.string) data ) ] ) ]
         Log inner ->
             Json.Encode.object [ ( "Log", Json.Encode.string inner ) ]
+        ScheduleEvent { eventType, payload, delayMinutes } ->
+            Json.Encode.object [ ( "ScheduleEvent", Json.Encode.object [ ( "event_type", (Json.Encode.string) eventType ), ( "payload", (Json.Encode.string) payload ), ( "delay_minutes", (Json.Encode.int) delayMinutes ) ] ) ]
 
 backendActionEncoder : BackendAction -> Json.Encode.Value
 backendActionEncoder enum =
@@ -411,10 +414,13 @@ backendEffectDecoder =
         let
             elmRsConstructInsert table data =
                         Insert { table = table, data = data }
+            elmRsConstructScheduleEvent eventType payload delayMinutes =
+                        ScheduleEvent { eventType = eventType, payload = payload, delayMinutes = delayMinutes }
         in
     Json.Decode.oneOf
         [ Json.Decode.field "Insert" (Json.Decode.succeed elmRsConstructInsert |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "table" (Json.Decode.string))) |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "data" (Json.Decode.string))))
         , Json.Decode.map Log (Json.Decode.field "Log" (Json.Decode.string))
+        , Json.Decode.field "ScheduleEvent" (Json.Decode.succeed elmRsConstructScheduleEvent |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "event_type" (Json.Decode.string))) |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "payload" (Json.Decode.string))) |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "delay_minutes" (Json.Decode.int))))
         ]
 
 submitCommentResDecoder : Json.Decode.Decoder SubmitCommentRes

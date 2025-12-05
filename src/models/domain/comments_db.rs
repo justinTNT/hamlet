@@ -1,4 +1,4 @@
-use crate::models::identity::Guest;
+use crate::domain_identity_db::Guest;
 use crate::framework::database_types::*;
 use horatio_macro::buildamp_domain;
 

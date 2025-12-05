@@ -29,14 +29,12 @@ async function run() {
         node: document.getElementById('app'),
     });
 
-    console.log('Elm app initialized. Ports:', app.ports);
+    console.log('Elm app initialized.');
 
     if (app.ports && app.ports.log) {
         app.ports.log.subscribe((message) => {
-            console.log("ELM DEBUG PORT:", message);
+            console.log("ELM:", message);
         });
-    } else {
-        console.warn("Elm 'log' port not found.");
     }
 
     if (app.ports && app.ports.rpcRequest) {

@@ -7,8 +7,8 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 import crypto from 'node:crypto';
 import fs from 'fs';
-import * as wasm from '../../pkg-node/proto_rust.js';
-const { dispatcher } = require('../../pkg-node/proto_rust.js');
+import * as wasm from '../../../pkg-node/proto_rust.js';
+const { dispatcher } = require('../../../pkg-node/proto_rust.js');
 const { Elm } = require('./elm-logic.cjs');
 const { encode_response, get_openapi_spec, get_context_manifest, get_endpoint_manifest, validate_manifest } = wasm;
 
@@ -304,6 +304,15 @@ app.post(['/api', '/:endpoint'], async (req, res) => {
                         } catch (e) {
                             console.log("Elm Log:", effect.Log);
                         }
+                    } else if (effect.ScheduleEvent) {
+                        const { event_type, payload, delay_minutes } = effect.ScheduleEvent;
+                        const executeAt = new Date(Date.now() + delay_minutes * 60 * 1000);
+                        
+                        await client.query(
+                            `INSERT INTO events (host, event_type, payload, execute_at) VALUES ($1, $2, $3, $4)`,
+                            [host, event_type, payload, executeAt]
+                        );
+                        console.log(`Scheduled event: ${event_type} for ${executeAt.toISOString()}`);
                     }
                 }
 
@@ -390,6 +399,15 @@ app.post(['/api', '/:endpoint'], async (req, res) => {
                         } catch (e) {
                             console.log("Elm Log:", effect.Log);
                         }
+                    } else if (effect.ScheduleEvent) {
+                        const { event_type, payload, delay_minutes } = effect.ScheduleEvent;
+                        const executeAt = new Date(Date.now() + delay_minutes * 60 * 1000);
+                        
+                        await executorClient.query(
+                            `INSERT INTO events (host, event_type, payload, execute_at) VALUES ($1, $2, $3, $4)`,
+                            [host, event_type, payload, executeAt]
+                        );
+                        console.log(`Scheduled event: ${event_type} for ${executeAt.toISOString()}`);
                     }
                 }
 

@@ -1,6 +1,7 @@
 use wasm_bindgen::prelude::*;
 extern crate self as proto_rust;
 use serde_json;
+use crate::domain_tags_db::Tag;
 
 pub mod framework {
     pub mod common;
@@ -9,19 +10,12 @@ pub mod framework {
     pub mod migration_gen;
     pub mod core;
 }
-pub mod models {
-    pub mod domain;
-    pub mod universal;
-    
-    // Legacy modules for backwards compatibility (will be removed eventually)
-    pub mod identity;
-    pub mod tags;
-    pub mod comments;
-    pub mod feed;
-}
+// Auto-discover all models - no manual declarations needed!
+use horatio_macro::buildamp_auto_discover_models;
+buildamp_auto_discover_models!("src/models");
+
 pub use framework::common::*;
 pub use framework::database_types::*;
-pub use models::domain::*;
 
 // Note: Removing legacy re-exports to avoid ambiguous imports
 // Legacy modules still available via explicit paths (models::comments::* etc.)
@@ -62,8 +56,8 @@ pub fn get_openapi_spec() -> String {
         (GetTagsReq, GetTagsRes), 
         (SubmitItemReq, SubmitItemRes),
         (SubmitCommentReq, SubmitCommentRes),
-        crate::models::feed::MicroblogItem,
-        crate::models::tags::Tag
+        crate::domain_feed_db::MicroblogItem,
+        Tag
     );
     get_openapi_spec()
 }

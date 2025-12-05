@@ -1,6 +1,8 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput, Data, Fields, Ident};
+use std::path::Path;
+use std::fs;
 
 mod buildamp_macros;
 
@@ -590,4 +592,109 @@ pub fn derive_buildamp_context(input: TokenStream) -> TokenStream {
         #(#context_registrations)*
     };
     TokenStream::from(expanded)
+}
+
+/// Auto-discover and include all .rs files in the models directory
+/// Usage: buildamp_auto_discover_models!("src/models");
+#[proc_macro]
+pub fn buildamp_auto_discover_models(input: TokenStream) -> TokenStream {
+    use syn::LitStr;
+    
+    let models_dir = parse_macro_input!(input as LitStr);
+    let models_path = models_dir.value();
+    
+    let mut module_declarations = Vec::new();
+    let mut module_exports = Vec::new();
+    
+    // Recursively scan the models directory
+    if let Ok(entries) = scan_models_dir(&models_path) {
+        for entry in entries {
+            let module_name = syn::Ident::new(&entry.module_name, proc_macro2::Span::call_site());
+            let file_path = entry.file_path;
+            
+            // Create module declaration with path
+            module_declarations.push(quote! {
+                #[path = #file_path]
+                pub mod #module_name;
+            });
+            
+            // If it's an API file, add to exports
+            if entry.is_api {
+                module_exports.push(quote! {
+                    pub use #module_name::*;
+                });
+            }
+        }
+    }
+    
+    TokenStream::from(quote! {
+        // Module declarations
+        #(#module_declarations)*
+        
+        // Re-exports
+        #(#module_exports)*
+    })
+}
+
+#[derive(Debug)]
+struct ModelEntry {
+    module_name: String,
+    file_path: String,
+    is_api: bool,
+}
+
+fn scan_models_dir(dir_path: &str) -> std::io::Result<Vec<ModelEntry>> {
+    let mut entries = Vec::new();
+    scan_directory(Path::new(dir_path), "", &mut entries)?;
+    Ok(entries)
+}
+
+fn scan_directory(
+    dir: &Path, 
+    prefix: &str, 
+    entries: &mut Vec<ModelEntry>
+) -> std::io::Result<()> {
+    
+    if !dir.exists() {
+        return Ok(());
+    }
+    
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        
+        if path.is_file() {
+            if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+                if file_name.ends_with(".rs") && file_name != "mod.rs" {
+                    let module_name = if prefix.is_empty() {
+                        file_name.trim_end_matches(".rs").to_string()
+                    } else {
+                        format!("{}_{}", prefix, file_name.trim_end_matches(".rs"))
+                    };
+                    
+                    let relative_path = path.strip_prefix("src/").unwrap_or(&path);
+                    let file_path = relative_path.to_string_lossy().to_string();
+                    
+                    let is_api = file_name.ends_with("_api.rs");
+                    
+                    entries.push(ModelEntry {
+                        module_name,
+                        file_path,
+                        is_api,
+                    });
+                }
+            }
+        } else if path.is_dir() {
+            if let Some(dir_name) = path.file_name().and_then(|n| n.to_str()) {
+                let new_prefix = if prefix.is_empty() {
+                    dir_name.to_string()
+                } else {
+                    format!("{}_{}", prefix, dir_name)
+                };
+                scan_directory(&path, &new_prefix, entries)?;
+            }
+        }
+    }
+    
+    Ok(())
 }
