@@ -132,6 +132,96 @@ class TenantKeyValueStore {
 // Global KV store instance
 const kvStore = new TenantKeyValueStore();
 
+// Server-Sent Events Infrastructure
+class TenantSSEManager {
+    constructor() {
+        this.tenantConnections = new Map(); // host -> Set<response>
+    }
+
+    addConnection(host, response) {
+        if (!this.tenantConnections.has(host)) {
+            this.tenantConnections.set(host, new Set());
+        }
+        this.tenantConnections.get(host).add(response);
+        
+        // Clean up on close
+        response.on('close', () => {
+            this.removeConnection(host, response);
+        });
+    }
+
+    removeConnection(host, response) {
+        if (this.tenantConnections.has(host)) {
+            this.tenantConnections.get(host).delete(response);
+            if (this.tenantConnections.get(host).size === 0) {
+                this.tenantConnections.delete(host);
+            }
+        }
+    }
+
+    broadcast(host, event) {
+        if (!this.tenantConnections.has(host)) {
+            return; // No connections for this tenant
+        }
+
+        const connections = this.tenantConnections.get(host);
+        const deadConnections = new Set();
+
+        for (const response of connections) {
+            try {
+                response.write(`data: ${JSON.stringify(event)}\n\n`);
+            } catch (error) {
+                // Connection died, mark for cleanup
+                deadConnections.add(response);
+            }
+        }
+
+        // Clean up dead connections
+        for (const response of deadConnections) {
+            this.removeConnection(host, response);
+        }
+    }
+
+    getStats(host = null) {
+        if (host) {
+            return {
+                host: host,
+                connections: this.tenantConnections.get(host)?.size || 0
+            };
+        } else {
+            const stats = {};
+            let totalConnections = 0;
+            for (const [tenantHost, connections] of this.tenantConnections.entries()) {
+                const count = connections.size;
+                stats[tenantHost] = count;
+                totalConnections += count;
+            }
+            return {
+                total_connections: totalConnections,
+                tenant_count: this.tenantConnections.size,
+                per_tenant: stats
+            };
+        }
+    }
+}
+
+// Global SSE manager instance
+const sseManager = new TenantSSEManager();
+
+// Helper function to broadcast events to SSE clients
+function broadcastSSEEvent(host, eventType, data) {
+    const event = {
+        id: crypto.randomUUID(),
+        type: eventType,
+        data: data,
+        timestamp: Date.now(),
+        host: host
+    };
+    
+    sseManager.broadcast(host, event);
+    return event.id;
+}
+
 // Run BuildAmp validation and display results
 const validationReport = validate_manifest();
 console.log(validationReport);
@@ -438,6 +528,26 @@ app.post(['/api', '/:endpoint'], async (req, res) => {
 
                 await client.query('COMMIT');
 
+                // Broadcast SSE event for new post
+                if (endpoint === 'SubmitItem' && !output.error) {
+                    try {
+                        broadcastSSEEvent(host, 'new_post', {
+                            post_id: slice.data.fresh_item_id,
+                            title: wireRequest.title,
+                            author_name: 'User', // TODO: Get from context when auth is implemented
+                            author_id: 'user_123', // TODO: Get from context
+                            extract: wireRequest.extract,
+                            tags: wireRequest.tags || [],
+                            timestamp: Date.now(),
+                            link: wireRequest.link,
+                            image: wireRequest.image
+                        });
+                        console.log(`[SSE] Broadcasted new post event: ${wireRequest.title}`);
+                    } catch (sseError) {
+                        console.warn(`[SSE] Failed to broadcast post event:`, sseError.message);
+                    }
+                }
+
                 // 6. Send Response
                 if (output.response) {
                     res.json(JSON.parse(output.response));
@@ -532,6 +642,23 @@ app.post(['/api', '/:endpoint'], async (req, res) => {
                 }
 
                 await executorClient.query('COMMIT');
+
+                // Broadcast SSE event for new comment
+                if (endpoint === 'SubmitComment' && !output.error) {
+                    try {
+                        broadcastSSEEvent(host, 'new_comment', {
+                            comment_id: slice.data.fresh_comment_id,
+                            post_id: wireRequest.item_id,
+                            author_name: wireRequest.author_name || 'Anonymous',
+                            author_id: slice.data.fresh_guest_id,
+                            text: wireRequest.text,
+                            timestamp: Date.now()
+                        });
+                        console.log(`[SSE] Broadcasted new comment event for item ${wireRequest.item_id}`);
+                    } catch (sseError) {
+                        console.warn(`[SSE] Failed to broadcast comment event:`, sseError.message);
+                    }
+                }
 
                 if (output.response) {
                     res.json(JSON.parse(output.response));
@@ -651,10 +778,118 @@ app.get('/kv/stats', (req, res) => {
     }
 });
 
+// Server-Sent Events Endpoints
+// Following BuildAmp tenant isolation pattern
+
+// SSE event stream endpoint
+app.get('/events/stream', (req, res) => {
+    try {
+        const host = req.get('Host') || 'localhost';
+        
+        // Set SSE headers
+        res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Cache-Control'
+        });
+
+        // Send initial connection event
+        const welcomeEvent = {
+            id: crypto.randomUUID(),
+            type: 'connection',
+            data: {
+                message: 'Connected to live updates',
+                host: host,
+                timestamp: Date.now()
+            },
+            timestamp: Date.now()
+        };
+        res.write(`data: ${JSON.stringify(welcomeEvent)}\n\n`);
+
+        // Add connection to SSE manager
+        sseManager.addConnection(host, res);
+        
+        console.log(`[SSE] Client connected for host: ${host}`);
+        
+        // Keep connection alive with periodic heartbeat
+        const heartbeat = setInterval(() => {
+            try {
+                res.write(`data: ${JSON.stringify({
+                    id: crypto.randomUUID(),
+                    type: 'heartbeat',
+                    timestamp: Date.now()
+                })}\n\n`);
+            } catch (error) {
+                clearInterval(heartbeat);
+            }
+        }, 30000); // 30 second heartbeat
+
+        // Clean up on disconnect
+        res.on('close', () => {
+            clearInterval(heartbeat);
+            console.log(`[SSE] Client disconnected for host: ${host}`);
+        });
+
+    } catch (error) {
+        console.error('[SSE] Connection error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Broadcast event to SSE clients (internal endpoint)
+app.post('/events/broadcast', (req, res) => {
+    try {
+        const host = req.get('Host') || 'localhost';
+        const { event_type, data } = req.body;
+
+        if (!event_type || !data) {
+            return res.status(400).json({ error: 'event_type and data are required' });
+        }
+
+        const event = {
+            id: crypto.randomUUID(),
+            type: event_type,
+            data: data,
+            timestamp: Date.now(),
+            host: host
+        };
+
+        // Broadcast to all connections for this tenant
+        sseManager.broadcast(host, event);
+        
+        res.json({ 
+            success: true, 
+            event_id: event.id,
+            connections_notified: sseManager.getStats(host).connections
+        });
+
+    } catch (error) {
+        console.error('[SSE] Broadcast error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// SSE statistics
+app.get('/events/stats', (req, res) => {
+    try {
+        const host = req.get('Host') || 'localhost';
+        const { global } = req.query;
+        
+        const stats = global === 'true' ? sseManager.getStats() : sseManager.getStats(host);
+        res.json(stats);
+    } catch (error) {
+        console.error('[SSE] Stats error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Start Server
 runMigrations().then(() => {
     app.listen(port, () => {
         console.log(`Horatio Backend running at http://localhost:${port}`);
         console.log(`Key-Value Store endpoints available at http://localhost:${port}/kv/*`);
+        console.log(`Server-Sent Events available at http://localhost:${port}/events/*`);
     });
 });

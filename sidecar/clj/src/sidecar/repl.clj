@@ -9,6 +9,7 @@
             [sidecar.migration-deps :as migrations]
             [sidecar.host-isolation :as isolation]
             [sidecar.kv-verification :as kv]
+            [sidecar.sse-verification :as sse]
             [clojure.pprint :refer [pprint]])
   (:gen-class))
 
@@ -115,6 +116,15 @@
       (core/print-check-summary (name check-name) result))
     results))
 
+(defn check-sse
+  "Run only server-sent events checks"
+  []
+  (println "\n📡 Server-Sent Events only:")
+  (let [results (sse/run-all-sse-verification-checks)]
+    (doseq [[check-name result] (:results results)]
+      (core/print-check-summary (name check-name) result))
+    results))
+
 (defn watch-files
   "Watch source files and re-run checks on changes (basic polling)"
   [& {:keys [interval-ms] :or {interval-ms 2000}}]
@@ -154,6 +164,7 @@ Verification:
   (check-migrations) - Migration dependencies only
   (check-isolation) - Host isolation only
   (check-kv) - Key-value store only
+  (check-sse) - Server-sent events only
 
 Interactive:
   (watch-files) - Auto-run checks when files change

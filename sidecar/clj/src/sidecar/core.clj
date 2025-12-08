@@ -6,7 +6,8 @@
             [sidecar.event-system :as events]
             [sidecar.migration-deps :as migrations]
             [sidecar.host-isolation :as isolation]
-            [sidecar.kv-verification :as kv]))
+            [sidecar.kv-verification :as kv]
+            [sidecar.sse-verification :as sse]))
 
 ;; This is the general sidecar entrypoint.
 ;; Agents may call (sidecar.core/run-all) to run any regression harnesses.
@@ -71,6 +72,12 @@
   (let [kv-results (kv/run-all-kv-verification-checks)]
     (println "\n🔑 Key-Value Store:")
     (doseq [[check-name result] (:results kv-results)]
+      (print-check-summary (name check-name) result)))
+  
+  ;; Server-Sent Events Checks
+  (let [sse-results (sse/run-all-sse-verification-checks)]
+    (println "\n📡 Server-Sent Events:")
+    (doseq [[check-name result] (:results sse-results)]
       (print-check-summary (name check-name) result)))
   
   (println "\n=========================================================")

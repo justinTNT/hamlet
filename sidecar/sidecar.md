@@ -62,6 +62,27 @@ you can generate reports and golden outputs
 
 We do not use clojure to implement runtime logic for the deployable application.
 
+### nREPL Setup
+
+The sidecar runs an nREPL server on **port 7888** for interactive development:
+
+```bash
+cd sidecar/clj
+clj -M -m sidecar.repl
+```
+
+Connect your editor to `localhost:7888` or use:
+```bash
+lein repl :connect 7888
+# or
+clj -M:nrepl
+```
+
+Quick verification commands:
+- `(check)` - Run all consistency checks
+- `(help)` - Show available commands
+- `(check-kv)` - Verify key-value store patterns
+
 
 ## /minikanren/
 
