@@ -1,0 +1,5 @@
+{:cases
+ [{:id "no-negative-totals"
+   :description "Totals must always be >= 0"
+   :smt-file "sidecar/z3/no_negative_totals.smt2"}]}
+

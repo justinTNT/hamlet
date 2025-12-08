@@ -1,0 +1,49 @@
+{:tools
+ ;; Clojure sidecar brain / regression harness
+ [{:name        :clojure
+   :kind        :sidecar-brain
+   :entry       sidecar.core/run-all          ;; optional, can be stubbed
+   :scope       :sidecar-only
+   :description "General sidecar brain for disposable scripts, transforms, and regression harnesses. Never touches /src."
+   :when-to-use "Any time you would otherwise write a throwaway Python script or need a local regression harness."}
+
+  ;; Z3: invariants / correctness
+  {:name        :z3
+   :kind        :invariant
+   :entry       sidecar.z3-harness/run-all   ;; to be implemented by agents
+   :scope       :sidecar-only
+   :description "SMT-based invariants and correctness checks, run via Clojure."
+   :when-to-use "When worried about logical invariants being violated; encode constraints and ask for SAT/UNSAT or counterexamples."}
+
+  ;; Datalog: relationships / consistency
+  {:name        :datalog
+   :kind        :consistency
+   :entry       sidecar.datalog-harness/run-all
+   :scope       :sidecar-only
+   :description "Datalog rules over small fact sets to check relationships and structural consistency."
+   :when-to-use "When you want to assert or check relationships (routes→handlers, deps, reachability, no cycles, no orphans)."}
+
+  ;; MiniKanren / core.logic: small search & planning
+  {:name        :minikanren
+   :kind        :logic-search
+   :entry       sidecar.logic-harness/run-all
+   :scope       :sidecar-only
+   :description "Relational / logic search over small discrete spaces, via core.logic/miniKanren."
+   :when-to-use "Only for tiny search/planning problems, or generating examples/counterexamples under constraints. Never for production logic."}
+
+  ;; CUE: schema / shape constraints (optional sidecar use)
+  {:name        :cue
+   :kind        :schema
+   :entry       :external-tool
+   :scope       :sidecar-or-main
+   :description "Schema / unification engine for validating shapes of configs or generated artifacts."
+   :when-to-use "When you want strict shape guarantees for configs or generated artifacts. May be used in the main codebase if appropriate."}
+
+  ;; Fuzzing: property-based testing (optional)
+  {:name        :fuzzing
+   :kind        :property-testing
+   :entry       sidecar.fuzzing-harness/run-all
+   :scope       :sidecar-only
+   :description "Property-based input generation and checking. Optional, only if it adds clear value."
+   :when-to-use "When you have a clear property (e.g. always sorted, never negative) and want many random examples checked in sidecar space."}]}
+

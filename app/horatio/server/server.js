@@ -12,6 +12,126 @@ const { dispatcher } = require('../../../pkg-node/proto_rust.js');
 const { Elm } = require('./elm-logic.cjs');
 const { encode_response, get_openapi_spec, get_context_manifest, get_endpoint_manifest, validate_manifest } = wasm;
 
+// Type-Safe Key-Value Store Infrastructure
+class TenantKeyValueStore {
+    constructor() {
+        this.tenantStores = new Map(); // host -> Map<string, { value, expires_at, type }>
+    }
+
+    getOrCreateStore(host) {
+        if (!this.tenantStores.has(host)) {
+            this.tenantStores.set(host, new Map());
+        }
+        return this.tenantStores.get(host);
+    }
+
+    set(host, type, key, value, ttlSeconds = null) {
+        const store = this.getOrCreateStore(host);
+        const fullKey = `${type}:${key}`;
+        
+        store.set(fullKey, {
+            value: value,
+            expires_at: ttlSeconds ? Date.now() + (ttlSeconds * 1000) : null,
+            type: type,
+            created_at: Date.now()
+        });
+        
+        return { success: true };
+    }
+
+    get(host, type, key) {
+        const store = this.getOrCreateStore(host);
+        const fullKey = `${type}:${key}`;
+        const item = store.get(fullKey);
+        
+        if (!item) {
+            return { value: null, found: false };
+        }
+        
+        // Check expiration
+        if (item.expires_at && item.expires_at < Date.now()) {
+            store.delete(fullKey);
+            return { value: null, found: false, expired: true };
+        }
+        
+        return { value: item.value, found: true, type: item.type };
+    }
+
+    delete(host, type, key) {
+        const store = this.getOrCreateStore(host);
+        const fullKey = `${type}:${key}`;
+        const existed = store.has(fullKey);
+        store.delete(fullKey);
+        return { success: true, existed };
+    }
+
+    list(host, prefix) {
+        const store = this.getOrCreateStore(host);
+        const results = [];
+        
+        for (const [fullKey, item] of store.entries()) {
+            // Check expiration
+            if (item.expires_at && item.expires_at < Date.now()) {
+                store.delete(fullKey);
+                continue;
+            }
+            
+            if (fullKey.startsWith(prefix)) {
+                results.push({
+                    key: fullKey,
+                    value: item.value,
+                    type: item.type,
+                    created_at: item.created_at
+                });
+            }
+        }
+        
+        return results;
+    }
+
+    cleanup(host) {
+        const store = this.getOrCreateStore(host);
+        let cleaned = 0;
+        
+        for (const [fullKey, item] of store.entries()) {
+            if (item.expires_at && item.expires_at < Date.now()) {
+                store.delete(fullKey);
+                cleaned++;
+            }
+        }
+        
+        return { cleaned };
+    }
+
+    stats(host = null) {
+        if (host) {
+            const store = this.getOrCreateStore(host);
+            return {
+                total_keys: store.size,
+                host: host
+            };
+        } else {
+            let totalKeys = 0;
+            const tenantCounts = {};
+            
+            for (const [tenantHost, store] of this.tenantStores.entries()) {
+                const count = store.size;
+                tenantCounts[tenantHost] = count;
+                totalKeys += count;
+            }
+            
+            return {
+                total_keys: totalKeys,
+                tenant_count: this.tenantStores.size,
+                per_tenant: tenantCounts
+            };
+        }
+    }
+}
+
+// Global KV store instance
+const kvStore = new TenantKeyValueStore();
+
 // Run BuildAmp validation and display results
 const validationReport = validate_manifest();
 console.log(validationReport);
@@ -440,9 +560,101 @@ app.post(['/api', '/:endpoint'], async (req, res) => {
     }
 });
 
+// Key-Value Store API Endpoints
+// Following BuildAmp tenant isolation pattern
+
+// Set key-value pair
+app.post('/kv/set/:type/:key', (req, res) => {
+    try {
+        const host = req.get('Host') || 'localhost';
+        const { type, key } = req.params;
+        const { value, ttl } = req.body;
+        
+        if (!value) {
+            return res.status(400).json({ error: 'Value is required' });
+        }
+        
+        const result = kvStore.set(host, type, key, value, ttl);
+        res.json(result);
+    } catch (error) {
+        console.error('KV Set error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get key-value pair
+app.get('/kv/get/:type/:key', (req, res) => {
+    try {
+        const host = req.get('Host') || 'localhost';
+        const { type, key } = req.params;
+        
+        const result = kvStore.get(host, type, key);
+        res.json(result);
+    } catch (error) {
+        console.error('KV Get error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Delete key-value pair
+app.delete('/kv/delete/:type/:key', (req, res) => {
+    try {
+        const host = req.get('Host') || 'localhost';
+        const { type, key } = req.params;
+        
+        const result = kvStore.delete(host, type, key);
+        res.json(result);
+    } catch (error) {
+        console.error('KV Delete error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// List keys with prefix
+app.get('/kv/list/:prefix', (req, res) => {
+    try {
+        const host = req.get('Host') || 'localhost';
+        const { prefix } = req.params;
+        
+        const results = kvStore.list(host, prefix);
+        res.json({ keys: results });
+    } catch (error) {
+        console.error('KV List error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Cleanup expired keys for a tenant
+app.post('/kv/cleanup', (req, res) => {
+    try {
+        const host = req.get('Host') || 'localhost';
+        
+        const result = kvStore.cleanup(host);
+        res.json(result);
+    } catch (error) {
+        console.error('KV Cleanup error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get KV store statistics
+app.get('/kv/stats', (req, res) => {
+    try {
+        const host = req.get('Host') || 'localhost';
+        const { global } = req.query;
+        
+        const stats = global === 'true' ? kvStore.stats() : kvStore.stats(host);
+        res.json(stats);
+    } catch (error) {
+        console.error('KV Stats error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Start Server
 runMigrations().then(() => {
     app.listen(port, () => {
         console.log(`Horatio Backend running at http://localhost:${port}`);
+        console.log(`Key-Value Store endpoints available at http://localhost:${port}/kv/*`);
     });
 });

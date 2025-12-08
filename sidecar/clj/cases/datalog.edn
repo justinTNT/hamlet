@@ -1,0 +1,10 @@
+{:cases
+ [{:id "routes-have-handlers"
+   :description "Every route has a matching handler function"
+   :facts-file "sidecar/datalog/routes_facts.edn"
+   :rules-file "sidecar/datalog/routes_rules.edn"
+   :query '[:find ?route
+            :where
+            [?route :route/path]
+            (not [?route :route/handler])]}]}
+
