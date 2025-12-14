@@ -77,14 +77,14 @@ function A9(fun, a, b, c, d, e, f, g, h, i) {
   return fun.a === 9 ? fun.f(a, b, c, d, e, f, g, h, i) : fun(a)(b)(c)(d)(e)(f)(g)(h)(i);
 }
 
+console.warn('Compiled in DEV mode. Follow the advice at https://elm-lang.org/0.19.1/optimize for better performance and smaller assets.');
 
 
+var _List_Nil_UNUSED = { $: 0 };
+var _List_Nil = { $: '[]' };
 
-var _List_Nil = { $: 0 };
-var _List_Nil_UNUSED = { $: '[]' };
-
-function _List_Cons(hd, tl) { return { $: 1, a: hd, b: tl }; }
-function _List_Cons_UNUSED(hd, tl) { return { $: '::', a: hd, b: tl }; }
+function _List_Cons_UNUSED(hd, tl) { return { $: 1, a: hd, b: tl }; }
+function _List_Cons(hd, tl) { return { $: '::', a: hd, b: tl }; }
 
 
 var _List_cons = F2(_List_Cons);
@@ -315,12 +315,12 @@ var _JsArray_appendN = F3(function(n, dest, source)
 
 // LOG
 
-var _Debug_log = F2(function(tag, value)
+var _Debug_log_UNUSED = F2(function(tag, value)
 {
 	return value;
 });
 
-var _Debug_log_UNUSED = F2(function(tag, value)
+var _Debug_log = F2(function(tag, value)
 {
 	console.log(tag + ': ' + _Debug_toString(value));
 	return value;
@@ -346,12 +346,12 @@ function _Debug_todoCase(moduleName, region, value)
 
 // TO STRING
 
-function _Debug_toString(value)
+function _Debug_toString_UNUSED(value)
 {
 	return '<internals>';
 }
 
-function _Debug_toString_UNUSED(value)
+function _Debug_toString(value)
 {
 	return _Debug_toAnsiString(false, value);
 }
@@ -536,13 +536,13 @@ function _Debug_toHexDigit(n)
 // CRASH
 
 
-function _Debug_crash(identifier)
+function _Debug_crash_UNUSED(identifier)
 {
 	throw new Error('https://github.com/elm/core/blob/1.0.0/hints/' + identifier + '.md');
 }
 
 
-function _Debug_crash_UNUSED(identifier, fact1, fact2, fact3, fact4)
+function _Debug_crash(identifier, fact1, fact2, fact3, fact4)
 {
 	switch(identifier)
 	{
@@ -600,11 +600,11 @@ function _Debug_crash_UNUSED(identifier, fact1, fact2, fact3, fact4)
 
 function _Debug_regionToString(region)
 {
-	if (region.Z.G === region.ah.G)
+	if (region.start.line === region.end.line)
 	{
-		return 'on line ' + region.Z.G;
+		return 'on line ' + region.start.line;
 	}
-	return 'on lines ' + region.Z.G + ' through ' + region.ah.G;
+	return 'on lines ' + region.start.line + ' through ' + region.end.line;
 }
 
 
@@ -642,7 +642,7 @@ function _Utils_eqHelp(x, y, depth, stack)
 		return true;
 	}
 
-	/**_UNUSED/
+	/**/
 	if (x.$ === 'Set_elm_builtin')
 	{
 		x = $elm$core$Set$toList(x);
@@ -655,7 +655,7 @@ function _Utils_eqHelp(x, y, depth, stack)
 	}
 	//*/
 
-	/**/
+	/**_UNUSED/
 	if (x.$ < 0)
 	{
 		x = $elm$core$Dict$toList(x);
@@ -690,7 +690,7 @@ function _Utils_cmp(x, y, ord)
 		return x === y ? /*EQ*/ 0 : x < y ? /*LT*/ -1 : /*GT*/ 1;
 	}
 
-	/**_UNUSED/
+	/**/
 	if (x instanceof String)
 	{
 		var a = x.valueOf();
@@ -699,10 +699,10 @@ function _Utils_cmp(x, y, ord)
 	}
 	//*/
 
-	/**/
+	/**_UNUSED/
 	if (typeof x.$ === 'undefined')
 	//*/
-	/**_UNUSED/
+	/**/
 	if (x.$[0] === '#')
 	//*/
 	{
@@ -732,17 +732,17 @@ var _Utils_compare = F2(function(x, y)
 
 // COMMON VALUES
 
-var _Utils_Tuple0 = 0;
-var _Utils_Tuple0_UNUSED = { $: '#0' };
+var _Utils_Tuple0_UNUSED = 0;
+var _Utils_Tuple0 = { $: '#0' };
 
-function _Utils_Tuple2(a, b) { return { a: a, b: b }; }
-function _Utils_Tuple2_UNUSED(a, b) { return { $: '#2', a: a, b: b }; }
+function _Utils_Tuple2_UNUSED(a, b) { return { a: a, b: b }; }
+function _Utils_Tuple2(a, b) { return { $: '#2', a: a, b: b }; }
 
-function _Utils_Tuple3(a, b, c) { return { a: a, b: b, c: c }; }
-function _Utils_Tuple3_UNUSED(a, b, c) { return { $: '#3', a: a, b: b, c: c }; }
+function _Utils_Tuple3_UNUSED(a, b, c) { return { a: a, b: b, c: c }; }
+function _Utils_Tuple3(a, b, c) { return { $: '#3', a: a, b: b, c: c }; }
 
-function _Utils_chr(c) { return c; }
-function _Utils_chr_UNUSED(c) { return new String(c); }
+function _Utils_chr_UNUSED(c) { return c; }
+function _Utils_chr(c) { return new String(c); }
 
 
 // RECORDS
@@ -1212,7 +1212,7 @@ function _Char_toLocaleLower(char)
 
 
 
-/**_UNUSED/
+/**/
 function _Json_errorToString(error)
 {
 	return $elm$json$Json$Decode$errorToString(error);
@@ -1616,11 +1616,11 @@ var _Json_encode = F2(function(indentLevel, value)
 	return JSON.stringify(_Json_unwrap(value), null, indentLevel) + '';
 });
 
-function _Json_wrap_UNUSED(value) { return { $: 0, a: value }; }
-function _Json_unwrap_UNUSED(value) { return value.a; }
+function _Json_wrap(value) { return { $: 0, a: value }; }
+function _Json_unwrap(value) { return value.a; }
 
-function _Json_wrap(value) { return value; }
-function _Json_unwrap(value) { return value; }
+function _Json_wrap_UNUSED(value) { return value; }
+function _Json_unwrap_UNUSED(value) { return value; }
 
 function _Json_emptyArray() { return []; }
 function _Json_emptyObject() { return {}; }
@@ -1861,9 +1861,9 @@ var _Platform_worker = F4(function(impl, flagDecoder, debugMetadata, args)
 	return _Platform_initialize(
 		flagDecoder,
 		args,
-		impl.a2,
-		impl.a8,
-		impl.a7,
+		impl.init,
+		impl.update,
+		impl.subscriptions,
 		function() { return function() {} }
 	);
 });
@@ -1876,7 +1876,7 @@ var _Platform_worker = F4(function(impl, flagDecoder, debugMetadata, args)
 function _Platform_initialize(flagDecoder, args, init, update, subscriptions, stepperBuilder)
 {
 	var result = A2(_Json_run, flagDecoder, _Json_wrap(args ? args['flags'] : undefined));
-	$elm$core$Result$isOk(result) || _Debug_crash(2 /**_UNUSED/, _Json_errorToString(result.a) /**/);
+	$elm$core$Result$isOk(result) || _Debug_crash(2 /**/, _Json_errorToString(result.a) /**/);
 	var managers = {};
 	var initPair = init(result.a);
 	var model = initPair.a;
@@ -2320,7 +2320,7 @@ function _Platform_setupIncomingPort(name, sendToApp)
 //
 
 
-function _Platform_export(exports)
+function _Platform_export_UNUSED(exports)
 {
 	scope['Elm']
 		? _Platform_mergeExportsProd(scope['Elm'], exports)
@@ -2341,7 +2341,7 @@ function _Platform_mergeExportsProd(obj, exports)
 }
 
 
-function _Platform_export_UNUSED(exports)
+function _Platform_export(exports)
 {
 	scope['Elm']
 		? _Platform_mergeExportsDebug('Elm', scope['Elm'], exports)
@@ -2360,8 +2360,8 @@ function _Platform_mergeExportsDebug(moduleName, obj, exports)
 			: (obj[name] = exports[name]);
 	}
 }
-var $elm$core$Basics$EQ = 1;
-var $elm$core$Basics$LT = 0;
+var $elm$core$Basics$EQ = {$: 'EQ'};
+var $elm$core$Basics$LT = {$: 'LT'};
 var $elm$core$List$cons = _List_cons;
 var $elm$core$Elm$JsArray$foldr = _JsArray_foldr;
 var $elm$core$Array$foldr = F3(
@@ -2370,7 +2370,7 @@ var $elm$core$Array$foldr = F3(
 		var tail = _v0.d;
 		var helper = F2(
 			function (node, acc) {
-				if (!node.$) {
+				if (node.$ === 'SubTree') {
 					var subTree = node.a;
 					return A3($elm$core$Elm$JsArray$foldr, helper, acc, subTree);
 				} else {
@@ -2391,7 +2391,7 @@ var $elm$core$Dict$foldr = F3(
 	function (func, acc, t) {
 		foldr:
 		while (true) {
-			if (t.$ === -2) {
+			if (t.$ === 'RBEmpty_elm_builtin') {
 				return acc;
 			} else {
 				var key = t.b;
@@ -2436,37 +2436,37 @@ var $elm$core$Dict$keys = function (dict) {
 		dict);
 };
 var $elm$core$Set$toList = function (_v0) {
-	var dict = _v0;
+	var dict = _v0.a;
 	return $elm$core$Dict$keys(dict);
 };
-var $elm$core$Basics$GT = 2;
+var $elm$core$Basics$GT = {$: 'GT'};
 var $elm$core$Result$Err = function (a) {
-	return {$: 1, a: a};
+	return {$: 'Err', a: a};
 };
 var $elm$json$Json$Decode$Failure = F2(
 	function (a, b) {
-		return {$: 3, a: a, b: b};
+		return {$: 'Failure', a: a, b: b};
 	});
 var $elm$json$Json$Decode$Field = F2(
 	function (a, b) {
-		return {$: 0, a: a, b: b};
+		return {$: 'Field', a: a, b: b};
 	});
 var $elm$json$Json$Decode$Index = F2(
 	function (a, b) {
-		return {$: 1, a: a, b: b};
+		return {$: 'Index', a: a, b: b};
 	});
 var $elm$core$Result$Ok = function (a) {
-	return {$: 0, a: a};
+	return {$: 'Ok', a: a};
 };
 var $elm$json$Json$Decode$OneOf = function (a) {
-	return {$: 2, a: a};
+	return {$: 'OneOf', a: a};
 };
-var $elm$core$Basics$False = 1;
+var $elm$core$Basics$False = {$: 'False'};
 var $elm$core$Basics$add = _Basics_add;
 var $elm$core$Maybe$Just = function (a) {
-	return {$: 0, a: a};
+	return {$: 'Just', a: a};
 };
-var $elm$core$Maybe$Nothing = {$: 1};
+var $elm$core$Maybe$Nothing = {$: 'Nothing'};
 var $elm$core$String$all = _String_all;
 var $elm$core$Basics$and = _Basics_and;
 var $elm$core$Basics$append = _Utils_append;
@@ -2591,12 +2591,12 @@ var $elm$json$Json$Decode$errorToStringHelp = F2(
 		errorToStringHelp:
 		while (true) {
 			switch (error.$) {
-				case 0:
+				case 'Field':
 					var f = error.a;
 					var err = error.b;
 					var isSimple = function () {
 						var _v1 = $elm$core$String$uncons(f);
-						if (_v1.$ === 1) {
+						if (_v1.$ === 'Nothing') {
 							return false;
 						} else {
 							var _v2 = _v1.a;
@@ -2611,7 +2611,7 @@ var $elm$json$Json$Decode$errorToStringHelp = F2(
 					error = $temp$error;
 					context = $temp$context;
 					continue errorToStringHelp;
-				case 1:
+				case 'Index':
 					var i = error.a;
 					var err = error.b;
 					var indexName = '[' + ($elm$core$String$fromInt(i) + ']');
@@ -2620,7 +2620,7 @@ var $elm$json$Json$Decode$errorToStringHelp = F2(
 					error = $temp$error;
 					context = $temp$context;
 					continue errorToStringHelp;
-				case 2:
+				case 'OneOf':
 					var errors = error.a;
 					if (!errors.b) {
 						return 'Ran into a Json.Decode.oneOf with no possibilities' + function () {
@@ -2684,7 +2684,7 @@ var $elm$json$Json$Decode$errorToStringHelp = F2(
 var $elm$core$Array$branchFactor = 32;
 var $elm$core$Array$Array_elm_builtin = F4(
 	function (a, b, c, d) {
-		return {$: 0, a: a, b: b, c: c, d: d};
+		return {$: 'Array_elm_builtin', a: a, b: b, c: c, d: d};
 	});
 var $elm$core$Elm$JsArray$empty = _JsArray_empty;
 var $elm$core$Basics$ceiling = _Basics_ceiling;
@@ -2699,7 +2699,7 @@ var $elm$core$Array$shiftStep = $elm$core$Basics$ceiling(
 var $elm$core$Array$empty = A4($elm$core$Array$Array_elm_builtin, 0, $elm$core$Array$shiftStep, $elm$core$Elm$JsArray$empty, $elm$core$Elm$JsArray$empty);
 var $elm$core$Elm$JsArray$initialize = _JsArray_initialize;
 var $elm$core$Array$Leaf = function (a) {
-	return {$: 1, a: a};
+	return {$: 'Leaf', a: a};
 };
 var $elm$core$Basics$apL = F2(
 	function (f, x) {
@@ -2719,7 +2719,7 @@ var $elm$core$Basics$max = F2(
 	});
 var $elm$core$Basics$mul = _Basics_mul;
 var $elm$core$Array$SubTree = function (a) {
-	return {$: 0, a: a};
+	return {$: 'SubTree', a: a};
 };
 var $elm$core$Elm$JsArray$initializeFromList = _JsArray_initializeFromList;
 var $elm$core$Array$compressNodes = F2(
@@ -2766,25 +2766,25 @@ var $elm$core$Array$treeFromBuilder = F2(
 	});
 var $elm$core$Array$builderToArray = F2(
 	function (reverseNodeList, builder) {
-		if (!builder.a) {
+		if (!builder.nodeListSize) {
 			return A4(
 				$elm$core$Array$Array_elm_builtin,
-				$elm$core$Elm$JsArray$length(builder.c),
+				$elm$core$Elm$JsArray$length(builder.tail),
 				$elm$core$Array$shiftStep,
 				$elm$core$Elm$JsArray$empty,
-				builder.c);
+				builder.tail);
 		} else {
-			var treeLen = builder.a * $elm$core$Array$branchFactor;
+			var treeLen = builder.nodeListSize * $elm$core$Array$branchFactor;
 			var depth = $elm$core$Basics$floor(
 				A2($elm$core$Basics$logBase, $elm$core$Array$branchFactor, treeLen - 1));
-			var correctNodeList = reverseNodeList ? $elm$core$List$reverse(builder.d) : builder.d;
-			var tree = A2($elm$core$Array$treeFromBuilder, correctNodeList, builder.a);
+			var correctNodeList = reverseNodeList ? $elm$core$List$reverse(builder.nodeList) : builder.nodeList;
+			var tree = A2($elm$core$Array$treeFromBuilder, correctNodeList, builder.nodeListSize);
 			return A4(
 				$elm$core$Array$Array_elm_builtin,
-				$elm$core$Elm$JsArray$length(builder.c) + treeLen,
+				$elm$core$Elm$JsArray$length(builder.tail) + treeLen,
 				A2($elm$core$Basics$max, 5, depth * $elm$core$Array$shiftStep),
 				tree,
-				builder.c);
+				builder.tail);
 		}
 	});
 var $elm$core$Basics$idiv = _Basics_idiv;
@@ -2797,7 +2797,7 @@ var $elm$core$Array$initializeHelp = F5(
 				return A2(
 					$elm$core$Array$builderToArray,
 					false,
-					{d: nodeList, a: (len / $elm$core$Array$branchFactor) | 0, c: tail});
+					{nodeList: nodeList, nodeListSize: (len / $elm$core$Array$branchFactor) | 0, tail: tail});
 			} else {
 				var leaf = $elm$core$Array$Leaf(
 					A3($elm$core$Elm$JsArray$initialize, $elm$core$Array$branchFactor, fromIndex, fn));
@@ -2827,9 +2827,9 @@ var $elm$core$Array$initialize = F2(
 			return A5($elm$core$Array$initializeHelp, fn, initialFromIndex, len, _List_Nil, tail);
 		}
 	});
-var $elm$core$Basics$True = 0;
+var $elm$core$Basics$True = {$: 'True'};
 var $elm$core$Result$isOk = function (result) {
-	if (!result.$) {
+	if (result.$ === 'Ok') {
 		return true;
 	} else {
 		return false;
@@ -2840,33 +2840,24 @@ var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
 var $elm$core$Basics$identity = function (x) {
 	return x;
 };
-var $author$project$Logic$ProcessRequest = $elm$core$Basics$identity;
+var $author$project$Api$Handlers$GetFeedHandler$ProcessRequest = function (a) {
+	return {$: 'ProcessRequest', a: a};
+};
 var $elm$json$Json$Decode$value = _Json_decodeValue;
-var $author$project$Logic$process = _Platform_incomingPort('process', $elm$json$Json$Decode$value);
-var $author$project$Logic$subscriptions = function (_v0) {
-	return $author$project$Logic$process($elm$core$Basics$identity);
+var $author$project$Api$Handlers$GetFeedHandler$process = _Platform_incomingPort('process', $elm$json$Json$Decode$value);
+var $author$project$Api$Handlers$GetFeedHandler$subscriptions = function (_v0) {
+	return $author$project$Api$Handlers$GetFeedHandler$process($author$project$Api$Handlers$GetFeedHandler$ProcessRequest);
 };
 var $elm$json$Json$Decode$succeed = _Json_succeed;
-var $author$project$Api$Backend$GetFeed = function (a) {
-	return {$: 2, a: a};
-};
-var $author$project$Api$Backend$GetTags = function (a) {
-	return {$: 3, a: a};
-};
-var $author$project$Api$Backend$SubmitComment = function (a) {
-	return {$: 1, a: a};
-};
-var $author$project$Api$Backend$SubmitItem = function (a) {
-	return {$: 0, a: a};
-};
-var $elm$json$Json$Decode$field = _Json_decodeField;
+var $elm$json$Json$Decode$decodeValue = _Json_run;
 var $author$project$Api$Backend$GetFeedReqBundle = F2(
 	function (context, input) {
-		return {p: context, r: input};
+		return {context: context, input: input};
 	});
 var $elm$json$Json$Decode$andThen = _Json_andThen;
+var $elm$json$Json$Decode$field = _Json_decodeField;
 var $author$project$Api$Backend$GetFeedReq = function (host) {
-	return {j: host};
+	return {host: host};
 };
 var $elm$json$Json$Decode$map = _Json_map1;
 var $elm$json$Json$Decode$string = _Json_decodeString;
@@ -2881,7 +2872,7 @@ var $author$project$Api$Backend$getFeedReqDecoder = A2(
 	$elm$json$Json$Decode$succeed($author$project$Api$Backend$GetFeedReq));
 var $author$project$Api$Backend$StandardServerContext = F4(
 	function (requestId, sessionId, userId, host) {
-		return {j: host, aI: requestId, aL: sessionId, aP: userId};
+		return {host: host, requestId: requestId, sessionId: sessionId, userId: userId};
 	});
 var $elm$json$Json$Decode$null = _Json_decodeNull;
 var $elm$json$Json$Decode$oneOf = _Json_oneOf;
@@ -2949,335 +2940,32 @@ var $author$project$Api$Backend$getFeedReqBundleDecoder = A2(
 				A2($elm$json$Json$Decode$field, 'context', $author$project$Api$Backend$standardServerContextDecoder));
 		},
 		$elm$json$Json$Decode$succeed($author$project$Api$Backend$GetFeedReqBundle)));
-var $author$project$Api$Backend$GetTagsReqBundle = F2(
-	function (context, input) {
-		return {p: context, r: input};
+var $elm$json$Json$Encode$list = F2(
+	function (func, entries) {
+		return _Json_wrap(
+			A3(
+				$elm$core$List$foldl,
+				_Json_addEntry(func),
+				_Json_emptyArray(_Utils_Tuple0),
+				entries));
 	});
-var $author$project$Api$Backend$GetTagsReq = function (host) {
-	return {j: host};
-};
-var $author$project$Api$Backend$getTagsReqDecoder = A2(
-	$elm$json$Json$Decode$andThen,
-	function (x) {
-		return A2(
-			$elm$json$Json$Decode$map,
-			x,
-			A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
-	},
-	$elm$json$Json$Decode$succeed($author$project$Api$Backend$GetTagsReq));
-var $author$project$Api$Backend$getTagsReqBundleDecoder = A2(
-	$elm$json$Json$Decode$andThen,
-	function (x) {
-		return A2(
-			$elm$json$Json$Decode$map,
-			x,
-			A2($elm$json$Json$Decode$field, 'input', $author$project$Api$Backend$getTagsReqDecoder));
-	},
-	A2(
-		$elm$json$Json$Decode$andThen,
-		function (x) {
-			return A2(
-				$elm$json$Json$Decode$map,
-				x,
-				A2($elm$json$Json$Decode$field, 'context', $author$project$Api$Backend$standardServerContextDecoder));
-		},
-		$elm$json$Json$Decode$succeed($author$project$Api$Backend$GetTagsReqBundle)));
-var $author$project$Api$Backend$SubmitCommentReqBundle = F3(
-	function (context, input, data) {
-		return {p: context, z: data, r: input};
-	});
-var $author$project$Api$Backend$SubmitCommentData = F3(
-	function (existingGuest, freshGuestId, freshCommentId) {
-		return {al: existingGuest, ao: freshCommentId, ap: freshGuestId};
-	});
-var $author$project$Api$Backend$Guest = F2(
-	function (id, name) {
-		return {q: id, P: name};
-	});
-var $author$project$Api$Backend$guestDecoder = A2(
-	$elm$json$Json$Decode$andThen,
-	function (x) {
-		return A2(
-			$elm$json$Json$Decode$map,
-			x,
-			A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string));
-	},
-	A2(
-		$elm$json$Json$Decode$andThen,
-		function (x) {
-			return A2(
-				$elm$json$Json$Decode$map,
-				x,
-				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string));
-		},
-		$elm$json$Json$Decode$succeed($author$project$Api$Backend$Guest)));
-var $author$project$Api$Backend$submitCommentDataDecoder = A2(
-	$elm$json$Json$Decode$andThen,
-	function (x) {
-		return A2(
-			$elm$json$Json$Decode$map,
-			x,
-			A2($elm$json$Json$Decode$field, 'fresh_comment_id', $elm$json$Json$Decode$string));
-	},
-	A2(
-		$elm$json$Json$Decode$andThen,
-		function (x) {
-			return A2(
-				$elm$json$Json$Decode$map,
-				x,
-				A2($elm$json$Json$Decode$field, 'fresh_guest_id', $elm$json$Json$Decode$string));
-		},
-		A2(
-			$elm$json$Json$Decode$andThen,
-			function (x) {
-				return A2(
-					$elm$json$Json$Decode$map,
-					x,
-					A2(
-						$elm$json$Json$Decode$field,
-						'existing_guest',
-						$elm$json$Json$Decode$nullable($author$project$Api$Backend$guestDecoder)));
-			},
-			$elm$json$Json$Decode$succeed($author$project$Api$Backend$SubmitCommentData))));
-var $author$project$Api$Backend$SubmitCommentReq = F5(
-	function (host, itemId, parentId, text, authorName) {
-		return {K: authorName, j: host, N: itemId, R: parentId, S: text};
-	});
-var $author$project$Api$Backend$submitCommentReqDecoder = A2(
-	$elm$json$Json$Decode$andThen,
-	function (x) {
-		return A2(
-			$elm$json$Json$Decode$map,
-			x,
-			A2(
-				$elm$json$Json$Decode$field,
-				'author_name',
-				$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string)));
-	},
-	A2(
-		$elm$json$Json$Decode$andThen,
-		function (x) {
-			return A2(
-				$elm$json$Json$Decode$map,
-				x,
-				A2($elm$json$Json$Decode$field, 'text', $elm$json$Json$Decode$string));
-		},
-		A2(
-			$elm$json$Json$Decode$andThen,
-			function (x) {
-				return A2(
-					$elm$json$Json$Decode$map,
-					x,
-					A2(
-						$elm$json$Json$Decode$field,
-						'parent_id',
-						$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string)));
-			},
-			A2(
-				$elm$json$Json$Decode$andThen,
-				function (x) {
-					return A2(
-						$elm$json$Json$Decode$map,
-						x,
-						A2($elm$json$Json$Decode$field, 'item_id', $elm$json$Json$Decode$string));
-				},
-				A2(
-					$elm$json$Json$Decode$andThen,
-					function (x) {
-						return A2(
-							$elm$json$Json$Decode$map,
-							x,
-							A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
-					},
-					$elm$json$Json$Decode$succeed($author$project$Api$Backend$SubmitCommentReq))))));
-var $author$project$Api$Backend$submitCommentReqBundleDecoder = A2(
-	$elm$json$Json$Decode$andThen,
-	function (x) {
-		return A2(
-			$elm$json$Json$Decode$map,
-			x,
-			A2($elm$json$Json$Decode$field, 'data', $author$project$Api$Backend$submitCommentDataDecoder));
-	},
-	A2(
-		$elm$json$Json$Decode$andThen,
-		function (x) {
-			return A2(
-				$elm$json$Json$Decode$map,
-				x,
-				A2($elm$json$Json$Decode$field, 'input', $author$project$Api$Backend$submitCommentReqDecoder));
-		},
-		A2(
-			$elm$json$Json$Decode$andThen,
-			function (x) {
-				return A2(
-					$elm$json$Json$Decode$map,
-					x,
-					A2($elm$json$Json$Decode$field, 'context', $author$project$Api$Backend$standardServerContextDecoder));
-			},
-			$elm$json$Json$Decode$succeed($author$project$Api$Backend$SubmitCommentReqBundle))));
-var $author$project$Api$Backend$SubmitItemReqBundle = F3(
-	function (context, input, data) {
-		return {p: context, z: data, r: input};
-	});
-var $author$project$Api$Backend$SubmitItemData = F2(
-	function (existingTags, freshTagIds) {
-		return {am: existingTags, aq: freshTagIds};
-	});
-var $elm$json$Json$Decode$list = _Json_decodeList;
-var $author$project$Api$Backend$Tag = F2(
-	function (id, name) {
-		return {q: id, P: name};
-	});
-var $author$project$Api$Backend$tagDecoder = A2(
-	$elm$json$Json$Decode$andThen,
-	function (x) {
-		return A2(
-			$elm$json$Json$Decode$map,
-			x,
-			A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string));
-	},
-	A2(
-		$elm$json$Json$Decode$andThen,
-		function (x) {
-			return A2(
-				$elm$json$Json$Decode$map,
-				x,
-				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string));
-		},
-		$elm$json$Json$Decode$succeed($author$project$Api$Backend$Tag)));
-var $author$project$Api$Backend$submitItemDataDecoder = A2(
-	$elm$json$Json$Decode$andThen,
-	function (x) {
-		return A2(
-			$elm$json$Json$Decode$map,
-			x,
-			A2(
-				$elm$json$Json$Decode$field,
-				'fresh_tag_ids',
-				$elm$json$Json$Decode$list($elm$json$Json$Decode$string)));
-	},
-	A2(
-		$elm$json$Json$Decode$andThen,
-		function (x) {
-			return A2(
-				$elm$json$Json$Decode$map,
-				x,
-				A2(
-					$elm$json$Json$Decode$field,
-					'existing_tags',
-					$elm$json$Json$Decode$list($author$project$Api$Backend$tagDecoder)));
-		},
-		$elm$json$Json$Decode$succeed($author$project$Api$Backend$SubmitItemData)));
-var $author$project$Api$Backend$SubmitItemReq = F7(
-	function (host, title, link, image, extract, ownerComment, tags) {
-		return {L: extract, j: host, M: image, O: link, Q: ownerComment, D: tags, U: title};
-	});
-var $author$project$Api$Backend$submitItemReqDecoder = A2(
-	$elm$json$Json$Decode$andThen,
-	function (x) {
-		return A2(
-			$elm$json$Json$Decode$map,
-			x,
-			A2(
-				$elm$json$Json$Decode$field,
-				'tags',
-				$elm$json$Json$Decode$list($elm$json$Json$Decode$string)));
-	},
-	A2(
-		$elm$json$Json$Decode$andThen,
-		function (x) {
-			return A2(
-				$elm$json$Json$Decode$map,
-				x,
-				A2($elm$json$Json$Decode$field, 'owner_comment', $elm$json$Json$Decode$string));
-		},
-		A2(
-			$elm$json$Json$Decode$andThen,
-			function (x) {
-				return A2(
-					$elm$json$Json$Decode$map,
-					x,
-					A2($elm$json$Json$Decode$field, 'extract', $elm$json$Json$Decode$string));
-			},
-			A2(
-				$elm$json$Json$Decode$andThen,
-				function (x) {
-					return A2(
-						$elm$json$Json$Decode$map,
-						x,
-						A2($elm$json$Json$Decode$field, 'image', $elm$json$Json$Decode$string));
-				},
-				A2(
-					$elm$json$Json$Decode$andThen,
-					function (x) {
-						return A2(
-							$elm$json$Json$Decode$map,
-							x,
-							A2($elm$json$Json$Decode$field, 'link', $elm$json$Json$Decode$string));
-					},
-					A2(
-						$elm$json$Json$Decode$andThen,
-						function (x) {
-							return A2(
-								$elm$json$Json$Decode$map,
-								x,
-								A2($elm$json$Json$Decode$field, 'title', $elm$json$Json$Decode$string));
-						},
-						A2(
-							$elm$json$Json$Decode$andThen,
-							function (x) {
-								return A2(
-									$elm$json$Json$Decode$map,
-									x,
-									A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
-							},
-							$elm$json$Json$Decode$succeed($author$project$Api$Backend$SubmitItemReq))))))));
-var $author$project$Api$Backend$submitItemReqBundleDecoder = A2(
-	$elm$json$Json$Decode$andThen,
-	function (x) {
-		return A2(
-			$elm$json$Json$Decode$map,
-			x,
-			A2($elm$json$Json$Decode$field, 'data', $author$project$Api$Backend$submitItemDataDecoder));
-	},
-	A2(
-		$elm$json$Json$Decode$andThen,
-		function (x) {
-			return A2(
-				$elm$json$Json$Decode$map,
-				x,
-				A2($elm$json$Json$Decode$field, 'input', $author$project$Api$Backend$submitItemReqDecoder));
-		},
-		A2(
-			$elm$json$Json$Decode$andThen,
-			function (x) {
-				return A2(
-					$elm$json$Json$Decode$map,
-					x,
-					A2($elm$json$Json$Decode$field, 'context', $author$project$Api$Backend$standardServerContextDecoder));
-			},
-			$elm$json$Json$Decode$succeed($author$project$Api$Backend$SubmitItemReqBundle))));
-var $author$project$Api$Backend$backendActionDecoder = $elm$json$Json$Decode$oneOf(
-	_List_fromArray(
-		[
-			A2(
-			$elm$json$Json$Decode$map,
-			$author$project$Api$Backend$SubmitItem,
-			A2($elm$json$Json$Decode$field, 'SubmitItem', $author$project$Api$Backend$submitItemReqBundleDecoder)),
-			A2(
-			$elm$json$Json$Decode$map,
-			$author$project$Api$Backend$SubmitComment,
-			A2($elm$json$Json$Decode$field, 'SubmitComment', $author$project$Api$Backend$submitCommentReqBundleDecoder)),
-			A2(
-			$elm$json$Json$Decode$map,
-			$author$project$Api$Backend$GetFeed,
-			A2($elm$json$Json$Decode$field, 'GetFeed', $author$project$Api$Backend$getFeedReqBundleDecoder)),
-			A2(
-			$elm$json$Json$Decode$map,
-			$author$project$Api$Backend$GetTags,
-			A2($elm$json$Json$Decode$field, 'GetTags', $author$project$Api$Backend$getTagsReqBundleDecoder))
-		]));
 var $elm$json$Json$Encode$int = _Json_wrap;
+var $elm$core$Basics$composeL = F3(
+	function (g, f, x) {
+		return g(
+			f(x));
+	});
+var $elm$core$Maybe$map = F2(
+	function (f, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return $elm$core$Maybe$Just(
+				f(value));
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	});
+var $elm$json$Json$Encode$null = _Json_encodeNull;
 var $elm$json$Json$Encode$object = function (pairs) {
 	return _Json_wrap(
 		A3(
@@ -3288,195 +2976,18 @@ var $elm$json$Json$Encode$object = function (pairs) {
 					var v = _v0.b;
 					return A3(_Json_addField, k, v, obj);
 				}),
-			_Json_emptyObject(0),
+			_Json_emptyObject(_Utils_Tuple0),
 			pairs));
 };
 var $elm$json$Json$Encode$string = _Json_wrap;
-var $author$project$Api$Backend$backendEffectEncoder = function (_enum) {
-	switch (_enum.$) {
-		case 0:
-			var table = _enum.a.aN;
-			var data = _enum.a.z;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'Insert',
-						$elm$json$Json$Encode$object(
-							_List_fromArray(
-								[
-									_Utils_Tuple2(
-									'table',
-									$elm$json$Json$Encode$string(table)),
-									_Utils_Tuple2(
-									'data',
-									$elm$json$Json$Encode$string(data))
-								])))
-					]));
-		case 1:
-			var inner = _enum.a;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'Log',
-						$elm$json$Json$Encode$string(inner))
-					]));
-		default:
-			var eventType = _enum.a.ak;
-			var payload = _enum.a.az;
-			var delayMinutes = _enum.a.af;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'ScheduleEvent',
-						$elm$json$Json$Encode$object(
-							_List_fromArray(
-								[
-									_Utils_Tuple2(
-									'event_type',
-									$elm$json$Json$Encode$string(eventType)),
-									_Utils_Tuple2(
-									'payload',
-									$elm$json$Json$Encode$string(payload)),
-									_Utils_Tuple2(
-									'delay_minutes',
-									$elm$json$Json$Encode$int(delayMinutes))
-								])))
-					]));
-	}
-};
-var $elm$core$Basics$composeL = F3(
-	function (g, f, x) {
-		return g(
-			f(x));
-	});
-var $elm$json$Json$Encode$list = F2(
-	function (func, entries) {
-		return _Json_wrap(
-			A3(
-				$elm$core$List$foldl,
-				_Json_addEntry(func),
-				_Json_emptyArray(0),
-				entries));
-	});
-var $elm$core$Maybe$map = F2(
-	function (f, maybe) {
-		if (!maybe.$) {
-			var value = maybe.a;
-			return $elm$core$Maybe$Just(
-				f(value));
-		} else {
-			return $elm$core$Maybe$Nothing;
-		}
-	});
-var $elm$json$Json$Encode$null = _Json_encodeNull;
 var $elm$core$Maybe$withDefault = F2(
 	function (_default, maybe) {
-		if (!maybe.$) {
+		if (maybe.$ === 'Just') {
 			var value = maybe.a;
 			return value;
 		} else {
 			return _default;
 		}
-	});
-var $author$project$Api$Backend$backendOutputEncoder = function (struct) {
-	return $elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'effects',
-				$elm$json$Json$Encode$list($author$project$Api$Backend$backendEffectEncoder)(struct.ag)),
-				_Utils_Tuple2(
-				'response',
-				A2(
-					$elm$core$Basics$composeL,
-					$elm$core$Maybe$withDefault($elm$json$Json$Encode$null),
-					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.aJ)),
-				_Utils_Tuple2(
-				'error',
-				A2(
-					$elm$core$Basics$composeL,
-					$elm$core$Maybe$withDefault($elm$json$Json$Encode$null),
-					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.ai))
-			]));
-};
-var $elm$json$Json$Decode$decodeValue = _Json_run;
-var $author$project$Api$Backend$Insert = function (a) {
-	return {$: 0, a: a};
-};
-var $author$project$Api$Backend$Log = function (a) {
-	return {$: 1, a: a};
-};
-var $author$project$Api$Backend$ScheduleEvent = function (a) {
-	return {$: 2, a: a};
-};
-var $elm$core$List$foldrHelper = F4(
-	function (fn, acc, ctr, ls) {
-		if (!ls.b) {
-			return acc;
-		} else {
-			var a = ls.a;
-			var r1 = ls.b;
-			if (!r1.b) {
-				return A2(fn, a, acc);
-			} else {
-				var b = r1.a;
-				var r2 = r1.b;
-				if (!r2.b) {
-					return A2(
-						fn,
-						a,
-						A2(fn, b, acc));
-				} else {
-					var c = r2.a;
-					var r3 = r2.b;
-					if (!r3.b) {
-						return A2(
-							fn,
-							a,
-							A2(
-								fn,
-								b,
-								A2(fn, c, acc)));
-					} else {
-						var d = r3.a;
-						var r4 = r3.b;
-						var res = (ctr > 500) ? A3(
-							$elm$core$List$foldl,
-							fn,
-							acc,
-							$elm$core$List$reverse(r4)) : A4($elm$core$List$foldrHelper, fn, acc, ctr + 1, r4);
-						return A2(
-							fn,
-							a,
-							A2(
-								fn,
-								b,
-								A2(
-									fn,
-									c,
-									A2(fn, d, res))));
-					}
-				}
-			}
-		}
-	});
-var $elm$core$List$foldr = F3(
-	function (fn, acc, ls) {
-		return A4($elm$core$List$foldrHelper, fn, acc, 0, ls);
-	});
-var $elm$core$List$filter = F2(
-	function (isGood, list) {
-		return A3(
-			$elm$core$List$foldr,
-			F2(
-				function (x, xs) {
-					return isGood(x) ? A2($elm$core$List$cons, x, xs) : xs;
-				}),
-			_List_Nil,
-			list);
 	});
 var $author$project$Api$Backend$itemCommentEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
@@ -3484,28 +2995,28 @@ var $author$project$Api$Backend$itemCommentEncoder = function (struct) {
 			[
 				_Utils_Tuple2(
 				'id',
-				$elm$json$Json$Encode$string(struct.q)),
+				$elm$json$Json$Encode$string(struct.id)),
 				_Utils_Tuple2(
 				'item_id',
-				$elm$json$Json$Encode$string(struct.N)),
+				$elm$json$Json$Encode$string(struct.itemId)),
 				_Utils_Tuple2(
 				'guest_id',
-				$elm$json$Json$Encode$string(struct.ar)),
+				$elm$json$Json$Encode$string(struct.guestId)),
 				_Utils_Tuple2(
 				'parent_id',
 				A2(
 					$elm$core$Basics$composeL,
 					$elm$core$Maybe$withDefault($elm$json$Json$Encode$null),
-					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.R)),
+					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.parentId)),
 				_Utils_Tuple2(
 				'author_name',
-				$elm$json$Json$Encode$string(struct.K)),
+				$elm$json$Json$Encode$string(struct.authorName)),
 				_Utils_Tuple2(
 				'text',
-				$elm$json$Json$Encode$string(struct.S)),
+				$elm$json$Json$Encode$string(struct.text)),
 				_Utils_Tuple2(
 				'timestamp',
-				$elm$json$Json$Encode$int(struct.T))
+				$elm$json$Json$Encode$int(struct.timestamp))
 			]));
 };
 var $author$project$Api$Backend$microblogItemEncoder = function (struct) {
@@ -3514,31 +3025,31 @@ var $author$project$Api$Backend$microblogItemEncoder = function (struct) {
 			[
 				_Utils_Tuple2(
 				'id',
-				$elm$json$Json$Encode$string(struct.q)),
+				$elm$json$Json$Encode$string(struct.id)),
 				_Utils_Tuple2(
 				'title',
-				$elm$json$Json$Encode$string(struct.U)),
+				$elm$json$Json$Encode$string(struct.title)),
 				_Utils_Tuple2(
 				'link',
-				$elm$json$Json$Encode$string(struct.O)),
+				$elm$json$Json$Encode$string(struct.link)),
 				_Utils_Tuple2(
 				'image',
-				$elm$json$Json$Encode$string(struct.M)),
+				$elm$json$Json$Encode$string(struct.image)),
 				_Utils_Tuple2(
 				'extract',
-				$elm$json$Json$Encode$string(struct.L)),
+				$elm$json$Json$Encode$string(struct.extract)),
 				_Utils_Tuple2(
 				'owner_comment',
-				$elm$json$Json$Encode$string(struct.Q)),
+				$elm$json$Json$Encode$string(struct.ownerComment)),
 				_Utils_Tuple2(
 				'tags',
-				$elm$json$Json$Encode$list($elm$json$Json$Encode$string)(struct.D)),
+				$elm$json$Json$Encode$list($elm$json$Json$Encode$string)(struct.tags)),
 				_Utils_Tuple2(
 				'comments',
-				$elm$json$Json$Encode$list($author$project$Api$Backend$itemCommentEncoder)(struct.ad)),
+				$elm$json$Json$Encode$list($author$project$Api$Backend$itemCommentEncoder)(struct.comments)),
 				_Utils_Tuple2(
 				'timestamp',
-				$elm$json$Json$Encode$int(struct.T))
+				$elm$json$Json$Encode$int(struct.timestamp))
 			]));
 };
 var $author$project$Api$Backend$getFeedResEncoder = function (struct) {
@@ -3547,421 +3058,80 @@ var $author$project$Api$Backend$getFeedResEncoder = function (struct) {
 			[
 				_Utils_Tuple2(
 				'items',
-				$elm$json$Json$Encode$list($author$project$Api$Backend$microblogItemEncoder)(struct.au))
+				$elm$json$Json$Encode$list($author$project$Api$Backend$microblogItemEncoder)(struct.items))
 			]));
 };
-var $author$project$Api$Backend$getTagsResEncoder = function (struct) {
-	return $elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'tags',
-				$elm$json$Json$Encode$list($elm$json$Json$Encode$string)(struct.D))
-			]));
+var $author$project$Api$Handlers$GetFeedHandler$handleGetFeed = function (bundle) {
+	var userId = bundle.context.userId;
+	var requestId = bundle.context.requestId;
+	var host = bundle.input.host;
+	var mockItems = _List_fromArray(
+		[
+			{
+			comments: _List_fromArray(
+				[
+					{authorName: 'Demo User', guestId: 'guest_1', id: 'comment_1', itemId: 'item_1', parentId: $elm$core$Maybe$Nothing, text: 'The context-aware handler architecture works!', timestamp: 1702000000}
+				]),
+			extract: 'First post in our Rust-once, JSON-never system. Request ID: ' + requestId,
+			id: 'item_1',
+			image: 'https://example.com/welcome.jpg',
+			link: 'https://example.com/welcome',
+			ownerComment: 'This demonstrates auto-generated Elm handlers with full context access',
+			tags: _List_fromArray(
+				['hamlet', 'rust', 'elm']),
+			timestamp: 1702000001,
+			title: 'Welcome to Hamlet (' + (host + ')')
+		},
+			{
+			comments: _List_Nil,
+			extract: 'Host: ' + (host + (', User: ' + A2($elm$core$Maybe$withDefault, 'anonymous', userId))),
+			id: 'item_2',
+			image: 'https://example.com/context.jpg',
+			link: 'https://example.com/context',
+			ownerComment: 'Handler can now access user context for personalized responses',
+			tags: _List_fromArray(
+				['context', 'personalization']),
+			timestamp: 1702000002,
+			title: 'Context-Aware Business Logic'
+		}
+		]);
+	return {items: mockItems};
 };
-var $elm$core$List$head = function (list) {
-	if (list.b) {
-		var x = list.a;
-		var xs = list.b;
-		return $elm$core$Maybe$Just(x);
-	} else {
-		return $elm$core$Maybe$Nothing;
-	}
-};
-var $author$project$Api$Backend$submitCommentResEncoder = function (struct) {
-	return $elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'comment',
-				$author$project$Api$Backend$itemCommentEncoder(struct.ac))
-			]));
-};
-var $author$project$Logic$handleAction = function (action) {
-	switch (action.$) {
-		case 0:
-			var slice = action.a;
-			var item = {ad: _List_Nil, L: slice.r.L, q: slice.p.aI, M: slice.r.M, O: slice.r.O, Q: slice.r.Q, D: slice.r.D, T: 0, U: slice.r.U};
-			var itemJson = A2(
-				$elm$json$Json$Encode$encode,
-				0,
-				$elm$json$Json$Encode$object(
-					_List_fromArray(
-						[
-							_Utils_Tuple2(
-							'id',
-							$elm$json$Json$Encode$string(item.q)),
-							_Utils_Tuple2(
-							'title',
-							$elm$json$Json$Encode$string(item.U)),
-							_Utils_Tuple2(
-							'link',
-							$elm$json$Json$Encode$string(item.O)),
-							_Utils_Tuple2(
-							'image',
-							$elm$json$Json$Encode$string(item.M)),
-							_Utils_Tuple2(
-							'extract',
-							$elm$json$Json$Encode$string(item.L)),
-							_Utils_Tuple2(
-							'owner_comment',
-							$elm$json$Json$Encode$string(item.Q)),
-							_Utils_Tuple2(
-							'timestamp',
-							$elm$json$Json$Encode$int(item.T)),
-							_Utils_Tuple2(
-							'host',
-							$elm$json$Json$Encode$string(slice.p.j))
-						])));
-			var itemEffect = $author$project$Api$Backend$Insert(
-				{z: itemJson, aN: 'microblog_items'});
-			var logJson = A2(
-				$elm$json$Json$Encode$encode,
-				0,
-				$elm$json$Json$Encode$object(
-					_List_fromArray(
-						[
-							_Utils_Tuple2(
-							'msg',
-							$elm$json$Json$Encode$string('Submitting item \'' + (item.U + '\''))),
-							_Utils_Tuple2(
-							'request_id',
-							$elm$json$Json$Encode$string(slice.p.aI)),
-							_Utils_Tuple2(
-							'item_id',
-							$elm$json$Json$Encode$string(item.q)),
-							_Utils_Tuple2(
-							'tag_count',
-							$elm$json$Json$Encode$int(
-								$elm$core$List$length(item.D))),
-							_Utils_Tuple2(
-							'host',
-							$elm$json$Json$Encode$string(slice.p.j))
-						])));
-			var logEffect = $author$project$Api$Backend$Log(logJson);
-			var responseJson = A2(
-				$elm$json$Json$Encode$encode,
-				0,
-				$elm$json$Json$Encode$object(
-					_List_fromArray(
-						[
-							_Utils_Tuple2(
-							'SubmitItemSuccess',
-							$author$project$Api$Backend$microblogItemEncoder(item))
-						])));
-			var findTagId = F2(
-				function (name, tags) {
-					return A2(
-						$elm$core$Maybe$map,
-						function ($) {
-							return $.q;
-						},
-						$elm$core$List$head(
-							A2(
-								$elm$core$List$filter,
-								function (t) {
-									return _Utils_eq(t.P, name);
-								},
-								tags)));
-				});
-			var _v1 = A3(
-				$elm$core$List$foldl,
-				F2(
-					function (tagName, _v2) {
-						var effects = _v2.a;
-						var remainingIds = _v2.b;
-						var _v3 = A2(findTagId, tagName, slice.z.am);
-						if (!_v3.$) {
-							var id = _v3.a;
-							var linkData = A2(
-								$elm$json$Json$Encode$encode,
-								0,
-								$elm$json$Json$Encode$object(
-									_List_fromArray(
-										[
-											_Utils_Tuple2(
-											'item_id',
-											$elm$json$Json$Encode$string(item.q)),
-											_Utils_Tuple2(
-											'tag_id',
-											$elm$json$Json$Encode$string(id))
-										])));
-							var linkEffect = $author$project$Api$Backend$Insert(
-								{z: linkData, aN: 'item_tags'});
-							return _Utils_Tuple2(
-								A2($elm$core$List$cons, linkEffect, effects),
-								remainingIds);
-						} else {
-							if (remainingIds.b) {
-								var newId = remainingIds.a;
-								var rest = remainingIds.b;
-								var tagData = A2(
-									$elm$json$Json$Encode$encode,
-									0,
-									$elm$json$Json$Encode$object(
-										_List_fromArray(
-											[
-												_Utils_Tuple2(
-												'id',
-												$elm$json$Json$Encode$string(newId)),
-												_Utils_Tuple2(
-												'name',
-												$elm$json$Json$Encode$string(tagName)),
-												_Utils_Tuple2(
-												'host',
-												$elm$json$Json$Encode$string(slice.p.j))
-											])));
-								var tagEffect = $author$project$Api$Backend$Insert(
-									{z: tagData, aN: 'tags'});
-								var linkData = A2(
-									$elm$json$Json$Encode$encode,
-									0,
-									$elm$json$Json$Encode$object(
-										_List_fromArray(
-											[
-												_Utils_Tuple2(
-												'item_id',
-												$elm$json$Json$Encode$string(item.q)),
-												_Utils_Tuple2(
-												'tag_id',
-												$elm$json$Json$Encode$string(newId))
-											])));
-								var linkEffect = $author$project$Api$Backend$Insert(
-									{z: linkData, aN: 'item_tags'});
-								return _Utils_Tuple2(
-									A2(
-										$elm$core$List$cons,
-										tagEffect,
-										A2($elm$core$List$cons, linkEffect, effects)),
-									rest);
-							} else {
-								return _Utils_Tuple2(effects, _List_Nil);
-							}
-						}
-					}),
-				_Utils_Tuple2(_List_Nil, slice.z.aq),
-				slice.r.D);
-			var tagEffects = _v1.a;
-			return {
-				ag: A2(
-					$elm$core$List$cons,
-					logEffect,
-					A2($elm$core$List$cons, itemEffect, tagEffects)),
-				ai: $elm$core$Maybe$Nothing,
-				aJ: $elm$core$Maybe$Just(responseJson)
-			};
-		case 1:
-			var slice = action.a;
-			var _v5 = function () {
-				var _v6 = slice.z.al;
-				if (!_v6.$) {
-					var guest = _v6.a;
-					return _Utils_Tuple3(_List_Nil, guest.q, guest.P);
-				} else {
-					var _v7 = slice.r.K;
-					if (!_v7.$) {
-						var name = _v7.a;
-						var guestData = A2(
-							$elm$json$Json$Encode$encode,
-							0,
-							$elm$json$Json$Encode$object(
-								_List_fromArray(
-									[
-										_Utils_Tuple2(
-										'id',
-										$elm$json$Json$Encode$string(slice.z.ap)),
-										_Utils_Tuple2(
-										'name',
-										$elm$json$Json$Encode$string(name)),
-										_Utils_Tuple2(
-										'host',
-										$elm$json$Json$Encode$string(slice.p.j))
-									])));
-						var insertGuest = $author$project$Api$Backend$Insert(
-							{z: guestData, aN: 'guests'});
-						return _Utils_Tuple3(
-							_List_fromArray(
-								[insertGuest]),
-							slice.z.ap,
-							name);
-					} else {
-						return _Utils_Tuple3(_List_Nil, '', '');
-					}
-				}
-			}();
-			var guestEffects = _v5.a;
-			var guestId = _v5.b;
-			var guestName = _v5.c;
-			var commentData = function () {
-				var baseFields = _List_fromArray(
-					[
-						_Utils_Tuple2(
-						'id',
-						$elm$json$Json$Encode$string(slice.z.ao)),
-						_Utils_Tuple2(
-						'host',
-						$elm$json$Json$Encode$string(slice.p.j)),
-						_Utils_Tuple2(
-						'item_id',
-						$elm$json$Json$Encode$string(slice.r.N)),
-						_Utils_Tuple2(
-						'guest_id',
-						$elm$json$Json$Encode$string(guestId)),
-						_Utils_Tuple2(
-						'text',
-						$elm$json$Json$Encode$string(slice.r.S)),
-						_Utils_Tuple2(
-						'timestamp',
-						$elm$json$Json$Encode$int(0))
-					]);
-				var fields = function () {
-					var _v8 = slice.r.R;
-					if (!_v8.$) {
-						var pid = _v8.a;
-						return A2(
-							$elm$core$List$cons,
-							_Utils_Tuple2(
-								'parent_id',
-								$elm$json$Json$Encode$string(pid)),
-							baseFields);
-					} else {
-						return baseFields;
-					}
-				}();
-				return A2(
-					$elm$json$Json$Encode$encode,
-					0,
-					$elm$json$Json$Encode$object(fields));
-			}();
-			var commentEffect = $author$project$Api$Backend$Insert(
-				{z: commentData, aN: 'item_comments'});
-			var logJson = A2(
-				$elm$json$Json$Encode$encode,
-				0,
-				$elm$json$Json$Encode$object(
-					_List_fromArray(
-						[
-							_Utils_Tuple2(
-							'msg',
-							$elm$json$Json$Encode$string('Submitting comment')),
-							_Utils_Tuple2(
-							'request_id',
-							$elm$json$Json$Encode$string(slice.p.aI)),
-							_Utils_Tuple2(
-							'item_id',
-							$elm$json$Json$Encode$string(slice.r.N)),
-							_Utils_Tuple2(
-							'guest_id',
-							$elm$json$Json$Encode$string(guestId))
-						])));
-			var logEffect = $author$project$Api$Backend$Log(logJson);
-			var comment = {K: guestName, ar: guestId, q: slice.z.ao, N: slice.r.N, R: slice.r.R, S: slice.r.S, T: 0};
-			var responseJson = A2(
-				$elm$json$Json$Encode$encode,
-				0,
-				$author$project$Api$Backend$submitCommentResEncoder(
-					{ac: comment}));
-			var eventPayload = A2(
-				$elm$json$Json$Encode$encode,
-				0,
-				$elm$json$Json$Encode$object(
-					_List_fromArray(
-						[
-							_Utils_Tuple2(
-							'comment_id',
-							$elm$json$Json$Encode$string(slice.z.ao)),
-							_Utils_Tuple2(
-							'item_id',
-							$elm$json$Json$Encode$string(slice.r.N)),
-							_Utils_Tuple2(
-							'author_name',
-							$elm$json$Json$Encode$string(guestName)),
-							_Utils_Tuple2('item_owner_email', $elm$json$Json$Encode$null),
-							_Utils_Tuple2(
-							'delay_minutes',
-							$elm$json$Json$Encode$int(0))
-						])));
-			var eventEffect = $author$project$Api$Backend$ScheduleEvent(
-				{af: 0, ak: 'NotifyCommentAdded', az: eventPayload});
-			return (_Utils_eq(slice.z.al, $elm$core$Maybe$Nothing) && _Utils_eq(slice.r.K, $elm$core$Maybe$Nothing)) ? {
-				ag: _List_Nil,
-				ai: $elm$core$Maybe$Just('Name required for first-time commenters'),
-				aJ: $elm$core$Maybe$Nothing
-			} : {
-				ag: A2(
-					$elm$core$List$cons,
-					logEffect,
-					A2(
-						$elm$core$List$cons,
-						eventEffect,
-						A2($elm$core$List$cons, commentEffect, guestEffects))),
-				ai: $elm$core$Maybe$Nothing,
-				aJ: $elm$core$Maybe$Just(responseJson)
-			};
-		case 2:
-			var bundle = action.a;
-			var responseJson = A2(
-				$elm$json$Json$Encode$encode,
-				0,
-				$author$project$Api$Backend$getFeedResEncoder(
-					{au: _List_Nil}));
-			var logEffect = $author$project$Api$Backend$Log('GetFeed request for host: ' + bundle.r.j);
-			return {
-				ag: _List_fromArray(
-					[logEffect]),
-				ai: $elm$core$Maybe$Nothing,
-				aJ: $elm$core$Maybe$Just(responseJson)
-			};
-		default:
-			var bundle = action.a;
-			var responseJson = A2(
-				$elm$json$Json$Encode$encode,
-				0,
-				$author$project$Api$Backend$getTagsResEncoder(
-					{D: _List_Nil}));
-			var logEffect = $author$project$Api$Backend$Log('GetTags request for host: ' + bundle.r.j);
-			return {
-				ag: _List_fromArray(
-					[logEffect]),
-				ai: $elm$core$Maybe$Nothing,
-				aJ: $elm$core$Maybe$Just(responseJson)
-			};
-	}
-};
-var $author$project$Logic$result = _Platform_outgoingPort('result', $elm$core$Basics$identity);
-var $author$project$Logic$update = F2(
+var $author$project$Api$Handlers$GetFeedHandler$result = _Platform_outgoingPort('result', $elm$core$Basics$identity);
+var $author$project$Api$Handlers$GetFeedHandler$update = F2(
 	function (msg, model) {
-		var value = msg;
-		var _v1 = A2($elm$json$Json$Decode$decodeValue, $author$project$Api$Backend$backendActionDecoder, value);
-		if (!_v1.$) {
-			var action = _v1.a;
-			var output = $author$project$Logic$handleAction(action);
+		var value = msg.a;
+		var _v1 = A2($elm$json$Json$Decode$decodeValue, $author$project$Api$Backend$getFeedReqBundleDecoder, value);
+		if (_v1.$ === 'Ok') {
+			var bundle = _v1.a;
+			var response = $author$project$Api$Handlers$GetFeedHandler$handleGetFeed(bundle);
+			var responseJson = $author$project$Api$Backend$getFeedResEncoder(response);
 			return _Utils_Tuple2(
 				model,
-				$author$project$Logic$result(
-					$author$project$Api$Backend$backendOutputEncoder(output)));
+				$author$project$Api$Handlers$GetFeedHandler$result(responseJson));
 		} else {
 			var error = _v1.a;
-			var errOutput = {
-				ag: _List_Nil,
-				ai: $elm$core$Maybe$Just(
-					$elm$json$Json$Decode$errorToString(error)),
-				aJ: $elm$core$Maybe$Nothing
-			};
+			var errorJson = $elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'error',
+						$elm$json$Json$Encode$string(
+							$elm$json$Json$Decode$errorToString(error)))
+					]));
 			return _Utils_Tuple2(
 				model,
-				$author$project$Logic$result(
-					$author$project$Api$Backend$backendOutputEncoder(errOutput)));
+				$author$project$Api$Handlers$GetFeedHandler$result(errorJson));
 		}
 	});
 var $elm$core$Platform$worker = _Platform_worker;
-var $author$project$Logic$main = $elm$core$Platform$worker(
+var $author$project$Api$Handlers$GetFeedHandler$main = $elm$core$Platform$worker(
 	{
-		a2: function (_v0) {
-			return _Utils_Tuple2(0, $elm$core$Platform$Cmd$none);
+		init: function (_v0) {
+			return _Utils_Tuple2(_Utils_Tuple0, $elm$core$Platform$Cmd$none);
 		},
-		a7: $author$project$Logic$subscriptions,
-		a8: $author$project$Logic$update
+		subscriptions: $author$project$Api$Handlers$GetFeedHandler$subscriptions,
+		update: $author$project$Api$Handlers$GetFeedHandler$update
 	});
-_Platform_export({'Logic':{'init':$author$project$Logic$main(
-	$elm$json$Json$Decode$succeed(0))(0)}});}(this));
+_Platform_export({'Api':{'Handlers':{'GetFeedHandler':{'init':$author$project$Api$Handlers$GetFeedHandler$main(
+	$elm$json$Json$Decode$succeed(_Utils_Tuple0))(0)}}}});}(this));

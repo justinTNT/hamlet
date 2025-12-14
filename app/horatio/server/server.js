@@ -11,11 +11,11 @@ const config = {
     },
     // PostgreSQL configuration
     database: {
-        user: process.env.POSTGRES_USER || 'admin',
-        password: process.env.POSTGRES_PASSWORD || 'password', 
-        host: process.env.POSTGRES_HOST || '127.0.0.1',
-        database: process.env.POSTGRES_DB || 'horatio',
-        port: 5432,
+        user: String(process.env.POSTGRES_USER || 'admin'),
+        password: String(process.env.POSTGRES_PASSWORD || 'password'), 
+        host: String(process.env.POSTGRES_HOST || '127.0.0.1'),
+        database: String(process.env.POSTGRES_DB || 'horatio'),
+        port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
         migrations: './migrations'
     }
 };

@@ -4,6 +4,7 @@ import Json.Decode
 import Json.Encode
 import Dict exposing (Dict)
 import Set exposing (Set)
+import Task exposing (Task)
 
 type alias GetTagsReq =
     { host : String
@@ -29,6 +30,7 @@ type ApiError
 
 type BackendEffect
     = Insert { table : String, data : String }
+    | Query { sql : String, params : List String }
     | Log (String)
     | ScheduleEvent { eventType : String, payload : String, delayMinutes : Int }
 
@@ -43,6 +45,8 @@ type alias BackendOutput =
 type BackendAction
     = SubmitItem (SubmitItemReqBundle)
     | SubmitComment (SubmitCommentReqBundle)
+    | GetFeed (GetFeedReqBundle)
+    | GetTags (GetTagsReqBundle)
 
 
 type alias StandardServerContext =
@@ -50,6 +54,22 @@ type alias StandardServerContext =
     , sessionId : Maybe (String)
     , userId : Maybe (String)
     , host : String
+    }
+
+
+type alias DbRow = Dict String Json.Decode.Value
+
+-- Database operation that JavaScript will execute
+type DbOperation
+    = Find String (List String) -- sql, params
+    | Create String (Dict String Json.Encode.Value) -- table, data
+    | Update String (Dict String Json.Encode.Value) String (List String) -- table, data, where, params
+    | Kill String String (List String) -- table, where, params
+
+-- Handler returns operations to execute and a processor for the results
+type alias AsyncHandlerResult response =
+    { operations : List DbOperation
+    , processor : List (List DbRow) -> response
     }
 
 
@@ -139,6 +159,18 @@ type alias GetFeedRes =
     }
 
 
+type alias GetFeedReqBundle =
+    { context : StandardServerContext
+    , input : GetFeedReq
+    }
+
+
+type alias GetTagsReqBundle =
+    { context : StandardServerContext
+    , input : GetTagsReq
+    }
+
+
 type alias SubmitItemRes =
     { item : MicroblogItem
     }
@@ -187,6 +219,8 @@ backendEffectEncoder enum =
     case enum of
         Insert { table, data } ->
             Json.Encode.object [ ( "Insert", Json.Encode.object [ ( "table", (Json.Encode.string) table ), ( "data", (Json.Encode.string) data ) ] ) ]
+        Query { sql, params } ->
+            Json.Encode.object [ ( "Query", Json.Encode.object [ ( "sql", (Json.Encode.string) sql ), ( "params", (Json.Encode.list Json.Encode.string) params ) ] ) ]
         Log inner ->
             Json.Encode.object [ ( "Log", Json.Encode.string inner ) ]
         ScheduleEvent { eventType, payload, delayMinutes } ->
@@ -199,6 +233,10 @@ backendActionEncoder enum =
             Json.Encode.object [ ( "SubmitItem", submitItemReqBundleEncoder inner ) ]
         SubmitComment inner ->
             Json.Encode.object [ ( "SubmitComment", submitCommentReqBundleEncoder inner ) ]
+        GetFeed inner ->
+            Json.Encode.object [ ( "GetFeed", getFeedReqBundleEncoder inner ) ]
+        GetTags inner ->
+            Json.Encode.object [ ( "GetTags", getTagsReqBundleEncoder inner ) ]
 
 backendOutputEncoder : BackendOutput -> Json.Encode.Value
 backendOutputEncoder struct =
@@ -325,6 +363,22 @@ getFeedReqEncoder struct =
         ]
 
 
+getFeedReqBundleEncoder : GetFeedReqBundle -> Json.Encode.Value
+getFeedReqBundleEncoder struct =
+    Json.Encode.object
+        [ ( "context", (standardServerContextEncoder) struct.context )
+        , ( "input", (getFeedReqEncoder) struct.input )
+        ]
+
+
+getTagsReqBundleEncoder : GetTagsReqBundle -> Json.Encode.Value
+getTagsReqBundleEncoder struct =
+    Json.Encode.object
+        [ ( "context", (standardServerContextEncoder) struct.context )
+        , ( "input", (getTagsReqEncoder) struct.input )
+        ]
+
+
 submitItemReqBundleEncoder : SubmitItemReqBundle -> Json.Encode.Value
 submitItemReqBundleEncoder struct =
     Json.Encode.object
@@ -366,6 +420,8 @@ backendActionDecoder =
     Json.Decode.oneOf
         [ Json.Decode.map SubmitItem (Json.Decode.field "SubmitItem" (submitItemReqBundleDecoder))
         , Json.Decode.map SubmitComment (Json.Decode.field "SubmitComment" (submitCommentReqBundleDecoder))
+        , Json.Decode.map GetFeed (Json.Decode.field "GetFeed" (getFeedReqBundleDecoder))
+        , Json.Decode.map GetTags (Json.Decode.field "GetTags" (getTagsReqBundleDecoder))
         ]
 
 apiErrorDecoder : Json.Decode.Decoder ApiError
@@ -518,6 +574,20 @@ getFeedReqDecoder : Json.Decode.Decoder GetFeedReq
 getFeedReqDecoder =
     Json.Decode.succeed GetFeedReq
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "host" (Json.Decode.string)))
+
+
+getFeedReqBundleDecoder : Json.Decode.Decoder GetFeedReqBundle
+getFeedReqBundleDecoder =
+    Json.Decode.succeed GetFeedReqBundle
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "context" (standardServerContextDecoder)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "input" (getFeedReqDecoder)))
+
+
+getTagsReqBundleDecoder : Json.Decode.Decoder GetTagsReqBundle
+getTagsReqBundleDecoder =
+    Json.Decode.succeed GetTagsReqBundle
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "context" (standardServerContextDecoder)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "input" (getTagsReqDecoder)))
 
 
 submitItemResDecoder : Json.Decode.Decoder SubmitItemRes
