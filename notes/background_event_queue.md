@@ -14,12 +14,13 @@ CREATE TABLE events (
   id UUID PRIMARY KEY,
   application TEXT NOT NULL,    -- "horatio", "chess_app", etc
   host TEXT NOT NULL,          -- tenant isolation
+  session_id TEXT,             -- first-class session targeting for SSE/WebSocket
   stream_id TEXT,              -- optional grouping within tenant
   event_type TEXT NOT NULL,    -- "SendWelcomeEmail", "ProcessVideo"
   correlation_id UUID,         -- trace back to original request
   payload JSONB,
   execute_at TIMESTAMP DEFAULT NOW(),
-  context JSONB,               -- preserved context snapshot
+  context JSONB,               -- preserved context snapshot (no longer needs session_id)
   processed BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT NOW(),
   attempts INTEGER DEFAULT 0,  -- retry tracking
@@ -32,6 +33,7 @@ CREATE TABLE events (
 CREATE INDEX IF NOT EXISTS idx_events_pending ON events(execute_at, processed) WHERE NOT processed;
 CREATE INDEX IF NOT EXISTS idx_events_app_host ON events(application, host);
 CREATE INDEX IF NOT EXISTS idx_events_correlation ON events(correlation_id);
+CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id, processed);
 ```
 
 ## Event Type Definitions
@@ -105,6 +107,7 @@ processRegistration req ctx =
     , ScheduleEvent 
         { application = "horatio"
         , host = ctx.host
+        , session_id = ctx.sessionId  -- first-class session targeting
         , event_type = "SendWelcomeEmail"
         , correlation_id = ctx.request_id
         , delay_minutes = 10
@@ -196,10 +199,40 @@ processEvent event =
 - Failed events retry with exponential backoff
 - Priority ordering: high priority events processed first
 
+## Session Store Integration
+
+**Generated Session Types**: Define session context in Rust, hook into Express session store:
+
+```rust
+// models/session.rs - application defines session shape
+#[derive(BuildAmpSession, Debug, Clone)]
+pub struct AppSession {
+    pub channel: String,
+    pub room: String,
+    // OR user_id, OR game_state, OR whatever app needs
+    // OR empty struct if session_id alone is sufficient
+}
+```
+
+**Generated session operations**:
+```elm
+-- Available in requests, events, and SSE contexts
+updateSessionContext : AppSession -> Context -> Effect
+getSessionContext : Context -> AppSession
+
+-- Session ID always available
+type alias Context = 
+    { sessionId : String
+    , session : AppSession  -- typed session data
+    , host : String
+    }
+```
+
 ## Integration Points
 
 - **File processing**: Upload → immediate response → background processing
 - **Webhooks**: Reliable delivery via event queue
-- **Real-time**: Events can trigger SSE/WebSocket notifications  
+- **Real-time**: Events can trigger SSE/WebSocket notifications using session_id targeting
 - **Database**: Same transaction boundaries as main handlers
 - **Key-value store**: Events can update shared state
+- **Session store**: Express session integration with typed context

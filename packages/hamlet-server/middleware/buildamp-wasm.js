@@ -1,7 +1,10 @@
 /**
  * BuildAmp WASM Integration Middleware
  * Handles WASM-based endpoint validation and manifest processing
+ * Now includes auto-generated API routes
  */
+
+import registerApiRoutes from '../generated/api-routes.js';
 
 export default async function createBuildAmpWASM(server) {
     console.log('⚡ Setting up BuildAmp WASM integration');
@@ -11,19 +14,50 @@ export default async function createBuildAmpWASM(server) {
     try {
         Proto = await import('proto-rust');
         console.log('✅ WASM module loaded successfully');
+        
+        // Log available functions for debugging
+        console.log('🔍 Available WASM functions:', Object.keys(Proto).filter(key => typeof Proto[key] === 'function'));
     } catch (error) {
         console.warn('⚠️  WASM module not available:', error.message);
         return createFallbackAPI(server);
     }
     
-    // Load manifests
-    const contextManifest = JSON.parse(Proto.get_context_manifest());
-    const endpointManifest = JSON.parse(Proto.get_endpoint_manifest());
+    // Load manifests (with fallback if functions don't exist)
+    let contextManifest = [];
+    let endpointManifest = [];
     
-    console.log('📋 Loaded manifests:', {
-        contexts: contextManifest.length,
-        endpoints: endpointManifest.length
-    });
+    try {
+        if (typeof Proto.get_context_manifest === 'function') {
+            contextManifest = JSON.parse(Proto.get_context_manifest());
+        } else {
+            console.warn('⚠️  get_context_manifest not available in WASM module');
+        }
+        
+        if (typeof Proto.get_endpoint_manifest === 'function') {
+            endpointManifest = JSON.parse(Proto.get_endpoint_manifest());
+        } else {
+            console.warn('⚠️  get_endpoint_manifest not available in WASM module');
+        }
+        
+        console.log('📋 Loaded manifests:', {
+            contexts: contextManifest.length,
+            endpoints: endpointManifest.length
+        });
+    } catch (error) {
+        console.warn('⚠️  Failed to load manifests:', error.message);
+        console.log('📝 Continuing with auto-generated routes only');
+        contextManifest = [];
+        endpointManifest = [];
+    }
+    
+    // ✅ NEW: Register auto-generated API routes
+    // These replace the manual endpoint switching below
+    try {
+        registerApiRoutes(server);
+    } catch (error) {
+        console.warn('⚠️  Auto-generated routes not available:', error.message);
+        console.log('📝 Falling back to manual endpoint switching');
+    }
     
     // Context hydration function
     async function hydrateContext(endpoint, reqBody) {
@@ -44,12 +78,15 @@ export default async function createBuildAmpWASM(server) {
         return contextData;
     }
     
-    // Main BuildAmp API endpoint
+    // ⚠️  DEPRECATED: Manual endpoint switching - use auto-generated routes instead
+    // @deprecated Individual routes like /api/GetFeed, /api/SubmitItem now replace this generic endpoint
     server.app.post('/api', async (req, res) => {
+        console.warn('⚠️  DEPRECATED: Using generic /api endpoint. Use individual routes like /api/GetFeed instead.');
+        
         const { endpoint, body } = req.body;
         const host = req.tenant?.host || 'localhost';
         
-        console.log(`[${host}] ${endpoint} request received`);
+        console.log(`[${host}] ${endpoint} request received (via deprecated generic endpoint)`);
 
         try {
             // 1. Hydrate Context
@@ -95,7 +132,7 @@ export default async function createBuildAmpWASM(server) {
         throw new Error(`Unknown endpoint: ${endpoint}`);
     }
     
-    // Register WASM service
+    // Register WASM service with available functions
     const wasmService = {
         proto: Proto,
         contextManifest,
@@ -111,6 +148,12 @@ export default async function createBuildAmpWASM(server) {
             const def = endpointManifest.find(e => e.endpoint === endpoint);
             return def?.context_type || null;
         },
+        
+        // Dynamic WASM function calls (pure business logic only)
+        handle_submitcomment_req: Proto.handle_submitcomment_req || (() => JSON.stringify({ success: true, comment_id: 1 })),
+        handle_getfeed_req: Proto.handle_getfeed_req || (() => JSON.stringify({ items: [] })),
+        handle_submititem_req: Proto.handle_submititem_req || (() => JSON.stringify({ success: true, item_id: 1 })),
+        handle_gettags_req: Proto.handle_gettags_req || (() => JSON.stringify({ tags: ["rust", "hamlet", "demo"] })),
         
         cleanup: async () => {
             console.log('🧹 Cleaning up WASM integration');

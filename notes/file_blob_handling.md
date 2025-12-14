@@ -1,4 +1,8 @@
-# File/Blob Handling
+# File/Blob Handling (Legacy)
+
+**OUTDATED**: File handling now covered in `../ROADMAP2_REVISED.md` Phase 2.
+
+*This file preserved for historical reference only.*
 
 **Priority**: Medium (completes type-safe pipeline)
 **Use Case**: Type-safe file uploads, validation, background processing

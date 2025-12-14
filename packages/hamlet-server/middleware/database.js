@@ -1,20 +1,28 @@
 /**
  * Database Middleware
  * Provides PostgreSQL connection pooling, migrations, and tenant-scoped queries
+ * Now includes auto-generated type-safe database functions
  */
 
 import pg from 'pg';
 import fs from 'fs';
 import path from 'path';
+// Import auto-generated type-safe database queries
+import createDbQueries from '../generated/database-queries.js';
 
 const { Pool } = pg;
 
 export default function createDatabase(server) {
     console.log('🗄️  Setting up database middleware');
     
-    // Database configuration
+    // Database configuration - use server config if available, fallback to environment
+    const dbConfig = server.config?.database;
     const config = {
-        connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/hamlet',
+        user: dbConfig?.user || process.env.POSTGRES_USER || 'postgres',
+        password: dbConfig?.password || process.env.POSTGRES_PASSWORD || '',
+        host: dbConfig?.host || process.env.POSTGRES_HOST || 'localhost',
+        database: dbConfig?.database || process.env.POSTGRES_DB || 'hamlet',
+        port: dbConfig?.port || parseInt(process.env.POSTGRES_PORT || '5432', 10),
         max: 20,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 2000,
@@ -43,13 +51,42 @@ export default function createDatabase(server) {
         }
         
         try {
-            // Create migrations table if it doesn't exist
-            await pool.query(`
-                CREATE TABLE IF NOT EXISTS schema_migrations (
-                    filename TEXT PRIMARY KEY,
-                    applied_at TIMESTAMP DEFAULT NOW()
-                )
+            // Check if migrations table exists and has correct structure
+            const tableExists = await pool.query(`
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_name = 'schema_migrations'
             `);
+            
+            if (tableExists.rows.length === 0) {
+                // Create new table
+                await pool.query(`
+                    CREATE TABLE schema_migrations (
+                        filename TEXT PRIMARY KEY,
+                        applied_at TIMESTAMP DEFAULT NOW()
+                    )
+                `);
+                console.log('📝 Created schema_migrations table');
+            } else {
+                // Check if filename column exists
+                const columnsResult = await pool.query(`
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'schema_migrations' 
+                    AND column_name = 'filename'
+                `);
+                
+                if (columnsResult.rows.length === 0) {
+                    console.log('📝 Recreating schema_migrations table with correct structure');
+                    await pool.query('DROP TABLE schema_migrations CASCADE');
+                    await pool.query(`
+                        CREATE TABLE schema_migrations (
+                            filename TEXT PRIMARY KEY,
+                            applied_at TIMESTAMP DEFAULT NOW()
+                        )
+                    `);
+                }
+            }
             
             // Get applied migrations
             const appliedResult = await pool.query(
@@ -105,8 +142,10 @@ export default function createDatabase(server) {
             return await pool.query(text, params);
         },
         
-        // Tenant-scoped query (automatically adds host filter)
+        // ⚠️  DEPRECATED: Dangerous SQL string manipulation - use generated queries instead
+        // @deprecated Use auto-generated type-safe queries from dbQueries instead
         async queryForTenant(host, text, params = []) {
+            console.warn('⚠️  DEPRECATED: queryForTenant uses dangerous SQL string manipulation. Use generated queries instead.');
             // Add host parameter to queries that don't already have WHERE clause
             if (text.includes('WHERE')) {
                 text = text.replace('WHERE', 'WHERE host = $1 AND');
@@ -119,8 +158,10 @@ export default function createDatabase(server) {
             return await pool.query(text, params);
         },
         
-        // Insert with automatic host field
+        // ⚠️  DEPRECATED: Generic table operations - use generated queries instead
+        // @deprecated Use specific insert functions like insertMicroblogItem(item, host)
         async insertForTenant(host, table, data) {
+            console.warn(`⚠️  DEPRECATED: insertForTenant for table '${table}'. Use generated insert${table} function instead.`);
             const columns = Object.keys(data);
             const values = Object.values(data);
             
@@ -137,8 +178,10 @@ export default function createDatabase(server) {
             return result.rows[0];
         },
         
-        // Update with automatic host filter
+        // ⚠️  DEPRECATED: Generic table operations - use generated queries instead
+        // @deprecated Use specific update functions like updateMicroblogItem(id, updates, host)
         async updateForTenant(host, table, id, data) {
+            console.warn(`⚠️  DEPRECATED: updateForTenant for table '${table}'. Use generated update${table} function instead.`);
             const columns = Object.keys(data);
             const values = Object.values(data);
             
@@ -149,12 +192,18 @@ export default function createDatabase(server) {
             return result.rows[0];
         },
         
-        // Delete with automatic host filter
+        // ⚠️  DEPRECATED: Generic table operations - use generated queries instead
+        // @deprecated Use specific delete functions like deleteMicroblogItem(id, host)
         async deleteForTenant(host, table, id) {
+            console.warn(`⚠️  DEPRECATED: deleteForTenant for table '${table}'. Use generated delete${table} function instead.`);
             const query = `DELETE FROM ${table} WHERE host = $1 AND id = $2 RETURNING *`;
             const result = await pool.query(query, [host, id]);
             return result.rows[0];
         },
+        
+        // ✅ NEW: Auto-generated type-safe database queries
+        // These replace the dangerous string manipulation methods above
+        ...createDbQueries(pool),
         
         // Transaction support
         async transaction(callback) {

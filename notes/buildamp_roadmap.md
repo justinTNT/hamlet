@@ -1,6 +1,8 @@
-# BuildAmp Roadmap
+# BuildAmp Roadmap (Legacy)
 
-Priority-ordered list of infrastructure features to add to BuildAmp.
+**OUTDATED**: See `../ROADMAP2_REVISED.md` for current roadmap.
+
+This file preserved for historical reference only.
 
 ## High Priority (Foundational)
 

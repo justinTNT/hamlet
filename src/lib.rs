@@ -1,7 +1,7 @@
 use wasm_bindgen::prelude::*;
 extern crate self as proto_rust;
 use serde_json;
-use crate::domain_tags_db::Tag;
+use crate::db_tags_db::Tag;
 
 pub mod framework {
     pub mod common;
@@ -48,7 +48,7 @@ pub fn get_openapi_spec() -> String {
         (GetTagsReq, GetTagsRes), 
         (SubmitItemReq, SubmitItemRes),
         (SubmitCommentReq, SubmitCommentRes),
-        crate::domain_feed_db::MicroblogItem,
+        crate::db_feed_db::MicroblogItem,
         Tag
     );
     get_openapi_spec()

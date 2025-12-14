@@ -8,7 +8,7 @@ send toMsg request =
     Http.request
         { method = "POST"
         , headers = [ Http.header "X-RPC-Endpoint" request.endpoint ]
-        , url = "/api"
+        , url = "/api/" ++ request.endpoint
         , body = Http.jsonBody request.body
         , expect = Http.expectJson toMsg request.decoder
         , timeout = Nothing

@@ -60,11 +60,10 @@ async function run() {
                 console.log("Encoded request:", encodedBody);
 
                 // ** REAL NETWORK CALL **
-                fetch('/api', {
+                fetch(`/api/${endpoint}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-RPC-Endpoint': endpoint,
                         // Session managed via cookies, no manual header needed
                     },
                     body: encodedBody,

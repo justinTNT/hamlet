@@ -44,6 +44,9 @@ export class MiddlewareLoader {
             await this.loadMiddleware('buildamp-wasm');
         }
         
+        // Load Elm service for backend business logic
+        await this.loadMiddleware('elm-service');
+        
         // Always load API routes last
         await this.loadMiddleware('api-routes');
         

@@ -1,11 +1,20 @@
-# Server-Sent Events
+# Server-Sent Events (Phase 1 Implementation)
 
-**Priority**: Medium (core real-time feature)
+**STATUS**: Core SSE infrastructure exists, needs enhanced type generation and session-based targeting.
+
+**PRIORITY**: High (core real-time feature, part of Phase 1)
+
 **Use Case**: Real-time server→client streaming, 80% of real-time needs
 
 ## Core Concept
 
-One-way server→client streaming using HTTP EventSource. Perfect complement to event sourcing - events flow from background queue to client streams.
+One-way server→client streaming using HTTP EventSource with **session-based targeting**. Perfect complement to event sourcing - events flow from background queue to client streams.
+
+### Design Principles
+- **Session-based targeting**: Use session IDs as universal addressing primitive
+- **Generated infrastructure**: JS connection lifecycle, message serialization (invisible to dev user)  
+- **Handwritten business logic**: Dev user writes routing decisions and message content
+- **Framework security**: Session IDs never leak to clients, routing-only
 
 ## SSE Event Definitions
 
@@ -51,35 +60,27 @@ pub struct SystemAlert {
 }
 ```
 
-## Generated Elm Subscriptions
+## Generated Elm Interface
 
 ```elm
--- Auto-generated from SSE definitions
-subscribeToComments : String -> (CommentStreamEvent -> msg) -> Sub msg
-subscribeToComments itemId toMsg =
-    commentStreamSubscription 
-        { channel = "item:" ++ itemId 
-        , onEvent = toMsg
-        , onError = HandleSSEError
-        , onReconnect = HandleSSEReconnect
-        }
+-- Auto-generated SSE effect types (dev user writes these in business logic)
+type Effect 
+    = SSEBroadcast (List SessionId) SSEMessage
+    | SendToSession SessionId SSEMessage  
+    | BroadcastAll SSEMessage
+    | Insert String Value
+    | -- other effects...
 
-subscribeToNotifications : String -> (NotificationStreamEvent -> msg) -> Sub msg  
-subscribeToNotifications userId toMsg =
-    notificationStreamSubscription
-        { channel = "user:" ++ userId
-        , onEvent = toMsg  
-        }
-
--- Generated event types
-type CommentStreamEvent
+-- Auto-generated SSE message types from Rust definitions
+type SSEMessage
     = CommentAdded Comment
-    | CommentEdited Comment
-    | CommentDeleted String
+    | TaskComplete Task  
+    | SystemAlert Alert
 
-type NotificationStreamEvent  
-    = EmailSent EmailNotification
-    | TaskComplete TaskNotification
+-- Generated client subscription (automatic, no channels/users exposed)
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    onSSEMessage SSEMessageReceived  -- Framework handles all connection management
 ```
 
 ## Server Implementation
@@ -171,65 +172,56 @@ case "CommentAdded":
     );
 ```
 
-**Elm business logic triggers SSE**:
+**Session-based business logic**:
 ```elm
--- In Elm EventLogic.elm
-processEvent : Event -> (List Effect, Response)
-processEvent event =
+-- In Elm EventLogic.elm - dev user writes business routing
+processEvent : Event -> Context -> (List Effect, Response)
+processEvent event ctx =
     case event.event_type of
         "CommentAdded" ->
-            [ Insert "item_comments" event.payload
-            , SSEBroadcast
-                { channel = "CommentStream:item:" ++ event.payload.item_id
-                , event_type = "CommentAdded"  
-                , data = event.payload.comment
-                }
-            , SSEBroadcast
-                { channel = "NotificationStream:user:" ++ event.context.item_owner_id
-                , event_type = "NewCommentNotification"
-                , data = { message = "New comment on your post" }
-                }
+            let
+                interestedSessions = getItemSubscriberSessions event.payload.itemId ctx
+                ownerSession = getItemOwnerSession event.payload.itemId ctx
+            in
+            [ Insert "item_comments" event.payload.comment
+            , SSEBroadcast interestedSessions (CommentAdded event.payload.comment)
+            , SendToSession ownerSession (NewCommentNotification "New comment on your post")
             ]
 ```
 
 ## Client Usage
 
 ```elm
--- In Elm app
+-- In Elm app - automatic SSE subscription, no connection management
 type Msg
-    = CommentReceived CommentStreamEvent
-    | NotificationReceived NotificationStreamEvent
-    | SSEError String
+    = SSEMessageReceived SSEMessage
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch
-        [ subscribeToComments model.currentItemId CommentReceived
-        , subscribeToNotifications model.currentUserId NotificationReceived
-        ]
+    onSSEMessage SSEMessageReceived  -- Generated, handles all connection details
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
-        CommentReceived (CommentAdded comment) ->
+        SSEMessageReceived (CommentAdded comment) ->
             ( { model | comments = comment :: model.comments }
             , Cmd.none
             )
             
-        NotificationReceived (EmailSent notification) ->
-            ( { model | notifications = notification :: model.notifications }
+        SSEMessageReceived (TaskComplete task) ->
+            ( { model | completedTasks = task :: model.completedTasks }
             , Cmd.none
             )
 ```
 
 ## Key Benefits
 
-- **Simpler than WebSocket**: No handshake, automatic reconnection
-- **HTTP-based**: Works through firewalls, proxies
+- **Session-based targeting**: Universal addressing primitive using existing sessions
+- **Generated infrastructure**: Dev user never touches JavaScript connection management
+- **Type-safe events**: Generated Elm types for all SSE messages
+- **Security built-in**: Session IDs never leak to clients, routing-only
+- **Business logic focus**: Dev user writes "who gets what when", framework handles delivery
 - **Event sourcing integration**: Natural fit with background event queue
-- **Type-safe events**: Generated Elm types for all events
-- **Multiple channels**: Subscribe to different event streams
-- **Authorization**: Per-channel auth support
 
 ## Use Cases
 

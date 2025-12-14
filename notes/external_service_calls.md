@@ -1,18 +1,18 @@
-# External Webhooks
+# External Service Calls
 
 **Priority**: Low (builds on background processing)
 **Use Case**: Type-safe external service integrations, reliable delivery
 
 ## Core Concept
 
-Type-safe outbound webhooks with target annotations, authentication, and retry logic. Integrated with background event processing for reliable delivery.
+Type-safe outbound service calls with target annotations, authentication, and retry logic. Integrated with background event processing for reliable delivery.
 
-## Webhook Definitions
+## Service Call Definitions
 
-Webhook types are defined in regular Rust files with target configuration. BuildAmp detects from filename and generates reliable delivery.
+Service call types are defined in regular Rust files with target configuration. BuildAmp detects from filename and generates reliable delivery.
 
 ```rust
-// models/webhooks/email_webhooks.rs
+// models/service_calls/email_calls.rs
 #[target(
     url = "https://api.sendgrid.com/v3/mail/send",
     method = "POST", 

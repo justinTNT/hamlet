@@ -1,11 +1,20 @@
-# WebSocket Support
+# WebSocket Support (Phase 1 Implementation)
 
-**Priority**: Low (advanced real-time features)
+**STATUS**: Moving to Phase 1 implementation alongside SSE.
+
+**PRIORITY**: High (essential for client↔client communication, games, collaborative editing)
+
 **Use Case**: Bidirectional real-time communication, gaming platform, collaborative editing
 
 ## Core Concept
 
-Server-mediated WebSocket connections with Elm business logic controlling all routing and validation. Enables gaming and real-time collaborative applications.
+**Server-mediated messaging** with type-safe client interfaces. Server orchestrates connections and routing, clients get clean message-passing with full state awareness.
+
+### Key Design Principles
+- **No room abstractions** in Hamlet - rooms are app-level concepts built in Elm
+- **Always-available messaging** - clients can send anytime, server handles routing
+- **Connection state awareness** - clients know if anyone is listening
+- **Type-safe boundaries** - all messages defined in Rust, generated for Elm
 
 ## WebSocket Message Definitions
 
@@ -57,34 +66,36 @@ pub struct SelectionUpdate {
 }
 ```
 
-## Generated Elm Integration
+## Generated Elm Interface
 
 ```elm
--- Auto-generated WebSocket types and functions
+-- Auto-generated WebSocket messaging interface
 module BuildAmp.WebSocket exposing (..)
 
-type WebSocketMsg
-    = GameMoveReceived GameMove
-    | CursorUpdateReceived CursorUpdate  
-    | LiveEditReceived LiveEdit
-    | TypingIndicatorReceived TypingIndicator
-    | WebSocketError String
-    | WebSocketConnected String
-    | WebSocketDisconnected
+-- Always-available send functions (no explicit connection required)
+sendGameMove : GameMove -> Cmd msg
+sendCursorUpdate : CursorUpdate -> Cmd msg  
+sendLiveEdit : LiveEdit -> Cmd msg
 
--- Generated send functions
-sendGameMove : String -> GameMove -> Cmd msg
-sendCursorUpdate : String -> CursorUpdate -> Cmd msg
-sendLiveEdit : String -> LiveEdit -> Cmd msg
+-- Message subscriptions (enable/disable as needed)
+onGameMove : (GameMove -> msg) -> Sub msg
+onCursorUpdate : (CursorUpdate -> msg) -> Sub msg
+onLiveEdit : (LiveEdit -> msg) -> Sub msg
 
--- Generated subscriptions
-subscribeToGameMoves : String -> (GameMove -> msg) -> Sub msg
-subscribeToCursorUpdates : String -> (CursorUpdate -> msg) -> Sub msg
-subscribeToLiveEdits : String -> (LiveEdit -> msg) -> Sub msg
+-- Server-controlled connection events
+onWebSocketConnect : (ConnectionInfo -> msg) -> Sub msg
+onWebSocketDisconnect : (DisconnectReason -> msg) -> Sub msg
 
--- Connection management
-connectToRoom : String -> Cmd msg
-disconnectFromRoom : String -> Cmd msg
+-- Connection state for client decision-making
+type alias ConnectionInfo = 
+    { connectedAt : Time.Posix
+    , serverAssignedId : String
+    }
+
+type DisconnectReason
+    = ServerInitiated
+    | NetworkError String
+    | GameEnded
 ```
 
 ## Server WebSocket Handler

@@ -1,6 +1,8 @@
-# BuildAmp Mobile Roadmap
+# BuildAmp Mobile Roadmap (Legacy)
 
-*Future stretch goals - not immediate priorities*
+**OUTDATED**: Mobile capabilities now covered in `../ROADMAP2_REVISED.md` Phase 3.
+
+*This file preserved for historical reference only.*
 
 ## Mobile Strategy Context
 
