@@ -178,7 +178,31 @@ Direct access:
 Example workflow:
   user=> (check)              ; Run full verification
   user=> (check-api)          ; Focus on API issues
-  user=> (watch-files)        ; Monitor for changes
+  (watch-files)        ; Monitor for changes
+
+🤖 Agent Tooling for External Computation:
+
+When you need disposable computational work, use this decision tree:
+
+1. nREPL (Port 7888) - For domain knowledge and sidecar functions:
+   # Connect and run hamlet verification from external tools
+   clojure -Sdeps '{:deps {nrepl/nrepl {:mvn/version \"1.0.0\"}}}' -M -e \\
+   '(do (require 'nrepl.core)
+        (with-open [conn (nrepl.core/connect :port 7888)]
+          (-> (nrepl.core/client conn 1000)
+              (nrepl.core/message {:op \"eval\" :code \"(check-api)\"})
+              nrepl.core/response-values)))'
+
+2. Babashka - For fast data transformation:
+   bb -e '(-> (slurp \"hamlet-data.json\") (json/parse-string) (analyze-hamlet-patterns))'
+
+3. Command Line Tools - For simple operations:
+   curl -s \"http://localhost:3000/api/status\" | jq '.hamlet_status'
+
+Trade-offs:
+  ✅ nREPL: Access to all Hamlet verification functions and state
+  ✅ Babashka: Fast startup (~50ms) for data pipelines
+  ✅ CLI tools: Instant execution for HTTP/file/git operations
 
 Server control:
   (start-server!)  - Start nREPL server

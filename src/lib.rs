@@ -5,7 +5,6 @@ use crate::domain_tags_db::Tag;
 
 pub mod framework {
     pub mod common;
-    pub mod fingerprint;
     pub mod database_types;
     pub mod migration_gen;
     pub mod core;
@@ -19,15 +18,8 @@ pub use framework::database_types::*;
 
 // Note: Removing legacy re-exports to avoid ambiguous imports
 // Legacy modules still available via explicit paths (models::comments::* etc.)
-pub use framework::fingerprint::*;
-
 pub mod elm_export;
 pub use horatio_macro::{BuildAmpEndpoint, BuildAmpElm, BuildAmpContext};
-
-#[wasm_bindgen]
-pub fn create_session_id(fingerprint_data: String) -> String {
-    framework::fingerprint::generate_fingerprint(fingerprint_data)
-}
 
 #[wasm_bindgen]
 pub fn encode_request(_endpoint: String, json_in: String) -> String {

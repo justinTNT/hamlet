@@ -1,6 +1,5 @@
-import init, { encode_request, decode_response, create_session_id } from 'proto-rust';
+import init, { encode_request, decode_response } from 'proto-rust';
 import { Elm } from './Main.elm';
-import { collectFingerprintData } from './fingerprint.js';
 
 console.log("Horatio Client v1.0.0 - Ports Debug");
 
@@ -14,16 +13,9 @@ async function run() {
         return;
     }
 
-    // Generate Session ID
-    try {
-        const fingerprintData = await collectFingerprintData();
-        const sessionId = create_session_id(JSON.stringify(fingerprintData));
-        window.HAMLET_SESSION_ID = sessionId;
-        console.log("Generated Session ID:", sessionId);
-    } catch (e) {
-        console.error("Failed to generate session ID:", e);
-        window.HAMLET_SESSION_ID = "fallback-session-id";
-    }
+    // Session ID will be managed by server-side session cookies
+    console.log("Using server-managed session cookies");
+    window.HAMLET_SESSION_ID = null; // No longer needed
 
     const app = Elm.Main.init({
         node: document.getElementById('app'),
@@ -73,7 +65,7 @@ async function run() {
                     headers: {
                         'Content-Type': 'application/json',
                         'X-RPC-Endpoint': endpoint,
-                        'X-Session-ID': window.HAMLET_SESSION_ID || 'unknown-session'
+                        // Session managed via cookies, no manual header needed
                     },
                     body: encodedBody,
                 })

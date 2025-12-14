@@ -5,6 +5,5 @@ use horatio_macro::buildamp_domain;
 pub struct Guest {
     pub id: DatabaseId<String>,
     pub session_id: String,
-    pub fingerprint: String,
     pub created_at: Timestamp,
 }

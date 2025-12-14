@@ -142,12 +142,6 @@ fn get_domain_type_definitions() -> HashMap<String, Vec<FieldDefinition>> {
             constraints: vec![Constraint::NotNull],
         },
         FieldDefinition {
-            name: "fingerprint".to_string(),
-            rust_type: RustType::Required,
-            sql_type: SqlType::Text,
-            constraints: vec![Constraint::NotNull],
-        },
-        FieldDefinition {
             name: "created_at".to_string(),
             rust_type: RustType::Timestamp,
             sql_type: SqlType::BigInt,

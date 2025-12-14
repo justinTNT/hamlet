@@ -13,12 +13,7 @@ use wasm_bindgen::prelude::*;
 // Re-export for macros
 pub use crate::models::api::StandardServerContext as ServerContext;
 
-// WASM Exports for Fingerprinting (Optional)
-#[wasm_bindgen]
-pub fn create_session_id(fingerprint_data: String) -> String {
-    let hash = blake3::hash(fingerprint_data.as_bytes());
-    base64_url::encode(&hash.as_bytes()[..16])
-}
+// Session management is now handled server-side via cookies
 
 // WASM Exports for Manifests
 #[wasm_bindgen]
