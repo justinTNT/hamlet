@@ -1,4 +1,4 @@
-use crate::domain_feed_db::{MicroblogItem, SubmitItemData};
+use crate::db_feed_db::{MicroblogItem, SubmitItemData};
 use horatio_macro::{buildamp_api, buildamp_domain};
 
 #[buildamp_api(path = "GetFeed")]
@@ -8,6 +8,8 @@ pub struct GetFeedReq {
     pub host: String,
 }
 
+// API response model - generates Elm types automatically (directory-based)
+// TODO: Remove buildamp_domain when directory-based generation is implemented
 #[buildamp_domain]
 pub struct GetFeedRes {
     pub items: Vec<MicroblogItem>,
@@ -26,6 +28,8 @@ pub struct SubmitItemReq {
     pub tags: Vec<String>,
 }
 
+// API response model - generates Elm types automatically (directory-based)
+// TODO: Remove buildamp_domain when directory-based generation is implemented
 #[buildamp_domain]
 pub struct SubmitItemRes {
     pub item: MicroblogItem,

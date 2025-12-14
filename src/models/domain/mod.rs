@@ -1,7 +1,8 @@
-pub mod comments_api;
-pub mod tags_api;
-pub mod feed_api;
+// Legacy domain directory - models have been moved to:
+// - Database models: src/models/db/
+// - API models: src/models/api/  
+// This file kept for compatibility during migration
 
-pub use comments_api::*;
-pub use tags_api::*;
-pub use feed_api::*;
+// Re-export from new locations
+pub use crate::models::db::*;
+pub use crate::models::api::*;

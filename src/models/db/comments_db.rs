@@ -1,7 +1,9 @@
-use crate::domain_identity_db::Guest;
+use crate::db_identity_db::Guest;
 use crate::framework::database_types::*;
 use horatio_macro::buildamp_domain;
 
+// Database model - generates SQL queries automatically (no macro needed)
+// TODO: Remove buildamp_domain when directory-based generation is implemented
 #[buildamp_domain]
 pub struct ItemComment {
     pub id: DatabaseId<String>,
@@ -13,6 +15,8 @@ pub struct ItemComment {
     pub timestamp: Timestamp,
 }
 
+// Database model - generates SQL queries automatically (no macro needed)
+// TODO: Remove buildamp_domain when directory-based generation is implemented  
 #[buildamp_domain]
 pub struct SubmitCommentData {
     #[dependency(source = "table:guests:by_session")]

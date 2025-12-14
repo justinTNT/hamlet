@@ -7,6 +7,8 @@ pub struct GetTagsReq {
     pub host: String,
 }
 
+// API response model - generates Elm types automatically (directory-based)
+// TODO: Remove buildamp_domain when directory-based generation is implemented
 #[buildamp_domain]
 pub struct GetTagsRes {
     pub tags: Vec<String>,

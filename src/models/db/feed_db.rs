@@ -1,8 +1,10 @@
-use crate::domain_tags_db::Tag;
-use crate::domain_comments_db::ItemComment;
+use crate::db_tags_db::Tag;
+use crate::db_comments_db::ItemComment;
 use crate::framework::database_types::*;
 use horatio_macro::buildamp_domain;
 
+// Database model - generates SQL queries automatically (no macro needed)
+// TODO: Remove buildamp_domain when directory-based generation is implemented
 #[buildamp_domain]
 pub struct MicroblogItem {
     pub id: DatabaseId<String>,
@@ -21,6 +23,8 @@ pub struct MicroblogItem {
     pub view_count: i32,
 }
 
+// Database model - generates SQL queries automatically (no macro needed)  
+// TODO: Remove buildamp_domain when directory-based generation is implemented
 #[buildamp_domain]
 pub struct SubmitItemData {
     #[dependency(source = "table:tags")]
