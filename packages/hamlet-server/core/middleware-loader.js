@@ -23,8 +23,9 @@ export class MiddlewareLoader {
     async loadRequiredMiddleware() {
         const features = this.detectFeatures();
         
-        // Always load tenant isolation
+        // Always load tenant isolation and session cookies
         await this.loadMiddleware('tenant-isolation');
+        await this.loadMiddleware('session-cookies');
         
         // Load optional features
         if (features.hasDatabase) {
