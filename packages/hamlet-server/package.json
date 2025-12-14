@@ -1,0 +1,45 @@
+{
+  "name": "hamlet-server",
+  "version": "0.1.0",
+  "description": "Modular Node.js server framework for Hamlet applications",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./core": "./core/index.js",
+    "./middleware": "./middleware/index.js"
+  },
+  "scripts": {
+    "test": "npx --node-options='--experimental-vm-modules' jest",
+    "test:watch": "npx --node-options='--experimental-vm-modules' jest --watch",
+    "lint": "eslint ."
+  },
+  "jest": {
+    "transform": {},
+    "testEnvironment": "node"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "body-parser": "^1.20.2"
+  },
+  "peerDependencies": {
+    "pg": "^8.11.3",
+    "proto-rust": "*"
+  },
+  "peerDependenciesMeta": {
+    "pg": {
+      "optional": true
+    },
+    "proto-rust": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3"
+  },
+  "keywords": ["hamlet", "framework", "node", "express", "middleware"],
+  "author": "Hamlet Team",
+  "license": "MIT"
+}
