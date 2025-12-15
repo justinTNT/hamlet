@@ -221,7 +221,7 @@ pub enum GameMessage {
 ```
 
 **Generated Elm interface:**
-- Always-available send functions: `sendGameMove`, `sendChatMessage`
+- Always-available send functions: `sendGameMove` (A<==>B), `sendChatMessage` (broadcast)
 - Optional subscriptions: `onGameMove`, `onChatMessage` 
 - Server-controlled connections: `onWebSocketConnect`, `onWebSocketDisconnect`
 - No room abstractions - server handles routing via Elm business logic
