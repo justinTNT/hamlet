@@ -28,9 +28,12 @@ export async function generateElmHandlers() {
     }
     
     // Find all API files
-    const apiFiles = fs.readdirSync(apiDir)
-        .filter(file => file.endsWith('_api.rs'))
-        .map(file => path.join(apiDir, file));
+    let apiFiles = [];
+    if (fs.existsSync(apiDir)) {
+        apiFiles = fs.readdirSync(apiDir)
+            .filter(file => file.endsWith('_api.rs') || file.match(/api_\d+\.rs$/))
+            .map(file => path.join(apiDir, file));
+    }
         
     console.log(`📁 Found ${apiFiles.length} API definition files`);
     
@@ -52,11 +55,24 @@ export async function generateElmHandlers() {
             const handlerFile = path.join(outputDir, `${endpoint.name}Handler.elm`);
             
             if (fs.existsSync(handlerFile)) {
-                console.log(`   ⏭️  Skipping ${endpoint.name}Handler.elm (already exists)`);
+                // Check if handler needs regeneration due to shared module changes
+                if (shouldRegenerateHandler(handlerFile)) {
+                    console.log(`   🔄 Regenerating ${endpoint.name}Handler.elm (dependencies changed)`);
+                } else {
+                    console.log(`   ⏭️  Skipping ${endpoint.name}Handler.elm (up to date)`);
+                    skippedCount++;
+                    continue;
+                }
+            }
+            
+            // Check if required shared modules exist before generating new handlers
+            const databaseModulePath = 'app/horatio/server/generated/Database.elm';
+            if (!fs.existsSync(databaseModulePath)) {
+                console.log(`   ⚠️  Skipping ${endpoint.name}Handler.elm (Database.elm not found - run shared module generation first)`);
                 skippedCount++;
                 continue;
             }
-            
+
             console.log(`   ✅ Creating ${endpoint.name}Handler.elm`);
             
             const handlerContent = generateHandlerContent(endpoint);
@@ -94,8 +110,8 @@ export async function generateElmHandlers() {
 function parseApiEndpoints(content) {
     const endpoints = [];
     
-    // Match #[buildamp_api(path = "EndpointName")] patterns
-    const apiRegex = /#\[buildamp_api\(path\s*=\s*"([^"]+)"[^\]]*\]\s*pub struct\s+(\w+)/g;
+    // Match #[buildamp_api(path = "EndpointName")] patterns (handles multiline attributes)
+    const apiRegex = /#\[buildamp_api\([^#]*?path\s*=\s*"([^"]+)"[^#]*?\]\s*pub struct\s+(\w+)/gs;
     
     let match;
     while ((match = apiRegex.exec(content)) !== null) {
@@ -112,92 +128,255 @@ function parseApiEndpoints(content) {
 }
 
 /**
- * Generate Elm handler content
+ * Generate TEA-based Elm handler content
  */
 function generateHandlerContent(endpoint) {
     const { name, requestType, responseType } = endpoint;
     
-    return `module Api.Handlers.${name}Handler exposing (handle${name})
+    return `port module Api.Handlers.${name}Handler exposing (main)
 
-{-| ${name} Handler
+{-| ${name} Handler - TEA Architecture
 
-This handler was auto-generated as scaffolding. You can customize the business logic
-while keeping the type signature intact.
+This handler implements The Elm Architecture pattern for async request processing.
+It demonstrates the req + state + stage pattern for complex async operations.
 
-@docs handle${name}
+Business Logic:
+TODO: Customize the stages and business logic for your specific ${name} endpoint
+TODO: Add database queries and external service calls as needed
+TODO: Implement proper error handling and validation
 
 -}
 
-import Api.Backend exposing (${requestType}, ${responseType}, ${name}ReqBundle, DatabaseService)
-import Task exposing (Task)
+import Api.Backend exposing (${requestType}, ${responseType})
+import Generated.Database as DB
+import Generated.Events as Events
+import Generated.Services as Services
 import Json.Encode as Encode
+import Json.Decode as Decode
+import Platform
+import Task
 
 
-{-| Handle ${name} request
+-- MODEL (req + state + stage)
 
-TODO: Implement your business logic here
-TODO: Query the database using generated functions
-TODO: Transform and validate data as needed
+type alias Model =
+    { stage : Stage
+    , request : Maybe ${requestType}
+    , context : Maybe Context
+    , globalConfig : GlobalConfig
+    , globalState : GlobalState
+    -- TODO: Add domain-specific state fields here
+    }
 
+
+type Stage
+    = Idle
+    | Processing
+    -- TODO: Add specific stages for your business logic, e.g.:
+    -- | LoadingData
+    -- | ValidatingInput  
+    -- | SavingResults
+    | Complete ${responseType}
+    | Failed String
+
+
+type alias Context =
+    { host : String
+    , userId : Maybe String
+    , sessionId : Maybe String
+    }
+
+
+type alias GlobalConfig = DB.GlobalConfig  -- Server-issued read-only config
+
+
+type alias GlobalState = DB.GlobalState  -- Mutable handler state
+
+
+-- UPDATE
+
+type Msg
+    = HandleRequest RequestBundle
+    -- TODO: Add specific messages for your business logic, e.g.:
+    -- | DataLoaded (Result String SomeData)
+    -- | ValidationComplete (Result String ValidatedInput)
+    -- | SaveComplete (Result String SavedResult)
+
+
+type alias RequestBundle =
+    { id : String
+    , context : Context
+    , request : ${requestType}
+    }
+
+
+init : Flags -> ( Model, Cmd Msg )
+init flags =
+    ( { stage = Idle
+      , request = Nothing
+      , context = Nothing
+      , globalConfig = flags.globalConfig
+      , globalState = flags.globalState
+      }
+    , Cmd.none
+    )
+
+
+type alias Flags =
+    { globalConfig : GlobalConfig
+    , globalState : GlobalState
+    }
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        HandleRequest bundle ->
+            -- Start the business logic pipeline
+            ( { model 
+              | stage = Processing
+              , request = Just bundle.request
+              , context = Just bundle.context
+              }
+            , processRequest bundle.request
+            )
+        
+        -- TODO: Handle your specific business logic messages here
+        -- e.g.:
+        -- DataLoaded result ->
+        --     case result of
+        --         Ok data ->
+        --             ( { model | stage = ValidatingInput }
+        --             , validateData data
+        --             )
+        --         Err error ->
+        --             ( { model | stage = Failed error }
+        --             , complete (encodeError error)
+        --             )
+
+
+-- BUSINESS LOGIC
+
+{-| Get server-issued timestamp for reliable time operations
+This ensures all timestamps come from the server, preventing client manipulation
 -}
-handle${name} : ${name}ReqBundle -> DatabaseService -> Task Error ${responseType}
-handle${name} bundle db =
-    -- Example database operations (replace with actual business logic):
-    -- let
-    --     host = bundle.input.host
-    --     userId = bundle.context.userId
-    -- in
-    -- db.find "SELECT * FROM some_table WHERE host = $1" [host]
-    --     |> Task.andThen (\\rows ->
-    --         -- Process and combine data as needed
-    --         Task.succeed { items = [] }
-    --     )
+getServerTimestamp : GlobalConfig -> Int
+getServerTimestamp config =
+    config.serverNow
+
+
+processRequest : ${requestType} -> Cmd Msg
+processRequest request =
+    -- TODO: Implement your business logic here
+    -- Example patterns:
     
-    -- Placeholder - replace with real implementation
-    Task.succeed (${generatePlaceholderResponse(endpoint)})
+    -- Database query:
+    -- DB.findItems (DB.queryAll |> DB.sortByCreatedAt) DataLoaded
+    
+    -- External API call:
+    -- Services.get "https://api.example.com/data" [] ApiResponseReceived
+    
+    -- Event scheduling:
+    -- Events.pushEvent (Events.SomeEvent { data = request.someField })
+    
+    -- Server timestamp usage:
+    -- let currentTime = getServerTimestamp model.globalConfig
+    
+    -- For now, return a placeholder response
+    let
+        placeholderResponse = ${generatePlaceholderResponse(endpoint)}
+    in
+    Task.perform (\\_ -> 
+        -- Simulate successful completion
+        Complete placeholderResponse
+    ) (Task.succeed ())
 
 
-{-| Helper to generate database effects
+-- ENCODING
 
-Example usage:
-    queryEffect = queryDatabase "microblog_items" 
-        [ ("host", bundle.input.host) 
+encode${responseType} : ${responseType} -> Encode.Value
+encode${responseType} response =
+    -- TODO: Implement proper encoding based on your ${responseType} structure
+    ${generateResponseEncoder(endpoint)}
+
+
+encodeError : String -> Encode.Value
+encodeError error =
+    Encode.object
+        [ ("error", Encode.string error)
         ]
 
--}
-queryDatabase : String -> List ( String, String ) -> BackendEffect
-queryDatabase table conditions =
-    let
-        queryJson =
-            Encode.object
-                [ ( "table", Encode.string table )
-                , ( "conditions", Encode.object (List.map (\\(k, v) -> (k, Encode.string v)) conditions) )
-                ]
-                |> Encode.encode 0
-    in
-    Log ("TODO: Implement database query for " ++ table)
-    -- TODO: Create proper Query effect type and implementation
+
+-- PORTS (TEA Pattern)
+
+port handleRequest : (RequestBundle -> msg) -> Sub msg
+port complete : Encode.Value -> Cmd msg
 
 
-{-| Helper to generate insert effects
+-- MAIN
 
-Example usage:
-    insertEffect = insertIntoDatabase "microblog_items" 
-        [ ("id", newId)
-        , ("title", bundle.input.title)  
-        , ("host", bundle.input.host)
-        ]
+main : Program Flags Model Msg
+main =
+    Platform.worker
+        { init = init
+        , update = update
+        , subscriptions = subscriptions
+        }
 
--}
-insertIntoDatabase : String -> List ( String, String ) -> BackendEffect
-insertIntoDatabase table fields =
-    let
-        insertData =
-            Encode.object (List.map (\\(k, v) -> (k, Encode.string v)) fields)
-                |> Encode.encode 0
-    in
-    Insert { table = table, data = insertData }
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    handleRequest HandleRequest
 `;
+}
+
+/**
+ * Check if a handler needs regeneration due to dependency changes
+ */
+function shouldRegenerateHandler(handlerFilePath) {
+    try {
+        const handlerContent = fs.readFileSync(handlerFilePath, 'utf-8');
+        const handlerStat = fs.statSync(handlerFilePath);
+        
+        // Check if handler imports Generated.Database
+        const importsDatabase = /import\s+Generated\.Database/m.test(handlerContent);
+        
+        if (importsDatabase) {
+            const databaseModulePath = 'app/horatio/server/generated/Database.elm';
+            
+            if (fs.existsSync(databaseModulePath)) {
+                const databaseStat = fs.statSync(databaseModulePath);
+                
+                // Regenerate if Database module is newer than handler
+                if (databaseStat.mtime > handlerStat.mtime) {
+                    return true;
+                }
+            }
+        }
+        
+        // Check for outdated GlobalConfig usage
+        const hasOldGlobalConfig = /type alias GlobalConfig = \{\}/m.test(handlerContent);
+        const hasOldGlobalState = /type alias GlobalState = \{\}/m.test(handlerContent);
+        
+        if (hasOldGlobalConfig || hasOldGlobalState) {
+            // Handler has old-style empty config/state types
+            return true;
+        }
+        
+        // Check for missing DB import when it should have one
+        const shouldImportDB = /DB\./m.test(handlerContent);
+        const missingDBImport = shouldImportDB && !/import\s+Generated\.Database\s+as\s+DB/m.test(handlerContent);
+        
+        if (missingDBImport) {
+            return true;
+        }
+        
+        return false;
+    } catch (error) {
+        // If we can't check, err on the side of regeneration
+        console.warn(`Warning: Could not check dependencies for ${handlerFilePath}: ${error.message}`);
+        return true;
+    }
 }
 
 /**
@@ -207,6 +386,20 @@ function generatePlaceholderResponse(endpoint) {
     const { name, responseType } = endpoint;
     
     return `Debug.todo "Implement ${name} handler"`;
+}
+
+/**
+ * Generate response encoder - basic structure
+ */
+function generateResponseEncoder(endpoint) {
+    const { responseType } = endpoint;
+    
+    return `Encode.object
+        [ -- TODO: Add proper fields based on your ${responseType} structure
+        -- Example:
+        -- ("items", Encode.list encodeItem response.items)
+        -- ("message", Encode.string response.message)
+        ]`;
 }
 
 /**
@@ -356,8 +549,30 @@ function createFallbackService(server) {
 }
 `;
     
-    const servicePath = 'packages/hamlet-server/middleware/elm-service.js';
-    fs.writeFileSync(servicePath, serviceCode);
+    // Auto-detect service path based on working directory
+    const cwd = process.cwd();
     
-    console.log(`   ✅ Generated service integration: ${servicePath}`);
+    // Check if we have packages/hamlet-server in the current directory structure
+    const hasPackagesStructure = fs.existsSync('packages/hamlet-server/middleware');
+    const inHamletServer = cwd.includes('packages/hamlet-server');
+    
+    const servicePath = (inHamletServer && !hasPackagesStructure)
+        ? 'middleware/elm-service.js' 
+        : 'packages/hamlet-server/middleware/elm-service.js';
+    
+    // Check if middleware already has TEA handler support
+    const existingCode = fs.existsSync(servicePath) ? fs.readFileSync(servicePath, 'utf-8') : '';
+    const hasTeaSupport = existingCode.includes('TEA Handler Support') || existingCode.includes('handleRequest');
+    
+    if (hasTeaSupport) {
+        console.log(`   ⏭️  Skipping service integration: ${servicePath} (TEA support detected)`);
+    } else {
+        // Ensure directory exists before writing
+        const serviceDir = path.dirname(servicePath);
+        if (!fs.existsSync(serviceDir)) {
+            fs.mkdirSync(serviceDir, { recursive: true });
+        }
+        fs.writeFileSync(servicePath, serviceCode);
+        console.log(`   ✅ Generated service integration: ${servicePath}`);
+    }
 }

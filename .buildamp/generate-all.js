@@ -10,11 +10,13 @@
  * - KV store generation
  */
 
+import fs from 'fs';
 import { generateDatabaseQueries } from './generation/database_queries.js';
 import { generateApiRoutes } from './generation/api_routes.js';
 import { generateBrowserStorage } from './generation/browser_storage.js';
 import { generateKvStore } from './generation/kv_store.js';
 import { generateElmHandlers } from './generation/elm_handlers.js';
+import { generateElmSharedModules } from './generation/elm_shared_modules.js';
 
 /**
  * Run all generation phases in sequence
@@ -28,6 +30,7 @@ async function generateAll() {
         api: null,
         browser: null,
         kv: null,
+        shared: null,
         handlers: null,
         success: false
     };
@@ -57,9 +60,16 @@ async function generateAll() {
         results.kv = await generateKvStore();
         console.log('');
         
-        // Phase 5: Elm Handler Scaffolding
-        console.log('🔧 Phase 5: Elm Handler Scaffolding');
+        // Phase 5: Elm Shared Modules (MUST come before handlers)
+        console.log('📦 Phase 5: Elm Shared Modules');
+        console.log('=============================');
+        results.shared = await generateElmSharedModules();
+        console.log('');
+        
+        // Phase 6: Elm Handler Scaffolding (depends on shared modules)  
+        console.log('🔧 Phase 6: Elm Handler Scaffolding');
         console.log('=================================');
+        console.log('🔗 Checking handler dependencies against shared modules...');
         results.handlers = await generateElmHandlers();
         console.log('');
         
@@ -105,6 +115,11 @@ function printSuccessSummary(results) {
     // KV store
     if (results.kv) {
         console.log(`🗄️  KV Store: ${results.kv.structs} models → ${results.kv.functions} functions`);
+    }
+    
+    // Shared modules
+    if (results.shared) {
+        console.log(`📦 Shared: ${results.shared.length} modules (Database, Events, Services)`);
     }
     
     // Elm handlers
@@ -186,13 +201,24 @@ async function generatePhase(phase) {
                 console.log('🗄️  KV Store Generation');
                 return await generateKvStore();
                 
+            case 'shared':
+            case 'modules':
+                console.log('📦 Elm Shared Modules');
+                return await generateElmSharedModules();
+                
             case 'handlers':
             case 'elm':
                 console.log('🔧 Elm Handler Scaffolding');
+                // Ensure shared modules exist first
+                if (!fs.existsSync('app/horatio/server/generated/Database.elm')) {
+                    console.log('🔗 Shared modules missing, generating them first...');
+                    await generateElmSharedModules();
+                    console.log('');
+                }
                 return await generateElmHandlers();
                 
             default:
-                throw new Error(`Unknown phase: ${phase}. Available phases: database, api, browser, kv, handlers`);
+                throw new Error(`Unknown phase: ${phase}. Available phases: database, api, browser, kv, shared, handlers`);
         }
     } catch (error) {
         console.error(`❌ Phase '${phase}' failed:`, error.message);
