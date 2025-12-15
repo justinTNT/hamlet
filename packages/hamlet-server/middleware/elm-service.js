@@ -1,9 +1,9 @@
 /**
- * Elm Service Middleware - Auto-generated
+ * Elm Service Middleware - Auto-generated with TEA Handler Support
  * 
- * Executes compiled Elm handler functions for business logic.
+ * Executes compiled TEA-based Elm handler functions for business logic.
  * This is where the "Rust once, JSON never" magic happens - 
- * Rust defines the API, Elm implements the business logic.
+ * Rust defines the API, Elm implements the business logic using The Elm Architecture.
  */
 
 import path from 'path';
@@ -15,8 +15,23 @@ import { createRequire } from 'module';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/**
+ * Request context storage for correlating async operations
+ */
+const requestContexts = new Map();
+
+function storeRequestContext(requestId, context) {
+    requestContexts.set(requestId, context);
+    // Cleanup after 30 seconds to prevent memory leaks
+    setTimeout(() => requestContexts.delete(requestId), 30000);
+}
+
+function getCurrentRequestContext(requestId) {
+    return requestContexts.get(requestId);
+}
+
 export default function createElmService(server) {
-    console.log('🌳 Setting up Elm service with individual handlers');
+    console.log('🌳 Setting up Elm service with TEA Handler Support');
     
     const handlers = new Map();
     const require = createRequire(import.meta.url);
@@ -25,50 +40,58 @@ export default function createElmService(server) {
     try {
         const handlersPath = path.join(__dirname, '../../../app/horatio/server');
         
-        // Auto-generated handler configurations
+        // Auto-generated handler configurations for TEA handlers
         const handlerConfigs = [
-            { name: 'SubmitComment', file: 'SubmitCommentHandler', function: 'handleSubmitComment' },
-            { name: 'GetFeed', file: 'GetFeedHandler', function: 'handleGetFeed' },
-            { name: 'SubmitItem', file: 'SubmitItemHandler', function: 'handleSubmitItem' },
-            { name: 'GetTags', file: 'GetTagsHandler', function: 'handleGetTags' }
+            { name: 'GetFeed', file: 'GetFeedHandlerTEA' }
         ];
         
         for (const config of handlerConfigs) {
             try {
-                const handlerPath = path.join(handlersPath, `${config.file}.js`);
+                const handlerPath = path.join(handlersPath, `${config.file}.cjs`);
                 
-                // Load the compiled handler module
-                delete require.cache[require.resolve(handlerPath)];
-                
-                // Create a VM context with the scope we want
-                const elmScope = { console, setTimeout, clearTimeout };
-                const context = vm.createContext(elmScope);
-                
-                // Read and execute the Elm code in our context
-                const elmCode = fs.readFileSync(handlerPath, 'utf8');
-                vm.runInContext(elmCode, context);
-                
-                // Access the Elm app from our context
-                if (elmScope.Elm && elmScope.Elm.Api && elmScope.Elm.Api.Handlers && elmScope.Elm.Api.Handlers[config.file]) {
-                    const elmApp = elmScope.Elm.Api.Handlers[config.file].init();
+                if (fs.existsSync(handlerPath)) {
+                    // Load the compiled handler module
+                    delete require.cache[require.resolve(handlerPath)];
+                    const handlerModule = require(handlerPath);
                     
-                    // Store the handler app
-                    handlers.set(config.name, {
-                        ...config,
-                        app: elmApp
-                    });
+                    // Access the Elm app from our context
+                    if (handlerModule.Elm && handlerModule.Elm.Api && handlerModule.Elm.Api.Handlers && handlerModule.Elm.Api.Handlers[config.file]) {
+                        // Initialize TEA handler with server-issued configuration
+                        const serverNow = Date.now(); // Server-issued timestamp
+                        const elmApp = handlerModule.Elm.Api.Handlers[config.file].init({
+                            node: null, // No DOM node for server-side handlers
+                            flags: {
+                                globalConfig: {
+                                    serverNow: serverNow,
+                                    hostIsolation: true,
+                                    environment: process.env.NODE_ENV || 'development'
+                                },
+                                globalState: {
+                                    requestCount: 0,
+                                    lastActivity: serverNow
+                                }
+                            }
+                        });
+                        
+                        // Store the handler app
+                        handlers.set(config.name, {
+                            ...config,
+                            app: elmApp
+                        });
+                        
+                        console.log(`✅ Loaded TEA handler: ${config.name}`);
+                    } else {
+                        console.log(`⚠️  TEA handler ${config.name} structure not found`);
+                    }
                 } else {
-                    throw new Error(`Could not access Elm.Api.Handlers.${config.file} from global scope`);
+                    console.log(`⚠️  TEA handler file not found: ${handlerPath}`);
                 }
-                
-                console.log(`✅ Loaded handler: ${config.name}`);
             } catch (error) {
-                console.log(`⚠️  Handler ${config.name} not found: ${error.message}`);
-                // Handler will use fallback
+                console.log(`⚠️  TEA handler ${config.name} failed to load: ${error.message}`);
             }
         }
         
-        console.log(`🎯 Ready with ${handlers.size} Elm handlers`);
+        console.log(`🎯 Ready with ${handlers.size} TEA Elm handlers`);
         
     } catch (error) {
         console.error('❌ Failed to load Elm handlers:', error.message);
@@ -77,7 +100,7 @@ export default function createElmService(server) {
 
     const elmService = {
         /**
-         * Call an individual Elm handler
+         * Call a TEA-based Elm handler
          */
         async callHandler(handlerName, requestData, context = {}) {
             const handlerConfig = handlers.get(handlerName);
@@ -86,24 +109,21 @@ export default function createElmService(server) {
                 throw new Error(`Handler ${handlerName} not available`);
             }
             
-            // For GetFeed, query database directly for now (temporary until async Tasks)
-            if (handlerName === 'GetFeed') {
-                return await this.getGetFeedData(requestData, context);
-            }
-            
             return new Promise((resolve, reject) => {
                 const elmApp = handlerConfig.app;
+                const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                let isResolved = false;
                 
-                // Set up response handler
-                if (elmApp.ports && elmApp.ports.result) {
-                    let cleanup = null;
-                    
-                    cleanup = elmApp.ports.result.subscribe((result) => {
-                        if (cleanup) cleanup();
+                // Set up TEA completion handler
+                if (elmApp.ports && elmApp.ports.complete) {
+                    const cleanup = elmApp.ports.complete.subscribe((result) => {
+                        if (isResolved) return;
+                        isResolved = true;
+                        cleanup();
                         
                         try {
                             const parsed = typeof result === 'string' ? JSON.parse(result) : result;
-                            console.log(`🌳 ${handlerName} handler completed successfully`);
+                            console.log(`🌳 ${handlerName} TEA handler completed successfully`);
                             resolve(parsed);
                         } catch (parseError) {
                             console.error(`❌ ${handlerName} handler response parse error:`, parseError);
@@ -111,80 +131,163 @@ export default function createElmService(server) {
                         }
                     });
                     
-                    // Send request to Elm as proper bundle format with database service
-                    if (elmApp.ports && elmApp.ports.process) {
-                        const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                        
-                        // Create FUCK database service implementation
-                        const dbService = server.getService('database');
-                        const databaseService = {
-                            find: async (sql, params) => {
-                                try {
-                                    const result = await dbService.query(sql, params);
-                                    return result.rows;
-                                } catch (error) {
-                                    throw error.message;
+                    // Store context for this handler instance
+                    let currentHandlerContext = null;
+                    
+                    // Request correlation for database operations
+                    const pendingDbRequests = new Map();
+                    
+                    // Set up database port handlers
+                    if (elmApp.ports.dbFind) {
+                        elmApp.ports.dbFind.subscribe(async (request) => {
+                            try {
+                                const dbService = server.getService('database');
+                                
+                                // Use the current handler's context for host isolation
+                                const host = currentHandlerContext?.host || 'localhost';
+                                
+                                // Translate Elm query builder to SQL
+                                const { sql, params } = translateQueryToSQL(request.table, request.query, host);
+                                const result = await dbService.query(sql, params);
+                                
+                                if (elmApp.ports.dbResult) {
+                                    elmApp.ports.dbResult.send({
+                                        id: request.id,
+                                        success: true,
+                                        data: result.rows
+                                    });
                                 }
-                            },
-                            create: async (table, data) => {
-                                try {
-                                    const fields = Object.keys(data);
-                                    const values = Object.values(data);
-                                    const placeholders = fields.map((_, i) => `$${i + 1}`).join(', ');
-                                    const sql = `INSERT INTO ${table} (${fields.join(', ')}) VALUES (${placeholders}) RETURNING *`;
-                                    const result = await dbService.query(sql, values);
-                                    return result.rows[0];
-                                } catch (error) {
-                                    throw error.message;
-                                }
-                            },
-                            update: async (table, data, whereClause, whereParams) => {
-                                try {
-                                    const fields = Object.keys(data);
-                                    const values = Object.values(data);
-                                    const setClause = fields.map((field, i) => `${field} = $${i + 1}`).join(', ');
-                                    const sql = `UPDATE ${table} SET ${setClause} WHERE ${whereClause} RETURNING *`;
-                                    const result = await dbService.query(sql, [...values, ...whereParams]);
-                                    return result.rows[0];
-                                } catch (error) {
-                                    throw error.message;
-                                }
-                            },
-                            kill: async (table, whereClause, whereParams) => {
-                                try {
-                                    const sql = `DELETE FROM ${table} WHERE ${whereClause}`;
-                                    const result = await dbService.query(sql, whereParams);
-                                    return result.rowCount;
-                                } catch (error) {
-                                    throw error.message;
+                            } catch (error) {
+                                if (elmApp.ports.dbResult) {
+                                    elmApp.ports.dbResult.send({
+                                        id: request.id,
+                                        success: false,
+                                        error: error.message
+                                    });
                                 }
                             }
-                        };
-                        
-                        const bundle = {
-                            context: {
-                                request_id: requestId,
-                                host: context.host || 'localhost',
-                                user_id: context.user_id || null,
-                                session_id: context.session_id || null
-                            },
-                            input: requestData,
-                            database: databaseService
-                        };
-                        
-                        elmApp.ports.process.send(bundle);
-                    } else {
-                        if (cleanup) cleanup();
-                        reject(new Error(`Handler ${handlerName} missing process port`));
+                        });
                     }
                     
-                    // Timeout after 5 seconds
+                    if (elmApp.ports.dbCreate) {
+                        elmApp.ports.dbCreate.subscribe(async (request) => {
+                            try {
+                                const dbService = server.getService('database');
+                                const fields = Object.keys(request.data);
+                                const values = Object.values(request.data);
+                                const placeholders = fields.map((_, i) => `$${i + 1}`).join(', ');
+                                const sql = `INSERT INTO ${request.table} (${fields.join(', ')}) VALUES (${placeholders}) RETURNING *`;
+                                const result = await dbService.query(sql, values);
+                                
+                                if (elmApp.ports.dbResult) {
+                                    elmApp.ports.dbResult.send({
+                                        id: request.id,
+                                        success: true,
+                                        data: result.rows[0]
+                                    });
+                                }
+                            } catch (error) {
+                                if (elmApp.ports.dbResult) {
+                                    elmApp.ports.dbResult.send({
+                                        id: request.id,
+                                        success: false,
+                                        error: error.message
+                                    });
+                                }
+                            }
+                        });
+                    }
+                    
+                    // Set up Event Sourcing port handlers
+                    if (elmApp.ports.eventPush) {
+                        elmApp.ports.eventPush.subscribe(async (eventRequest) => {
+                            try {
+                                // TODO: Integrate with event sourcing system
+                                console.log(`📧 Event scheduled:`, eventRequest);
+                                
+                                // For now, just log the event
+                                // In real implementation, this would push to event queue
+                                if (eventRequest.schedule) {
+                                    console.log(`⏰ Recurring event: ${eventRequest.schedule}`);
+                                } else if (eventRequest.delay > 0) {
+                                    console.log(`⏱️  Delayed event: ${eventRequest.delay}s`);
+                                } else {
+                                    console.log(`⚡ Immediate event`);
+                                }
+                            } catch (error) {
+                                console.error('❌ Event push failed:', error.message);
+                            }
+                        });
+                    }
+                    
+                    // Set up external Services port handlers
+                    if (elmApp.ports.httpRequest) {
+                        elmApp.ports.httpRequest.subscribe(async (request) => {
+                            try {
+                                // TODO: Implement HTTP client with proper security/rate limiting
+                                console.log(`🌐 HTTP Request: ${request.method} ${request.url}`);
+                                
+                                // For now, simulate successful response
+                                if (elmApp.ports.httpResponse) {
+                                    elmApp.ports.httpResponse.send({
+                                        id: request.id,
+                                        success: true,
+                                        status: 200,
+                                        headers: {},
+                                        body: '{"message": "Simulated response"}',
+                                        error: null
+                                    });
+                                }
+                            } catch (error) {
+                                if (elmApp.ports.httpResponse) {
+                                    elmApp.ports.httpResponse.send({
+                                        id: request.id,
+                                        success: false,
+                                        status: null,
+                                        headers: null,
+                                        body: null,
+                                        error: error.message
+                                    });
+                                }
+                            }
+                        });
+                    }
+                    
+                    // Send request to Elm in TEA format
+                    if (elmApp.ports && elmApp.ports.handleRequest) {
+                        const requestBundle = {
+                            id: requestId,
+                            context: {
+                                host: context.host || 'localhost',
+                                userId: context.user_id || null,
+                                sessionId: context.session_id || null
+                            },
+                            request: requestData
+                        };
+                        
+                        // Store context for this handler instance
+                        currentHandlerContext = requestBundle.context;
+                        
+                        // Update global state with current activity
+                        // Note: In a real implementation, this could be handled by the Elm handler itself
+                        console.log(`🕒 Request processed at server time: ${Date.now()}`);
+                        
+                        elmApp.ports.handleRequest.send(requestBundle);
+                    } else {
+                        cleanup();
+                        reject(new Error(`Handler ${handlerName} missing handleRequest port`));
+                    }
+                    
+                    // Timeout after 10 seconds for async operations
                     setTimeout(() => {
-                        if (cleanup) cleanup();
-                        reject(new Error(`Handler ${handlerName} timed out`));
-                    }, 5000);
+                        if (!isResolved) {
+                            isResolved = true;
+                            cleanup();
+                            reject(new Error(`Handler ${handlerName} timed out`));
+                        }
+                    }, 10000);
                 } else {
-                    reject(new Error(`Handler ${handlerName} missing result port`));
+                    reject(new Error(`Handler ${handlerName} missing complete port`));
                 }
             });
         },
@@ -215,4 +318,84 @@ function createFallbackService(server) {
     
     server.registerService('elm', fallbackService);
     return fallbackService;
+}
+
+/**
+ * Translate Elm query builder to SQL
+ * Implements the query translation logic described in TEA Handler Implementation
+ */
+function translateQueryToSQL(table, queryObj, host) {
+    let sql = `SELECT * FROM ${table} WHERE host = $1`;
+    let params = [host];
+    let paramIndex = 2;
+    
+    // Parse query object from Elm
+    const query = typeof queryObj === 'string' ? JSON.parse(queryObj) : queryObj;
+    
+    // Add filters
+    if (query.filter && Array.isArray(query.filter)) {
+        query.filter.forEach(filter => {
+            switch (filter.type) {
+                case 'ById':
+                    sql += ` AND id = $${paramIndex}`;
+                    params.push(filter.value);
+                    paramIndex++;
+                    break;
+                case 'BySlug':
+                    sql += ` AND slug = $${paramIndex}`;
+                    params.push(filter.value);
+                    paramIndex++;
+                    break;
+                case 'ByUserId':
+                    sql += ` AND user_id = $${paramIndex}`;
+                    params.push(filter.value);
+                    paramIndex++;
+                    break;
+                case 'ByField':
+                    const fieldName = camelToSnake(filter.field);
+                    sql += ` AND ${fieldName} = $${paramIndex}`;
+                    params.push(filter.value);
+                    paramIndex++;
+                    break;
+                default:
+                    console.warn(`Unknown filter type: ${filter.type}`);
+            }
+        });
+    }
+    
+    // Add sorting
+    if (query.sort && Array.isArray(query.sort) && query.sort.length > 0) {
+        sql += ' ORDER BY ';
+        const sortClauses = query.sort.map(sortStr => {
+            switch (sortStr) {
+                case 'created_at_asc':
+                    return 'created_at ASC';
+                case 'created_at_desc':
+                    return 'created_at DESC';
+                case 'title_asc':
+                    return 'title ASC';
+                case 'title_desc':
+                    return 'title DESC';
+                default:
+                    console.warn(`Unknown sort type: ${sortStr}`);
+                    return 'created_at DESC'; // fallback
+            }
+        });
+        sql += sortClauses.join(', ');
+    }
+    
+    // Add pagination
+    if (query.paginate && query.paginate.limit) {
+        sql += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+        params.push(query.paginate.limit, query.paginate.offset || 0);
+    }
+    
+    return { sql, params };
+}
+
+/**
+ * Convert camelCase to snake_case for database field names
+ */
+function camelToSnake(str) {
+    return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
 }

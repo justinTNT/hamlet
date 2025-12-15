@@ -3,7 +3,7 @@ import request from 'supertest';
 import express from 'express';
 
 describe('Code Generation Integration Tests', () => {
-    let app, mockPool, mockKvClient, mockWasmService;
+    let app, mockPool, mockKvClient, mockWasmService, mockServer, mockElmService;
 
     beforeAll(() => {
         // Setup mock localStorage for browser storage tests
@@ -39,18 +39,20 @@ describe('Code Generation Integration Tests', () => {
             expire: jest.fn()
         };
 
-        // Mock WASM service
-        mockWasmService = {
-            handle_submitcomment_req: jest.fn(),
-            handle_getfeed_req: jest.fn(),
-            handle_submititem_req: jest.fn(),
-            handle_gettags_req: jest.fn()
+        // Mock Elm TEA service
+        mockElmService = {
+            callHandler: jest.fn(),
+            cleanup: jest.fn()
         };
 
         // Mock server
-        const mockServer = {
+        mockServer = {
             app,
-            getService: jest.fn().mockReturnValue(mockWasmService)
+            getService: jest.fn((serviceName) => {
+                if (serviceName === 'elm') return mockElmService;
+                if (serviceName === 'database') return mockPool;
+                return null;
+            })
         };
 
         // Setup tenant middleware
@@ -70,23 +72,23 @@ describe('Code Generation Integration Tests', () => {
     describe('End-to-End Data Flow', () => {
         test('complete user comment submission flow', async () => {
             // 1. Setup: Load generated modules
-            const { default: createDbQueries } = await import('../../packages/hamlet-server/generated/database-queries.js');
-            const { default: registerApiRoutes } = await import('../../packages/hamlet-server/generated/api-routes.js');
-            const { default: createKvFunctions } = await import('../../packages/hamlet-server/generated/kv-store.js');
-            const { UserPreferencesStorage } = await import('../../packages/hamlet-server/generated/browser-storage.js');
+            const { default: createDbQueries } = await import('../../generated/database-queries.js');
+            const { default: registerApiRoutes } = await import('../../generated/api-routes.js');
+            const { default: createKvFunctions } = await import('../../generated/kv-store.js');
+            const { UserPreferencesStorage } = await import('../../generated/browser-storage.js');
 
             // 2. Initialize all generated systems
             const dbQueries = createDbQueries(mockPool);
             const kvFunctions = createKvFunctions(mockKvClient);
-            registerApiRoutes({ app, getService: () => mockWasmService });
+            registerApiRoutes(mockServer);
 
             // 3. Mock database responses
             mockPool.query.mockResolvedValueOnce({
                 rows: [{ id: 1, comment: 'Test comment', item_id: 456, created_at: new Date() }]
             });
 
-            // 4. Mock WASM business logic
-            mockWasmService.handle_submitcomment_req.mockResolvedValue({
+            // 4. Mock Elm TEA handler business logic
+            mockElmService.callHandler.mockResolvedValue({
                 success: true,
                 comment: {
                     id: 1,
@@ -122,8 +124,9 @@ describe('Code Generation Integration Tests', () => {
                 })
             });
 
-            // 8. Verify WASM was called with correct data
-            expect(mockWasmService.handle_submitcomment_req).toHaveBeenCalledWith(
+            // 8. Verify Elm TEA handler was called with correct data
+            expect(mockElmService.callHandler).toHaveBeenCalledWith(
+                'SubmitComment',
                 expect.objectContaining({
                     comment: 'This is a test comment',
                     item_id: 456,
@@ -131,8 +134,7 @@ describe('Code Generation Integration Tests', () => {
                 }),
                 expect.objectContaining({
                     host: 'integration-test.com',
-                    user_id: 'test-user-123',
-                    tenant: 'integration-test.com'
+                    user_id: 'test-user-123'
                 })
             );
 
@@ -145,10 +147,11 @@ describe('Code Generation Integration Tests', () => {
             });
 
             // 10. Verify tenant isolation in all systems
-            expect(mockWasmService.handle_submitcomment_req).toHaveBeenCalledWith(
+            expect(mockElmService.callHandler).toHaveBeenCalledWith(
+                'SubmitComment',
                 expect.any(Object),
                 expect.objectContaining({
-                    tenant: 'integration-test.com'
+                    host: 'integration-test.com'
                 })
             );
         });
@@ -163,9 +166,9 @@ describe('Code Generation Integration Tests', () => {
             };
 
             // Load all systems
-            const { default: createDbQueries } = await import('../../packages/hamlet-server/generated/database-queries.js');
-            const { default: createKvFunctions } = await import('../../packages/hamlet-server/generated/kv-store.js');
-            const { UserPreferencesStorage } = await import('../../packages/hamlet-server/generated/browser-storage.js');
+            const { default: createDbQueries } = await import('../../generated/database-queries.js');
+            const { default: createKvFunctions } = await import('../../generated/kv-store.js');
+            const { UserPreferencesStorage } = await import('../../generated/browser-storage.js');
 
             const dbQueries = createDbQueries(mockPool);
             const kvFunctions = createKvFunctions(mockKvClient);
@@ -196,8 +199,8 @@ describe('Code Generation Integration Tests', () => {
 
     describe('Cross-System Error Handling', () => {
         test('graceful degradation when systems fail', async () => {
-            const { UserPreferencesStorage } = await import('../../packages/hamlet-server/generated/browser-storage.js');
-            const { default: createKvFunctions } = await import('../../packages/hamlet-server/generated/kv-store.js');
+            const { UserPreferencesStorage } = await import('../../generated/browser-storage.js');
+            const { default: createKvFunctions } = await import('../../generated/kv-store.js');
 
             // Simulate localStorage failure
             global.localStorage.setItem.mockImplementation(() => {
@@ -228,12 +231,12 @@ describe('Code Generation Integration Tests', () => {
 
         test('partial system failures don\'t break entire pipeline', async () => {
             // Load API routes
-            const { default: registerApiRoutes } = await import('../../packages/hamlet-server/generated/api-routes.js');
-            registerApiRoutes({ app, getService: () => mockWasmService });
+            const { default: registerApiRoutes } = await import('../../generated/api-routes.js');
+            registerApiRoutes(mockServer);
 
-            // WASM service partially fails
-            mockWasmService.handle_submitcomment_req.mockRejectedValue(
-                new Error('WASM execution timeout')
+            // Elm service partially fails
+            mockElmService.callHandler.mockRejectedValue(
+                new Error('Elm handler timeout')
             );
 
             const response = await request(app)
@@ -245,15 +248,15 @@ describe('Code Generation Integration Tests', () => {
                 .expect(400); // Should return error, not crash
 
             expect(response.body).toHaveProperty('error');
-            expect(response.body.error).toContain('WASM execution timeout');
+            expect(response.body.error).toContain('Elm handler timeout');
         });
     });
 
     describe('Performance Integration', () => {
         test('all systems handle concurrent operations', async () => {
-            const { default: createDbQueries } = await import('../../packages/hamlet-server/generated/database-queries.js');
-            const { default: createKvFunctions } = await import('../../packages/hamlet-server/generated/kv-store.js');
-            const { UserPreferencesStorage } = await import('../../packages/hamlet-server/generated/browser-storage.js');
+            const { default: createDbQueries } = await import('../../generated/database-queries.js');
+            const { default: createKvFunctions } = await import('../../generated/kv-store.js');
+            const { UserPreferencesStorage } = await import('../../generated/browser-storage.js');
 
             const dbQueries = createDbQueries(mockPool);
             const kvFunctions = createKvFunctions(mockKvClient);
@@ -290,10 +293,10 @@ describe('Code Generation Integration Tests', () => {
         });
 
         test('systems maintain performance under load', async () => {
-            const { default: registerApiRoutes } = await import('../../packages/hamlet-server/generated/api-routes.js');
-            registerApiRoutes({ app, getService: () => mockWasmService });
+            const { default: registerApiRoutes } = await import('../../generated/api-routes.js');
+            registerApiRoutes(mockServer);
 
-            mockWasmService.handle_getfeed_req.mockResolvedValue({ 
+            mockElmService.callHandler.mockResolvedValue({ 
                 items: [], 
                 total: 0 
             });
@@ -311,19 +314,19 @@ describe('Code Generation Integration Tests', () => {
 
             // Should handle 50 concurrent requests efficiently
             expect(duration).toBeLessThan(5000);
-            expect(mockWasmService.handle_getfeed_req).toHaveBeenCalledTimes(50);
+            expect(mockElmService.callHandler).toHaveBeenCalledTimes(50);
         });
     });
 
     describe('Security Integration', () => {
         test('tenant isolation enforced across all systems', async () => {
-            const { default: createDbQueries } = await import('../../packages/hamlet-server/generated/database-queries.js');
-            const { default: createKvFunctions } = await import('../../packages/hamlet-server/generated/kv-store.js');
-            const { default: registerApiRoutes } = await import('../../packages/hamlet-server/generated/api-routes.js');
+            const { default: createDbQueries } = await import('../../generated/database-queries.js');
+            const { default: createKvFunctions } = await import('../../generated/kv-store.js');
+            const { default: registerApiRoutes } = await import('../../generated/api-routes.js');
 
             const dbQueries = createDbQueries(mockPool);
             const kvFunctions = createKvFunctions(mockKvClient);
-            registerApiRoutes({ app, getService: () => mockWasmService });
+            registerApiRoutes(mockServer);
 
             // Test data for different tenants
             const tenantA = 'tenant-a.com';
@@ -359,7 +362,7 @@ describe('Code Generation Integration Tests', () => {
         });
 
         test('SQL injection prevention in database queries', async () => {
-            const { default: createDbQueries } = await import('../../packages/hamlet-server/generated/database-queries.js');
+            const { default: createDbQueries } = await import('../../generated/database-queries.js');
             const dbQueries = createDbQueries(mockPool);
 
             mockPool.query.mockResolvedValue({ rows: [] });
@@ -389,7 +392,7 @@ describe('Code Generation Integration Tests', () => {
                 timestamp: Date.now()
             };
 
-            const { UserPreferencesStorage } = await import('../../packages/hamlet-server/generated/browser-storage.js');
+            const { UserPreferencesStorage } = await import('../../generated/browser-storage.js');
             
             // Store complex data
             global.localStorage.setItem.mockImplementation(() => {});

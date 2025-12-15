@@ -527,11 +527,4 @@ export function connectStoragePorts(app) {
     console.log('✅ Storage ports connected successfully');
 }
 
-// Export all storage classes
-export {
-    FileProcessingStatusStorage,
-    ProcessingStepStorage,
-    ViewportStateStorage,
-    UserPreferencesStorage,
-    AuthStateStorage
-};
+// All storage classes are exported individually above

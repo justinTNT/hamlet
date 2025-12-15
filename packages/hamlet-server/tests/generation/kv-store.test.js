@@ -5,7 +5,7 @@ describe('KV Store Generation', () => {
     let createKvFunctions, cleanupExpiredKeys, getTenantKeys;
 
     beforeAll(async () => {
-        const kvModule = await import('../../packages/hamlet-server/generated/kv-store.js');
+        const kvModule = await import('../../generated/kv-store.js');
         createKvFunctions = kvModule.default;
         cleanupExpiredKeys = kvModule.cleanupExpiredKeys;
         getTenantKeys = kvModule.getTenantKeys;

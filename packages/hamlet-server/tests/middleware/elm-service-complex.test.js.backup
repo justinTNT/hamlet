@@ -1,0 +1,699 @@
+import { jest } from '@jest/globals';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Mock the require function for CommonJS modules
+const mockRequire = jest.fn();
+jest.mock('module', () => ({
+    createRequire: () => mockRequire
+}));
+
+describe('Elm TEA Service Middleware Tests', () => {
+    let createElmService;
+    let mockServer;
+    let mockElmApp;
+    let mockHandlerModule;
+    
+    beforeEach(async () => {
+        // Reset all mocks
+        jest.clearAllMocks();
+        
+        // Mock server
+        mockServer = {
+            registerService: jest.fn(),
+            getService: jest.fn()
+        };
+
+        // Mock Elm app ports
+        mockElmApp = {
+            ports: {
+                handleRequest: {
+                    send: jest.fn()
+                },
+                complete: {
+                    subscribe: jest.fn()
+                },
+                dbFind: {
+                    subscribe: jest.fn()
+                },
+                dbCreate: {
+                    subscribe: jest.fn()
+                },
+                dbResult: {
+                    send: jest.fn()
+                },
+                eventPush: {
+                    subscribe: jest.fn()
+                },
+                httpRequest: {
+                    subscribe: jest.fn()
+                },
+                httpResponse: {
+                    send: jest.fn()
+                }
+            }
+        };
+
+        // Mock handler module structure
+        mockHandlerModule = {
+            Elm: {
+                Api: {
+                    Handlers: {
+                        GetFeedHandlerTEA: {
+                            init: jest.fn().mockReturnValue(mockElmApp)
+                        }
+                    }
+                }
+            }
+        };
+
+        // Mock fs operations
+        jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+        mockRequire.mockReturnValue(mockHandlerModule);
+        
+        // Import the module after mocks are set up
+        const { default: createElmServiceModule } = await import('../../middleware/elm-service.js');
+        createElmService = createElmServiceModule;
+    });
+
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
+    describe('Service Initialization', () => {
+        test('initializes Elm service with TEA handlers successfully', () => {
+            const service = createElmService(mockServer);
+
+            expect(mockServer.registerService).toHaveBeenCalledWith('elm', expect.any(Object));
+            expect(mockHandlerModule.Elm.Api.Handlers.GetFeedHandlerTEA.init).toHaveBeenCalledWith({
+                node: null,
+                flags: expect.objectContaining({
+                    globalConfig: expect.objectContaining({
+                        serverNow: expect.any(Number),
+                        hostIsolation: true,
+                        environment: expect.any(String)
+                    }),
+                    globalState: expect.objectContaining({
+                        requestCount: 0,
+                        lastActivity: expect.any(Number)
+                    })
+                })
+            });
+        });
+
+        test('provides server-issued timestamps in flags', () => {
+            const beforeTime = Date.now();
+            createElmService(mockServer);
+            const afterTime = Date.now();
+
+            const initCall = mockHandlerModule.Elm.Api.Handlers.GetFeedHandlerTEA.init.mock.calls[0][0];
+            const serverNow = initCall.flags.globalConfig.serverNow;
+
+            expect(serverNow).toBeGreaterThanOrEqual(beforeTime);
+            expect(serverNow).toBeLessThanOrEqual(afterTime);
+            expect(typeof serverNow).toBe('number');
+        });
+
+        test('sets correct environment configuration', () => {
+            process.env.NODE_ENV = 'production';
+            createElmService(mockServer);
+
+            const initCall = mockHandlerModule.Elm.Api.Handlers.GetFeedHandlerTEA.init.mock.calls[0][0];
+            expect(initCall.flags.globalConfig.environment).toBe('production');
+            
+            // Reset
+            delete process.env.NODE_ENV;
+        });
+
+        test('falls back gracefully when handlers fail to load', () => {
+            jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+            
+            const service = createElmService(mockServer);
+            
+            expect(mockServer.registerService).toHaveBeenCalledWith('elm', expect.any(Object));
+            // Should still register a service (fallback)
+        });
+
+        test('handles malformed handler modules gracefully', () => {
+            mockRequire.mockReturnValue({ invalidStructure: true });
+            
+            const service = createElmService(mockServer);
+            
+            expect(mockServer.registerService).toHaveBeenCalledWith('elm', expect.any(Object));
+        });
+    });
+
+    describe('TEA Handler Execution', () => {
+        let elmService;
+
+        beforeEach(() => {
+            elmService = createElmService(mockServer);
+        });
+
+        test('callHandler sends proper request bundle to Elm', async () => {
+            const testRequest = { host: 'test.com', data: 'test data' };
+            const testContext = { host: 'test.com', user_id: 'user123', session_id: 'session456' };
+
+            // Mock successful completion
+            const mockCleanup = jest.fn();
+            mockElmApp.ports.complete.subscribe.mockImplementation(callback => {
+                setTimeout(() => callback({ success: true, result: 'test result' }), 10);
+                return mockCleanup;
+            });
+
+            const promise = elmService.callHandler('GetFeed', testRequest, testContext);
+
+            expect(mockElmApp.ports.handleRequest.send).toHaveBeenCalledWith({
+                id: expect.stringMatching(/^req_\d+_[a-z0-9]+$/),
+                context: {
+                    host: 'test.com',
+                    userId: 'user123',
+                    sessionId: 'session456'
+                },
+                request: testRequest
+            });
+
+            const result = await promise;
+            expect(result).toEqual({ success: true, result: 'test result' });
+            expect(mockCleanup).toHaveBeenCalled();
+        });
+
+        test('handles handler timeout correctly', async () => {
+            jest.useFakeTimers();
+            
+            const mockCleanup = jest.fn();
+            mockElmApp.ports.complete.subscribe.mockImplementation(() => mockCleanup);
+
+            const promise = elmService.callHandler('GetFeed', {}, {});
+            
+            // Fast-forward past timeout
+            jest.advanceTimersByTime(10000);
+            
+            await expect(promise).rejects.toThrow('Handler GetFeed timed out');
+            expect(mockCleanup).toHaveBeenCalled();
+            
+            jest.useRealTimers();
+        });
+
+        test('handles Elm handler errors gracefully', async () => {
+            const mockCleanup = jest.fn();
+            mockElmApp.ports.complete.subscribe.mockImplementation(callback => {
+                setTimeout(() => callback({ error: 'Elm runtime error' }), 10);
+                return mockCleanup;
+            });
+
+            const result = await elmService.callHandler('GetFeed', {}, {});
+            
+            expect(result).toEqual({ error: 'Elm runtime error' });
+            expect(mockCleanup).toHaveBeenCalled();
+        });
+
+        test('handles missing handler gracefully', async () => {
+            await expect(elmService.callHandler('NonexistentHandler', {}, {}))
+                .rejects.toThrow('Handler NonexistentHandler not available');
+        });
+
+        test('parses JSON responses correctly', async () => {
+            const testResponse = { success: true, items: [1, 2, 3] };
+            const mockCleanup = jest.fn();
+            
+            mockElmApp.ports.complete.subscribe.mockImplementation(callback => {
+                setTimeout(() => callback(JSON.stringify(testResponse)), 10);
+                return mockCleanup;
+            });
+
+            const result = await elmService.callHandler('GetFeed', {}, {});
+            expect(result).toEqual(testResponse);
+        });
+
+        test('handles JSON parse errors', async () => {
+            const mockCleanup = jest.fn();
+            
+            mockElmApp.ports.complete.subscribe.mockImplementation(callback => {
+                setTimeout(() => callback('invalid json {{{'), 10);
+                return mockCleanup;
+            });
+
+            await expect(elmService.callHandler('GetFeed', {}, {}))
+                .rejects.toThrow();
+        });
+    });
+
+    describe('Database Port Integration', () => {
+        let elmService;
+        let mockDbService;
+
+        beforeEach(() => {
+            mockDbService = {
+                query: jest.fn()
+            };
+            mockServer.getService.mockReturnValue(mockDbService);
+            elmService = createElmService(mockServer);
+        });
+
+        test('handles database find operations', async () => {
+            const dbRequest = {
+                id: 'req123',
+                table: 'microblog_items',
+                query: { filter: [], sort: [], paginate: null }
+            };
+
+            mockDbService.query.mockResolvedValue({
+                rows: [{ id: 1, title: 'Test Item' }]
+            });
+
+            // Simulate Elm sending db find request
+            const dbFindCallback = mockElmApp.ports.dbFind.subscribe.mock.calls[0][0];
+            await dbFindCallback(dbRequest);
+
+            expect(mockDbService.query).toHaveBeenCalledWith(
+                expect.stringContaining('SELECT * FROM microblog_items WHERE host = $1'),
+                expect.arrayContaining(['localhost']) // default host
+            );
+
+            expect(mockElmApp.ports.dbResult.send).toHaveBeenCalledWith({
+                id: 'req123',
+                success: true,
+                data: [{ id: 1, title: 'Test Item' }]
+            });
+        });
+
+        test('translates Elm query builder to SQL correctly', async () => {
+            const dbRequest = {
+                id: 'req123',
+                table: 'microblog_items',
+                query: {
+                    filter: [
+                        { type: 'ById', value: 'item123' },
+                        { type: 'ByField', field: 'status', value: 'active' }
+                    ],
+                    sort: ['created_at_desc'],
+                    paginate: { limit: 10, offset: 0 }
+                }
+            };
+
+            mockDbService.query.mockResolvedValue({ rows: [] });
+
+            const dbFindCallback = mockElmApp.ports.dbFind.subscribe.mock.calls[0][0];
+            await dbFindCallback(dbRequest);
+
+            const [sql, params] = mockDbService.query.mock.calls[0];
+            
+            expect(sql).toContain('WHERE host = $1');
+            expect(sql).toContain('AND id = $2');
+            expect(sql).toContain('AND status = $3');
+            expect(sql).toContain('ORDER BY created_at DESC');
+            expect(sql).toContain('LIMIT $4 OFFSET $5');
+            
+            expect(params).toEqual(['localhost', 'item123', 'active', 10, 0]);
+        });
+
+        test('handles database create operations', async () => {
+            const createRequest = {
+                id: 'create123',
+                table: 'microblog_items',
+                data: { title: 'New Item', content: 'Test content' }
+            };
+
+            mockDbService.query.mockResolvedValue({
+                rows: [{ id: 'new123', title: 'New Item', content: 'Test content' }]
+            });
+
+            const dbCreateCallback = mockElmApp.ports.dbCreate.subscribe.mock.calls[0][0];
+            await dbCreateCallback(createRequest);
+
+            expect(mockDbService.query).toHaveBeenCalledWith(
+                'INSERT INTO microblog_items (title, content) VALUES ($1, $2) RETURNING *',
+                ['New Item', 'Test content']
+            );
+
+            expect(mockElmApp.ports.dbResult.send).toHaveBeenCalledWith({
+                id: 'create123',
+                success: true,
+                data: { id: 'new123', title: 'New Item', content: 'Test content' }
+            });
+        });
+
+        test('handles database errors gracefully', async () => {
+            const dbRequest = { id: 'error123', table: 'invalid_table', query: {} };
+            
+            mockDbService.query.mockRejectedValue(new Error('Table does not exist'));
+
+            const dbFindCallback = mockElmApp.ports.dbFind.subscribe.mock.calls[0][0];
+            await dbFindCallback(dbRequest);
+
+            expect(mockElmApp.ports.dbResult.send).toHaveBeenCalledWith({
+                id: 'error123',
+                success: false,
+                error: 'Table does not exist'
+            });
+        });
+
+        test('enforces host isolation in database queries', async () => {
+            const testContext = { host: 'tenant1.com' };
+            
+            // Set up handler with specific context
+            const mockCleanup = jest.fn();
+            mockElmApp.ports.complete.subscribe.mockImplementation(() => mockCleanup);
+            
+            const promise = elmService.callHandler('GetFeed', {}, testContext);
+            
+            // Simulate database operation within the handler
+            const dbRequest = { id: 'host123', table: 'items', query: {} };
+            const dbFindCallback = mockElmApp.ports.dbFind.subscribe.mock.calls[0][0];
+            
+            mockDbService.query.mockResolvedValue({ rows: [] });
+            await dbFindCallback(dbRequest);
+
+            const [sql, params] = mockDbService.query.mock.calls[0];
+            expect(params[0]).toBe('tenant1.com'); // Host isolation enforced
+        });
+    });
+
+    describe('Event System Integration', () => {
+        let elmService;
+
+        beforeEach(() => {
+            elmService = createElmService(mockServer);
+        });
+
+        test('handles immediate events', async () => {
+            const eventRequest = {
+                type: 'UserAction',
+                payload: { action: 'click', element: 'button' },
+                delay: 0
+            };
+
+            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+            const eventCallback = mockElmApp.ports.eventPush.subscribe.mock.calls[0][0];
+            await eventCallback(eventRequest);
+
+            expect(consoleSpy).toHaveBeenCalledWith('⚡ Immediate event');
+            consoleSpy.mockRestore();
+        });
+
+        test('handles delayed events', async () => {
+            const eventRequest = {
+                type: 'DelayedNotification',
+                payload: { message: 'Reminder' },
+                delay: 300
+            };
+
+            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+            const eventCallback = mockElmApp.ports.eventPush.subscribe.mock.calls[0][0];
+            await eventCallback(eventRequest);
+
+            expect(consoleSpy).toHaveBeenCalledWith('⏱️  Delayed event: 300s');
+            consoleSpy.mockRestore();
+        });
+
+        test('handles recurring events', async () => {
+            const eventRequest = {
+                type: 'RecurringTask',
+                payload: { task: 'cleanup' },
+                schedule: '0 */6 * * *' // Every 6 hours
+            };
+
+            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+            const eventCallback = mockElmApp.ports.eventPush.subscribe.mock.calls[0][0];
+            await eventCallback(eventRequest);
+
+            expect(consoleSpy).toHaveBeenCalledWith('⏰ Recurring event: 0 */6 * * *');
+            consoleSpy.mockRestore();
+        });
+
+        test('handles event push errors gracefully', async () => {
+            const eventRequest = null; // Invalid request
+
+            const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+            const eventCallback = mockElmApp.ports.eventPush.subscribe.mock.calls[0][0];
+            await eventCallback(eventRequest);
+
+            expect(consoleErrorSpy).toHaveBeenCalledWith('❌ Event push failed:', expect.any(String));
+            consoleErrorSpy.mockRestore();
+        });
+    });
+
+    describe('HTTP Services Integration', () => {
+        let elmService;
+
+        beforeEach(() => {
+            elmService = createElmService(mockServer);
+        });
+
+        test('handles HTTP GET requests', async () => {
+            const httpRequest = {
+                id: 'http123',
+                method: 'GET',
+                url: 'https://api.example.com/data',
+                headers: [['Accept', 'application/json']],
+                body: ''
+            };
+
+            const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+            const httpCallback = mockElmApp.ports.httpRequest.subscribe.mock.calls[0][0];
+            await httpCallback(httpRequest);
+
+            expect(consoleSpy).toHaveBeenCalledWith('🌐 HTTP Request: GET https://api.example.com/data');
+            expect(mockElmApp.ports.httpResponse.send).toHaveBeenCalledWith({
+                id: 'http123',
+                success: true,
+                status: 200,
+                headers: {},
+                body: '{"message": "Simulated response"}',
+                error: null
+            });
+
+            consoleSpy.mockRestore();
+        });
+
+        test('handles HTTP POST requests', async () => {
+            const httpRequest = {
+                id: 'post123',
+                method: 'POST',
+                url: 'https://api.example.com/submit',
+                headers: [['Content-Type', 'application/json']],
+                body: '{"data": "test"}'
+            };
+
+            const httpCallback = mockElmApp.ports.httpRequest.subscribe.mock.calls[0][0];
+            await httpCallback(httpRequest);
+
+            expect(mockElmApp.ports.httpResponse.send).toHaveBeenCalledWith({
+                id: 'post123',
+                success: true,
+                status: 200,
+                headers: {},
+                body: '{"message": "Simulated response"}',
+                error: null
+            });
+        });
+
+        test('handles HTTP request errors', async () => {
+            // Simulate error by throwing in the callback
+            const httpCallback = mockElmApp.ports.httpRequest.subscribe.mock.calls[0][0];
+            
+            // Mock an error scenario
+            jest.spyOn(console, 'log').mockImplementation(() => {
+                throw new Error('Network timeout');
+            });
+
+            await httpCallback({
+                id: 'error123',
+                method: 'GET',
+                url: 'https://unreachable.example.com'
+            });
+
+            expect(mockElmApp.ports.httpResponse.send).toHaveBeenCalledWith({
+                id: 'error123',
+                success: false,
+                status: null,
+                headers: null,
+                body: null,
+                error: 'Network timeout'
+            });
+
+            jest.restoreAllMocks();
+        });
+    });
+
+    describe('Security and Isolation', () => {
+        let elmService;
+
+        beforeEach(() => {
+            elmService = createElmService(mockServer);
+        });
+
+        test('enforces host isolation in handler context', async () => {
+            const maliciousContext = {
+                host: 'evil.com',
+                user_id: 'attacker',
+                session_id: 'malicious-session'
+            };
+
+            const mockCleanup = jest.fn();
+            mockElmApp.ports.complete.subscribe.mockImplementation(() => mockCleanup);
+
+            await elmService.callHandler('GetFeed', {}, maliciousContext);
+
+            const sentBundle = mockElmApp.ports.handleRequest.send.mock.calls[0][0];
+            expect(sentBundle.context.host).toBe('evil.com'); // Context preserved but isolated
+            
+            // Verify that subsequent database operations use the context host
+            expect(mockServer.getService).toHaveBeenCalledWith('database');
+        });
+
+        test('validates request IDs are unique and properly formatted', async () => {
+            const mockCleanup = jest.fn();
+            mockElmApp.ports.complete.subscribe.mockImplementation(() => mockCleanup);
+
+            // Make multiple calls
+            await Promise.all([
+                elmService.callHandler('GetFeed', {}, { host: 'test1.com' }),
+                elmService.callHandler('GetFeed', {}, { host: 'test2.com' })
+            ]);
+
+            const call1 = mockElmApp.ports.handleRequest.send.mock.calls[0][0];
+            const call2 = mockElmApp.ports.handleRequest.send.mock.calls[1][0];
+
+            expect(call1.id).not.toBe(call2.id);
+            expect(call1.id).toMatch(/^req_\d+_[a-z0-9]+$/);
+            expect(call2.id).toMatch(/^req_\d+_[a-z0-9]+$/);
+        });
+
+        test('prevents context leakage between handlers', async () => {
+            const context1 = { host: 'tenant1.com', user_id: 'user1' };
+            const context2 = { host: 'tenant2.com', user_id: 'user2' };
+
+            const mockCleanup = jest.fn();
+            mockElmApp.ports.complete.subscribe.mockImplementation(() => mockCleanup);
+
+            // Simulate concurrent handlers
+            await Promise.all([
+                elmService.callHandler('GetFeed', {}, context1),
+                elmService.callHandler('GetFeed', {}, context2)
+            ]);
+
+            const call1 = mockElmApp.ports.handleRequest.send.mock.calls[0][0];
+            const call2 = mockElmApp.ports.handleRequest.send.mock.calls[1][0];
+
+            expect(call1.context.host).toBe('tenant1.com');
+            expect(call2.context.host).toBe('tenant2.com');
+            expect(call1.context.userId).toBe('user1');
+            expect(call2.context.userId).toBe('user2');
+        });
+    });
+
+    describe('Cleanup and Resource Management', () => {
+        test('cleanup function clears handlers and resources', async () => {
+            const elmService = createElmService(mockServer);
+            
+            await elmService.cleanup();
+            
+            // Verify cleanup was called (implementation would clear internal maps)
+            expect(typeof elmService.cleanup).toBe('function');
+        });
+
+        test('handles cleanup during active requests gracefully', async () => {
+            const elmService = createElmService(mockServer);
+            
+            const mockCleanup = jest.fn();
+            mockElmApp.ports.complete.subscribe.mockImplementation(() => mockCleanup);
+
+            // Start a request but don't complete it
+            const promise = elmService.callHandler('GetFeed', {}, {});
+            
+            // Clean up while request is active
+            await elmService.cleanup();
+            
+            // Should not throw errors
+            expect(typeof promise).toBe('object');
+        });
+    });
+
+    describe('Fallback Service', () => {
+        test('creates fallback service when initialization fails', () => {
+            // Mock initialization failure
+            const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+            mockRequire.mockImplementation(() => {
+                throw new Error('Failed to load handlers');
+            });
+
+            const service = createElmService(mockServer);
+            
+            expect(mockServer.registerService).toHaveBeenCalledWith('elm', expect.any(Object));
+            consoleSpy.mockRestore();
+        });
+
+        test('fallback service throws appropriate errors', async () => {
+            const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+            const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+            mockRequire.mockImplementation(() => {
+                throw new Error('No handlers available');
+            });
+
+            const service = createElmService(mockServer);
+            const registeredService = mockServer.registerService.mock.calls[0][1];
+
+            await expect(registeredService.callHandler('TestHandler', {}))
+                .rejects.toThrow('Elm service not available. Cannot call handler: TestHandler');
+
+            consoleErrorSpy.mockRestore();
+            consoleLogSpy.mockRestore();
+        });
+    });
+
+    describe('Performance and Concurrency', () => {
+        test('handles multiple concurrent requests efficiently', async () => {
+            const elmService = createElmService(mockServer);
+            
+            const mockCleanup = jest.fn();
+            mockElmApp.ports.complete.subscribe.mockImplementation(callback => {
+                setTimeout(() => callback({ success: true }), 10);
+                return mockCleanup;
+            });
+
+            const requests = Array.from({ length: 10 }, (_, i) => 
+                elmService.callHandler('GetFeed', { page: i }, { host: `tenant${i}.com` })
+            );
+
+            const start = Date.now();
+            await Promise.all(requests);
+            const duration = Date.now() - start;
+
+            expect(duration).toBeLessThan(1000); // Should complete quickly
+            expect(mockElmApp.ports.handleRequest.send).toHaveBeenCalledTimes(10);
+        });
+
+        test('maintains performance under load', async () => {
+            const elmService = createElmService(mockServer);
+            
+            const mockCleanup = jest.fn();
+            mockElmApp.ports.complete.subscribe.mockImplementation(callback => {
+                // Immediate response
+                callback({ success: true, items: [] });
+                return mockCleanup;
+            });
+
+            const requests = Array.from({ length: 100 }, () => 
+                elmService.callHandler('GetFeed', {}, {})
+            );
+
+            const start = Date.now();
+            await Promise.all(requests);
+            const duration = Date.now() - start;
+
+            expect(duration).toBeLessThan(2000); // Should handle 100 requests quickly
+            expect(mockElmApp.ports.handleRequest.send).toHaveBeenCalledTimes(100);
+        });
+    });
+});

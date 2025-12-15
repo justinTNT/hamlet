@@ -27,7 +27,7 @@ describe('Browser Storage Generation', () => {
     let UserPreferencesStorage, AuthStateStorage, connectStoragePorts;
 
     beforeAll(async () => {
-        const storageModule = await import('../../packages/hamlet-server/generated/browser-storage.js');
+        const storageModule = await import('../../generated/browser-storage.js');
         UserPreferencesStorage = storageModule.UserPreferencesStorage;
         AuthStateStorage = storageModule.AuthStateStorage;
         connectStoragePorts = storageModule.connectStoragePorts;
@@ -35,6 +35,21 @@ describe('Browser Storage Generation', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        // Reset localStorage mocks to their default behavior
+        localStorage.setItem.mockImplementation(() => {});
+        localStorage.getItem.mockImplementation(() => null);
+        localStorage.removeItem.mockImplementation(() => {});
+        
+        // Ensure global.app is properly restored
+        global.app = {
+            ports: {
+                userpreferencesChanged: { send: jest.fn() },
+                authstateChanged: { send: jest.fn() },
+                fileprocessingstatusChanged: { send: jest.fn() },
+                processingstepChanged: { send: jest.fn() },
+                viewportstateChanged: { send: jest.fn() }
+            }
+        };
     });
 
     describe('UserPreferencesStorage class', () => {
@@ -189,6 +204,7 @@ describe('Browser Storage Generation', () => {
         });
 
         test('notifies correct Elm port', () => {
+            // Ensure global.app is available for this test
             const authState = { isLoggedIn: true, userId: 'user123' };
             
             AuthStateStorage.save(authState);

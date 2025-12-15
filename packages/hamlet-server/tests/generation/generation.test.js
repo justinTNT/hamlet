@@ -15,7 +15,10 @@ describe('Hamlet Code Generation Tests', () => {
                 '../../generated/database-queries.js',
                 '../../generated/kv-store.js',
                 '../../../../app/generated/ApiClient.elm',
-                '../../../../app/generated/StoragePorts.elm'
+                '../../../../app/generated/StoragePorts.elm',
+                '../../../../app/horatio/server/generated/Database.elm',
+                '../../../../app/horatio/server/generated/Events.elm',
+                '../../../../app/horatio/server/generated/Services.elm'
             ];
             
             expectedFiles.forEach(relativePath => {
@@ -149,6 +152,75 @@ describe('Hamlet Code Generation Tests', () => {
         });
     });
 
+    describe('TEA Handler Support Generation', () => {
+        let databaseContent, eventsContent, servicesContent;
+        
+        beforeAll(() => {
+            const databaseFile = path.join(__dirname, '../../../../app/horatio/server/generated/Database.elm');
+            const eventsFile = path.join(__dirname, '../../../../app/horatio/server/generated/Events.elm');
+            const servicesFile = path.join(__dirname, '../../../../app/horatio/server/generated/Services.elm');
+            
+            databaseContent = fs.readFileSync(databaseFile, 'utf-8');
+            eventsContent = fs.readFileSync(eventsFile, 'utf-8');
+            servicesContent = fs.readFileSync(servicesFile, 'utf-8');
+        });
+
+        test('Database.elm has proper TEA support structure', () => {
+            expect(databaseContent).toContain('module Generated.Database exposing (..)');
+            expect(databaseContent).toContain('type alias GlobalConfig =');
+            expect(databaseContent).toContain('type alias GlobalState =');
+            expect(databaseContent).toContain('serverNow : Int');
+            expect(databaseContent).toContain('hostIsolation : Bool');
+            expect(databaseContent).toContain('requestCount : Int');
+            expect(databaseContent).toContain('lastActivity : Int');
+        });
+
+        test('Database.elm has query builder functionality', () => {
+            expect(databaseContent).toContain('type alias Query a =');
+            expect(databaseContent).toContain('type Filter a');
+            expect(databaseContent).toContain('type Sort a');
+            expect(databaseContent).toContain('queryAll : Query a');
+            expect(databaseContent).toContain('byId : String -> Query a -> Query a');
+            expect(databaseContent).toContain('sortByCreatedAt : Query a -> Query a');
+            expect(databaseContent).toContain('paginate : Int -> Int -> Query a -> Query a');
+        });
+
+        test('Database.elm has proper port definitions', () => {
+            expect(databaseContent).toContain('port dbFind : DbFindRequest -> Cmd msg');
+            expect(databaseContent).toContain('port dbCreate : DbCreateRequest -> Cmd msg');
+            expect(databaseContent).toContain('port dbUpdate : DbUpdateRequest -> Cmd msg');
+            expect(databaseContent).toContain('port dbResult : (DbResponse -> msg) -> Sub msg');
+        });
+
+        test('Events.elm has event sourcing support', () => {
+            expect(eventsContent).toContain('module Generated.Events exposing (..)');
+            expect(eventsContent).toContain('type alias EventRequest =');
+            expect(eventsContent).toContain('port eventPush : EventRequest -> Cmd msg');
+            expect(eventsContent).toContain('pushEvent : EventPayload -> Cmd msg');
+            expect(eventsContent).toContain('schedule : Maybe String');
+            expect(eventsContent).toContain('delay : Int');
+        });
+
+        test('Services.elm has HTTP client support', () => {
+            expect(servicesContent).toContain('module Generated.Services exposing (..)');
+            expect(servicesContent).toContain('type alias HttpRequest =');
+            expect(servicesContent).toContain('type alias HttpResponse =');
+            expect(servicesContent).toContain('port httpRequest : HttpRequestPort -> Cmd msg');
+            expect(servicesContent).toContain('get : String -> List (String, String)');
+            expect(servicesContent).toContain('post : String -> List (String, String)');
+            expect(servicesContent).toContain('request');
+        });
+
+        test('all TEA modules have proper documentation', () => {
+            [databaseContent, eventsContent, servicesContent].forEach(content => {
+                expect(content).toContain('{-|');
+                expect(content).toContain('@docs');
+                expect(content).toContain('-}');
+                expect(content).toContain('Generated'); // They all contain "Generated" but with different text
+            });
+        });
+    });
+
     describe('Browser Storage Generation', () => {
         let jsContent, elmContent;
         
@@ -199,20 +271,46 @@ describe('Hamlet Code Generation Tests', () => {
 
     describe('Code Generation Quality', () => {
         test('all generated files have warning headers', () => {
-            const generatedFiles = [
+            const jsFiles = [
                 '../../generated/api-routes.js',
                 '../../generated/browser-storage.js',
                 '../../generated/database-queries.js', 
-                '../../generated/kv-store.js',
+                '../../generated/kv-store.js'
+            ];
+            
+            const elmFiles = [
                 '../../../../app/generated/ApiClient.elm',
                 '../../../../app/generated/StoragePorts.elm'
             ];
+
+            const teaFiles = [
+                '../../../../app/horatio/server/generated/Database.elm',
+                '../../../../app/horatio/server/generated/Events.elm', 
+                '../../../../app/horatio/server/generated/Services.elm'
+            ];
             
-            generatedFiles.forEach(relativePath => {
+            // Check JavaScript files have proper warning headers
+            jsFiles.forEach(relativePath => {
                 const filePath = path.join(__dirname, relativePath);
                 const content = fs.readFileSync(filePath, 'utf-8');
                 expect(content).toContain('DO NOT EDIT THIS FILE MANUALLY');
                 expect(content).toContain('Changes will be overwritten during next generation');
+            });
+
+            // Check Elm client files have proper warning headers  
+            elmFiles.forEach(relativePath => {
+                const filePath = path.join(__dirname, relativePath);
+                const content = fs.readFileSync(filePath, 'utf-8');
+                expect(content).toContain('DO NOT EDIT THIS FILE MANUALLY');
+                expect(content).toContain('Changes will be overwritten during next generation');
+            });
+
+            // Check TEA modules have proper documentation headers
+            teaFiles.forEach(relativePath => {
+                const filePath = path.join(__dirname, relativePath);
+                const content = fs.readFileSync(filePath, 'utf-8');
+                expect(content).toContain('Generated');
+                expect(content).toContain('interface for TEA handlers');
             });
         });
 
