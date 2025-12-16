@@ -1,11 +1,15 @@
 // Imports removed as they are not needed for inventory-based generation
-use std::fs::File;
+use std::fs::{File, create_dir_all};
 use std::io::Write;
-use elm_rs::{Elm, ElmEncode, ElmDecode};
+// elm_rs traits not needed for this test
 
 #[test]
 fn generate_elm_types() {
-    let path = "apps/server/src/Api/Backend.elm";
+    // Create directories if they don't exist
+    create_dir_all("target/test_output/apps/server/src/Api").expect("Failed to create directories");
+    create_dir_all("target/test_output/apps/web/src/Api").expect("Failed to create directories");
+    
+    let path = "target/test_output/apps/server/src/Api/Backend.elm";
     let mut file = File::create(path).expect("Failed to create file");
     
     writeln!(file, "module Api.Backend exposing (..)").unwrap();
@@ -54,7 +58,7 @@ fn generate_elm_types() {
     }
 
     // Generate Schema for Web App
-    let schema_path = "apps/web/src/Api/Schema.elm";
+    let schema_path = "target/test_output/apps/web/src/Api/Schema.elm";
     let mut schema_file = File::create(schema_path).expect("Failed to create schema file");
     
     writeln!(schema_file, "module Api.Schema exposing (..)").unwrap();

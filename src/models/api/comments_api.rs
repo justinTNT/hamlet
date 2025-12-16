@@ -1,7 +1,12 @@
-use crate::db_comments_db::{ItemComment, SubmitCommentData};
-use horatio_macro::{buildamp_api, buildamp_domain};
+use buildamp_macro::{buildamp, buildamp_domain};
 
-#[buildamp_api(path = "SubmitComment", server_context = "SubmitCommentData")]
+// Server context for SubmitComment - belongs in API, not DB  
+pub struct SubmitCommentData {
+    pub fresh_guest_id: String,
+    pub fresh_comment_id: String,
+}
+
+#[buildamp(path = "SubmitComment", server_context = "SubmitCommentData")]
 pub struct SubmitCommentReq {
     #[api(Inject = "host")]
     #[serde(default)]
@@ -13,9 +18,17 @@ pub struct SubmitCommentReq {
     pub author_name: Option<String>,
 }
 
-// API response model - generates Elm types automatically (directory-based)
-// TODO: Remove buildamp_domain when directory-based generation is implemented
-#[buildamp_domain]
+// API-specific comment model
+pub struct CommentItem {
+    pub id: String,
+    pub item_id: String,
+    pub guest_id: String,
+    pub parent_id: Option<String>,
+    pub author_name: String,
+    pub text: String,
+    pub timestamp: u64,
+}
+
 pub struct SubmitCommentRes {
-    pub comment: ItemComment,
+    pub comment: CommentItem,
 }

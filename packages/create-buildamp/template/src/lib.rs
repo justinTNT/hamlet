@@ -7,7 +7,7 @@ pub mod elm_export;
 
 pub use models::domain::*;
 pub use models::api::*;
-pub use horatio_macro::{BuildAmpEndpoint, BuildAmpElm, BuildAmpContext, buildamp_domain, buildamp_api};
+pub use buildamp_macro::{BuildAmpEndpoint, BuildAmpElm, BuildAmpContext, buildamp_domain, buildamp_api};
 use wasm_bindgen::prelude::*;
 
 // Re-export for macros

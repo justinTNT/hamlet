@@ -1,4 +1,4 @@
-use proto_rust::{SubmitItemReq, BuildAmpEndpoint, Context};
+use proto_rust::{SubmitItemReq, BuildAmpEndpoint, Context, elm_export};
 
 #[test]
 fn test_submit_item_validation() {

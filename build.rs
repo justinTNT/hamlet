@@ -4,59 +4,49 @@ use std::path::Path;
 fn main() {
     println!("cargo:rerun-if-changed=src/models/");
     
-    let models_dir = Path::new("src/models");
-    if models_dir.exists() {
-        generate_mod_files(models_dir).expect("Failed to generate mod files");
-    }
+    // Check for forbidden mod.rs files and fail build if found
+    check_no_mod_files().expect("Build failed: forbidden mod.rs files detected");
 }
 
-fn generate_mod_files(dir: &Path) -> std::io::Result<()> {
-    for entry in fs::read_dir(dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        
-        if path.is_dir() {
-            let mod_file_path = path.join("mod.rs");
+fn check_no_mod_files() -> Result<(), Box<dyn std::error::Error>> {
+    let models_dir = Path::new("src/models");
+    if !models_dir.exists() {
+        return Ok(());
+    }
+    
+    let mut forbidden_files = Vec::new();
+    
+    // Recursively check for mod.rs files
+    fn scan_dir(dir: &Path, forbidden: &mut Vec<String>) -> std::io::Result<()> {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
             
-            // Find *_domain.rs and *_api.rs files
-            let mut modules = Vec::new();
-            for file_entry in fs::read_dir(&path)? {
-                let file_entry = file_entry?;
-                let file_path = file_entry.path();
-                
-                if let Some(file_name) = file_path.file_stem() {
-                    if let Some(name_str) = file_name.to_str() {
-                        if name_str.ends_with("_domain") || name_str.ends_with("_api") {
-                            modules.push(name_str.to_string());
-                        }
-                    }
-                }
-            }
-            
-            // Generate mod.rs content
-            if !modules.is_empty() {
-                let mod_content = generate_mod_content(&modules);
-                fs::write(&mod_file_path, mod_content)?;
+            if path.is_file() && path.file_name() == Some(std::ffi::OsStr::new("mod.rs")) {
+                forbidden.push(path.to_string_lossy().to_string());
+            } else if path.is_dir() {
+                scan_dir(&path, forbidden)?;
             }
         }
+        Ok(())
     }
+    
+    scan_dir(models_dir, &mut forbidden_files)?;
+    
+    if !forbidden_files.is_empty() {
+        eprintln!("❌ Build failed: Found forbidden mod.rs files!");
+        eprintln!("The auto-discovery system makes these files unnecessary and harmful.");
+        eprintln!("Please remove the following files:");
+        for file in &forbidden_files {
+            eprintln!("  - {}", file);
+        }
+        eprintln!();
+        eprintln!("These files are auto-generated artifacts that pollute the clean");
+        eprintln!("naked struct experience for Elm developers.");
+        
+        return Err(format!("Found {} forbidden mod.rs files", forbidden_files.len()).into());
+    }
+    
+    println!("✅ No forbidden mod.rs files found - models directory is clean!");
     Ok(())
-}
-
-fn generate_mod_content(modules: &[String]) -> String {
-    let mut content = String::new();
-    
-    // Add module declarations
-    for module in modules {
-        content.push_str(&format!("pub mod {};\n", module));
-    }
-    
-    content.push('\n');
-    
-    // Add re-exports
-    for module in modules {
-        content.push_str(&format!("pub use {}::*;\n", module));
-    }
-    
-    content
 }

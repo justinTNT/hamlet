@@ -12,8 +12,48 @@ pub fn buildamp_domain(attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn buildamp_api(attr: TokenStream, item: TokenStream) -> TokenStream {
-    buildamp_macros::buildamp_api(attr, item)
+pub fn buildamp(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp(attr, item)
+}
+
+#[proc_macro_attribute]
+pub fn buildamp_db(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp_db(attr, item)
+}
+
+#[proc_macro_attribute]
+pub fn buildamp_events(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp_events(attr, item)
+}
+
+#[proc_macro_attribute]
+pub fn buildamp_storage(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp_storage(attr, item)
+}
+
+#[proc_macro_attribute]
+pub fn buildamp_sse(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp_sse(attr, item)
+}
+
+#[proc_macro_attribute]
+pub fn buildamp_context_data(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp_context_data(attr, item)
+}
+
+#[proc_macro_attribute]
+pub fn buildamp_sse_module(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp_sse_module(attr, item)
+}
+
+#[proc_macro_attribute]
+pub fn buildamp_db_module(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp_db_module(attr, item)
+}
+
+#[proc_macro_attribute]
+pub fn buildamp_storage_module(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp_storage_module(attr, item)
 }
 
 #[proc_macro_derive(BuildAmpEndpoint, attributes(api))]
@@ -610,13 +650,35 @@ pub fn buildamp_auto_discover_models(input: TokenStream) -> TokenStream {
     if let Ok(entries) = scan_models_dir(&models_path) {
         for entry in entries {
             let module_name = syn::Ident::new(&entry.module_name, proc_macro2::Span::call_site());
-            let file_path = entry.file_path;
+            let file_path = entry.file_path.clone();
             
-            // Create module declaration with path
-            module_declarations.push(quote! {
-                #[path = #file_path]
-                pub mod #module_name;
-            });
+            // Read and enhance the source file at compile time
+            let enhanced_module = match entry.model_type {
+                ModelType::Database => {
+                    // Generate enhanced database module with auto-applied decorations
+                    generate_enhanced_db_module(&module_name, &file_path)
+                },
+                ModelType::Api => {
+                    // Generate enhanced API module with auto-applied decorations  
+                    generate_enhanced_api_module(&module_name, &file_path)
+                },
+                ModelType::Storage => {
+                    // Generate enhanced storage module with auto-applied decorations
+                    generate_enhanced_storage_module(&module_name, &file_path)
+                },
+                ModelType::Sse => {
+                    // Generate enhanced SSE module with auto-applied decorations
+                    generate_enhanced_sse_module(&module_name, &file_path)
+                },
+                _ => {
+                    quote! {
+                        #[path = #file_path]
+                        pub mod #module_name;
+                    }
+                }
+            };
+            
+            module_declarations.push(enhanced_module);
             
             // If it's an API file, add to exports
             if entry.is_api {
@@ -628,7 +690,7 @@ pub fn buildamp_auto_discover_models(input: TokenStream) -> TokenStream {
     }
     
     TokenStream::from(quote! {
-        // Module declarations
+        // Enhanced module declarations with auto-applied decorations
         #(#module_declarations)*
         
         // Re-exports
@@ -641,6 +703,17 @@ struct ModelEntry {
     module_name: String,
     file_path: String,
     is_api: bool,
+    model_type: ModelType,
+}
+
+#[derive(Debug, PartialEq)]
+enum ModelType {
+    Api,
+    Database,
+    Events,
+    Storage,
+    Sse,
+    Other,
 }
 
 fn scan_models_dir(dir_path: &str) -> std::io::Result<Vec<ModelEntry>> {
@@ -677,10 +750,26 @@ fn scan_directory(
                     
                     let is_api = file_name.ends_with("_api.rs");
                     
+                    // Determine model type based on directory
+                    let model_type = if is_api {
+                        ModelType::Api
+                    } else if prefix.contains("db") {
+                        ModelType::Database
+                    } else if prefix.contains("events") {
+                        ModelType::Events
+                    } else if prefix.contains("storage") {
+                        ModelType::Storage
+                    } else if prefix.contains("sse") {
+                        ModelType::Sse
+                    } else {
+                        ModelType::Other
+                    };
+                    
                     entries.push(ModelEntry {
                         module_name,
                         file_path,
                         is_api,
+                        model_type,
                     });
                 }
             }
@@ -697,4 +786,197 @@ fn scan_directory(
     }
     
     Ok(())
+}
+
+// Helper functions to generate enhanced modules with auto-applied decorations
+
+fn generate_enhanced_db_module(module_name: &syn::Ident, file_path: &str) -> proc_macro2::TokenStream {
+    match read_and_enhance_structs(file_path, &DatabaseDecorations) {
+        Ok(enhanced_content) => {
+            quote! {
+                pub mod #module_name {
+                    use super::*;
+                    #enhanced_content
+                }
+            }
+        },
+        Err(_) => {
+            // Fallback to simple include if enhancement fails
+            quote! {
+                #[path = #file_path]
+                pub mod #module_name;
+            }
+        }
+    }
+}
+
+fn generate_enhanced_api_module(module_name: &syn::Ident, file_path: &str) -> proc_macro2::TokenStream {
+    match read_and_enhance_structs(file_path, &ApiDecorations) {
+        Ok(enhanced_content) => {
+            quote! {
+                pub mod #module_name {
+                    use super::*;
+                    #enhanced_content
+                }
+            }
+        },
+        Err(_) => {
+            quote! {
+                #[path = #file_path]
+                pub mod #module_name;
+            }
+        }
+    }
+}
+
+fn generate_enhanced_storage_module(module_name: &syn::Ident, file_path: &str) -> proc_macro2::TokenStream {
+    match read_and_enhance_structs(file_path, &StorageDecorations) {
+        Ok(enhanced_content) => {
+            quote! {
+                pub mod #module_name {
+                    use super::*;
+                    #enhanced_content
+                }
+            }
+        },
+        Err(_) => {
+            quote! {
+                #[path = #file_path]
+                pub mod #module_name;
+            }
+        }
+    }
+}
+
+fn generate_enhanced_sse_module(module_name: &syn::Ident, file_path: &str) -> proc_macro2::TokenStream {
+    match read_and_enhance_structs(file_path, &SseDecorations) {
+        Ok(enhanced_content) => {
+            quote! {
+                pub mod #module_name {
+                    use super::*;
+                    #enhanced_content
+                }
+            }
+        },
+        Err(_) => {
+            quote! {
+                #[path = #file_path]
+                pub mod #module_name;
+            }
+        }
+    }
+}
+
+// Trait for different decoration strategies
+trait DecorationStrategy {
+    fn apply_to_struct(&self, item_struct: &mut syn::ItemStruct);
+    fn apply_to_enum(&self, item_enum: &mut syn::ItemEnum);
+}
+
+struct DatabaseDecorations;
+impl DecorationStrategy for DatabaseDecorations {
+    fn apply_to_struct(&self, item_struct: &mut syn::ItemStruct) {
+        let derives: syn::Attribute = syn::parse_quote! {
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema, crate::BuildAmpElm)]
+        };
+        item_struct.attrs.insert(0, derives);
+    }
+    
+    fn apply_to_enum(&self, item_enum: &mut syn::ItemEnum) {
+        let derives: syn::Attribute = syn::parse_quote! {
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema, crate::BuildAmpElm)]
+        };
+        item_enum.attrs.insert(0, derives);
+    }
+}
+
+struct ApiDecorations;
+impl DecorationStrategy for ApiDecorations {
+    fn apply_to_struct(&self, item_struct: &mut syn::ItemStruct) {
+        // Check if struct already has #[buildamp] attribute (request structs)
+        let has_buildamp = item_struct.attrs.iter().any(|attr| {
+            attr.path().is_ident("buildamp")
+        });
+        
+        // Apply decorations to all structs except those with #[buildamp] attribute
+        if !has_buildamp {
+            let derives: syn::Attribute = syn::parse_quote! {
+                #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema, crate::BuildAmpElm)]
+            };
+            item_struct.attrs.insert(0, derives);
+        }
+    }
+    
+    fn apply_to_enum(&self, item_enum: &mut syn::ItemEnum) {
+        let derives: syn::Attribute = syn::parse_quote! {
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema, crate::BuildAmpElm)]
+        };
+        item_enum.attrs.insert(0, derives);
+    }
+}
+
+struct StorageDecorations;
+impl DecorationStrategy for StorageDecorations {
+    fn apply_to_struct(&self, item_struct: &mut syn::ItemStruct) {
+        let derives: syn::Attribute = syn::parse_quote! {
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, crate::BuildAmpElm)]
+        };
+        item_struct.attrs.insert(0, derives);
+    }
+    
+    fn apply_to_enum(&self, item_enum: &mut syn::ItemEnum) {
+        let derives: syn::Attribute = syn::parse_quote! {
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, crate::BuildAmpElm)]
+        };
+        item_enum.attrs.insert(0, derives);
+    }
+}
+
+struct SseDecorations;
+impl DecorationStrategy for SseDecorations {
+    fn apply_to_struct(&self, item_struct: &mut syn::ItemStruct) {
+        let derives: syn::Attribute = syn::parse_quote! {
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+        };
+        item_struct.attrs.insert(0, derives);
+    }
+    
+    fn apply_to_enum(&self, item_enum: &mut syn::ItemEnum) {
+        let derives: syn::Attribute = syn::parse_quote! {
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+        };
+        item_enum.attrs.insert(0, derives);
+        
+        // Add serde tag for SSE enums
+        let serde_tag: syn::Attribute = syn::parse_quote! {
+            #[serde(tag = "type", content = "data")]
+        };
+        item_enum.attrs.insert(1, serde_tag);
+    }
+}
+
+fn read_and_enhance_structs(file_path: &str, strategy: &dyn DecorationStrategy) -> Result<proc_macro2::TokenStream, Box<dyn std::error::Error>> {
+    let full_path = format!("src/{}", file_path);
+    let content = fs::read_to_string(&full_path)?;
+    let ast = syn::parse_file(&content)?;
+    
+    let mut enhanced_items = Vec::new();
+    
+    for item in ast.items {
+        match item {
+            syn::Item::Struct(mut item_struct) => {
+                strategy.apply_to_struct(&mut item_struct);
+                enhanced_items.push(syn::Item::Struct(item_struct));
+            },
+            syn::Item::Enum(mut item_enum) => {
+                strategy.apply_to_enum(&mut item_enum);
+                enhanced_items.push(syn::Item::Enum(item_enum));
+            },
+            _ => enhanced_items.push(item),
+        }
+    }
+    
+    Ok(quote! {
+        #(#enhanced_items)*
+    })
 }

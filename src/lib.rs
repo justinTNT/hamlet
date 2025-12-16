@@ -1,16 +1,16 @@
 use wasm_bindgen::prelude::*;
 extern crate self as proto_rust;
 use serde_json;
-use crate::db_tags_db::Tag;
 
 pub mod framework {
     pub mod common;
     pub mod database_types;
+    pub mod storage_types;
     pub mod migration_gen;
     pub mod core;
 }
 // Auto-discover all models - no manual declarations needed!
-use horatio_macro::buildamp_auto_discover_models;
+use buildamp_macro::buildamp_auto_discover_models;
 buildamp_auto_discover_models!("src/models");
 
 pub use framework::common::*;
@@ -19,7 +19,7 @@ pub use framework::database_types::*;
 // Note: Removing legacy re-exports to avoid ambiguous imports
 // Legacy modules still available via explicit paths (models::comments::* etc.)
 pub mod elm_export;
-pub use horatio_macro::{BuildAmpEndpoint, BuildAmpElm, BuildAmpContext};
+pub use buildamp_macro::{BuildAmpEndpoint, BuildAmpElm, BuildAmpContext};
 
 #[wasm_bindgen]
 pub fn encode_request(_endpoint: String, json_in: String) -> String {
@@ -29,7 +29,7 @@ pub fn encode_request(_endpoint: String, json_in: String) -> String {
 
 #[wasm_bindgen]
 pub fn dispatcher(endpoint: String, wire: String, context_json: String) -> String {
-    use horatio_macro::generate_dispatcher;
+    use buildamp_macro::generate_dispatcher;
     // Deserialize context or use default if empty/error
     let context: Context = serde_json::from_str(&context_json).unwrap_or_default();
     generate_dispatcher!(
@@ -42,14 +42,12 @@ pub fn dispatcher(endpoint: String, wire: String, context_json: String) -> Strin
 
 #[wasm_bindgen]
 pub fn get_openapi_spec() -> String {
-    use horatio_macro::generate_openapi_spec;
+    use buildamp_macro::generate_openapi_spec;
     generate_openapi_spec!(
         (GetFeedReq, GetFeedRes), 
         (GetTagsReq, GetTagsRes), 
         (SubmitItemReq, SubmitItemRes),
-        (SubmitCommentReq, SubmitCommentRes),
-        crate::db_feed_db::MicroblogItem,
-        Tag
+        (SubmitCommentReq, SubmitCommentRes)
     );
     get_openapi_spec()
 }

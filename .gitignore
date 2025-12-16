@@ -2,6 +2,9 @@
 target/
 **/*.rs.bk
 
+# Auto-generated files that should never exist
+src/models/*/mod.rs
+
 # Node
 node_modules/
 .npm

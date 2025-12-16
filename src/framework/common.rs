@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 use elm_rs::{Elm, ElmEncode, ElmDecode};
-use horatio_macro::buildamp_domain;
+use buildamp_macro::buildamp_domain;
 
 // --- API Error Definition ---
 #[buildamp_domain]

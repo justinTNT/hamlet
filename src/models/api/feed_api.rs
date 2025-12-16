@@ -1,21 +1,35 @@
-use crate::db_feed_db::{MicroblogItem, SubmitItemData};
-use horatio_macro::{buildamp_api, buildamp_domain};
+use buildamp_macro::{buildamp, buildamp_domain};
 
-#[buildamp_api(path = "GetFeed")]
+#[buildamp(path = "GetFeed")]
 pub struct GetFeedReq {
     #[serde(default)]
     #[api(Inject = "host")]
     pub host: String,
 }
 
-// API response model - generates Elm types automatically (directory-based)
-// TODO: Remove buildamp_domain when directory-based generation is implemented
-#[buildamp_domain]
-pub struct GetFeedRes {
-    pub items: Vec<MicroblogItem>,
+// API-specific feed item model  
+pub struct FeedItem {
+    pub id: String,
+    pub title: String,
+    pub link: Option<String>,
+    pub image: Option<String>,
+    pub extract: Option<String>,
+    pub owner_comment: String,
+    pub tags: Vec<String>,
+    pub timestamp: u64,
+    pub view_count: i32,
 }
 
-#[buildamp_api(path = "SubmitItem", bundle_with = "SubmitItemData")]
+pub struct GetFeedRes {
+    pub items: Vec<FeedItem>,
+}
+
+// Server context for SubmitItem - belongs in API, not DB
+pub struct SubmitItemData {
+    pub fresh_tag_ids: Vec<String>,
+}
+
+#[buildamp(path = "SubmitItem", server_context = "SubmitItemData")]
 pub struct SubmitItemReq {
     #[serde(default)]
     pub host: String,
@@ -28,9 +42,6 @@ pub struct SubmitItemReq {
     pub tags: Vec<String>,
 }
 
-// API response model - generates Elm types automatically (directory-based)
-// TODO: Remove buildamp_domain when directory-based generation is implemented
-#[buildamp_domain]
 pub struct SubmitItemRes {
-    pub item: MicroblogItem,
+    pub item: FeedItem,
 }
