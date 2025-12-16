@@ -1,6 +1,8 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput, Data, Fields, Ident};
+use std::path::Path;
+use std::fs;
 
 mod buildamp_macros;
 
@@ -10,8 +12,48 @@ pub fn buildamp_domain(attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn buildamp_api(attr: TokenStream, item: TokenStream) -> TokenStream {
-    buildamp_macros::buildamp_api(attr, item)
+pub fn buildamp(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp(attr, item)
+}
+
+#[proc_macro_attribute]
+pub fn buildamp_db(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp_db(attr, item)
+}
+
+#[proc_macro_attribute]
+pub fn buildamp_events(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp_events(attr, item)
+}
+
+#[proc_macro_attribute]
+pub fn buildamp_storage(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp_storage(attr, item)
+}
+
+#[proc_macro_attribute]
+pub fn buildamp_sse(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp_sse(attr, item)
+}
+
+#[proc_macro_attribute]
+pub fn buildamp_context_data(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp_context_data(attr, item)
+}
+
+#[proc_macro_attribute]
+pub fn buildamp_sse_module(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp_sse_module(attr, item)
+}
+
+#[proc_macro_attribute]
+pub fn buildamp_db_module(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp_db_module(attr, item)
+}
+
+#[proc_macro_attribute]
+pub fn buildamp_storage_module(attr: TokenStream, item: TokenStream) -> TokenStream {
+    buildamp_macros::buildamp_storage_module(attr, item)
 }
 
 #[proc_macro_derive(BuildAmpEndpoint, attributes(api))]
@@ -590,4 +632,444 @@ pub fn derive_buildamp_context(input: TokenStream) -> TokenStream {
         #(#context_registrations)*
     };
     TokenStream::from(expanded)
+}
+
+/// Auto-discover and include all .rs files in the models directory
+/// Usage: buildamp_auto_discover_models!("src/models");
+#[proc_macro]
+pub fn buildamp_auto_discover_models(input: TokenStream) -> TokenStream {
+    use syn::LitStr;
+    
+    let models_dir = parse_macro_input!(input as LitStr);
+    let models_path = models_dir.value();
+    
+    let mut module_declarations = Vec::new();
+    let mut module_exports = Vec::new();
+    
+    // Recursively scan the models directory
+    if let Ok(entries) = scan_models_dir(&models_path) {
+        // Detect required infrastructure based on model types
+        let mut detected_types = std::collections::HashSet::new();
+        let mut has_events = false;
+        
+        for entry in &entries {
+            detected_types.insert(entry.model_type);
+            if entry.model_type == ModelType::Events {
+                has_events = true;
+            }
+        }
+        
+        // Generate infrastructure functions if events models detected
+        if has_events {
+            module_declarations.push(quote! {
+                // Auto-generated infrastructure functions when events models detected
+                pub mod buildamp_infrastructure {
+                    use super::*;
+                    
+                    /// Returns SQL to auto-install events infrastructure
+                    /// Called by framework when events models are detected
+                    pub fn get_events_infrastructure_sql() -> &'static str {
+                        crate::framework::database_infrastructure::DatabaseInfrastructure::get_events_table_sql()
+                    }
+                    
+                    /// Returns infrastructure manifest for debugging
+                    pub fn get_infrastructure_manifest() -> std::collections::HashMap<String, serde_json::Value> {
+                        crate::framework::database_infrastructure::DatabaseInfrastructure::generate_infrastructure_manifest()
+                    }
+                    
+                    /// Indicates events infrastructure is required
+                    pub const REQUIRES_EVENTS_INFRASTRUCTURE: bool = true;
+                }
+            });
+        } else {
+            module_declarations.push(quote! {
+                // No infrastructure required - no events models detected
+                pub mod buildamp_infrastructure {
+                    pub const REQUIRES_EVENTS_INFRASTRUCTURE: bool = false;
+                    
+                    pub fn get_events_infrastructure_sql() -> &'static str {
+                        "-- No events infrastructure required"
+                    }
+                }
+            });
+        }
+        
+        for entry in entries {
+            let module_name = syn::Ident::new(&entry.module_name, proc_macro2::Span::call_site());
+            let file_path = entry.file_path.clone();
+            
+            // Read and enhance the source file at compile time
+            let enhanced_module = match entry.model_type {
+                ModelType::Database => {
+                    // Generate enhanced database module with auto-applied decorations
+                    generate_enhanced_db_module(&module_name, &file_path)
+                },
+                ModelType::Api => {
+                    // Generate enhanced API module with auto-applied decorations  
+                    generate_enhanced_api_module(&module_name, &file_path)
+                },
+                ModelType::Storage => {
+                    // Generate enhanced storage module with auto-applied decorations
+                    generate_enhanced_storage_module(&module_name, &file_path)
+                },
+                ModelType::Sse => {
+                    // Generate enhanced SSE module with auto-applied decorations
+                    generate_enhanced_sse_module(&module_name, &file_path)
+                },
+                ModelType::Events => {
+                    // Generate enhanced events module with auto-applied decorations
+                    generate_enhanced_events_module(&module_name, &file_path)
+                },
+                _ => {
+                    quote! {
+                        #[path = #file_path]
+                        pub mod #module_name;
+                    }
+                }
+            };
+            
+            module_declarations.push(enhanced_module);
+            
+            // If it's an API file, add to exports
+            if entry.is_api {
+                module_exports.push(quote! {
+                    pub use #module_name::*;
+                });
+            }
+        }
+    }
+    
+    TokenStream::from(quote! {
+        // Enhanced module declarations with auto-applied decorations
+        #(#module_declarations)*
+        
+        // Re-exports
+        #(#module_exports)*
+    })
+}
+
+#[derive(Debug)]
+struct ModelEntry {
+    module_name: String,
+    file_path: String,
+    is_api: bool,
+    model_type: ModelType,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+enum ModelType {
+    Api,
+    Database,
+    Events,
+    Storage,
+    Sse,
+    Other,
+}
+
+fn scan_models_dir(dir_path: &str) -> std::io::Result<Vec<ModelEntry>> {
+    let mut entries = Vec::new();
+    scan_directory(Path::new(dir_path), "", &mut entries)?;
+    Ok(entries)
+}
+
+fn scan_directory(
+    dir: &Path, 
+    prefix: &str, 
+    entries: &mut Vec<ModelEntry>
+) -> std::io::Result<()> {
+    
+    if !dir.exists() {
+        return Ok(());
+    }
+    
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        
+        if path.is_file() {
+            if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+                if file_name.ends_with(".rs") && file_name != "mod.rs" {
+                    let module_name = if prefix.is_empty() {
+                        file_name.trim_end_matches(".rs").to_string()
+                    } else {
+                        format!("{}_{}", prefix, file_name.trim_end_matches(".rs"))
+                    };
+                    
+                    let relative_path = path.strip_prefix("src/").unwrap_or(&path);
+                    let file_path = relative_path.to_string_lossy().to_string();
+                    
+                    let is_api = file_name.ends_with("_api.rs");
+                    
+                    // Determine model type based on directory
+                    let model_type = if is_api {
+                        ModelType::Api
+                    } else if prefix.contains("db") {
+                        ModelType::Database
+                    } else if prefix.contains("events") {
+                        ModelType::Events
+                    } else if prefix.contains("storage") {
+                        ModelType::Storage
+                    } else if prefix.contains("sse") {
+                        ModelType::Sse
+                    } else {
+                        ModelType::Other
+                    };
+                    
+                    entries.push(ModelEntry {
+                        module_name,
+                        file_path,
+                        is_api,
+                        model_type,
+                    });
+                }
+            }
+        } else if path.is_dir() {
+            if let Some(dir_name) = path.file_name().and_then(|n| n.to_str()) {
+                let new_prefix = if prefix.is_empty() {
+                    dir_name.to_string()
+                } else {
+                    format!("{}_{}", prefix, dir_name)
+                };
+                scan_directory(&path, &new_prefix, entries)?;
+            }
+        }
+    }
+    
+    Ok(())
+}
+
+// Helper functions to generate enhanced modules with auto-applied decorations
+
+fn generate_enhanced_db_module(module_name: &syn::Ident, file_path: &str) -> proc_macro2::TokenStream {
+    match read_and_enhance_structs(file_path, &DatabaseDecorations) {
+        Ok(enhanced_content) => {
+            quote! {
+                pub mod #module_name {
+                    use super::*;
+                    #enhanced_content
+                }
+            }
+        },
+        Err(_) => {
+            // Fallback to simple include if enhancement fails
+            quote! {
+                #[path = #file_path]
+                pub mod #module_name;
+            }
+        }
+    }
+}
+
+fn generate_enhanced_api_module(module_name: &syn::Ident, file_path: &str) -> proc_macro2::TokenStream {
+    match read_and_enhance_structs(file_path, &ApiDecorations) {
+        Ok(enhanced_content) => {
+            quote! {
+                pub mod #module_name {
+                    use super::*;
+                    #enhanced_content
+                }
+            }
+        },
+        Err(_) => {
+            quote! {
+                #[path = #file_path]
+                pub mod #module_name;
+            }
+        }
+    }
+}
+
+fn generate_enhanced_storage_module(module_name: &syn::Ident, file_path: &str) -> proc_macro2::TokenStream {
+    match read_and_enhance_structs(file_path, &StorageDecorations) {
+        Ok(enhanced_content) => {
+            quote! {
+                pub mod #module_name {
+                    use super::*;
+                    #enhanced_content
+                }
+            }
+        },
+        Err(_) => {
+            quote! {
+                #[path = #file_path]
+                pub mod #module_name;
+            }
+        }
+    }
+}
+
+fn generate_enhanced_sse_module(module_name: &syn::Ident, file_path: &str) -> proc_macro2::TokenStream {
+    match read_and_enhance_structs(file_path, &SseDecorations) {
+        Ok(enhanced_content) => {
+            quote! {
+                pub mod #module_name {
+                    use super::*;
+                    #enhanced_content
+                }
+            }
+        },
+        Err(_) => {
+            quote! {
+                #[path = #file_path]
+                pub mod #module_name;
+            }
+        }
+    }
+}
+
+fn generate_enhanced_events_module(module_name: &syn::Ident, file_path: &str) -> proc_macro2::TokenStream {
+    match read_and_enhance_structs(file_path, &EventsDecorations) {
+        Ok(enhanced_content) => {
+            quote! {
+                pub mod #module_name {
+                    use super::*;
+                    #enhanced_content
+                }
+            }
+        },
+        Err(_) => {
+            quote! {
+                #[path = #file_path]
+                pub mod #module_name;
+            }
+        }
+    }
+}
+
+// Trait for different decoration strategies
+trait DecorationStrategy {
+    fn apply_to_struct(&self, item_struct: &mut syn::ItemStruct);
+    fn apply_to_enum(&self, item_enum: &mut syn::ItemEnum);
+}
+
+struct DatabaseDecorations;
+impl DecorationStrategy for DatabaseDecorations {
+    fn apply_to_struct(&self, item_struct: &mut syn::ItemStruct) {
+        let derives: syn::Attribute = syn::parse_quote! {
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema, crate::BuildAmpElm)]
+        };
+        item_struct.attrs.insert(0, derives);
+    }
+    
+    fn apply_to_enum(&self, item_enum: &mut syn::ItemEnum) {
+        let derives: syn::Attribute = syn::parse_quote! {
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema, crate::BuildAmpElm)]
+        };
+        item_enum.attrs.insert(0, derives);
+    }
+}
+
+struct ApiDecorations;
+impl DecorationStrategy for ApiDecorations {
+    fn apply_to_struct(&self, item_struct: &mut syn::ItemStruct) {
+        // Check if struct already has #[buildamp] attribute (request structs)
+        let has_buildamp = item_struct.attrs.iter().any(|attr| {
+            attr.path().is_ident("buildamp")
+        });
+        
+        // Apply decorations to all structs except those with #[buildamp] attribute
+        if !has_buildamp {
+            let derives: syn::Attribute = syn::parse_quote! {
+                #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema, crate::BuildAmpElm)]
+            };
+            item_struct.attrs.insert(0, derives);
+        }
+    }
+    
+    fn apply_to_enum(&self, item_enum: &mut syn::ItemEnum) {
+        let derives: syn::Attribute = syn::parse_quote! {
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema, crate::BuildAmpElm)]
+        };
+        item_enum.attrs.insert(0, derives);
+    }
+}
+
+struct StorageDecorations;
+impl DecorationStrategy for StorageDecorations {
+    fn apply_to_struct(&self, item_struct: &mut syn::ItemStruct) {
+        let derives: syn::Attribute = syn::parse_quote! {
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, crate::BuildAmpElm)]
+        };
+        item_struct.attrs.insert(0, derives);
+    }
+    
+    fn apply_to_enum(&self, item_enum: &mut syn::ItemEnum) {
+        let derives: syn::Attribute = syn::parse_quote! {
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, crate::BuildAmpElm)]
+        };
+        item_enum.attrs.insert(0, derives);
+    }
+}
+
+struct SseDecorations;
+impl DecorationStrategy for SseDecorations {
+    fn apply_to_struct(&self, item_struct: &mut syn::ItemStruct) {
+        let derives: syn::Attribute = syn::parse_quote! {
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+        };
+        item_struct.attrs.insert(0, derives);
+    }
+    
+    fn apply_to_enum(&self, item_enum: &mut syn::ItemEnum) {
+        let derives: syn::Attribute = syn::parse_quote! {
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+        };
+        item_enum.attrs.insert(0, derives);
+        
+        // Add serde tag for SSE enums
+        let serde_tag: syn::Attribute = syn::parse_quote! {
+            #[serde(tag = "type", content = "data")]
+        };
+        item_enum.attrs.insert(1, serde_tag);
+    }
+}
+
+struct EventsDecorations;
+impl DecorationStrategy for EventsDecorations {
+    fn apply_to_struct(&self, item_struct: &mut syn::ItemStruct) {
+        // Add standard derives for event models
+        let derives: syn::Attribute = syn::parse_quote! {
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, crate::BuildAmpElm)]
+        };
+        item_struct.attrs.insert(0, derives);
+        
+        // Add EventValidation trait implementation for framework extraction
+        let event_validation: syn::Attribute = syn::parse_quote! {
+            #[automatically_derived]
+        };
+        item_struct.attrs.push(event_validation);
+    }
+    
+    fn apply_to_enum(&self, item_enum: &mut syn::ItemEnum) {
+        let derives: syn::Attribute = syn::parse_quote! {
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, crate::BuildAmpElm)]
+        };
+        item_enum.attrs.insert(0, derives);
+    }
+}
+
+fn read_and_enhance_structs(file_path: &str, strategy: &dyn DecorationStrategy) -> Result<proc_macro2::TokenStream, Box<dyn std::error::Error>> {
+    let full_path = format!("src/{}", file_path);
+    let content = fs::read_to_string(&full_path)?;
+    let ast = syn::parse_file(&content)?;
+    
+    let mut enhanced_items = Vec::new();
+    
+    for item in ast.items {
+        match item {
+            syn::Item::Struct(mut item_struct) => {
+                strategy.apply_to_struct(&mut item_struct);
+                enhanced_items.push(syn::Item::Struct(item_struct));
+            },
+            syn::Item::Enum(mut item_enum) => {
+                strategy.apply_to_enum(&mut item_enum);
+                enhanced_items.push(syn::Item::Enum(item_enum));
+            },
+            _ => enhanced_items.push(item),
+        }
+    }
+    
+    Ok(quote! {
+        #(#enhanced_items)*
+    })
 }

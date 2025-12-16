@@ -16,6 +16,12 @@ function parseStorageModels(content, filename) {
     while ((match = structRegex.exec(content)) !== null) {
         const [, structName, fieldsContent] = match;
         
+        // Skip helper/partial structs that are used within other structs
+        // Only generate storage APIs for top-level storage models
+        if (isHelperStruct(structName, filename)) {
+            continue;
+        }
+        
         // Parse fields
         const fields = [];
         const fieldRegex = /pub\s+(\w+):\s*([^,\n]+)/g;
@@ -47,6 +53,16 @@ function parseStorageModels(content, filename) {
     return models;
 }
 
+// Check if a struct is a helper/partial struct based on file naming convention
+function isHelperStruct(structName, filename) {
+    // Convert snake_case filename to PascalCase expected struct name (same logic as elm_shared_modules.js)
+    const fileBase = filename.replace('.rs', '');
+    const expectedMainStruct = fileBase.includes('_') 
+        ? fileBase.split('_').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('')
+        : fileBase.charAt(0).toUpperCase() + fileBase.slice(1);
+    return structName !== expectedMainStruct;
+}
+
 // Generate JavaScript storage class for a model
 function generateStorageClass(model) {
     const { name, storageKey } = model;
@@ -57,7 +73,7 @@ function generateStorageClass(model) {
  * Auto-generated browser storage for ${name}
  * Provides type-safe localStorage operations with Elm port integration
  */
-export class ${className} {
+class ${className} {
     static storageKey = '${storageKey}';
     
     /**
@@ -258,7 +274,7 @@ function generatePortIntegration(allModels) {
  * 
  * @param {Object} app - Elm app instance with ports
  */
-export function connectStoragePorts(app) {
+function connectStoragePorts(app) {
     if (!app || !app.ports) {
         console.warn('Elm app or ports not available for storage integration');
         return;
@@ -274,9 +290,9 @@ export function connectStoragePorts(app) {
 
 // Generate all browser storage APIs
 export function generateBrowserStorage() {
-    const storageModelsPath = path.join(process.cwd(), '../src/models/storage');
-    const outputPath = path.join(process.cwd(), '../packages/hamlet-server/generated');
-    const elmOutputPath = path.join(process.cwd(), '../app/generated'); // Elm output directory
+    const storageModelsPath = path.join(process.cwd(), 'src/models/storage');
+    const outputPath = path.join(process.cwd(), 'packages/hamlet-server/generated');
+    const elmOutputPath = path.join(process.cwd(), 'app/generated'); // Elm output directory
     
     if (!fs.existsSync(storageModelsPath)) {
         console.log('📁 No src/models/storage directory found, skipping browser storage generation');
@@ -326,7 +342,8 @@ ${portIntegration}
 
 // Export all storage classes
 export {
-${allModels.map(m => `    ${m.name}Storage`).join(',\n')}
+${allModels.map(m => `    ${m.name}Storage`).join(',\n')},
+    connectStoragePorts
 };
 `;
     
@@ -363,8 +380,11 @@ ${allPorts}
     console.log(`📊 Generated ${allModels.length * 5} storage functions (5 per model)`);
     
     return {
-        jsFile: jsOutputFile,
+        models: allModels.length,
+        classes: allModels.length,
+        elmModules: allModels.length,
+        jsOutputFile,
         elmPortsFile,
-        elmHelperFiles: allModels.map(m => path.join(elmOutputPath, `Storage${m.name}.elm`))
+        elmOutputFiles: allModels.map(m => path.join(elmOutputPath, `Storage${m.name}.elm`))
     };
 }

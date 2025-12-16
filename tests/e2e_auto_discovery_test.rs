@@ -44,7 +44,7 @@ fn test_api_models_auto_discovery() {
     println!("Testing API model auto-discovery...");
     
     // These should be available through auto-discovery without explicit imports
-    let feed_req = GetFeedReq {
+    let feed_req = proto_rust::GetFeedReq {
         host: "example.com".to_string(),
     };
     
@@ -53,7 +53,7 @@ fn test_api_models_auto_discovery() {
     println!("✅ GetFeedReq serializes: {}", json);
     
     // Should deserialize properly  
-    let deserialized: GetFeedReq = serde_json::from_str(&json).expect("Should deserialize");
+    let deserialized: proto_rust::GetFeedReq = serde_json::from_str(&json).expect("Should deserialize");
     assert_eq!(deserialized.host, "example.com");
     
     println!("✅ API models auto-discovery working");

@@ -233,9 +233,9 @@ describe('Hamlet Code Generation Tests', () => {
         });
 
         test('JavaScript storage file has correct structure', () => {
-            expect(jsContent).toContain('export class UserPreferencesStorage');
-            expect(jsContent).toContain('export class AuthStateStorage');
-            expect(jsContent).toContain('export function connectStoragePorts');
+            expect(jsContent).toContain('class UserPreferencesStorage');
+            expect(jsContent).toContain('class AuthStateStorage');
+            expect(jsContent).toContain('function connectStoragePorts');
             expect(jsContent).toContain('ESSENTIAL: This enables direct Elm-to-localStorage communication');
         });
 

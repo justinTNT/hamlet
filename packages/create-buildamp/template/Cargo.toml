@@ -16,7 +16,8 @@ elm_rs = "0.2"
 inventory = "0.3"
 utoipa = { version = "4.2", features = ["preserve_order", "indexmap"] }
 wasm-bindgen = "0.2"
-horatio-macro = { path = ".buildamp/macros" }
+js-sys = "0.3"
+buildamp_macro = { path = ".buildamp/macros" }
 
 # Dependencies for basic BuildAmp functionality
 

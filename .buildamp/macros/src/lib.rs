@@ -72,11 +72,6 @@ pub fn derive_buildamp_endpoint(input: TokenStream) -> TokenStream {
     for attr in &input.attrs {
         if attr.path().is_ident("api") {
             if let Err(e) = attr.parse_nested_meta(|meta| {
-                if name_str == "SubmitCommentReq" {
-                    let _key = meta.path.get_ident().unwrap().to_string();
-                    // let msg = format!("SubmitCommentReq sees: {}", key);
-                    // return Err(syn::Error::new(meta.path.span(), msg));
-                }
                 if meta.path.is_ident("path") {
                     let content: syn::LitStr = meta.value()?.parse()?;
                     endpoint_path = content.value();
@@ -798,10 +793,8 @@ fn scan_directory(
                     let relative_path = path.strip_prefix("src/").unwrap_or(&path);
                     let file_path = relative_path.to_string_lossy().to_string();
                     
-                    let is_api = file_name.ends_with("_api.rs");
-                    
-                    // Determine model type based on directory
-                    let model_type = if is_api {
+                    // Determine model type based on directory structure
+                    let model_type = if prefix.contains("api") {
                         ModelType::Api
                     } else if prefix.contains("db") {
                         ModelType::Database
@@ -814,6 +807,8 @@ fn scan_directory(
                     } else {
                         ModelType::Other
                     };
+                    
+                    let is_api = model_type == ModelType::Api;
                     
                     entries.push(ModelEntry {
                         module_name,
@@ -962,13 +957,13 @@ impl DecorationStrategy for DatabaseDecorations {
 struct ApiDecorations;
 impl DecorationStrategy for ApiDecorations {
     fn apply_to_struct(&self, item_struct: &mut syn::ItemStruct) {
-        // Check if struct already has #[buildamp] attribute (request structs)
-        let has_buildamp = item_struct.attrs.iter().any(|attr| {
+        // Skip structs that already have #[buildamp] attributes - they get decorations from the attribute macro
+        let has_buildamp_attr = item_struct.attrs.iter().any(|attr| {
             attr.path().is_ident("buildamp")
         });
         
-        // Apply decorations to all structs except those with #[buildamp] attribute
-        if !has_buildamp {
+        if !has_buildamp_attr {
+            // Apply decorations only to structs without #[buildamp] attributes
             let derives: syn::Attribute = syn::parse_quote! {
                 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema, crate::BuildAmpElm)]
             };
@@ -1049,7 +1044,11 @@ impl DecorationStrategy for EventsDecorations {
 }
 
 fn read_and_enhance_structs(file_path: &str, strategy: &dyn DecorationStrategy) -> Result<proc_macro2::TokenStream, Box<dyn std::error::Error>> {
-    let full_path = format!("src/{}", file_path);
+    let full_path = if file_path.starts_with("src/") {
+        file_path.to_string()
+    } else {
+        format!("src/{}", file_path)
+    };
     let content = fs::read_to_string(&full_path)?;
     let ast = syn::parse_file(&content)?;
     

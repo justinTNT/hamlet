@@ -258,7 +258,7 @@ pub fn buildamp(attr: TokenStream, item: TokenStream) -> TokenStream {
     input.attrs.push(api_attr);
 
     let expanded = quote! {
-        #[derive(serde::Serialize, serde::Deserialize, Debug, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, crate::BuildAmpEndpoint, crate::BuildAmpElm)]
+        #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, crate::BuildAmpElm, crate::BuildAmpEndpoint)]
         #input
     };
     TokenStream::from(expanded)

@@ -31,7 +31,7 @@ export async function generateElmHandlers() {
     let apiFiles = [];
     if (fs.existsSync(apiDir)) {
         apiFiles = fs.readdirSync(apiDir)
-            .filter(file => file.endsWith('_api.rs') || file.match(/api_\d+\.rs$/))
+            .filter(file => file.endsWith('.rs') && !file.startsWith('.'))
             .map(file => path.join(apiDir, file));
     }
         
@@ -110,8 +110,8 @@ export async function generateElmHandlers() {
 function parseApiEndpoints(content) {
     const endpoints = [];
     
-    // Match #[buildamp_api(path = "EndpointName")] patterns (handles multiline attributes)
-    const apiRegex = /#\[buildamp_api\([^#]*?path\s*=\s*"([^"]+)"[^#]*?\]\s*pub struct\s+(\w+)/gs;
+    // Match #[buildamp_api(path = "EndpointName")] or #[buildamp(path = "EndpointName")] patterns
+    const apiRegex = /#\[buildamp(?:_api)?\([^#]*?path\s*=\s*"([^"]+)"[^#]*?\]\s*pub struct\s+(\w+)/gs;
     
     let match;
     while ((match = apiRegex.exec(content)) !== null) {
@@ -368,6 +368,31 @@ function shouldRegenerateHandler(handlerFilePath) {
         const missingDBImport = shouldImportDB && !/import\s+Generated\.Database\s+as\s+DB/m.test(handlerContent);
         
         if (missingDBImport) {
+            return true;
+        }
+        
+        // Check for legacy handler patterns that need updating to TEA (generic pattern)
+        const hasLegacyPattern = /handle\w+\s*:\s*\w+Req\s*->\s*\w+Res/.test(handlerContent);
+        
+        // Check for old TEA pattern that needs updating (generic patterns)
+        const hasOldTEAPattern = /\w+ReqBundle/.test(handlerContent) ||
+                               handlerContent.includes('DatabaseService') ||
+                               /Task String \w+Res/.test(handlerContent);
+        
+        // Check for proper modern TEA pattern - only apply to Platform.worker handlers
+        const hasPlatformWorker = handlerContent.includes('Platform.worker');
+        const hasProperTEAPattern = hasPlatformWorker &&
+                                   handlerContent.includes('type Msg') &&
+                                   handlerContent.includes('type Stage') &&
+                                   handlerContent.includes('Generated.Database as DB') &&
+                                   handlerContent.includes('type alias RequestBundle');
+        
+        if (hasLegacyPattern || hasOldTEAPattern) {
+            return true;
+        }
+        
+        // If it's a Platform.worker handler but missing modern TEA pattern, regenerate
+        if (hasPlatformWorker && !hasProperTEAPattern) {
             return true;
         }
         

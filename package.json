@@ -2,6 +2,7 @@
     "name": "hamlet-monorepo",
     "version": "0.1.0",
     "private": true,
+    "type": "module",
     "engines": {
         "node": ">=20.0.0",
         "npm": ">=9.0.0"
@@ -16,6 +17,11 @@
         "dev:server": "node dev-server.js",
         "generate": "node .buildamp/generate-all.js",
         "generate:watch": "nodemon --watch src/models/ --ext rs --exec 'npm run generate'",
-        "test:generation": "cd packages/hamlet-server && npm test -- tests/generation/"
+        "test": "npm run test:hamlet && npm run test:create-buildamp",
+        "test:hamlet": "npm run test:generation && npm run test:integration",
+        "test:create-buildamp": "cd packages/create-buildamp && npm test",
+        "test:generation": "cd packages/hamlet-server && npm test -- tests/generation/",
+        "test:integration": "node test-integration.js",
+        "test:simple": "node test-simple.js"
     }
 }

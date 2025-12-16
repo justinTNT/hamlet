@@ -15,9 +15,9 @@ const __dirname = path.dirname(__filename);
 function parseApiAnnotations(content, filename) {
     const apis = [];
     
-    // Match #[buildamp_api] annotations and their associated structs
+    // Match #[buildamp] annotations and their associated structs
     // Need to handle multiline field annotations
-    const apiRegex = /#\[buildamp_api\(([^)]+)\)\][\s\S]*?pub struct\s+(\w+)\s*\{([\s\S]*?)\}/g;
+    const apiRegex = /#\[buildamp\(([^)]+)\)\][\s\S]*?pub struct\s+(\w+)\s*\{([\s\S]*?)\}/g;
     let match;
     
     while ((match = apiRegex.exec(content)) !== null) {

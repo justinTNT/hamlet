@@ -15,6 +15,8 @@ pub mod framework {
 use buildamp_macro::buildamp_auto_discover_models;
 buildamp_auto_discover_models!("src/models");
 
+// Auto-discovery macro generates all model modules and exports
+
 pub use framework::common::*;
 pub use framework::database_types::*;
 pub use framework::event_types::*;

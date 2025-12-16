@@ -11,10 +11,12 @@
  */
 
 import fs from 'fs';
+import { execSync } from 'child_process';
 import { generateDatabaseQueries } from './generation/database_queries.js';
 import { generateApiRoutes } from './generation/api_routes.js';
 import { generateBrowserStorage } from './generation/browser_storage.js';
 import { generateKvStore } from './generation/kv_store.js';
+import { generateSSEEvents } from './generation/sse_events.js';
 import { generateElmHandlers } from './generation/elm_handlers.js';
 import { generateElmSharedModules } from './generation/elm_shared_modules.js';
 
@@ -30,8 +32,10 @@ async function generateAll() {
         api: null,
         browser: null,
         kv: null,
+        sse: null,
         shared: null,
         handlers: null,
+        wasm: null,
         success: false
     };
     
@@ -60,17 +64,30 @@ async function generateAll() {
         results.kv = await generateKvStore();
         console.log('');
         
-        // Phase 5: Elm Shared Modules (MUST come before handlers)
-        console.log('📦 Phase 5: Elm Shared Modules');
+        // Phase 5: SSE Events Generation
+        console.log('📡 Phase 5: SSE Events Generation');
+        console.log('===============================');
+        results.sse = await generateSSEEvents();
+        console.log('');
+        
+        // Phase 6: Elm Shared Modules (MUST come before handlers)
+        console.log('📦 Phase 6: Elm Shared Modules');
         console.log('=============================');
         results.shared = await generateElmSharedModules();
         console.log('');
         
-        // Phase 6: Elm Handler Scaffolding (depends on shared modules)  
-        console.log('🔧 Phase 6: Elm Handler Scaffolding');
+        // Phase 7: Elm Handler Scaffolding (depends on shared modules)  
+        console.log('🔧 Phase 7: Elm Handler Scaffolding');
         console.log('=================================');
         console.log('🔗 Checking handler dependencies against shared modules...');
         results.handlers = await generateElmHandlers();
+        console.log('');
+        
+        // Phase 8: WASM Build (sync Rust models with generated Elm types)
+        console.log('📦 Phase 8: WASM Build');
+        console.log('====================');
+        console.log('🔄 Rebuilding WASM to sync with updated Elm types...');
+        results.wasm = await buildWasm();
         console.log('');
         
         // Success summary
@@ -117,6 +134,11 @@ function printSuccessSummary(results) {
         console.log(`🗄️  KV Store: ${results.kv.structs} models → ${results.kv.functions} functions`);
     }
     
+    // SSE events
+    if (results.sse) {
+        console.log(`📡 SSE Events: ${results.sse.models} models → ${results.sse.events} event types + connection helpers`);
+    }
+    
     // Shared modules
     if (results.shared) {
         console.log(`📦 Shared: ${results.shared.length} modules (Database, Events, Services)`);
@@ -127,6 +149,11 @@ function printSuccessSummary(results) {
         console.log(`🔧 Handlers: ${results.handlers.generated} new + ${results.handlers.skipped} existing`);
     }
     
+    // WASM build
+    if (results.wasm) {
+        console.log(`📦 WASM: Built successfully (${results.wasm.outputDir})`);
+    }
+    
     console.log('');
     
     // Total summary
@@ -134,7 +161,8 @@ function printSuccessSummary(results) {
         (results.database?.functions || 0) + 
         (results.api?.endpoints || 0) + 
         (results.browser?.classes || 0) + 
-        (results.kv?.functions || 0);
+        (results.kv?.functions || 0) + 
+        (results.sse?.events || 0);
         
     console.log(`🎉 Total: ${totalFunctions} type-safe functions generated`);
     console.log('');
@@ -154,6 +182,9 @@ function printSuccessSummary(results) {
     if (results.browser?.jsOutputFile) {
         console.log(`   ${results.browser.jsOutputFile}`);
     }
+    if (results.browser?.elmPortsFile) {
+        console.log(`   ${results.browser.elmPortsFile}`);
+    }
     if (results.browser?.elmOutputFiles) {
         results.browser.elmOutputFiles.forEach(file => {
             console.log(`   ${file}`);
@@ -162,14 +193,58 @@ function printSuccessSummary(results) {
     if (results.kv?.outputFile) {
         console.log(`   ${results.kv.outputFile}`);
     }
+    if (results.sse?.outputFiles) {
+        results.sse.outputFiles.forEach(file => {
+            console.log(`   ${file}`);
+        });
+    }
     if (results.handlers?.outputFiles) {
         results.handlers.outputFiles.forEach(file => {
             console.log(`   ${file}`);
         });
     }
+    if (results.wasm?.outputDir) {
+        console.log(`   ${results.wasm.outputDir}/proto_rust.js`);
+        console.log(`   ${results.wasm.outputDir}/proto_rust_bg.wasm`);
+        console.log(`   ${results.wasm.outputDir}/proto_rust.d.ts`);
+    }
     console.log('');
     
     console.log('🚀 "Rust once, JSON never" - Code generation complete!');
+}
+
+/**
+ * Build WASM to sync with updated Elm types
+ */
+async function buildWasm() {
+    try {
+        console.log('🔨 Building Rust to WASM...');
+        
+        // Build release version for performance
+        execSync('cargo build --release', { 
+            stdio: 'inherit',
+            encoding: 'utf8'
+        });
+        
+        // Build WASM package
+        console.log('📦 Generating WASM package...');
+        execSync('wasm-pack build --target web --out-dir pkg-web', { 
+            stdio: 'inherit',
+            encoding: 'utf8'
+        });
+        
+        console.log('✅ WASM build complete - models and types synchronized');
+        
+        return {
+            success: true,
+            outputDir: 'pkg-web',
+            message: 'WASM rebuilt successfully'
+        };
+        
+    } catch (error) {
+        console.error('❌ WASM build failed:', error.message);
+        throw new Error(`WASM build failed: ${error.message}`);
+    }
 }
 
 /**
@@ -201,6 +276,11 @@ async function generatePhase(phase) {
                 console.log('🗄️  KV Store Generation');
                 return await generateKvStore();
                 
+            case 'sse':
+            case 'events':
+                console.log('📡 SSE Events Generation');
+                return await generateSSEEvents();
+                
             case 'shared':
             case 'modules':
                 console.log('📦 Elm Shared Modules');
@@ -217,8 +297,13 @@ async function generatePhase(phase) {
                 }
                 return await generateElmHandlers();
                 
+            case 'wasm':
+            case 'build':
+                console.log('📦 WASM Build');
+                return await buildWasm();
+                
             default:
-                throw new Error(`Unknown phase: ${phase}. Available phases: database, api, browser, kv, shared, handlers`);
+                throw new Error(`Unknown phase: ${phase}. Available phases: database, api, browser, kv, sse, shared, handlers, wasm`);
         }
     } catch (error) {
         console.error(`❌ Phase '${phase}' failed:`, error.message);

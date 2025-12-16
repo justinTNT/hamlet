@@ -8,17 +8,17 @@ use std::collections::HashMap;
 #[test]
 fn test_correlation_id_functionality() {
     // Test creation and usage
-    let corr_id = CorrelationId::new("req-123");
+    let corr_id = CorrelationId::new("req-123".to_string());
     assert_eq!(corr_id.as_str(), "req-123");
     assert_eq!(*corr_id, "req-123");
     
     // Test generation
-    let generated = CorrelationId::generate();
+    let generated = CorrelationId::<String>::generate();
     assert!(generated.as_str().starts_with("corr_"));
     
     // Test serialization
     let json = serde_json::to_string(&corr_id).expect("Should serialize");
-    let deserialized: CorrelationId = serde_json::from_str(&json).expect("Should deserialize");
+    let deserialized: CorrelationId<String> = serde_json::from_str(&json).expect("Should deserialize");
     assert_eq!(deserialized.as_str(), "req-123");
     
     println!("CorrelationId JSON: {}", json);
@@ -83,7 +83,7 @@ fn test_execute_at_cron() {
 fn test_send_welcome_email_with_framework_types() {
     // Test event model using framework types
     let event = SendWelcomeEmail {
-        correlation_id: CorrelationId::new("signup-456"),
+        correlation_id: CorrelationId::new("signup-456".to_string()),
         user_id: "user-789".to_string(),
         email: "user@example.com".to_string(),
         name: "John Doe".to_string(),
@@ -123,7 +123,7 @@ fn test_send_welcome_email_with_framework_types() {
 fn test_process_video_with_required_framework_types() {
     // Test event model with required ExecuteAt
     let event = ProcessVideo {
-        correlation_id: CorrelationId::new("upload-123"),
+        correlation_id: CorrelationId::new("upload-123".to_string()),
         video_id: "vid-456".to_string(),
         execute_at: ExecuteAt::<DateTime>::at_iso8601("2024-01-15T14:30:00Z"),
         quality_preset: Some("high".to_string()),
@@ -134,7 +134,7 @@ fn test_process_video_with_required_framework_types() {
     println!("ProcessVideo JSON: {}", json);
     
     let deserialized: ProcessVideo = serde_json::from_str(&json).expect("Should deserialize");
-    assert_eq!(deserialized.correlation_id.as_str(), "upload-123");
+    assert_eq!(deserialized.correlation_id.get(), &"upload-123".to_string());
     assert_eq!(deserialized.video_id, "vid-456");
     
     match deserialized.execute_at.get() {
@@ -151,7 +151,8 @@ fn test_generate_daily_report_with_cron() {
     // Test event model with cron scheduling
     let event = GenerateDailyReport {
         user_id: "user-999".to_string(),
-        execute_at: ExecuteAt::<Cron>::cron_with_timezone("0 9 * * *", "America/Los_Angeles"),
+        cron_expression: "0 9 * * *".to_string(),
+        timezone: Some("America/Los_Angeles".to_string()),
         report_type: "usage_summary".to_string(),
         email_results: Some("admin@company.com".to_string()),
     };
@@ -162,10 +163,8 @@ fn test_generate_daily_report_with_cron() {
     let deserialized: GenerateDailyReport = serde_json::from_str(&json).expect("Should deserialize");
     assert_eq!(deserialized.user_id, "user-999");
     assert_eq!(deserialized.report_type, "usage_summary");
-    
-    let cron = deserialized.execute_at.get();
-    assert_eq!(cron.expression, "0 9 * * *");
-    assert_eq!(cron.timezone, Some("America/Los_Angeles".to_string()));
+    assert_eq!(deserialized.cron_expression, "0 9 * * *");
+    assert_eq!(deserialized.timezone, Some("America/Los_Angeles".to_string()));
     
     assert_eq!(deserialized.email_results, Some("admin@company.com".to_string()));
 }

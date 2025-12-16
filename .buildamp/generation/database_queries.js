@@ -131,8 +131,8 @@ async function delete${name}(id, host) {
 
 // Generate all database query functions
 export function generateDatabaseQueries() {
-    const dbModelsPath = path.join(process.cwd(), '../src/models/db');
-    const outputPath = path.join(process.cwd(), '../packages/hamlet-server/generated');
+    const dbModelsPath = path.join(process.cwd(), 'src/models/db');
+    const outputPath = path.join(process.cwd(), 'packages/hamlet-server/generated');
     
     if (!fs.existsSync(dbModelsPath)) {
         console.log('📁 No src/models/db directory found, skipping database query generation');

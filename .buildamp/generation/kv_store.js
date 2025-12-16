@@ -22,7 +22,8 @@ const OUTPUT_FILE = path.join(__dirname, '../../packages/hamlet-server/generated
  */
 function parseRustStruct(content, filename) {
     const structs = [];
-    const structRegex = /(?:\/\/.*\n)*\s*#\[derive\([^\]]+\)\]\s*pub struct\s+(\w+)\s*\{([^}]+)\}/g;
+    // Match naked structs - no derive annotations required
+    const structRegex = /pub struct\s+(\w+)\s*\{([^}]+)\}/g;
     
     let match;
     while ((match = structRegex.exec(content)) !== null) {
