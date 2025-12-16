@@ -648,6 +648,52 @@ pub fn buildamp_auto_discover_models(input: TokenStream) -> TokenStream {
     
     // Recursively scan the models directory
     if let Ok(entries) = scan_models_dir(&models_path) {
+        // Detect required infrastructure based on model types
+        let mut detected_types = std::collections::HashSet::new();
+        let mut has_events = false;
+        
+        for entry in &entries {
+            detected_types.insert(entry.model_type);
+            if entry.model_type == ModelType::Events {
+                has_events = true;
+            }
+        }
+        
+        // Generate infrastructure functions if events models detected
+        if has_events {
+            module_declarations.push(quote! {
+                // Auto-generated infrastructure functions when events models detected
+                pub mod buildamp_infrastructure {
+                    use super::*;
+                    
+                    /// Returns SQL to auto-install events infrastructure
+                    /// Called by framework when events models are detected
+                    pub fn get_events_infrastructure_sql() -> &'static str {
+                        crate::framework::database_infrastructure::DatabaseInfrastructure::get_events_table_sql()
+                    }
+                    
+                    /// Returns infrastructure manifest for debugging
+                    pub fn get_infrastructure_manifest() -> std::collections::HashMap<String, serde_json::Value> {
+                        crate::framework::database_infrastructure::DatabaseInfrastructure::generate_infrastructure_manifest()
+                    }
+                    
+                    /// Indicates events infrastructure is required
+                    pub const REQUIRES_EVENTS_INFRASTRUCTURE: bool = true;
+                }
+            });
+        } else {
+            module_declarations.push(quote! {
+                // No infrastructure required - no events models detected
+                pub mod buildamp_infrastructure {
+                    pub const REQUIRES_EVENTS_INFRASTRUCTURE: bool = false;
+                    
+                    pub fn get_events_infrastructure_sql() -> &'static str {
+                        "-- No events infrastructure required"
+                    }
+                }
+            });
+        }
+        
         for entry in entries {
             let module_name = syn::Ident::new(&entry.module_name, proc_macro2::Span::call_site());
             let file_path = entry.file_path.clone();
@@ -669,6 +715,10 @@ pub fn buildamp_auto_discover_models(input: TokenStream) -> TokenStream {
                 ModelType::Sse => {
                     // Generate enhanced SSE module with auto-applied decorations
                     generate_enhanced_sse_module(&module_name, &file_path)
+                },
+                ModelType::Events => {
+                    // Generate enhanced events module with auto-applied decorations
+                    generate_enhanced_events_module(&module_name, &file_path)
                 },
                 _ => {
                     quote! {
@@ -706,7 +756,7 @@ struct ModelEntry {
     model_type: ModelType,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 enum ModelType {
     Api,
     Database,
@@ -867,6 +917,25 @@ fn generate_enhanced_sse_module(module_name: &syn::Ident, file_path: &str) -> pr
     }
 }
 
+fn generate_enhanced_events_module(module_name: &syn::Ident, file_path: &str) -> proc_macro2::TokenStream {
+    match read_and_enhance_structs(file_path, &EventsDecorations) {
+        Ok(enhanced_content) => {
+            quote! {
+                pub mod #module_name {
+                    use super::*;
+                    #enhanced_content
+                }
+            }
+        },
+        Err(_) => {
+            quote! {
+                #[path = #file_path]
+                pub mod #module_name;
+            }
+        }
+    }
+}
+
 // Trait for different decoration strategies
 trait DecorationStrategy {
     fn apply_to_struct(&self, item_struct: &mut syn::ItemStruct);
@@ -952,6 +1021,30 @@ impl DecorationStrategy for SseDecorations {
             #[serde(tag = "type", content = "data")]
         };
         item_enum.attrs.insert(1, serde_tag);
+    }
+}
+
+struct EventsDecorations;
+impl DecorationStrategy for EventsDecorations {
+    fn apply_to_struct(&self, item_struct: &mut syn::ItemStruct) {
+        // Add standard derives for event models
+        let derives: syn::Attribute = syn::parse_quote! {
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, crate::BuildAmpElm)]
+        };
+        item_struct.attrs.insert(0, derives);
+        
+        // Add EventValidation trait implementation for framework extraction
+        let event_validation: syn::Attribute = syn::parse_quote! {
+            #[automatically_derived]
+        };
+        item_struct.attrs.push(event_validation);
+    }
+    
+    fn apply_to_enum(&self, item_enum: &mut syn::ItemEnum) {
+        let derives: syn::Attribute = syn::parse_quote! {
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, crate::BuildAmpElm)]
+        };
+        item_enum.attrs.insert(0, derives);
     }
 }
 

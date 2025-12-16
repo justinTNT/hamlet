@@ -31,54 +31,6 @@ M-x cider-connect RET localhost RET 7888
 clj -M:nrepl  # or lein repl :connect 7888
 ```
 
-## Available Commands
-
-```clojure
-;; Run all verification checks
-(check)
-
-;; Targeted verification  
-(check-api)    ; API validation only
-(check-db)     ; Database integrity only
-(check-biz)    ; Business rules only
-
-;; Interactive workflow
-(watch-files)  ; Auto-run checks on file changes
-(help)         ; Show all commands
-
-;; Direct function access
-(sidecar.api-validation/check-required-field-coverage)
-(sidecar.db-integrity/extract-foreign-keys)
-(sidecar.business-rules/check-endpoint-consistency)
-```
-
-## Example Session
-
-```clojure
-user=> (check)
-[Sidecar] Running Hamlet project consistency checks...
-🔍 API Validation:
-[required-field-coverage] ✓ PASS - All required fields have validation coverage
-...
-
-user=> (check-api)
-🔍 API validation only:
-[required-field-coverage] ✓ PASS - All required fields have validation coverage
-...
-
-user=> (watch-files)
-[Watch] Monitoring files for changes...
-; Edit a file, checks run automatically
-```
-
-## Development Workflow
-
-1. **Start the REPL**: `./start-repl.sh`
-2. **Connect from editor** for interactive development
-3. **Run checks** as you work: `(check)`
-4. **Monitor changes**: `(watch-files)` for automatic verification
-5. **Targeted analysis** with individual check functions
-
 ## Philosophy
 
 The sidecar REPL embodies the sidecar contract:

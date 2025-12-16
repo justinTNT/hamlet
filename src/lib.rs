@@ -6,7 +6,9 @@ pub mod framework {
     pub mod common;
     pub mod database_types;
     pub mod storage_types;
+    pub mod event_types;
     pub mod migration_gen;
+    pub mod database_infrastructure;
     pub mod core;
 }
 // Auto-discover all models - no manual declarations needed!
@@ -15,6 +17,7 @@ buildamp_auto_discover_models!("src/models");
 
 pub use framework::common::*;
 pub use framework::database_types::*;
+pub use framework::event_types::*;
 
 // Note: Removing legacy re-exports to avoid ambiguous imports
 // Legacy modules still available via explicit paths (models::comments::* etc.)
@@ -198,6 +201,31 @@ pub fn validate_manifest() -> String {
 #[wasm_bindgen] 
 pub fn generate_migrations() -> String {
     framework::migration_gen::generate_migration_sql()
+}
+
+#[wasm_bindgen]
+pub fn requires_events_infrastructure() -> bool {
+    buildamp_infrastructure::REQUIRES_EVENTS_INFRASTRUCTURE
+}
+
+#[wasm_bindgen]
+pub fn get_events_infrastructure_sql() -> String {
+    buildamp_infrastructure::get_events_infrastructure_sql().to_string()
+}
+
+#[wasm_bindgen]
+pub fn get_infrastructure_manifest() -> String {
+    if buildamp_infrastructure::REQUIRES_EVENTS_INFRASTRUCTURE {
+        match serde_json::to_string_pretty(&buildamp_infrastructure::get_infrastructure_manifest()) {
+            Ok(json) => json,
+            Err(_) => "{}".to_string(),
+        }
+    } else {
+        serde_json::json!({
+            "status": "no_infrastructure_required",
+            "message": "No events models detected - no infrastructure will be installed"
+        }).to_string()
+    }
 }
 
 #[wasm_bindgen]
