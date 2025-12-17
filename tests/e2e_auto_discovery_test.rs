@@ -4,12 +4,11 @@
 use std::fs;
 use std::path::Path;
 use serde_json;
-use proto_rust::*;
 
 #[test]
 fn test_no_mod_files_exist() {
-    // Verify no mod.rs files exist in src/models
-    let models_dir = Path::new("src/models");
+    // Verify no mod.rs files exist in app/horatio/models
+    let models_dir = Path::new("app/horatio/models");
     assert!(models_dir.exists(), "Models directory should exist");
     
     let mut mod_files = Vec::new();

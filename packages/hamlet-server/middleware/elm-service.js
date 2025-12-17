@@ -202,20 +202,85 @@ export default function createElmService(server) {
                     if (elmApp.ports.eventPush) {
                         elmApp.ports.eventPush.subscribe(async (eventRequest) => {
                             try {
-                                // TODO: Integrate with event sourcing system
                                 console.log(`📧 Event scheduled:`, eventRequest);
                                 
-                                // For now, just log the event
-                                // In real implementation, this would push to event queue
-                                if (eventRequest.schedule) {
+                                const dbService = server.getService('database');
+                                
+                                // Calculate execution time
+                                let executeAt = new Date();
+                                
+                                if (eventRequest.timeStamp) {
+                                    // Explicit timestamp from Elm
+                                    executeAt = new Date(eventRequest.timeStamp);
+                                    console.log(`🕐 Scheduled for: ${executeAt.toISOString()}`);
+                                } else if (eventRequest.schedule) {
+                                    // TODO: Parse cron schedule - need cron parser library
                                     console.log(`⏰ Recurring event: ${eventRequest.schedule}`);
-                                } else if (eventRequest.delay > 0) {
+                                    console.warn('⚠️ Cron scheduling not yet implemented, executing immediately');
+                                } else if (eventRequest.delay && eventRequest.delay > 0) {
+                                    executeAt = new Date(Date.now() + eventRequest.delay * 1000);
                                     console.log(`⏱️  Delayed event: ${eventRequest.delay}s`);
                                 } else {
                                     console.log(`⚡ Immediate event`);
                                 }
+                                
+                                // Insert event into buildamp_events table with session context
+                                const eventData = {
+                                    session_id: currentHandlerContext?.sessionId || null,
+                                    application: server.config.application || process.env.APP_NAME || 'buildamp_app',
+                                    host: currentHandlerContext?.host || 'localhost',
+                                    event_type: eventRequest.eventType,
+                                    correlation_id: eventRequest.correlationId || null,
+                                    payload: JSON.stringify(eventRequest.payload || {}),
+                                    execute_at: executeAt.toISOString(),
+                                    context: null,
+                                    priority: eventRequest.priority || 'normal'
+                                };
+                                
+                                const sql = `
+                                    INSERT INTO buildamp_events (
+                                        session_id, application, host, event_type, correlation_id, 
+                                        payload, execute_at, context, priority
+                                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+                                    RETURNING id
+                                `;
+                                
+                                const params = [
+                                    eventData.session_id,
+                                    eventData.application,
+                                    eventData.host,
+                                    eventData.event_type,
+                                    eventData.correlation_id,
+                                    eventData.payload,
+                                    eventData.execute_at,
+                                    eventData.context,
+                                    eventData.priority
+                                ];
+                                
+                                const result = await dbService.query(sql, params);
+                                const eventId = result.rows[0].id;
+                                
+                                console.log(`✅ Event ${eventId} scheduled for ${executeAt.toISOString()} (session: ${eventData.session_id?.substring(0, 8)}...)`);
+                                
+                                // Send success response back to Elm if there's a response port
+                                if (elmApp.ports.eventResult) {
+                                    elmApp.ports.eventResult.send({
+                                        id: eventRequest.id,
+                                        success: true,
+                                        eventId: eventId
+                                    });
+                                }
                             } catch (error) {
                                 console.error('❌ Event push failed:', error.message);
+                                
+                                // Send error response back to Elm
+                                if (elmApp.ports.eventResult) {
+                                    elmApp.ports.eventResult.send({
+                                        id: eventRequest.id,
+                                        success: false,
+                                        error: error.message
+                                    });
+                                }
                             }
                         });
                     }
@@ -259,7 +324,6 @@ export default function createElmService(server) {
                             id: requestId,
                             context: {
                                 host: context.host || 'localhost',
-                                userId: context.user_id || null,
                                 sessionId: context.session_id || null
                             },
                             request: requestData

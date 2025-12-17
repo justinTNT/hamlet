@@ -629,17 +629,134 @@ pub fn derive_buildamp_context(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-/// Auto-discover and include all .rs files in the models directory
-/// Usage: buildamp_auto_discover_models!("src/models");
-#[proc_macro]
-pub fn buildamp_auto_discover_models(input: TokenStream) -> TokenStream {
-    use syn::LitStr;
+/// Auto-detect app models directory
+fn auto_detect_app_models_dir() -> String {
     
-    let models_dir = parse_macro_input!(input as LitStr);
-    let models_path = models_dir.value();
+    // Look for app/*/models directories
+    if let Ok(app_dir) = std::fs::read_dir("app") {
+        for app_entry in app_dir.flatten() {
+            if app_entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                let models_path = app_entry.path().join("models");
+                if models_path.exists() {
+                    return models_path.to_string_lossy().to_string();
+                }
+            }
+        }
+    }
+    
+    // Fallback to src/models for compatibility
+    "src/models".to_string()
+}
+
+/// Extract actual struct names from API file content (e.g., "GetFeedReq", "GetFeedRes")  
+fn extract_api_struct_names(file_path: &str) -> Result<Vec<String>, std::io::Error> {
+    let content = std::fs::read_to_string(file_path)?;
+    let mut struct_names = Vec::new();
+    
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with("pub struct ") {
+            if let Some(struct_name) = line
+                .strip_prefix("pub struct ")
+                .and_then(|rest| rest.split_whitespace().next())
+                .map(|name| name.trim_end_matches('{'))
+            {
+                // Only include structs that end with Req or Res (API types)
+                if struct_name.ends_with("Req") || struct_name.ends_with("Res") {
+                    struct_names.push(struct_name.to_string());
+                }
+            }
+        }
+    }
+    
+    // Extract base names (e.g., "GetFeedReq" -> "GetFeed")
+    let mut base_names = Vec::new();
+    for name in struct_names {
+        if let Some(base) = name.strip_suffix("Req").or_else(|| name.strip_suffix("Res")) {
+            if !base_names.contains(&base.to_string()) {
+                base_names.push(base.to_string());
+            }
+        }
+    }
+    
+    Ok(base_names)
+}
+
+/// Generate WASM functions based on discovered API models
+fn generate_wasm_functions(api_models: &[String]) -> proc_macro2::TokenStream {
+    if api_models.is_empty() {
+        return quote! {
+            // No API models found - generating placeholder WASM functions
+            #[wasm_bindgen]
+            pub fn dispatcher(_endpoint: String, _wire: String, _context_json: String) -> String {
+                "{}".to_string()
+            }
+            
+            #[wasm_bindgen] 
+            pub fn get_openapi_spec() -> String {
+                "{}".to_string()
+            }
+            
+            #[wasm_bindgen]
+            pub fn decode_response(_endpoint: String, wire: String) -> String {
+                wire
+            }
+        };
+    }
+    
+    // Generate dispatcher pairs
+    let dispatcher_pairs: Vec<_> = api_models.iter().map(|model| {
+        let req_ident = syn::Ident::new(&format!("{}Req", model), proc_macro2::Span::call_site());
+        let res_ident = syn::Ident::new(&format!("{}Res", model), proc_macro2::Span::call_site());
+        quote! { (#req_ident, #res_ident) }
+    }).collect();
+    
+    // Generate decode response cases
+    let decode_cases: Vec<_> = api_models.iter().map(|model| {
+        let endpoint = model.clone();
+        let res_type = syn::Ident::new(&format!("{}Res", model), proc_macro2::Span::call_site());
+        quote! {
+            if endpoint == #endpoint {
+                if let Ok(_) = serde_json::from_str::<#res_type>(&wire) {
+                    return wire;
+                }
+            }
+        }
+    }).collect();
+    
+    quote! {
+        #[wasm_bindgen]
+        pub fn dispatcher(endpoint: String, wire: String, context_json: String) -> String {
+            use buildamp_macro::generate_dispatcher;
+            let context: Context = serde_json::from_str(&context_json).unwrap_or_default();
+            generate_dispatcher!(#(#dispatcher_pairs),*)
+        }
+
+        #[wasm_bindgen]
+        pub fn get_openapi_spec() -> String {
+            use buildamp_macro::generate_openapi_spec;
+            generate_openapi_spec!(#(#dispatcher_pairs),*);
+            get_openapi_spec()
+        }
+
+        #[wasm_bindgen]
+        pub fn decode_response(endpoint: String, wire: String) -> String {
+            #(#decode_cases)*
+            wire
+        }
+    }
+}
+
+/// Auto-discover and include all .rs files in app model directories
+/// Usage: buildamp_auto_discover_models!();
+#[proc_macro]
+pub fn buildamp_auto_discover_models(_input: TokenStream) -> TokenStream {
+    // Auto-detect app directories under app/*/models
+    let models_path = auto_detect_app_models_dir();
     
     let mut module_declarations = Vec::new();
     let mut module_exports = Vec::new();
+    let mut wasm_functions = quote! {}; // Default empty
     
     // Recursively scan the models directory
     if let Ok(entries) = scan_models_dir(&models_path) {
@@ -689,6 +806,18 @@ pub fn buildamp_auto_discover_models(input: TokenStream) -> TokenStream {
             });
         }
         
+        // Collect API models for WASM function generation
+        let mut api_models = Vec::new();
+        
+        for entry in &entries {
+            if entry.is_api {
+                // Extract actual struct names from file content
+                if let Ok(struct_names) = extract_api_struct_names(&entry.file_path) {
+                    api_models.extend(struct_names);
+                }
+            }
+        }
+        
         for entry in entries {
             let module_name = syn::Ident::new(&entry.module_name, proc_macro2::Span::call_site());
             let file_path = entry.file_path.clone();
@@ -725,13 +854,16 @@ pub fn buildamp_auto_discover_models(input: TokenStream) -> TokenStream {
             
             module_declarations.push(enhanced_module);
             
-            // If it's an API file, add to exports
+            // If it's an API file, add to exports and collect for WASM generation
             if entry.is_api {
                 module_exports.push(quote! {
                     pub use #module_name::*;
                 });
             }
         }
+        
+        // Generate WASM functions based on discovered API models
+        wasm_functions = generate_wasm_functions(&api_models);
     }
     
     TokenStream::from(quote! {
@@ -740,6 +872,9 @@ pub fn buildamp_auto_discover_models(input: TokenStream) -> TokenStream {
         
         // Re-exports
         #(#module_exports)*
+        
+        // Auto-generated WASM functions based on discovered API models
+        #wasm_functions
     })
 }
 
@@ -790,8 +925,12 @@ fn scan_directory(
                         format!("{}_{}", prefix, file_name.trim_end_matches(".rs"))
                     };
                     
-                    let relative_path = path.strip_prefix("src/").unwrap_or(&path);
-                    let file_path = relative_path.to_string_lossy().to_string();
+                    // Make path relative to project root (since it will be used from src/lib.rs)
+                    let file_path = if path.starts_with("app/") {
+                        format!("../{}", path.to_string_lossy())
+                    } else {
+                        path.to_string_lossy().to_string()
+                    };
                     
                     // Determine model type based on directory structure
                     let model_type = if prefix.contains("api") {
@@ -940,6 +1079,11 @@ trait DecorationStrategy {
 struct DatabaseDecorations;
 impl DecorationStrategy for DatabaseDecorations {
     fn apply_to_struct(&self, item_struct: &mut syn::ItemStruct) {
+        // Check if struct already has derive attributes
+        if has_existing_derives(item_struct) {
+            return; // Skip if already decorated
+        }
+        
         let derives: syn::Attribute = syn::parse_quote! {
             #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema, crate::BuildAmpElm)]
         };
@@ -947,6 +1091,11 @@ impl DecorationStrategy for DatabaseDecorations {
     }
     
     fn apply_to_enum(&self, item_enum: &mut syn::ItemEnum) {
+        // Check if enum already has derive attributes
+        if has_existing_derives_enum(item_enum) {
+            return; // Skip if already decorated
+        }
+        
         let derives: syn::Attribute = syn::parse_quote! {
             #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema, crate::BuildAmpElm)]
         };
@@ -962,16 +1111,23 @@ impl DecorationStrategy for ApiDecorations {
             attr.path().is_ident("buildamp")
         });
         
-        if !has_buildamp_attr {
-            // Apply decorations only to structs without #[buildamp] attributes
-            let derives: syn::Attribute = syn::parse_quote! {
-                #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema, crate::BuildAmpElm)]
-            };
-            item_struct.attrs.insert(0, derives);
+        // Also skip if struct already has any derive attributes
+        if has_buildamp_attr || has_existing_derives(item_struct) {
+            return; // Skip if already decorated
         }
+        
+        let derives: syn::Attribute = syn::parse_quote! {
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema, crate::BuildAmpElm)]
+        };
+        item_struct.attrs.insert(0, derives);
     }
     
     fn apply_to_enum(&self, item_enum: &mut syn::ItemEnum) {
+        // Check if enum already has derive attributes
+        if has_existing_derives_enum(item_enum) {
+            return; // Skip if already decorated
+        }
+        
         let derives: syn::Attribute = syn::parse_quote! {
             #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema, crate::BuildAmpElm)]
         };
@@ -982,6 +1138,11 @@ impl DecorationStrategy for ApiDecorations {
 struct StorageDecorations;
 impl DecorationStrategy for StorageDecorations {
     fn apply_to_struct(&self, item_struct: &mut syn::ItemStruct) {
+        // Check if struct already has derive attributes
+        if has_existing_derives(item_struct) {
+            return; // Skip if already decorated
+        }
+        
         let derives: syn::Attribute = syn::parse_quote! {
             #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, crate::BuildAmpElm)]
         };
@@ -989,6 +1150,11 @@ impl DecorationStrategy for StorageDecorations {
     }
     
     fn apply_to_enum(&self, item_enum: &mut syn::ItemEnum) {
+        // Check if enum already has derive attributes
+        if has_existing_derives_enum(item_enum) {
+            return; // Skip if already decorated
+        }
+        
         let derives: syn::Attribute = syn::parse_quote! {
             #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, crate::BuildAmpElm)]
         };
@@ -999,6 +1165,11 @@ impl DecorationStrategy for StorageDecorations {
 struct SseDecorations;
 impl DecorationStrategy for SseDecorations {
     fn apply_to_struct(&self, item_struct: &mut syn::ItemStruct) {
+        // Check if struct already has derive attributes
+        if has_existing_derives(item_struct) {
+            return; // Skip if already decorated
+        }
+        
         let derives: syn::Attribute = syn::parse_quote! {
             #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
         };
@@ -1006,22 +1177,40 @@ impl DecorationStrategy for SseDecorations {
     }
     
     fn apply_to_enum(&self, item_enum: &mut syn::ItemEnum) {
+        // Check if enum already has derive attributes
+        if has_existing_derives_enum(item_enum) {
+            return; // Skip if already decorated
+        }
+        
+        // Check if enum already has serde tag attributes
+        // For now, simplify by checking if any serde attribute exists
+        let has_serde_tag = item_enum.attrs.iter().any(|attr| {
+            attr.path().is_ident("serde")
+        });
+        
         let derives: syn::Attribute = syn::parse_quote! {
             #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
         };
         item_enum.attrs.insert(0, derives);
         
-        // Add serde tag for SSE enums
-        let serde_tag: syn::Attribute = syn::parse_quote! {
-            #[serde(tag = "type", content = "data")]
-        };
-        item_enum.attrs.insert(1, serde_tag);
+        // Add serde tag for SSE enums only if not already present
+        if !has_serde_tag {
+            let serde_tag: syn::Attribute = syn::parse_quote! {
+                #[serde(tag = "type", content = "data")]
+            };
+            item_enum.attrs.insert(1, serde_tag);
+        }
     }
 }
 
 struct EventsDecorations;
 impl DecorationStrategy for EventsDecorations {
     fn apply_to_struct(&self, item_struct: &mut syn::ItemStruct) {
+        // Check if struct already has derive attributes
+        if has_existing_derives(item_struct) {
+            return; // Skip if already decorated
+        }
+        
         // Add standard derives for event models
         let derives: syn::Attribute = syn::parse_quote! {
             #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, crate::BuildAmpElm)]
@@ -1036,11 +1225,30 @@ impl DecorationStrategy for EventsDecorations {
     }
     
     fn apply_to_enum(&self, item_enum: &mut syn::ItemEnum) {
+        // Check if enum already has derive attributes
+        if has_existing_derives_enum(item_enum) {
+            return; // Skip if already decorated
+        }
+        
         let derives: syn::Attribute = syn::parse_quote! {
             #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, crate::BuildAmpElm)]
         };
         item_enum.attrs.insert(0, derives);
     }
+}
+
+// Helper function to check if a struct already has derive attributes
+fn has_existing_derives(item_struct: &syn::ItemStruct) -> bool {
+    item_struct.attrs.iter().any(|attr| {
+        attr.path().is_ident("derive")
+    })
+}
+
+// Helper function to check if an enum already has derive attributes
+fn has_existing_derives_enum(item_enum: &syn::ItemEnum) -> bool {
+    item_enum.attrs.iter().any(|attr| {
+        attr.path().is_ident("derive")
+    })
 }
 
 fn read_and_enhance_structs(file_path: &str, strategy: &dyn DecorationStrategy) -> Result<proc_macro2::TokenStream, Box<dyn std::error::Error>> {

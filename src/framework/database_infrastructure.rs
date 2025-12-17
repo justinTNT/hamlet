@@ -17,7 +17,7 @@ impl DatabaseInfrastructure {
     pub fn get_events_table_sql() -> &'static str {
         r#"
 -- BuildAmp Events Infrastructure - Idempotent Recreation
--- Auto-installed when src/models/events/ directory contains files
+-- Auto-installed when app/horatio/models/events/ directory contains files
 -- Framework claims ownership of this table schema
 -- WARNING: This will DROP and recreate BuildAmp tables
 

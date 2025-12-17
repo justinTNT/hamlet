@@ -187,6 +187,67 @@ impl<T> From<T> for ExecuteAt<T> {
     }
 }
 
+/// Session targeting for SSE events
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub enum SessionTarget {
+    /// Send to a specific session by ID
+    Session(String),
+    /// Send to multiple sessions
+    Sessions(Vec<String>),
+    /// Send to all sessions for a tenant (host-level broadcast)
+    AllInTenant,
+}
+
+/// Session-aware SSE effects for Elm handlers
+#[derive(Debug, Clone, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+pub enum SSEEffect {
+    /// Send SSE event to specific session
+    SendToSession { 
+        session_id: String, 
+        event_type: String, 
+        data: String 
+    },
+    /// Broadcast SSE event to multiple sessions
+    SendToSessions { 
+        session_ids: Vec<String>, 
+        event_type: String, 
+        data: String 
+    },
+    /// Broadcast SSE event to all sessions in tenant
+    BroadcastToTenant { 
+        event_type: String, 
+        data: String 
+    },
+}
+
+impl SSEEffect {
+    /// Create a session-targeted SSE effect
+    pub fn send_to_session(session_id: impl Into<String>, event_type: impl Into<String>, data: String) -> Self {
+        SSEEffect::SendToSession {
+            session_id: session_id.into(),
+            event_type: event_type.into(),
+            data,
+        }
+    }
+
+    /// Create a multi-session SSE effect
+    pub fn send_to_sessions(session_ids: Vec<String>, event_type: impl Into<String>, data: String) -> Self {
+        SSEEffect::SendToSessions {
+            session_ids,
+            event_type: event_type.into(),
+            data,
+        }
+    }
+
+    /// Create a tenant-wide SSE effect
+    pub fn broadcast_to_tenant(event_type: impl Into<String>, data: String) -> Self {
+        SSEEffect::BroadcastToTenant {
+            event_type: event_type.into(),
+            data,
+        }
+    }
+}
+
 /// Event validation trait - framework uses this to extract metadata
 pub trait EventValidation {
     /// Extract correlation ID if present in the event
@@ -197,6 +258,16 @@ pub trait EventValidation {
     /// Extract execution time if present in the event  
     fn extract_execute_at(&self) -> Option<String> {
         None
+    }
+    
+    /// Extract session ID if present in the event for targeting
+    fn extract_session_id(&self) -> Option<String> {
+        None
+    }
+    
+    /// Extract SSE effects if present in the event
+    fn extract_sse_effects(&self) -> Vec<SSEEffect> {
+        Vec::new()
     }
     
     /// Validate required fields are present
@@ -287,6 +358,46 @@ mod tests {
         match deserialized.get() {
             DateTime::RelativeSeconds(60) => {},
             _ => panic!("Serialization roundtrip failed"),
+        }
+    }
+    
+    #[test]
+    fn test_session_target() {
+        let session_target = SessionTarget::Session("session-123".to_string());
+        let json = serde_json::to_string(&session_target).unwrap();
+        let deserialized: SessionTarget = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized, SessionTarget::Session("session-123".to_string()));
+        
+        let multi_session = SessionTarget::Sessions(vec!["s1".to_string(), "s2".to_string()]);
+        let json = serde_json::to_string(&multi_session).unwrap();
+        let deserialized: SessionTarget = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized, SessionTarget::Sessions(vec!["s1".to_string(), "s2".to_string()]));
+    }
+    
+    #[test]
+    fn test_sse_effect() {
+        let test_data = r#"{"message": "hello"}"#.to_string();
+        
+        let effect = SSEEffect::send_to_session("session-123", "UserMessage", test_data.clone());
+        let json = serde_json::to_string(&effect).unwrap();
+        let deserialized: SSEEffect = serde_json::from_str(&json).unwrap();
+        
+        match deserialized {
+            SSEEffect::SendToSession { session_id, event_type, data } => {
+                assert_eq!(session_id, "session-123");
+                assert_eq!(event_type, "UserMessage");
+                assert_eq!(data, test_data);
+            },
+            _ => panic!("Expected SendToSession variant"),
+        }
+        
+        let broadcast_effect = SSEEffect::broadcast_to_tenant("GlobalNotification", test_data.clone());
+        match broadcast_effect {
+            SSEEffect::BroadcastToTenant { event_type, data } => {
+                assert_eq!(event_type, "GlobalNotification");
+                assert_eq!(data, test_data);
+            },
+            _ => panic!("Expected BroadcastToTenant variant"),
         }
     }
 }

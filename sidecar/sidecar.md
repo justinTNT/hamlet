@@ -1,5 +1,43 @@
 Sidecar
 
+## Stub Honesty Policy
+
+**No theatre. Stubs are fine but be explicit.**
+
+### ✅ Good stub patterns:
+```javascript
+// STUB: Email service not implemented
+console.log("🚧 STUB: Would send email to", user.email);
+throw new Error("EMAIL_NOT_IMPLEMENTED: Email service is stubbed");
+
+// TODO_IMPLEMENT: Cron parsing needs library
+if (eventRequest.schedule) {
+    throw new Error("CRON_NOT_IMPLEMENTED: Cron scheduling needs cron parser library");
+}
+```
+
+### ❌ Bad stub patterns:
+```javascript
+// DON'T: Fake success
+console.log("✅ Email sent successfully!");
+// TODO: Actually send email
+return { success: true };
+
+// DON'T: Hide critical missing functionality  
+console.log("⏰ Recurring event:", eventRequest.schedule);
+// TODO: Parse cron schedule
+executeAt = new Date(); // Just run now
+```
+
+### Rule: **Log what actually happened, not what should have happened**
+
+- If you stub it → say you stubbed it
+- If it works → say it works  
+- If it's partial → say it's partial
+- Make it obvious what works and what remains unresolved
+
+No false confidence. No aspirational logging. No theatre.
+
 ### Sidecar Contract
 
 **MANDATORY**: Tools in /sidecar/ MUST be considered whenever an agent might otherwise use python

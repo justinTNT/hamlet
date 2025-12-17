@@ -35,14 +35,14 @@ function createManualModels() {
     
     const testDir = path.join(OUTPUT_DIR, 'manual');
     fs.mkdirSync(testDir, { recursive: true });
-    fs.mkdirSync(path.join(testDir, 'src/models/api'), { recursive: true });
-    fs.mkdirSync(path.join(testDir, 'src/models/db'), { recursive: true });
-    fs.mkdirSync(path.join(testDir, 'src/models/storage'), { recursive: true });
-    fs.mkdirSync(path.join(testDir, 'src/models/events'), { recursive: true });
-    fs.mkdirSync(path.join(testDir, 'src/models/sse'), { recursive: true });
+    fs.mkdirSync(path.join(testDir, 'app/horatio/models/api'), { recursive: true });
+    fs.mkdirSync(path.join(testDir, 'app/horatio/models/db'), { recursive: true });
+    fs.mkdirSync(path.join(testDir, 'app/horatio/models/storage'), { recursive: true });
+    fs.mkdirSync(path.join(testDir, 'app/horatio/models/events'), { recursive: true });
+    fs.mkdirSync(path.join(testDir, 'app/horatio/models/sse'), { recursive: true });
     
     // API model with manual decorations
-    fs.writeFileSync(path.join(testDir, 'src/models/api/test.rs'), `
+    fs.writeFileSync(path.join(testDir, 'app/horatio/models/api/test.rs'), `
 use buildamp_macro::buildamp;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema, crate::BuildAmpElm)]
@@ -66,17 +66,17 @@ pub struct TestItem {
 `);
 
     // Database model with manual decorations
-    fs.writeFileSync(path.join(testDir, 'src/models/db/test.rs'), `
+    fs.writeFileSync(path.join(testDir, 'app/horatio/models/db/test.rs'), `
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema, crate::BuildAmpElm)]
 pub struct TestEntity {
     pub id: i32,
     pub name: String,
-    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub created_at: String,
 }
 `);
 
     // Storage model with manual decorations
-    fs.writeFileSync(path.join(testDir, 'src/models/storage/test.rs'), `
+    fs.writeFileSync(path.join(testDir, 'app/horatio/models/storage/test.rs'), `
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, crate::BuildAmpElm)]
 pub struct TestStorage {
     pub user_id: String,
@@ -91,17 +91,17 @@ pub struct TestPreferences {
 `);
 
     // Events model with manual decorations
-    fs.writeFileSync(path.join(testDir, 'src/models/events/test.rs'), `
+    fs.writeFileSync(path.join(testDir, 'app/horatio/models/events/test.rs'), `
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, crate::BuildAmpElm)]
 pub struct TestEvent {
     pub event_id: String,
     pub user_id: String,
-    pub data: serde_json::Value,
+    pub data: String,
 }
 `);
 
     // SSE model with manual decorations
-    fs.writeFileSync(path.join(testDir, 'src/models/sse/test.rs'), `
+    fs.writeFileSync(path.join(testDir, 'app/horatio/models/sse/test.rs'), `
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", content = "data")]
 pub enum TestSSEEvent {
@@ -111,10 +111,84 @@ pub enum TestSSEEvent {
 }
 `);
 
-    // Create lib.rs that uses auto-discovery
+    // Create src directory and lib.rs that uses auto-discovery
+    fs.mkdirSync(path.join(testDir, 'src'), { recursive: true });
     fs.writeFileSync(path.join(testDir, 'src/lib.rs'), `
 use buildamp_macro::buildamp_auto_discover_models;
-buildamp_auto_discover_models!("src/models");
+use wasm_bindgen::prelude::wasm_bindgen;
+
+// Mock framework dependencies for testing
+pub mod framework {
+    pub mod database_infrastructure {
+        use std::collections::HashMap;
+        use serde_json::Value;
+        
+        pub struct DatabaseInfrastructure;
+        
+        impl DatabaseInfrastructure {
+            pub fn get_events_table_sql() -> &'static str {
+                "-- Mock events table SQL"
+            }
+            
+            pub fn generate_infrastructure_manifest() -> HashMap<String, Value> {
+                HashMap::new()
+            }
+        }
+    }
+}
+
+// Mock required traits and context
+pub mod elm_export {
+    pub struct EndpointDefinition {
+        pub endpoint: &'static str,
+        pub request_type: &'static str,
+        pub context_type: Option<&'static str>,
+    }
+    
+    pub struct ElmDefinition {
+        pub name: &'static str,
+        pub get_def: fn() -> String,
+    }
+    
+    pub struct ElmEncoder {
+        pub name: &'static str,
+        pub get_enc: fn() -> String,
+    }
+    
+    pub struct ElmDecoder {
+        pub name: &'static str,
+        pub get_dec: fn() -> String,
+    }
+    
+    pub struct ContextDefinition {
+        pub type_name: &'static str,
+        pub field_name: &'static str,
+        pub source: &'static str,
+    }
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct Context {
+    pub user_id: Option<String>,
+    pub is_extension: bool,
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct ServerContext {
+    pub user_id: Option<String>,
+}
+
+// Mock BuildAmp traits
+pub trait BuildAmpElm {}
+impl<T> BuildAmpElm for T {}
+
+pub trait BuildAmpEndpoint {}
+impl<T> BuildAmpEndpoint for T {}
+
+pub trait BuildAmpContext {}
+impl<T> BuildAmpContext for T {}
+
+buildamp_auto_discover_models!();
 `);
 
     console.log('   ✅ Manual decoration models created');
@@ -128,14 +202,14 @@ function createNakedModels() {
     
     const testDir = path.join(OUTPUT_DIR, 'naked');
     fs.mkdirSync(testDir, { recursive: true });
-    fs.mkdirSync(path.join(testDir, 'src/models/api'), { recursive: true });
-    fs.mkdirSync(path.join(testDir, 'src/models/db'), { recursive: true });
-    fs.mkdirSync(path.join(testDir, 'src/models/storage'), { recursive: true });
-    fs.mkdirSync(path.join(testDir, 'src/models/events'), { recursive: true });
-    fs.mkdirSync(path.join(testDir, 'src/models/sse'), { recursive: true });
+    fs.mkdirSync(path.join(testDir, 'app/horatio/models/api'), { recursive: true });
+    fs.mkdirSync(path.join(testDir, 'app/horatio/models/db'), { recursive: true });
+    fs.mkdirSync(path.join(testDir, 'app/horatio/models/storage'), { recursive: true });
+    fs.mkdirSync(path.join(testDir, 'app/horatio/models/events'), { recursive: true });
+    fs.mkdirSync(path.join(testDir, 'app/horatio/models/sse'), { recursive: true });
     
     // API model without decorations (naked)
-    fs.writeFileSync(path.join(testDir, 'src/models/api/test.rs'), `
+    fs.writeFileSync(path.join(testDir, 'app/horatio/models/api/test.rs'), `
 use buildamp_macro::buildamp;
 
 #[buildamp(path = "TestApi")]
@@ -156,16 +230,16 @@ pub struct TestItem {
 `);
 
     // Database model without decorations (naked)
-    fs.writeFileSync(path.join(testDir, 'src/models/db/test.rs'), `
+    fs.writeFileSync(path.join(testDir, 'app/horatio/models/db/test.rs'), `
 pub struct TestEntity {
     pub id: i32,
     pub name: String,
-    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub created_at: String,
 }
 `);
 
     // Storage model without decorations (naked)
-    fs.writeFileSync(path.join(testDir, 'src/models/storage/test.rs'), `
+    fs.writeFileSync(path.join(testDir, 'app/horatio/models/storage/test.rs'), `
 pub struct TestStorage {
     pub user_id: String,
     pub preferences: TestPreferences,
@@ -178,16 +252,16 @@ pub struct TestPreferences {
 `);
 
     // Events model without decorations (naked)
-    fs.writeFileSync(path.join(testDir, 'src/models/events/test.rs'), `
+    fs.writeFileSync(path.join(testDir, 'app/horatio/models/events/test.rs'), `
 pub struct TestEvent {
     pub event_id: String,
     pub user_id: String,
-    pub data: serde_json::Value,
+    pub data: String,
 }
 `);
 
     // SSE model without decorations (naked)
-    fs.writeFileSync(path.join(testDir, 'src/models/sse/test.rs'), `
+    fs.writeFileSync(path.join(testDir, 'app/horatio/models/sse/test.rs'), `
 pub enum TestSSEEvent {
     UserConnected { user_id: String },
     UserDisconnected { user_id: String },
@@ -195,10 +269,83 @@ pub enum TestSSEEvent {
 }
 `);
 
-    // Create lib.rs that uses auto-discovery  
+    // Create src directory and lib.rs that uses auto-discovery  
+    fs.mkdirSync(path.join(testDir, 'src'), { recursive: true });
     fs.writeFileSync(path.join(testDir, 'src/lib.rs'), `
 use buildamp_macro::buildamp_auto_discover_models;
-buildamp_auto_discover_models!("src/models");
+
+// Mock framework dependencies for testing
+pub mod framework {
+    pub mod database_infrastructure {
+        use std::collections::HashMap;
+        use serde_json::Value;
+        
+        pub struct DatabaseInfrastructure;
+        
+        impl DatabaseInfrastructure {
+            pub fn get_events_table_sql() -> &'static str {
+                "-- Mock events table SQL"
+            }
+            
+            pub fn generate_infrastructure_manifest() -> HashMap<String, Value> {
+                HashMap::new()
+            }
+        }
+    }
+}
+
+// Mock required traits and context
+pub mod elm_export {
+    pub struct EndpointDefinition {
+        pub endpoint: &'static str,
+        pub request_type: &'static str,
+        pub context_type: Option<&'static str>,
+    }
+    
+    pub struct ElmDefinition {
+        pub name: &'static str,
+        pub get_def: fn() -> String,
+    }
+    
+    pub struct ElmEncoder {
+        pub name: &'static str,
+        pub get_enc: fn() -> String,
+    }
+    
+    pub struct ElmDecoder {
+        pub name: &'static str,
+        pub get_dec: fn() -> String,
+    }
+    
+    pub struct ContextDefinition {
+        pub type_name: &'static str,
+        pub field_name: &'static str,
+        pub source: &'static str,
+    }
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct Context {
+    pub user_id: Option<String>,
+    pub is_extension: bool,
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct ServerContext {
+    pub user_id: Option<String>,
+}
+
+// Mock BuildAmp traits
+pub trait BuildAmpElm {}
+impl<T> BuildAmpElm for T {}
+
+pub trait BuildAmpEndpoint {}
+impl<T> BuildAmpEndpoint for T {}
+
+pub trait BuildAmpContext {}
+impl<T> BuildAmpContext for T {}
+
+buildamp_auto_discover_models!();
 `);
 
     console.log('   ✅ Naked struct models created');
@@ -221,6 +368,8 @@ serde = { version = "1.0", features = ["derive"] }
 buildamp-macro = { path = "../../.buildamp/macros" }
 utoipa = { version = "4.2", features = ["preserve_order", "preserve_path_order"] }
 chrono = { version = "0.4", features = ["serde"] }
+wasm-bindgen = "0.2"
+inventory = "0.3"
 `);
 }
 

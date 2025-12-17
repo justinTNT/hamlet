@@ -50,6 +50,9 @@ export class MiddlewareLoader {
         // Always load API routes last
         await this.loadMiddleware('api-routes');
         
+        // Wire up session-aware event processing
+        await this.wireEventProcessing();
+        
         console.log(`✅ Loaded ${this.loadedFeatures.length} middleware modules`);
     }
     
@@ -71,6 +74,23 @@ export class MiddlewareLoader {
     
     getLoadedFeatures() {
         return [...this.loadedFeatures];
+    }
+    
+    async wireEventProcessing() {
+        try {
+            // Connect event processor to SSE service for session-aware events
+            const sseService = this.server.getService('sse');
+            
+            if (sseService) {
+                const { setSSEService } = await import('../../../app/horatio/server/event-processor.js');
+                setSSEService(sseService);
+                console.log('🔗 Connected event processor to SSE service for session-aware events');
+            } else {
+                console.warn('⚠️ SSE service not available for event processing');
+            }
+        } catch (error) {
+            console.warn('⚠️ Failed to wire event processing:', error.message);
+        }
     }
     
     async cleanup() {

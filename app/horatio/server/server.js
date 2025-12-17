@@ -3,6 +3,7 @@ import { HamletServer } from '../../../packages/hamlet-server/core/server.js';
 // Custom configuration for Horatio
 const config = {
     port: 3000,
+    application: 'horatio',
     features: {
         database: true, // Enable PostgreSQL integration
         kv: true,       // Enable key-value store

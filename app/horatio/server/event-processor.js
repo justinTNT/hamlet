@@ -20,6 +20,60 @@ const pool = new Pool({
     port: 5432,
 });
 
+// Global SSE service reference - will be injected when running in server context
+let sseService = null;
+
+/**
+ * Process SSE effects from event handlers
+ */
+async function processSSEEffects(effects, event, context) {
+    if (!sseService) {
+        console.warn(`[EventProcessor] SSE service not available, skipping ${effects.length} SSE effects`);
+        return;
+    }
+
+    for (const effect of effects) {
+        try {
+            switch (effect.type || effect.constructor?.name) {
+                case 'SendToSession':
+                    if (effect.session_id) {
+                        const result = sseService.broadcastToSession(effect.session_id, effect.event_type, effect.data);
+                        console.log(`[EventProcessor] SSE sent to session ${effect.session_id?.substring(0, 8)}...: ${effect.event_type} (success: ${result.success})`);
+                    }
+                    break;
+
+                case 'SendToSessions':
+                    if (effect.session_ids && effect.session_ids.length > 0) {
+                        const result = sseService.broadcastToSessions(effect.session_ids, effect.event_type, effect.data);
+                        const successCount = Object.values(result.results).filter(success => success).length;
+                        console.log(`[EventProcessor] SSE sent to ${effect.session_ids.length} sessions: ${effect.event_type} (${successCount} successful)`);
+                    }
+                    break;
+
+                case 'BroadcastToTenant':
+                    if (event.host) {
+                        const result = sseService.broadcast(event.host, effect.event_type, effect.data);
+                        console.log(`[EventProcessor] SSE broadcast to tenant ${event.host}: ${effect.event_type} (id: ${result.id})`);
+                    }
+                    break;
+
+                default:
+                    console.warn(`[EventProcessor] Unknown SSE effect type: ${effect.type}`);
+            }
+        } catch (sseError) {
+            console.error(`[EventProcessor] SSE effect failed:`, sseError.message);
+        }
+    }
+}
+
+/**
+ * Set the SSE service for session-aware broadcasting
+ */
+export function setSSEService(service) {
+    sseService = service;
+    console.log('[EventProcessor] SSE service connected for session-aware events');
+}
+
 // Event handlers
 const eventHandlers = {
     SendWelcomeEmail: async (payload, context) => {
@@ -70,7 +124,7 @@ async function processEvent(event) {
     try {
         // Mark as processing
         await pool.query(
-            'UPDATE events SET status = $1, attempts = attempts + 1 WHERE id = $2',
+            'UPDATE buildamp_events SET status = $1, attempts = attempts + 1 WHERE id = $2',
             ['processing', id]
         );
         
@@ -85,10 +139,15 @@ async function processEvent(event) {
         if (result.success) {
             // Mark as completed
             await pool.query(
-                'UPDATE events SET status = $1 WHERE id = $2',
+                'UPDATE buildamp_events SET status = $1 WHERE id = $2',
                 ['completed', id]
             );
             console.log(`[EventProcessor] Event ${id} completed successfully`);
+            
+            // Process SSE effects if present
+            if (result.sse_effects && result.sse_effects.length > 0) {
+                await processSSEEffects(result.sse_effects, event, eventContext);
+            }
         } else {
             throw new Error(result.error || 'Handler returned failure');
         }
@@ -108,7 +167,7 @@ async function processEvent(event) {
                 
                 // Insert into DLQ
                 await client.query(`
-                    INSERT INTO dead_letter_queue (
+                    INSERT INTO buildamp_dlq (
                         original_event_id, application, host, event_type, 
                         correlation_id, payload, context, final_error, total_attempts
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -125,7 +184,7 @@ async function processEvent(event) {
                 ]);
                 
                 // Remove from events table
-                await client.query('DELETE FROM events WHERE id = $1', [id]);
+                await client.query('DELETE FROM buildamp_events WHERE id = $1', [id]);
                 
                 await client.query('COMMIT');
                 console.log(`[EventProcessor] Event ${id} moved to Dead Letter Queue after ${newAttempts} attempts`);
@@ -142,7 +201,7 @@ async function processEvent(event) {
             const nextRetry = new Date(Date.now() + retryDelayMinutes * 60 * 1000);
             
             await pool.query(
-                'UPDATE events SET status = $1, next_retry_at = $2, error_message = $3 WHERE id = $4',
+                'UPDATE buildamp_events SET status = $1, next_retry_at = $2, error_message = $3 WHERE id = $4',
                 ['pending', nextRetry, error.message, id]
             );
             
@@ -158,7 +217,7 @@ async function pollEvents() {
     try {
         // Get ready events (pending and due for retry)
         const result = await pool.query(`
-            SELECT * FROM events 
+            SELECT * FROM buildamp_events 
             WHERE status = 'pending' 
               AND execute_at <= NOW() 
               AND (next_retry_at IS NULL OR next_retry_at <= NOW())
@@ -227,4 +286,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     });
 }
 
-export { processEvent, eventHandlers };
+export { processEvent, eventHandlers, setSSEService };

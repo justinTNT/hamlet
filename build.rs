@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 
 fn main() {
-    println!("cargo:rerun-if-changed=src/models/");
+    println!("cargo:rerun-if-changed=app/horatio/models/");
     
     // Check for forbidden mod.rs files and fail build if found
     check_no_mod_files().expect("Build failed: forbidden mod.rs files detected");
@@ -12,7 +12,7 @@ fn main() {
 }
 
 fn check_no_mod_files() -> Result<(), Box<dyn std::error::Error>> {
-    let models_dir = Path::new("src/models");
+    let models_dir = Path::new("app/horatio/models");
     if !models_dir.exists() {
         return Ok(());
     }
@@ -59,23 +59,23 @@ fn check_framework_types_usage() -> Result<(), Box<dyn std::error::Error>> {
     
     // Define framework types and their allowed directories
     let framework_rules = vec![
-        // Event framework types - only allowed in src/models/events/
-        ("CorrelationId<", "src/models/events", "event models"),
-        ("ExecuteAt<", "src/models/events", "event models"),
+        // Event framework types - only allowed in app/horatio/models/events/
+        ("CorrelationId<", "app/horatio/models/events", "event models"),
+        ("ExecuteAt<", "app/horatio/models/events", "event models"),
         
-        // Database framework types - only allowed in src/models/db/ 
-        ("Generated<", "src/models/db", "database models"),
-        ("DefaultValue<", "src/models/db", "database models"),
+        // Database framework types - only allowed in app/horatio/models/db/ 
+        ("Generated<", "app/horatio/models/db", "database models"),
+        ("DefaultValue<", "app/horatio/models/db", "database models"),
         
-        // Storage framework types - only allowed in src/models/storage/
-        ("SessionOnly<", "src/models/storage", "storage models"),
-        ("Expiring<", "src/models/storage", "storage models"),
-        ("CrossTab<", "src/models/storage", "storage models"),
-        ("Cached<", "src/models/storage", "storage models"),
+        // Storage framework types - only allowed in app/horatio/models/storage/
+        ("SessionOnly<", "app/horatio/models/storage", "storage models"),
+        ("Expiring<", "app/horatio/models/storage", "storage models"),
+        ("CrossTab<", "app/horatio/models/storage", "storage models"),
+        ("Cached<", "app/horatio/models/storage", "storage models"),
     ];
     
     // Check each model directory
-    let model_dirs = ["src/models/events", "src/models/db", "src/models/storage", "src/models/api", "src/models/sse", "src/models/kv", "src/models/hooks"];
+    let model_dirs = ["app/horatio/models/events", "app/horatio/models/db", "app/horatio/models/storage", "app/horatio/models/api", "app/horatio/models/sse", "app/horatio/models/kv", "app/horatio/models/hooks"];
     
     for model_dir in &model_dirs {
         let dir_path = Path::new(model_dir);
@@ -143,9 +143,9 @@ fn check_framework_types_usage() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("Framework types should only be used in their intended directories and only in main models.");
         eprintln!("");
         eprintln!("Framework type rules:");
-        eprintln!("  📅 Event types (CorrelationId<T>, ExecuteAt<T>) → src/models/events/ main models only");
-        eprintln!("  🗃️  Database types (Generated<T>, DefaultValue<T>) → src/models/db/ main models only");
-        eprintln!("  💾 Storage types (SessionOnly<T>, Expiring<T>, CrossTab<T>, Cached<T>) → src/models/storage/ main models only");
+        eprintln!("  📅 Event types (CorrelationId<T>, ExecuteAt<T>) → app/horatio/models/events/ main models only");
+        eprintln!("  🗃️  Database types (Generated<T>, DefaultValue<T>) → app/horatio/models/db/ main models only");
+        eprintln!("  💾 Storage types (SessionOnly<T>, Expiring<T>, CrossTab<T>, Cached<T>) → app/horatio/models/storage/ main models only");
         eprintln!("");
         eprintln!("Invalid usages found:");
         for usage in &invalid_usages {
