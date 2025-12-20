@@ -9,10 +9,20 @@ import registerApiRoutes from '../generated/api-routes.js';
 export default async function createBuildAmpWASM(server) {
     console.log('⚡ Setting up BuildAmp WASM integration');
     
-    // Load WASM module - proto-rust should be available as peer dependency
+    // Load WASM module - use the Node.js CommonJS version from pkg-node
     let Proto;
     try {
-        Proto = await import('proto-rust');
+        const fs = await import('fs');
+        const path = await import('path');
+        const { fileURLToPath } = await import('url');
+        const { createRequire } = await import('module');
+        
+        // Use require for the CommonJS module in pkg-node
+        const require = createRequire(import.meta.url);
+        const currentDir = path.dirname(fileURLToPath(import.meta.url));
+        const pkgNodePath = path.resolve(currentDir, '../../../pkg-node');
+        Proto = require(pkgNodePath);
+        
         console.log('✅ WASM module loaded successfully');
         
         // Log available functions for debugging

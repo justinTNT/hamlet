@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { generateElmSharedModules } from '../../../../.buildamp/generation/elm_shared_modules.js';
-import { generateElmHandlers } from '../../../../.buildamp/generation/elm_handlers.js';
+import { generateElmSharedModules } from '../../../../shared/generation/elm_shared_modules.js';
+import { generateElmHandlers } from '../../../../shared/generation/elm_handlers.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,7 +22,7 @@ describe('Generation Order Dependency Tests', () => {
             'src/models/api',
             'src/models/db',
             'app/horatio/server/src/Api/Handlers',
-            'app/horatio/server/generated'
+            'app/horatio/server/generated/Generated'
         ];
         
         dirs.forEach(dir => {
@@ -53,16 +53,24 @@ pub struct DependencyTestReq {
             process.chdir(testOutputDir);
 
             try {
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    backendElmPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'generated'),
+                    projectName: 'horatio'
+                };
+
                 // Try to generate handlers without shared modules first - should handle gracefully
-                const handlerResult = await generateElmHandlers();
+                const handlerResult = await generateElmHandlers(config);
                 expect(handlerResult.generated).toBe(0); // Should not generate without shared modules
 
                 // Generate shared modules first
-                await generateElmSharedModules();
-                expect(fs.existsSync('app/horatio/server/generated/Database.elm')).toBe(true);
+                await generateElmSharedModules(config);
+                expect(fs.existsSync('app/horatio/server/generated/Generated/Database.elm')).toBe(true);
 
                 // Now handlers should generate successfully
-                const handlerResult2 = await generateElmHandlers();
+                const handlerResult2 = await generateElmHandlers(config);
                 expect(handlerResult2.generated).toBe(1);
 
             } finally {
@@ -86,21 +94,29 @@ pub struct UpdateTestReq {
             process.chdir(testOutputDir);
 
             try {
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    backendElmPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'generated'),
+                    projectName: 'horatio'
+                };
+
                 // Generate shared modules
-                await generateElmSharedModules();
+                await generateElmSharedModules(config);
 
                 // Generate handlers
-                const result1 = await generateElmHandlers();
+                const result1 = await generateElmHandlers(config);
                 expect(result1.generated).toBe(1);
 
                 // Wait a moment to ensure different timestamps
                 await new Promise(resolve => setTimeout(resolve, 100));
 
                 // Update shared modules (simulate change)
-                await generateElmSharedModules();
+                await generateElmSharedModules(config);
 
                 // Handlers should detect newer shared modules and regenerate
-                const result2 = await generateElmHandlers();
+                const result2 = await generateElmHandlers(config);
                 
                 // Should regenerate due to dependency change
                 // Note: This test depends on the shouldRegenerateHandler function working correctly
@@ -116,7 +132,7 @@ pub struct UpdateTestReq {
         test('detects outdated GlobalConfig usage', async () => {
             // Create handler with old GlobalConfig structure
             const outdatedHandler = `
-port module Api.Handlers.OutdatedHandler exposing (main)
+port module Api.Handlers.OutdatedHandlerTEA exposing (main)
 
 type alias Model =
     { globalConfig : GlobalConfig }
@@ -126,7 +142,7 @@ type alias GlobalConfig = {}  -- Old empty structure
 -- Rest of handler...
             `;
 
-            const handlerPath = path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'OutdatedHandler.elm');
+            const handlerPath = path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'OutdatedHandlerTEA.elm');
             fs.writeFileSync(handlerPath, outdatedHandler);
 
             // Create API definition
@@ -144,11 +160,19 @@ pub struct OutdatedReq {
             process.chdir(testOutputDir);
 
             try {
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    backendElmPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'generated'),
+                    projectName: 'horatio'
+                };
+
                 // Generate shared modules with proper GlobalConfig
-                await generateElmSharedModules();
+                await generateElmSharedModules(config);
 
                 // Handler generation should detect outdated GlobalConfig and regenerate
-                const result = await generateElmHandlers();
+                const result = await generateElmHandlers(config);
                 expect(result.generated).toBe(1);
 
                 // Verify handler was updated with proper GlobalConfig reference
@@ -164,7 +188,7 @@ pub struct OutdatedReq {
         test('detects missing DB import when handler uses DB functions', async () => {
             // Create handler that uses DB functions but lacks proper import
             const handlerWithMissingImport = `
-port module Api.Handlers.MissingImportHandler exposing (main)
+port module Api.Handlers.MissingImportHandlerTEA exposing (main)
 
 type alias Model =
     { data : List DB.SomeType }
@@ -172,7 +196,7 @@ type alias Model =
 -- Uses DB.* but missing import
             `;
 
-            const handlerPath = path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'MissingImportHandler.elm');
+            const handlerPath = path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'MissingImportHandlerTEA.elm');
             fs.writeFileSync(handlerPath, handlerWithMissingImport);
 
             // Create API definition
@@ -190,11 +214,19 @@ pub struct MissingImportReq {
             process.chdir(testOutputDir);
 
             try {
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    backendElmPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'generated'),
+                    projectName: 'horatio'
+                };
+
                 // Generate shared modules
-                await generateElmSharedModules();
+                await generateElmSharedModules(config);
 
                 // Handler generation should detect missing import and regenerate
-                const result = await generateElmHandlers();
+                const result = await generateElmHandlers(config);
                 expect(result.generated).toBe(1);
 
                 // Verify handler was updated with proper import
@@ -209,7 +241,7 @@ pub struct MissingImportReq {
         test('skips regeneration when handler is up to date', async () => {
             // Create proper handler with correct structure
             const upToDateHandler = `
-port module Api.Handlers.UpToDateHandler exposing (main)
+port module Api.Handlers.UpToDateHandlerTEA exposing (main)
 
 import Generated.Database as DB
 
@@ -221,7 +253,7 @@ type alias GlobalConfig = DB.GlobalConfig
 -- Proper handler structure...
             `;
 
-            const handlerPath = path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'UpToDateHandler.elm');
+            const handlerPath = path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'UpToDateHandlerTEA.elm');
             fs.writeFileSync(handlerPath, upToDateHandler);
 
             // Create API definition
@@ -239,8 +271,16 @@ pub struct UpToDateReq {
             process.chdir(testOutputDir);
 
             try {
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    backendElmPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'generated'),
+                    projectName: 'horatio'
+                };
+
                 // Generate shared modules
-                await generateElmSharedModules();
+                await generateElmSharedModules(config);
 
                 // Wait to ensure different timestamps
                 await new Promise(resolve => setTimeout(resolve, 100));
@@ -250,7 +290,7 @@ pub struct UpToDateReq {
                 fs.utimesSync(handlerPath, now, now);
 
                 // Handler generation should skip regeneration since handler is up to date
-                const result = await generateElmHandlers();
+                const result = await generateElmHandlers(config);
                 expect(result.generated).toBe(0);
                 expect(result.skipped).toBe(1);
 
@@ -266,9 +306,17 @@ pub struct UpToDateReq {
             process.chdir(testOutputDir);
 
             try {
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    backendElmPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'generated'),
+                    projectName: 'horatio'
+                };
+
                 // Generate shared modules
-                await generateElmSharedModules();
-                const sharedModulePath = 'app/horatio/server/generated/Database.elm';
+                await generateElmSharedModules(config);
+                const sharedModulePath = 'app/horatio/server/generated/Generated/Database.elm';
                 const sharedModuleStat = fs.statSync(sharedModulePath);
 
                 // Create handler after shared modules (newer timestamp)
@@ -284,8 +332,8 @@ pub struct TimestampTestReq {
 
                 await new Promise(resolve => setTimeout(resolve, 100));
 
-                await generateElmHandlers();
-                const handlerPath = 'app/horatio/server/src/Api/Handlers/TimestampTestHandler.elm';
+                await generateElmHandlers(config);
+                const handlerPath = 'app/horatio/server/src/Api/Handlers/TimestampTestHandlerTEA.elm';
                 const handlerStat = fs.statSync(handlerPath);
 
                 expect(handlerStat.mtime.getTime()).toBeGreaterThan(sharedModuleStat.mtime.getTime());
@@ -295,7 +343,7 @@ pub struct TimestampTestReq {
                 fs.utimesSync(sharedModulePath, new Date(), new Date());
 
                 // Handler should be regenerated due to newer shared modules
-                const result = await generateElmHandlers();
+                const result = await generateElmHandlers(config);
                 expect(result.generated).toBe(1);
 
             } finally {
@@ -321,7 +369,15 @@ pub struct NoSharedReq {
             process.chdir(testOutputDir);
 
             try {
-                const result = await generateElmHandlers();
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    backendElmPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'generated'),
+                    projectName: 'horatio'
+                };
+
+                const result = await generateElmHandlers(config);
                 
                 // Should handle gracefully without throwing errors
                 expect(result).toBeDefined();
@@ -337,8 +393,16 @@ pub struct NoSharedReq {
             process.chdir(testOutputDir);
 
             try {
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    backendElmPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'generated'),
+                    projectName: 'horatio'
+                };
+
                 // Generate shared modules
-                await generateElmSharedModules();
+                await generateElmSharedModules(config);
 
                 // Create handler
                 fs.writeFileSync(
@@ -351,15 +415,15 @@ pub struct PermTestReq {
                     `
                 );
 
-                await generateElmHandlers();
+                await generateElmHandlers(config);
 
                 // Make shared module directory read-only to simulate permission issues
-                const sharedDir = 'app/horatio/server/generated';
+                const sharedDir = 'app/horatio/server/generated/Generated';
                 fs.chmodSync(sharedDir, '444');
 
                 try {
                     // Should handle permission errors gracefully
-                    const result = await generateElmHandlers();
+                    const result = await generateElmHandlers(config);
                     expect(result).toBeDefined();
                 } finally {
                     // Restore permissions for cleanup
@@ -391,14 +455,22 @@ pub struct Concurrent${i}Req {
             process.chdir(testOutputDir);
 
             try {
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    backendElmPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'generated'),
+                    projectName: 'horatio'
+                };
+
                 // Generate shared modules first
-                await generateElmSharedModules();
+                await generateElmSharedModules(config);
 
                 // Try concurrent handler generation
                 const promises = [
-                    generateElmHandlers(),
-                    generateElmHandlers(),
-                    generateElmHandlers()
+                    generateElmHandlers(config),
+                    generateElmHandlers(config),
+                    generateElmHandlers(config)
                 ];
 
                 const results = await Promise.allSettled(promises);
@@ -436,12 +508,20 @@ pub struct Perf${i}Req {
             process.chdir(testOutputDir);
 
             try {
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    backendElmPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'generated'),
+                    projectName: 'horatio'
+                };
+
                 // Generate shared modules
-                await generateElmSharedModules();
+                await generateElmSharedModules(config);
 
                 // Measure time for initial generation
                 const start1 = Date.now();
-                const result1 = await generateElmHandlers();
+                const result1 = await generateElmHandlers(config);
                 const duration1 = Date.now() - start1;
 
                 expect(result1.generated).toBe(50);
@@ -449,7 +529,7 @@ pub struct Perf${i}Req {
 
                 // Measure time for dependency checking (should be faster)
                 const start2 = Date.now();
-                const result2 = await generateElmHandlers();
+                const result2 = await generateElmHandlers(config);
                 const duration2 = Date.now() - start2;
 
                 expect(result2.skipped).toBe(50);

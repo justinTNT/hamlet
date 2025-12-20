@@ -40,10 +40,20 @@ export default function createElmService(server) {
     try {
         const handlersPath = path.join(__dirname, '../../../app/horatio/server');
         
-        // Auto-generated handler configurations for TEA handlers
-        const handlerConfigs = [
-            { name: 'GetFeed', file: 'GetFeedHandlerTEA' }
-        ];
+        // Auto-discover TEA handler configurations
+        const handlerConfigs = [];
+        const handlersDir = path.join(handlersPath, 'src/Api/Handlers');
+        
+        if (fs.existsSync(handlersDir)) {
+            const files = fs.readdirSync(handlersDir);
+            const teaFiles = files.filter(file => file.endsWith('TEA.elm'));
+            
+            for (const teaFile of teaFiles) {
+                const baseName = path.basename(teaFile, '.elm');
+                const handlerName = baseName.replace('HandlerTEA', ''); // GetFeedHandlerTEA -> GetFeed
+                handlerConfigs.push({ name: handlerName, file: baseName });
+            }
+        }
         
         for (const config of handlerConfigs) {
             try {
@@ -115,11 +125,12 @@ export default function createElmService(server) {
                 let isResolved = false;
                 
                 // Set up TEA completion handler
+                let unsubscribe = null;
                 if (elmApp.ports && elmApp.ports.complete) {
-                    const cleanup = elmApp.ports.complete.subscribe((result) => {
+                    unsubscribe = elmApp.ports.complete.subscribe((result) => {
                         if (isResolved) return;
                         isResolved = true;
-                        cleanup();
+                        if (unsubscribe) unsubscribe();
                         
                         try {
                             const parsed = typeof result === 'string' ? JSON.parse(result) : result;
@@ -338,7 +349,7 @@ export default function createElmService(server) {
                         
                         elmApp.ports.handleRequest.send(requestBundle);
                     } else {
-                        cleanup();
+                        if (unsubscribe) unsubscribe();
                         reject(new Error(`Handler ${handlerName} missing handleRequest port`));
                     }
                     
@@ -346,7 +357,7 @@ export default function createElmService(server) {
                     setTimeout(() => {
                         if (!isResolved) {
                             isResolved = true;
-                            cleanup();
+                            if (unsubscribe) unsubscribe();
                             reject(new Error(`Handler ${handlerName} timed out`));
                         }
                     }, 10000);

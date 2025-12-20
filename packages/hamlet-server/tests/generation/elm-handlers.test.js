@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { generateElmHandlers } from '../../../../.buildamp/generation/elm_handlers.js';
+import { generateElmHandlers } from '../../../../shared/generation/elm_handlers.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,7 +25,7 @@ describe('Elm TEA Handlers Generation Tests', () => {
         fs.mkdirSync(handlerDir, { recursive: true });
 
         // Create shared modules directory
-        const sharedDir = path.join(testOutputDir, 'app', 'horatio', 'server', 'generated');
+        const sharedDir = path.join(testOutputDir, 'app', 'horatio', 'server', 'generated', 'Generated');
         fs.mkdirSync(sharedDir, { recursive: true });
         
         // Create mock Database.elm
@@ -67,13 +67,19 @@ pub struct SubmitCommentRes {
             process.chdir(testOutputDir);
 
             try {
-                const result = await generateElmHandlers();
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    projectName: 'horatio'
+                };
+                const result = await generateElmHandlers(config);
                 
                 expect(result.generated).toBeGreaterThanOrEqual(1);
                 expect(result.skipped).toBeGreaterThanOrEqual(0);
                 
                 // Check handler file was created
-                const handlerPath = path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'SubmitCommentHandler.elm');
+                const handlerPath = path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'SubmitCommentHandlerTEA.elm');
                 expect(fs.existsSync(handlerPath)).toBe(true);
 
             } finally {
@@ -106,13 +112,19 @@ pub struct SubmitItemReq {
             process.chdir(testOutputDir);
 
             try {
-                const result = await generateElmHandlers();
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    projectName: 'horatio'
+                };
+                const result = await generateElmHandlers(config);
                 
                 expect(result.generated).toBe(2);
                 
                 // Check both handler files were created
-                expect(fs.existsSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'GetFeedHandler.elm'))).toBe(true);
-                expect(fs.existsSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'SubmitItemHandler.elm'))).toBe(true);
+                expect(fs.existsSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'GetFeedHandlerTEA.elm'))).toBe(true);
+                expect(fs.existsSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'SubmitItemHandlerTEA.elm'))).toBe(true);
 
             } finally {
                 process.chdir(originalCwd);
@@ -141,11 +153,17 @@ pub struct ComplexEndpointReq {
             process.chdir(testOutputDir);
 
             try {
-                const result = await generateElmHandlers();
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    projectName: 'horatio'
+                };
+                const result = await generateElmHandlers(config);
                 
                 // Handler should be either generated or skipped, but file should exist
                 expect(result.generated + result.skipped).toBe(1);
-                expect(fs.existsSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'ComplexEndpointHandler.elm'))).toBe(true);
+                expect(fs.existsSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'ComplexEndpointHandlerTEA.elm'))).toBe(true);
 
             } finally {
                 process.chdir(originalCwd);
@@ -172,15 +190,21 @@ pub struct TestEndpointReq {
             process.chdir(testOutputDir);
 
             try {
-                await generateElmHandlers();
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    projectName: 'horatio'
+                };
+                await generateElmHandlers(config);
                 
                 const handlerContent = fs.readFileSync(
-                    path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'TestEndpointHandler.elm'),
+                    path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'TestEndpointHandlerTEA.elm'),
                     'utf-8'
                 );
 
                 // Check TEA structure
-                expect(handlerContent).toContain('port module Api.Handlers.TestEndpointHandler exposing (main)');
+                expect(handlerContent).toContain('port module Api.Handlers.TestEndpointHandlerTEA exposing (main)');
                 expect(handlerContent).toContain('type alias Model =');
                 expect(handlerContent).toContain('stage : Stage');
                 expect(handlerContent).toContain('request : Maybe TestEndpointReq');
@@ -220,10 +244,16 @@ pub struct ImportTestReq {
             process.chdir(testOutputDir);
 
             try {
-                await generateElmHandlers();
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    projectName: 'horatio'
+                };
+                await generateElmHandlers(config);
                 
                 const handlerContent = fs.readFileSync(
-                    path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'ImportTestHandler.elm'),
+                    path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'ImportTestHandlerTEA.elm'),
                     'utf-8'
                 );
 
@@ -262,10 +292,16 @@ pub struct PortTestReq {
             process.chdir(testOutputDir);
 
             try {
-                await generateElmHandlers();
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    projectName: 'horatio'
+                };
+                await generateElmHandlers(config);
                 
                 const handlerContent = fs.readFileSync(
-                    path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'PortTestHandler.elm'),
+                    path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'PortTestHandlerTEA.elm'),
                     'utf-8'
                 );
 
@@ -302,10 +338,16 @@ pub struct TimestampTestReq {
             process.chdir(testOutputDir);
 
             try {
-                await generateElmHandlers();
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    projectName: 'horatio'
+                };
+                await generateElmHandlers(config);
                 
                 const handlerContent = fs.readFileSync(
-                    path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'TimestampTestHandler.elm'),
+                    path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'TimestampTestHandlerTEA.elm'),
                     'utf-8'
                 );
 
@@ -336,7 +378,7 @@ type alias GlobalConfig = {}
 -- Rest of handler...
             `;
 
-            const handlerPath = path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'OutdatedHandler.elm');
+            const handlerPath = path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'OutdatedHandlerTEA.elm');
             fs.writeFileSync(handlerPath, outdatedHandlerContent);
 
             // Create API definition
@@ -354,7 +396,13 @@ pub struct OutdatedReq {
             process.chdir(testOutputDir);
 
             try {
-                const result = await generateElmHandlers();
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    projectName: 'horatio'
+                };
+                const result = await generateElmHandlers(config);
                 
                 // Should regenerate the handler due to outdated GlobalConfig
                 expect(result.generated).toBe(1);
@@ -385,7 +433,7 @@ type alias GlobalConfig = DB.GlobalConfig
 -- Rest of proper handler...
             `;
 
-            const handlerPath = path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'CurrentHandler.elm');
+            const handlerPath = path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'CurrentHandlerTEA.elm');
             fs.writeFileSync(handlerPath, currentHandlerContent);
 
             // Create API definition
@@ -403,7 +451,13 @@ pub struct CurrentReq {
             process.chdir(testOutputDir);
 
             try {
-                const result = await generateElmHandlers();
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    projectName: 'horatio'
+                };
+                const result = await generateElmHandlers(config);
                 
                 // Should skip regeneration since handler is up to date
                 expect(result.generated).toBe(0);
@@ -416,13 +470,13 @@ pub struct CurrentReq {
 
         test('regenerates when Database module is newer than handler', async () => {
             // Create handler first
-            const handlerPath = path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'TimingHandler.elm');
+            const handlerPath = path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers', 'TimingHandlerTEA.elm');
             fs.writeFileSync(handlerPath, 'import Generated.Database as DB\n-- handler content --');
 
             // Wait a moment then update Database.elm to be newer
             setTimeout(() => {
                 fs.writeFileSync(
-                    path.join(testOutputDir, 'app', 'horatio', 'server', 'generated', 'Database.elm'),
+                    path.join(testOutputDir, 'app', 'horatio', 'server', 'generated', 'Generated', 'Database.elm'),
                     'module Generated.Database exposing (..) -- updated'
                 );
             }, 100);
@@ -445,7 +499,13 @@ pub struct TimingReq {
                 // Wait for file system timing
                 await new Promise(resolve => setTimeout(resolve, 200));
                 
-                const result = await generateElmHandlers();
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    projectName: 'horatio'
+                };
+                const result = await generateElmHandlers(config);
                 
                 // Should regenerate due to newer Database.elm
                 expect(result.generated).toBe(1);
@@ -475,7 +535,13 @@ pub struct CompileTest2Req { pub host: String, }
             process.chdir(testOutputDir);
 
             try {
-                await generateElmHandlers();
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    projectName: 'horatio'
+                };
+                await generateElmHandlers(config);
                 
                 const scriptPath = path.join(testOutputDir, 'app', 'horatio', 'server', 'compile-handlers.sh');
                 expect(fs.existsSync(scriptPath)).toBe(true);
@@ -483,9 +549,8 @@ pub struct CompileTest2Req { pub host: String, }
                 const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
                 expect(scriptContent).toContain('#!/bin/bash');
                 expect(scriptContent).toContain('Auto-generated Elm handler compilation script');
-                expect(scriptContent).toContain('elm make src/Api/Handlers/CompileTest1Handler.elm');
-                expect(scriptContent).toContain('elm make src/Api/Handlers/CompileTest2Handler.elm');
-                expect(scriptContent).toContain('--optimize');
+                expect(scriptContent).toContain('Auto-discover all .elm files in the handlers directory');
+                expect(scriptContent).toContain('elm make "$elm_file"');
                 expect(scriptContent).toContain('.cjs');
 
                 // Check that script is executable
@@ -516,7 +581,13 @@ pub struct ServiceTestReq { pub host: String, }
             process.chdir(testOutputDir);
 
             try {
-                await generateElmHandlers();
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    projectName: 'horatio'
+                };
+                await generateElmHandlers(config);
                 
                 const servicePath = path.join(middlewareDir, 'elm-service.js');
                 expect(fs.existsSync(servicePath)).toBe(true);
@@ -524,7 +595,7 @@ pub struct ServiceTestReq { pub host: String, }
                 const serviceContent = fs.readFileSync(servicePath, 'utf-8');
                 expect(serviceContent).toContain('Elm Service Middleware - Auto-generated');
                 expect(serviceContent).toContain('export default function createElmService');
-                expect(serviceContent).toContain('{ name: \'ServiceTest\', file: \'ServiceTestHandler\'');
+                expect(serviceContent).toContain('{ name: \'ServiceTest\', file: \'ServiceTestHandlerTEA\'');
 
             } finally {
                 process.chdir(originalCwd);
@@ -552,7 +623,13 @@ pub struct SkipTestReq { pub host: String, }
             process.chdir(testOutputDir);
 
             try {
-                await generateElmHandlers();
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    projectName: 'horatio'
+                };
+                await generateElmHandlers(config);
                 
                 // Should not overwrite existing TEA service
                 const serviceContent = fs.readFileSync(
@@ -576,7 +653,13 @@ pub struct SkipTestReq { pub host: String, }
             process.chdir(testOutputDir);
 
             try {
-                const result = await generateElmHandlers();
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    projectName: 'horatio'
+                };
+                const result = await generateElmHandlers(config);
                 
                 expect(result.generated).toBe(0);
                 expect(result.skipped).toBe(0);
@@ -597,7 +680,13 @@ pub struct SkipTestReq { pub host: String, }
             process.chdir(testOutputDir);
 
             try {
-                const result = await generateElmHandlers();
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    projectName: 'horatio'
+                };
+                const result = await generateElmHandlers(config);
                 
                 // Should complete without throwing errors
                 expect(result).toBeDefined();
@@ -625,7 +714,13 @@ pub struct PermTestReq { pub host: String, }
             process.chdir(testOutputDir);
 
             try {
-                const result = await generateElmHandlers();
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    projectName: 'horatio'
+                };
+                const result = await generateElmHandlers(config);
                 
                 // Should handle permission error gracefully
                 expect(result).toBeDefined();
@@ -659,7 +754,13 @@ pub struct Handler${i}Req { pub host: String, pub data${i}: String, }
 
             try {
                 const start = Date.now();
-                const result = await generateElmHandlers();
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    projectName: 'horatio'
+                };
+                const result = await generateElmHandlers(config);
                 const duration = Date.now() - start;
 
                 expect(result.generated).toBe(10);
@@ -685,12 +786,18 @@ pub struct CacheTestReq { pub host: String, }
             try {
                 // First run
                 const start1 = Date.now();
-                const result1 = await generateElmHandlers();
+                // Configure for test environment
+                const config = {
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
+                    handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
+                    projectName: 'horatio'
+                };
+                const result1 = await generateElmHandlers(config);
                 const duration1 = Date.now() - start1;
 
                 // Second run (should skip existing handlers)
                 const start2 = Date.now();
-                const result2 = await generateElmHandlers();
+                const result2 = await generateElmHandlers(config);
                 const duration2 = Date.now() - start2;
 
                 expect(result1.generated).toBe(1);

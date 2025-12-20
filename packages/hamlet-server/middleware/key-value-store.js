@@ -86,35 +86,8 @@ export default function createKeyValueStore(server) {
     
     const kvStore = new TenantKeyValueStore();
     
-    // Add KV API routes
-    server.app.post('/kv/:type/:key', (req, res) => {
-        const { type, key } = req.params;
-        const { value, ttl } = req.body;
-        const host = req.tenant?.host || 'localhost';
-        
-        try {
-            const result = kvStore.set(host, type, key, value, ttl);
-            res.json(result);
-        } catch (error) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-    
-    server.app.get('/kv/:type/:key', (req, res) => {
-        const { type, key } = req.params;
-        const host = req.tenant?.host || 'localhost';
-        
-        try {
-            const result = kvStore.get(host, type, key);
-            if (result.found) {
-                res.json(result);
-            } else {
-                res.status(404).json(result);
-            }
-        } catch (error) {
-            res.status(500).json({ error: error.message });
-        }
-    });
+    // KV store is server-side only - no public HTTP routes
+    // Services can access KV through server.getService('kv')
     
     const kvService = {
         store: kvStore,

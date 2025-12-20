@@ -49,10 +49,20 @@ pub struct SimpleItem {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../.buildamp/generation/elm_shared_modules.js');
-                await generateElmSharedModules();
+                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                
+                // Configure for simple project structure (not monorepo)
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir  // The function adds /Generated automatically
+                };
+                
+                // Create output directory
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
 
-                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'generated', 'Database.elm'), 'utf-8');
+                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
                 
                 expect(databaseContent).toContain('type alias SimpleItemDb =');
                 expect(databaseContent).toContain('id : String');
@@ -84,10 +94,20 @@ pub struct NamingExample {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../.buildamp/generation/elm_shared_modules.js');
-                await generateElmSharedModules();
+                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                
+                // Configure for simple project structure (not monorepo)
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir  // The function adds /Generated automatically
+                };
+                
+                // Create output directory
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
 
-                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'generated', 'Database.elm'), 'utf-8');
+                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
                 
                 expect(databaseContent).toContain('type alias NamingExampleDb =');
                 expect(databaseContent).toContain('userId : String');
@@ -120,10 +140,20 @@ pub struct OptionalFields {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../.buildamp/generation/elm_shared_modules.js');
-                await generateElmSharedModules();
+                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                
+                // Configure for simple project structure (not monorepo)
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir  // The function adds /Generated automatically
+                };
+                
+                // Create output directory
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
 
-                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'generated', 'Database.elm'), 'utf-8');
+                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
                 
                 expect(databaseContent).toContain('type alias OptionalFieldsDb =');
                 expect(databaseContent).toContain('requiredField : String');
@@ -155,10 +185,20 @@ pub struct VecExample {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../.buildamp/generation/elm_shared_modules.js');
-                await generateElmSharedModules();
+                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                
+                // Configure for simple project structure (not monorepo)
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir  // The function adds /Generated automatically
+                };
+                
+                // Create output directory
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
 
-                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'generated', 'Database.elm'), 'utf-8');
+                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
                 
                 expect(databaseContent).toContain('type alias VecExampleDb =');
                 expect(databaseContent).toContain('tags : List String');
@@ -204,10 +244,20 @@ pub struct UserSession {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../.buildamp/generation/elm_shared_modules.js');
-                await generateElmSharedModules();
+                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                
+                // Configure for simple project structure (not monorepo)
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir  // The function adds /Generated automatically
+                };
+                
+                // Create output directory
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
 
-                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'generated', 'Database.elm'), 'utf-8');
+                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
                 
                 expect(databaseContent).toContain('type alias UserDb =');
                 expect(databaseContent).toContain('type alias UserProfileDb =');
@@ -238,10 +288,20 @@ pub struct CustomTypes {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../.buildamp/generation/elm_shared_modules.js');
-                await generateElmSharedModules();
+                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                
+                // Configure for simple project structure (not monorepo)
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir  // The function adds /Generated automatically
+                };
+                
+                // Create output directory
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
 
-                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'generated', 'Database.elm'), 'utf-8');
+                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
                 
                 expect(databaseContent).toContain('type alias CustomTypesDb =');
                 expect(databaseContent).toContain('id : String'); // DatabaseId<String> -> String
@@ -278,10 +338,20 @@ pub struct ItemWithStatus {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../.buildamp/generation/elm_shared_modules.js');
-                await generateElmSharedModules();
+                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                
+                // Configure for simple project structure (not monorepo)
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir  // The function adds /Generated automatically
+                };
+                
+                // Create output directory
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
 
-                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'generated', 'Database.elm'), 'utf-8');
+                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
                 
                 expect(databaseContent).toContain('type alias ItemWithStatusDb =');
                 // For now, enums are treated as strings
@@ -313,10 +383,20 @@ pub struct Article {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../.buildamp/generation/elm_shared_modules.js');
-                await generateElmSharedModules();
+                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                
+                // Configure for simple project structure (not monorepo)
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir  // The function adds /Generated automatically
+                };
+                
+                // Create output directory
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
 
-                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'generated', 'Database.elm'), 'utf-8');
+                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
                 
                 // Main type
                 expect(databaseContent).toContain('type alias ArticleDb =');
@@ -356,10 +436,20 @@ pub struct Product {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../.buildamp/generation/elm_shared_modules.js');
-                await generateElmSharedModules();
+                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                
+                // Configure for simple project structure (not monorepo)
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir  // The function adds /Generated automatically
+                };
+                
+                // Create output directory
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
 
-                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'generated', 'Database.elm'), 'utf-8');
+                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
                 
                 expect(databaseContent).toContain('productDbDecoder : Decode.Decoder ProductDb');
                 expect(databaseContent).toContain('encodeProductDbCreate : ProductDbCreate -> Encode.Value');
@@ -384,11 +474,21 @@ pub struct Product {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../.buildamp/generation/elm_shared_modules.js');
-                const result = await generateElmSharedModules();
+                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                
+                // Configure for simple project structure (not monorepo)
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir  // The function adds /Generated automatically
+                };
+                
+                // Create output directory
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                const result = await generateElmSharedModules(config);
 
                 expect(result).toBeDefined();
-                expect(fs.existsSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'generated', 'Database.elm'))).toBe(true);
+                expect(fs.existsSync(path.join(testOutputDir, 'Generated', 'Database.elm'))).toBe(true);
 
             } finally {
                 process.chdir(originalCwd);
@@ -413,12 +513,22 @@ pub fn some_function() -> String {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../.buildamp/generation/elm_shared_modules.js');
-                const result = await generateElmSharedModules();
+                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                
+                // Configure for simple project structure (not monorepo)
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir  // The function adds /Generated automatically
+                };
+                
+                // Create output directory
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                const result = await generateElmSharedModules(config);
 
                 expect(result).toBeDefined();
                 // Should still generate Database.elm with basic structure
-                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'generated', 'Database.elm'), 'utf-8');
+                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
                 expect(databaseContent).toContain('module Generated.Database exposing (..)');
 
             } finally {
@@ -444,8 +554,18 @@ pub struct Broken {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../.buildamp/generation/elm_shared_modules.js');
-                const result = await generateElmSharedModules();
+                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                
+                // Configure for simple project structure (not monorepo)
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir  // The function adds /Generated automatically
+                };
+                
+                // Create output directory
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                const result = await generateElmSharedModules(config);
 
                 // Should not throw, should handle gracefully
                 expect(result).toBeDefined();
@@ -476,13 +596,23 @@ pub struct LargeStruct {
 
             try {
                 const start = Date.now();
-                const { generateElmSharedModules } = await import('../../../../.buildamp/generation/elm_shared_modules.js');
-                await generateElmSharedModules();
+                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                
+                // Configure for simple project structure (not monorepo)
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir  // The function adds /Generated automatically
+                };
+                
+                // Create output directory
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
                 const duration = Date.now() - start;
 
                 expect(duration).toBeLessThan(5000); // Should complete within 5 seconds
 
-                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'generated', 'Database.elm'), 'utf-8');
+                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
                 expect(databaseContent).toContain('type alias LargeStructDb =');
                 expect(databaseContent).toContain('field0 : String');
                 expect(databaseContent).toContain('field99 : String');
@@ -513,10 +643,20 @@ pub struct SecurityTest {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../.buildamp/generation/elm_shared_modules.js');
-                await generateElmSharedModules();
+                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                
+                // Configure for simple project structure (not monorepo)
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir  // The function adds /Generated automatically
+                };
+                
+                // Create output directory
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
 
-                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'generated', 'Database.elm'), 'utf-8');
+                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
                 
                 // Should generate safe Elm field names
                 expect(databaseContent).toContain('userId : String');
@@ -553,10 +693,20 @@ pub struct ValidStruct {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../.buildamp/generation/elm_shared_modules.js');
-                await generateElmSharedModules();
+                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                
+                // Configure for simple project structure (not monorepo)
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir  // The function adds /Generated automatically
+                };
+                
+                // Create output directory
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
 
-                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'app', 'horatio', 'server', 'generated', 'Database.elm'), 'utf-8');
+                const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
                 
                 // Should handle both naming styles - both should become ValidStructDb
                 expect(databaseContent).toContain('type alias ValidStructDb =');
