@@ -6,14 +6,16 @@ This handler implements The Elm Architecture pattern for async request processin
 It demonstrates the req + state + stage pattern for complex async operations.
 
 Business Logic:
-- Query microblog items for the given host
-- Fetch associated comments and tags
-- Combine and format the response
+TODO: Customize the stages and business logic for your specific GetFeed endpoint
+TODO: Add database queries and external service calls as needed
+TODO: Implement proper error handling and validation
 
 -}
 
-import Api.Backend exposing (GetFeedReq, GetFeedRes, MicroblogItem, Comment)
+import Api.Backend exposing (GetFeedReq, GetFeedRes)
 import Generated.Database as DB
+import Generated.Events as Events
+import Generated.Services as Services
 import Json.Encode as Encode
 import Json.Decode as Decode
 import Platform
@@ -24,51 +26,46 @@ import Task
 
 type alias Model =
     { stage : Stage
-    , request : Maybe GetFeedReq  
+    , request : Maybe GetFeedReq
     , context : Maybe Context
     , globalConfig : GlobalConfig
     , globalState : GlobalState
-    , dbItems : List DB.MicroblogItemDb  -- Database entities
-    , dbComments : List DB.ItemCommentDb  -- Database comment entities
-    , tags : List Tag  -- TODO: Create TagDb type
+    -- TODO: Add domain-specific state fields here
     }
 
 
 type Stage
     = Idle
-    | LoadingItems
-    | LoadingComments (List DB.MicroblogItemDb)  -- Database entities
-    | LoadingTags (List DB.MicroblogItemDb) (List DB.ItemCommentDb)  -- Database entities
-    | Complete GetFeedRes  -- API response
+    | Processing
+    -- TODO: Add specific stages for your business logic, e.g.:
+    -- | LoadingData
+    -- | ValidatingInput  
+    -- | SavingResults
+    | Complete GetFeedRes
+    | Failed String
 
 
 type alias Context =
     { host : String
-    , userId : Maybe String
     , sessionId : Maybe String
     }
 
 
-type alias GlobalConfig = DB.GlobalConfig  -- Read-only server config
+type alias GlobalConfig = DB.GlobalConfig  -- Server-issued read-only config
 
 
 type alias GlobalState = DB.GlobalState  -- Mutable handler state
-
-
--- TODO: Define TagDb type in Generated.Database
-type alias Tag =
-    { itemId : String
-    , name : String
-    }
 
 
 -- UPDATE
 
 type Msg
     = HandleRequest RequestBundle
-    | ItemsLoaded (Result String (List DB.MicroblogItemDb))  -- Database entities
-    | CommentsLoaded (Result String (List DB.ItemCommentDb))  -- Database entities 
-    | TagsLoaded (Result String (List Tag))  -- TODO: Use TagDb type
+    | ProcessingComplete GetFeedRes
+    -- TODO: Add specific messages for your business logic, e.g.:
+    -- | DataLoaded (Result String SomeData)
+    -- | ValidationComplete (Result String ValidatedInput)
+    -- | SaveComplete (Result String SavedResult)
 
 
 type alias RequestBundle =
@@ -85,9 +82,6 @@ init flags =
       , context = Nothing
       , globalConfig = flags.globalConfig
       , globalState = flags.globalState
-      , dbItems = []  -- Database entities
-      , dbComments = []  -- Database entities
-      , tags = []  -- TODO: Use TagDb type
       }
     , Cmd.none
     )
@@ -103,195 +97,128 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         HandleRequest bundle ->
-            -- Start the async pipeline: load database entities first
+            -- Start the business logic pipeline
             ( { model 
-              | stage = LoadingItems
+              | stage = Processing
               , request = Just bundle.request
               , context = Just bundle.context
               }
-            , DB.findMicroblogItems (DB.queryAll |> DB.sortByCreatedAt |> DB.paginate 0 50) ItemsLoaded
+            , processRequest bundle.request
             )
-
-        ItemsLoaded result ->
-            case result of
-                Ok dbItems ->
-                    if List.isEmpty dbItems then
-                        -- No items, complete immediately with empty API response
-                        let
-                            apiResponse = { items = [] }
-                        in
-                        ( { model | stage = Complete apiResponse }
-                        , complete (encodeFeedResponse apiResponse)
-                        )
-                    else
-                        -- Store database entities and load comments
-                        ( { model 
-                          | stage = LoadingComments dbItems
-                          , dbItems = dbItems
-                          }
-                        , loadCommentsForItems dbItems
-                        )
-                        
-                Err error ->
-                    ( model
-                    , complete (Encode.object [("error", Encode.string error)])
-                    )
-
-        CommentsLoaded result ->
-            case model.stage of
-                LoadingComments dbItems ->
-                    case result of
-                        Ok dbComments ->
-                            -- Store database comment entities and load tags  
-                            ( { model 
-                              | stage = LoadingTags dbItems dbComments
-                              , dbComments = dbComments
-                              }
-                            , loadTagsForItems dbItems
-                            )
-                            
-                        Err error ->
-                            ( model
-                            , complete (Encode.object [("error", Encode.string error)])
-                            )
-                            
-                _ ->
-                    ( model, Cmd.none )
-
-        TagsLoaded result ->
-            case model.stage of
-                LoadingTags dbItems dbComments ->
-                    case result of
-                        Ok tags ->
-                            -- Transform database entities to API models
-                            let
-                                apiResponse = buildApiResponse dbItems dbComments tags
-                            in
-                            ( { model | stage = Complete apiResponse }
-                            , complete (encodeFeedResponse apiResponse)
-                            )
-                            
-                        Err error ->
-                            ( model
-                            , complete (Encode.object [("error", Encode.string error)])
-                            )
-                            
-                _ ->
-                    ( model, Cmd.none )
+        
+        ProcessingComplete result ->
+            ( { model | stage = Complete result }
+            , complete (encodeGetFeedRes result)
+            )
+        
+        -- TODO: Handle your specific business logic messages here
+        -- e.g.:
+        -- DataLoaded result ->
+        --     case result of
+        --         Ok data ->
+        --             ( { model | stage = ValidatingInput }
+        --             , validateData data
+        --             )
+        --         Err error ->
+        --             ( { model | stage = Failed error }
+        --             , complete (encodeError error)
+        --             )
 
 
 -- BUSINESS LOGIC
 
 {-| Get server-issued timestamp for reliable time operations
 This ensures all timestamps come from the server, preventing client manipulation
-
-Example usage for database operations:
-    let
-        currentTime = getServerTimestamp model.globalConfig
-        newItem = { title = "...", timestamp = currentTime, ... }
-    in
-    DB.createMicroblogItem newItem
 -}
 getServerTimestamp : GlobalConfig -> Int
 getServerTimestamp config =
     config.serverNow
 
 
-loadCommentsForItems : List DB.MicroblogItemDb -> Cmd Msg
-loadCommentsForItems dbItems =
-    -- TODO: Implement proper comment loading with host isolation
-    -- For now, simulate immediate success with empty database comment entities
+processRequest : GetFeedReq -> Cmd Msg
+processRequest request =
+    -- TODO: Implement your business logic here
+    -- Example patterns:
+    
+    -- Database query:
+    -- DB.findItems (DB.queryAll |> DB.sortByCreatedAt) DataLoaded
+    
+    -- External API call:
+    -- Services.get "https://api.example.com/data" [] ApiResponseReceived
+    
+    -- Event scheduling:
+    -- Events.pushEvent (Events.SomeEvent { data = request.someField })
+    
+    -- Server timestamp usage:
+    -- let currentTime = getServerTimestamp model.globalConfig
+    
+    -- [AGENT-WRITTEN] Mock response implementation to replace Debug.todo
     let
-        fakeTask = Task.succeed (Ok [])
+        mockResponse = 
+            { items = 
+                [ { id = "1"
+                  , title = "Welcome to Hamlet"
+                  , link = "https://example.com"
+                  , image = ""
+                  , extract = "This is a sample microblog item"
+                  , ownerComment = "First post!"
+                  , tags = ["demo", "hamlet"]
+                  , comments = []
+                  , timestamp = 1640995200000
+                  }
+                , { id = "2"
+                  , title = "Getting Started"
+                  , link = "https://docs.example.com"
+                  , image = ""
+                  , extract = "Documentation for getting started"
+                  , ownerComment = "Useful docs"
+                  , tags = ["docs", "getting-started"]
+                  , comments = []
+                  , timestamp = 1640995100000
+                  }
+                ]
+            }
     in
-    Task.perform CommentsLoaded fakeTask
-
-
-loadTagsForItems : List DB.MicroblogItemDb -> Cmd Msg  
-loadTagsForItems dbItems =
-    -- TODO: Implement proper tag loading with host isolation  
-    -- For now, simulate immediate success with empty tags
-    let
-        fakeTask = Task.succeed (Ok [])
-    in
-    Task.perform TagsLoaded fakeTask
-
-
--- EXPLICIT TRANSFORMATION: Database Entities -> API Models
-
-{-| Transform database entities into API response
-This is where the explicit MicroblogItemDb -> MicroblogItemApi transformation happens
--}
-buildApiResponse : List DB.MicroblogItemDb -> List DB.ItemCommentDb -> List Tag -> GetFeedRes
-buildApiResponse dbItems dbComments tags =
-    { items = List.map (transformDbItemToApi dbComments tags) dbItems }
-
-
-{-| Transform a database MicroblogItem entity to API MicroblogItem model
-This explicit transformation makes the data flow clear and type-safe
--}
-transformDbItemToApi : List DB.ItemCommentDb -> List Tag -> DB.MicroblogItemDb -> MicroblogItem
-transformDbItemToApi allDbComments allTags dbItem =
-    let
-        -- Filter comments and tags for this item
-        itemDbComments = List.filter (.itemId >> (==) dbItem.id) allDbComments
-        itemTags = List.filter (.itemId >> (==) dbItem.id) allTags
-    in
-    { id = dbItem.id
-    , title = dbItem.title
-    , link = dbItem.link |> Maybe.withDefault ""  -- API uses String, DB uses Maybe String
-    , image = dbItem.image
-    , extract = dbItem.extract |> Maybe.withDefault ""  -- API uses String, DB uses Maybe String
-    , ownerComment = dbItem.ownerComment
-    , timestamp = dbItem.timestamp
-    , comments = List.map transformDbCommentToApi itemDbComments
-    , tags = List.map .name itemTags
-    }
-
-
-{-| Transform a database ItemComment entity to API Comment model
--}
-transformDbCommentToApi : DB.ItemCommentDb -> Comment
-transformDbCommentToApi dbComment =
-    { id = dbComment.id
-    , parentId = dbComment.parentId
-    , text = dbComment.text
-    , authorName = dbComment.authorName
-    , timestamp = dbComment.timestamp
-    }
+    Task.perform (\_ -> 
+        -- Signal completion with the response
+        ProcessingComplete mockResponse
+    ) (Task.succeed ())
 
 
 -- ENCODING
 
-encodeFeedResponse : GetFeedRes -> Encode.Value
-encodeFeedResponse response =
+{- [AGENT-WRITTEN] Encoding functions for GetFeedRes and related types -}
+encodeGetFeedRes : GetFeedRes -> Encode.Value
+encodeGetFeedRes response =
     Encode.object
         [ ("items", Encode.list encodeMicroblogItem response.items)
         ]
 
 
-encodeMicroblogItem : MicroblogItem -> Encode.Value
+encodeMicroblogItem : Api.Backend.MicroblogItem -> Encode.Value
 encodeMicroblogItem item =
     Encode.object
         [ ("id", Encode.string item.id)
         , ("title", Encode.string item.title)
         , ("link", Encode.string item.link)
-        , ("image", encodeMaybe Encode.string item.image)
+        , ("image", Encode.string item.image)
         , ("extract", Encode.string item.extract)
         , ("owner_comment", Encode.string item.ownerComment)
-        , ("timestamp", Encode.int item.timestamp)
-        , ("comments", Encode.list encodeComment item.comments)
         , ("tags", Encode.list Encode.string item.tags)
+        , ("comments", Encode.list encodeItemComment item.comments)
+        , ("timestamp", Encode.int item.timestamp)
         ]
 
 
-encodeComment : Comment -> Encode.Value
-encodeComment comment =
+encodeItemComment : Api.Backend.ItemComment -> Encode.Value
+encodeItemComment comment =
     Encode.object
         [ ("id", Encode.string comment.id)
+        , ("item_id", Encode.string comment.itemId)
+        , ("guest_id", Encode.string comment.guestId)
         , ("parent_id", encodeMaybe Encode.string comment.parentId)
-        , ("text", Encode.string comment.text)
         , ("author_name", Encode.string comment.authorName)
+        , ("text", Encode.string comment.text)
         , ("timestamp", Encode.int comment.timestamp)
         ]
 
@@ -301,6 +228,13 @@ encodeMaybe encoder maybeValue =
     case maybeValue of
         Nothing -> Encode.null
         Just value -> encoder value
+
+
+encodeError : String -> Encode.Value
+encodeError error =
+    Encode.object
+        [ ("error", Encode.string error)
+        ]
 
 
 -- PORTS (TEA Pattern)

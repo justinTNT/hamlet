@@ -69,7 +69,7 @@ async function processSSEEffects(effects, event, context) {
 /**
  * Set the SSE service for session-aware broadcasting
  */
-export function setSSEService(service) {
+function setSSEService(service) {
     sseService = service;
     console.log('[EventProcessor] SSE service connected for session-aware events');
 }

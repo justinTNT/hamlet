@@ -264,6 +264,13 @@ async function handleTraditionalScaffolding(options) {
     console.log(`\nScaffolding project in ${root}...`);
 
     const templateDir = path.resolve(__dirname, 'template');
+    
+    // Debug template directory
+    console.log(`Looking for template in: ${templateDir}`);
+    if (!fs.existsSync(templateDir)) {
+        console.error(`Error: Template directory not found at ${templateDir}`);
+        process.exit(1);
+    }
 
     const write = (file, content) => {
         const targetPath = path.join(root, file);
@@ -275,6 +282,7 @@ async function handleTraditionalScaffolding(options) {
     };
 
     const files = fs.readdirSync(templateDir);
+    console.log(`Found ${files.length} template files: ${files.join(', ')}`);
     for (const file of files) {
         if (file === 'package.json') {
             const pkg = JSON.parse(fs.readFileSync(path.join(templateDir, file), 'utf-8'));
@@ -331,18 +339,43 @@ function emptyDir(dir) {
     }
 }
 
-// Import main generation scripts
-import { generateApiRoutes } from '../../.buildamp/generation/api_routes.js';
-import { generateDatabaseQueries } from '../../.buildamp/generation/database_queries.js';
-import { generateBrowserStorage } from '../../.buildamp/generation/browser_storage.js';
-import { generateKvStore } from '../../.buildamp/generation/kv_store.js';
-import { generateSSEEvents } from '../../.buildamp/generation/sse_events.js';
-import { generateElmSharedModules } from '../../.buildamp/generation/elm_shared_modules.js';
-import { generateElmHandlers } from '../../.buildamp/generation/elm_handlers.js';
+// Dynamic imports for generation scripts from current working directory
+async function loadGenerationScripts() {
+    const generationDir = path.join(process.cwd(), '.buildamp', 'generation');
+    
+    if (!fs.existsSync(generationDir)) {
+        throw new Error(`Generation scripts not found in current directory: ${generationDir}`);
+    }
+    
+    try {
+        const { generateApiRoutes } = await import(path.join(generationDir, 'api_routes.js'));
+        const { generateDatabaseQueries } = await import(path.join(generationDir, 'database_queries.js'));
+        const { generateBrowserStorage } = await import(path.join(generationDir, 'browser_storage.js'));
+        const { generateKvStore } = await import(path.join(generationDir, 'kv_store.js'));
+        const { generateSSEEvents } = await import(path.join(generationDir, 'sse_events.js'));
+        const { generateElmSharedModules } = await import(path.join(generationDir, 'elm_shared_modules.js'));
+        const { generateElmHandlers } = await import(path.join(generationDir, 'elm_handlers.js'));
+        
+        return {
+            generateApiRoutes,
+            generateDatabaseQueries,
+            generateBrowserStorage,
+            generateKvStore,
+            generateSSEEvents,
+            generateElmSharedModules,
+            generateElmHandlers
+        };
+    } catch (error) {
+        throw new Error(`Failed to load generation scripts: ${error.message}`);
+    }
+}
 
 // Use main project's generation scripts instead of separate system
 async function generateUsingMainScripts(outputDir) {
     console.log('Using main project generation scripts...');
+    
+    // Load generation scripts dynamically
+    const scripts = await loadGenerationScripts();
     
     // Create proper directory structure matching main project
     const jsOutputDir = path.join(outputDir, 'packages', 'hamlet-server', 'generated');
@@ -361,25 +394,25 @@ async function generateUsingMainScripts(outputDir) {
     try {
         // Run all generation phases using the main scripts
         console.log('📊 Generating database queries...');
-        results.database = await generateDatabaseQueries();
+        results.database = await scripts.generateDatabaseQueries();
         
         console.log('🛣️ Generating API routes...');
-        results.api = await generateApiRoutes();
+        results.api = await scripts.generateApiRoutes();
         
         console.log('💾 Generating browser storage...');
-        results.browser = await generateBrowserStorage();
+        results.browser = await scripts.generateBrowserStorage();
         
         console.log('🗄️ Generating KV store...');
-        results.kv = await generateKvStore();
+        results.kv = await scripts.generateKvStore();
         
         console.log('📡 Generating SSE events...');
-        results.sse = await generateSSEEvents();
+        results.sse = await scripts.generateSSEEvents();
         
         console.log('📦 Generating shared modules...');
-        results.shared = await generateElmSharedModules();
+        results.shared = await scripts.generateElmSharedModules();
         
         console.log('🔧 Generating Elm handlers...');
-        results.handlers = await generateElmHandlers();
+        results.handlers = await scripts.generateElmHandlers();
         
         console.log('✅ All generation phases completed successfully');
         
@@ -460,9 +493,7 @@ async function discoverModels(modelsDir) {
     return models;
 }
 
-// Only run init if this is the main module (not imported for testing)
-if (import.meta.url === `file://${process.argv[1]}`) {
-    init().catch((e) => {
-        console.error(e);
-    });
-}
+// Run init - this is a CLI tool
+init().catch((e) => {
+    console.error(e);
+});

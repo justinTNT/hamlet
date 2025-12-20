@@ -157,7 +157,7 @@ type alias DbUpdateRequest =
     { id : String
     , table : String
     , data : Encode.Value
-    , where : String
+    , whereClause : String
     , params : List String
     }
 
@@ -165,7 +165,7 @@ type alias DbUpdateRequest =
 type alias DbKillRequest =
     { id : String
     , table : String
-    , where : String
+    , whereClause : String
     , params : List String
     }
 
@@ -299,7 +299,7 @@ updateMicroblogItem id data toMsg =
         { id = requestId
         , table = "microblog_items"
         , data = encodeMicroblogItemDbUpdate data
-        , where = "id = $1"
+        , whereClause = "id = $1"
         , params = [id]
         }
 
@@ -314,7 +314,7 @@ killMicroblogItem id toMsg =
     dbKill
         { id = requestId
         , table = "microblog_items"
-        , where = "id = $1"
+        , whereClause = "id = $1"
         , params = [id]
         }
 
@@ -344,17 +344,20 @@ encodeMicroblogItemDbUpdate : MicroblogItemDbUpdate -> Encode.Value
 encodeMicroblogItemDbUpdate item =
     Encode.object
         [ ("title", encodeMaybe Encode.string item.title)
-        , ("link", encodeMaybe encodeMaybe Encode.string item.link)
-        , ("image", encodeMaybe encodeMaybe Encode.string item.image)
-        , ("extract", encodeMaybe encodeMaybe Encode.string item.extract)
+        , ("link", encodeMaybe Encode.string item.link)
+        , ("image", encodeMaybe Encode.string item.image)
+        , ("extract", encodeMaybe Encode.string item.extract)
         , ("ownerComment", encodeMaybe Encode.string item.ownerComment)
         ]
 
 
--- Helper for pipeline-style decoding
+-- Helper for pipeline-style decoding  
+andMap : Decode.Decoder a -> Decode.Decoder (a -> b) -> Decode.Decoder b
+andMap = Decode.map2 (|>)
+
 decodeField : String -> Decode.Decoder a -> Decode.Decoder (a -> b) -> Decode.Decoder b
 decodeField fieldName decoder =
-    Decode.andMap (Decode.field fieldName decoder)
+    andMap (Decode.field fieldName decoder)
 
 
 encodeMaybe : (a -> Encode.Value) -> Maybe a -> Encode.Value

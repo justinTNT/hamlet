@@ -1,4 +1,4 @@
-module Generated.Events exposing (..)
+port module Generated.Events exposing (..)
 
 {-| Generated events interface for TEA handlers
 
@@ -54,20 +54,32 @@ cronEvent cronExpression payload =
 -- EVENT PAYLOAD TYPES (Generated from src/models/events/*.rs)
 
 type EventPayload
-    = SendWelcomeEmail SendWelcomeEmailData
-    | ProcessUpload ProcessUploadData
+    | ProcessVideo ProcessVideoData
+    | GenerateDailyReport GenerateDailyReportData
+    | SendWelcomeEmail SendWelcomeEmailData
 
 
-type alias SendWelcomeEmailData =
-    { email : String
-    , name : String
-    , userId : String
+type alias ProcessVideoData =
+    {    videoId : String
+    , qualityPreset : Maybe String
+    , webhookUrl : Maybe String
     }
 
 
-type alias ProcessUploadData =
-    { fileId : String
-    , processType : String
+type alias GenerateDailyReportData =
+    {    userId : String
+    , cronExpression : String
+    , timezone : Maybe String
+    , reportType : String
+    , emailResults : Maybe String
+    }
+
+
+type alias SendWelcomeEmailData =
+    {    userId : String
+    , email : String
+    , name : String
+    , templateVars : String
     }
 
 
@@ -88,31 +100,60 @@ type alias EventRequest =
 encodeEventPayload : EventPayload -> Encode.Value
 encodeEventPayload payload =
     case payload of
+        ProcessVideo data ->
+            Encode.object
+                [ ("type", Encode.string "ProcessVideo")
+                , ("data", encodeProcessVideo data)
+                ]
+                
+        GenerateDailyReport data ->
+            Encode.object
+                [ ("type", Encode.string "GenerateDailyReport")
+                , ("data", encodeGenerateDailyReport data)
+                ]
+                
         SendWelcomeEmail data ->
             Encode.object
                 [ ("type", Encode.string "SendWelcomeEmail")
                 , ("data", encodeSendWelcomeEmail data)
                 ]
-                
-        ProcessUpload data ->
-            Encode.object  
-                [ ("type", Encode.string "ProcessUpload")
-                , ("data", encodeProcessUpload data)
-                ]
+
+
+encodeProcessVideo : ProcessVideoData -> Encode.Value
+encodeProcessVideo data =
+    Encode.object
+        [ -- Generated from event model fields
+        ("video_id", Encode.string data.videoId)
+        , ("quality_preset", encodeMaybe Encode.string data.qualityPreset)
+        , ("webhook_url", encodeMaybe Encode.string data.webhookUrl)
+        ]
+
+
+encodeGenerateDailyReport : GenerateDailyReportData -> Encode.Value
+encodeGenerateDailyReport data =
+    Encode.object
+        [ -- Generated from event model fields
+        ("user_id", Encode.string data.userId)
+        , ("cron_expression", Encode.string data.cronExpression)
+        , ("timezone", encodeMaybe Encode.string data.timezone)
+        , ("report_type", Encode.string data.reportType)
+        , ("email_results", encodeMaybe Encode.string data.emailResults)
+        ]
 
 
 encodeSendWelcomeEmail : SendWelcomeEmailData -> Encode.Value
 encodeSendWelcomeEmail data =
     Encode.object
-        [ ("email", Encode.string data.email)
+        [ -- Generated from event model fields
+        ("user_id", Encode.string data.userId)
+        , ("email", Encode.string data.email)
         , ("name", Encode.string data.name)
-        , ("user_id", Encode.string data.userId)
+        , ("template_vars", Encode.string data.templateVars)
         ]
 
 
-encodeProcessUpload : ProcessUploadData -> Encode.Value
-encodeProcessUpload data =
-    Encode.object
-        [ ("file_id", Encode.string data.fileId)
-        , ("process_type", Encode.string data.processType)
-        ]
+encodeMaybe : (a -> Encode.Value) -> Maybe a -> Encode.Value
+encodeMaybe encoder maybeValue =
+    case maybeValue of
+        Nothing -> Encode.null
+        Just value -> encoder value

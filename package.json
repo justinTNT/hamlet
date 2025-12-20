@@ -22,6 +22,7 @@
         "test:create-buildamp": "cd packages/create-buildamp && npm test",
         "test:generation": "cd packages/hamlet-server && npm test -- tests/generation/",
         "test:integration": "node test-integration.js",
-        "test:simple": "node test-simple.js"
+        "test:simple": "node test-simple.js",
+        "test:generation-dry": "node --experimental-vm-modules node_modules/.bin/jest tests/generation-dry/generation-dry.test.js"
     }
 }

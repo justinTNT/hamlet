@@ -26,6 +26,5 @@ const server = new HamletServer(config);
 await server.start();
 
 console.log(`Horatio Backend running at http://localhost:${config.port}`);
-console.log(`Key-Value Store endpoints available at http://localhost:${config.port}/kv/*`);
 console.log(`Server-Sent Events available at http://localhost:${config.port}/events/*`);
 console.log(`Session API available at http://localhost:${config.port}/api/session/*`);

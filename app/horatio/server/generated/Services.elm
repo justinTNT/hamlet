@@ -12,7 +12,6 @@ for making HTTP requests to third-party APIs.
 
 import Json.Encode as Encode
 import Json.Decode as Decode
-import Dict exposing (Dict)
 
 
 -- HTTP REQUEST INTERFACE
@@ -20,61 +19,57 @@ import Dict exposing (Dict)
 {-| Make GET request
 Usage: Services.get "https://api.example.com/users" [] handleResponse
 -}
-get : String -> List (String, String) -> (Result String HttpResponse -> msg) -> Cmd msg
-get url headers callback =
+get : String -> List (String, String) -> Cmd msg
+get url headers =
     request
         { method = GET
         , url = url
-        , headers = Dict.fromList headers
+        , headers = headers
         , body = Nothing
         }
-        callback
 
 
 {-| Make POST request with JSON body
 Usage: Services.post "https://api.example.com/users" [] (encodeUser user) handleResponse
 -}
-post : String -> List (String, String) -> Encode.Value -> (Result String HttpResponse -> msg) -> Cmd msg
-post url headers body callback =
+post : String -> List (String, String) -> Encode.Value -> Cmd msg
+post url headers body =
     request
         { method = POST
         , url = url
-        , headers = Dict.fromList headers
+        , headers = headers
         , body = Just body
         }
-        callback
 
 
 {-| Make PUT request with JSON body
 -}
-put : String -> List (String, String) -> Encode.Value -> (Result String HttpResponse -> msg) -> Cmd msg
-put url headers body callback =
+put : String -> List (String, String) -> Encode.Value -> Cmd msg
+put url headers body =
     request
         { method = PUT
         , url = url
-        , headers = Dict.fromList headers
+        , headers = headers
         , body = Just body
         }
-        callback
 
 
 {-| Make DELETE request
 -}
-delete : String -> List (String, String) -> (Result String HttpResponse -> msg) -> Cmd msg
-delete url headers callback =
+delete : String -> List (String, String) -> Cmd msg
+delete url headers =
     request
         { method = DELETE
         , url = url
-        , headers = Dict.fromList headers
+        , headers = headers
         , body = Nothing
         }
-        callback
 
 
 {-| Make custom HTTP request
 -}
-request : HttpRequest -> (Result String HttpResponse -> msg) -> Cmd msg
-request req callback =
+request : HttpRequest -> Cmd msg
+request req =
     let
         requestId = "req_" ++ String.fromInt (abs (hashString (req.url ++ toString req.method)))
     in
@@ -84,7 +79,6 @@ request req callback =
         , url = req.url
         , headers = req.headers
         , body = req.body
-        , callback = callback
         }
 
 
@@ -93,14 +87,14 @@ request req callback =
 type alias HttpRequest =
     { method : HttpMethod
     , url : String
-    , headers : Dict String String
+    , headers : List (String, String)
     , body : Maybe Encode.Value
     }
 
 
 type alias HttpResponse =
     { status : Int
-    , headers : Dict String String
+    , headers : List (String, String)
     , body : String
     }
 
@@ -123,9 +117,8 @@ type alias HttpRequestPort =
     { id : String
     , method : String
     , url : String
-    , headers : Dict String String
+    , headers : List (String, String)
     , body : Maybe Encode.Value
-    , callback : Result String HttpResponse -> msg
     }
 
 
@@ -133,7 +126,7 @@ type alias HttpResponsePort =
     { id : String
     , success : Bool
     , status : Maybe Int
-    , headers : Maybe (Dict String String)
+    , headers : Maybe (List (String, String))
     , body : Maybe String
     , error : Maybe String
     }
