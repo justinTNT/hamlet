@@ -10,6 +10,8 @@ pub mod framework {
     pub mod migration_gen;
     pub mod database_infrastructure;
     pub mod core;
+    pub mod validation_types;
+    pub mod validation_aliases;
 }
 // Auto-discover all models - no manual declarations needed!
 use buildamp_macro::buildamp_auto_discover_models;
@@ -20,6 +22,8 @@ buildamp_auto_discover_models!();
 pub use framework::common::*;
 pub use framework::database_types::*;
 pub use framework::event_types::*;
+pub use framework::validation_types::*;
+pub use framework::validation_aliases::*;
 
 // Note: Removing legacy re-exports to avoid ambiguous imports
 // Legacy modules still available via explicit paths (models::comments::* etc.)

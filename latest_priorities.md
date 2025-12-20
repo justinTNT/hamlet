@@ -45,16 +45,6 @@ database = false  // OR event_store = false
 
 ## Major Components (Latest Priorities)
 
-### 🎯 **Phase 1: Complete Event System (Immediate - 4-6 weeks)**
-
-TODO: wire up session_id to event store
-
-
-**Dependencies**: Builds on existing Horatio event infrastructure  
-**Deliverables**:
-- Event store schema update (add session_id column)  
-- Enhanced SSE with session-based targeting
-
 ---
 
 ### 🔗 **Phase 1.5: WebSocket Implementation (2-3 weeks)**
@@ -199,4 +189,40 @@ Enhanced tooling and documentation.
 ### Phase 5 (DevEx)
 - [ ] Interactive API documentation
 - [ ] Comprehensive guides and examples
+- [x] Support basic validation type constructors on rust models where appropriate ✅ **COMPLETED**
+
+  **Validation Types Implementation - COMPLETED**
+  
+  Successfully implemented boundary validation system using composable type constructors with convenient type aliases. Provides JSON transport safety through Rust's type system and generates synchronized client-server validation.
+  
+  Completed features:
+  - Core validation type constructors (Bounded, Format, CharSet, Encoding)
+  - Convenient type aliases (SafeText, EmailAddress, ValidUrl, etc.)
+  - Helper functions for creating validated types
+  - Focus on boundary validation only - no business logic creep
+  - Composable building blocks rather than limited combinations
+  
+  Key insight: Only implement validations that belong at the JSON exchange layer:
+
+  #### Models:
+
+  Full validation support:
+  - app/models/api  - HTTP request/response boundaries
+  - app/models/ws - Real-time message boundaries
+  - app/models/ww - Web Worker postMessage boundaries
+  - app/models/hooks - Web Worker postMessage boundaries
+  - app/models/services - Serialization boundaries
+
+  Event types - special case:
+  - app/models/events - auto-apply format("json") validation to payload
+
+  Composable building blocks:
+  // Base validation types
+  Bounded<T, MIN, MAX>        // Range validation
+  Format<T, EMAIL>            // Format validation
+  CharSet<T, ASCII>           // Character set validation
+  Encoding<T, BASE64>         // Encoding validation
+
+  used to create validated type aliases:
+  * type SafeText<const MIN: usize, const MAX: usize> = Bounded<CharSet<String, Utf8Safe>, MIN, MAX>;
 
