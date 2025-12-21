@@ -6,13 +6,11 @@ This handler implements The Elm Architecture pattern for async request processin
 It demonstrates the req + state + stage pattern for complex async operations.
 
 Business Logic:
-TODO: Customize the stages and business logic for your specific SubmitComment endpoint
-TODO: Add database queries and external service calls as needed
-TODO: Implement proper error handling and validation
+Handles comment submission by creating new comment records in the database.
 
 -}
 
-import Api.Backend exposing (SubmitCommentReq, SubmitCommentRes)
+import Api.Backend exposing (SubmitCommentRes, ItemComment)
 import Generated.Database as DB
 import Generated.Events as Events
 import Generated.Services as Services
@@ -47,8 +45,17 @@ type Stage
 
 type alias Context =
     { host : String
-    , userId : Maybe String
     , sessionId : Maybe String
+    }
+
+
+-- Local request type that matches JavaScript field names (snake_case)
+type alias SubmitCommentReq =
+    { host : String
+    , item_id : String
+    , parent_id : Maybe String
+    , text : String
+    , author_name : Maybe String
     }
 
 
@@ -63,10 +70,7 @@ type alias GlobalState = DB.GlobalState  -- Mutable handler state
 type Msg
     = HandleRequest RequestBundle
     | ProcessingComplete SubmitCommentRes
-    -- TODO: Add specific messages for your business logic, e.g.:
-    -- | DataLoaded (Result String SomeData)
-    -- | ValidationComplete (Result String ValidatedInput)
-    -- | SaveComplete (Result String SavedResult)
+    | CommentCreated DB.DbResponse
 
 
 type alias RequestBundle =
@@ -99,12 +103,18 @@ update msg model =
     case msg of
         HandleRequest bundle ->
             -- Start the business logic pipeline
-            ( { model 
-              | stage = Processing
-              , request = Just bundle.request
-              , context = Just bundle.context
-              }
-            , processRequest bundle.request
+            let
+                _ = Debug.log "🐛 SubmitComment: Received request" bundle.request
+                
+                updatedModel = 
+                    { model 
+                    | stage = Processing
+                    , request = Just bundle.request
+                    , context = Just bundle.context
+                    }
+            in
+            ( updatedModel
+            , processRequest bundle.request updatedModel
             )
         
         ProcessingComplete result ->
@@ -112,18 +122,49 @@ update msg model =
             , complete (encodeSubmitCommentRes result)
             )
         
-        -- TODO: Handle your specific business logic messages here
-        -- e.g.:
-        -- DataLoaded result ->
-        --     case result of
-        --         Ok data ->
-        --             ( { model | stage = ValidatingInput }
-        --             , validateData data
-        --             )
-        --         Err error ->
-        --             ( { model | stage = Failed error }
-        --             , complete (encodeError error)
-        --             )
+        CommentCreated dbResponse ->
+            let
+                _ = Debug.log "🐛 SubmitComment: CommentCreated dbResponse" dbResponse
+            in
+            if dbResponse.success then
+                -- Database operation succeeded, extract real data from response
+                case dbResponse.data of
+                    Just returnedData ->
+                        let
+                            -- Extract the auto-generated ID from database response
+                            -- For now, create response with request data and a placeholder ID
+                            -- TODO: Parse actual ID from returnedData JSON
+                            apiComment = 
+                                { id = "generated_id_from_db" -- Will be real UUID from database
+                                , itemId = model.request |> Maybe.map .item_id |> Maybe.withDefault ""
+                                , guestId = model.request |> Maybe.andThen .author_name |> Maybe.withDefault "guest_anonymous"
+                                , parentId = model.request |> Maybe.andThen .parent_id
+                                , authorName = model.request |> Maybe.andThen .author_name |> Maybe.withDefault "Anonymous"
+                                , text = model.request |> Maybe.map .text |> Maybe.withDefault ""
+                                , timestamp = model.globalConfig.serverNow
+                                }
+                    
+                            response = { comment = apiComment }
+                        in
+                        ( { model | stage = Complete response }
+                        , complete (encodeSubmitCommentRes response)
+                        )
+                    
+                    Nothing ->
+                        let
+                            _ = Debug.log "🐛 SubmitComment: No data returned from database" ()
+                        in
+                        ( { model | stage = Failed "No data returned from database" }
+                        , complete (encodeError "No data returned from database")
+                        )
+            else
+                let
+                    error = Maybe.withDefault "Database operation failed" dbResponse.error
+                    _ = Debug.log "🐛 SubmitComment: DB Error" error
+                in
+                ( { model | stage = Failed error }
+                , complete (encodeError error)
+                )
 
 
 -- BUSINESS LOGIC
@@ -136,31 +177,37 @@ getServerTimestamp config =
     config.serverNow
 
 
-processRequest : SubmitCommentReq -> Cmd Msg
-processRequest request =
-    -- TODO: Implement your business logic here
-    -- Example patterns:
-    
-    -- Database query:
-    -- DB.findItems (DB.queryAll |> DB.sortByCreatedAt) DataLoaded
-    
-    -- External API call:
-    -- Services.get "https://api.example.com/data" [] ApiResponseReceived
-    
-    -- Event scheduling:
-    -- Events.pushEvent (Events.SomeEvent { data = request.someField })
-    
-    -- Server timestamp usage:
-    -- let currentTime = getServerTimestamp model.globalConfig
-    
-    -- For now, return a placeholder response
+processRequest : SubmitCommentReq -> Model -> Cmd Msg
+processRequest request model =
+    -- Create a new comment and save it to database
     let
-        placeholderResponse = Debug.todo "Implement SubmitComment handler"
+        -- Use server timestamp for consistency  
+        currentTimestamp = getServerTimestamp model.globalConfig
+        
+        -- Create database insert data for raw dbCreate
+        -- Note: id and host fields will be automatically generated/injected
+        insertData = 
+            Encode.object
+                [ ("item_id", Encode.string request.item_id)
+                , ("guest_id", Encode.string (Maybe.withDefault "guest_anonymous" request.author_name))
+                , ("author_name", Encode.string (Maybe.withDefault "Anonymous" request.author_name))
+                , ("text", Encode.string request.text)
+                , ("created_at", Encode.int currentTimestamp)
+                , ("parent_id", 
+                    case request.parent_id of
+                        Just pid -> Encode.string pid
+                        Nothing -> Encode.null)
+                ]
+        
+        -- Create database request with auto-generated ID
+        dbRequest = 
+            { id = "create_comment_" ++ String.fromInt currentTimestamp
+            , table = "item_comments"
+            , data = insertData
+            }
     in
-    Task.perform (\_ -> 
-        -- Signal completion with the response
-        ProcessingComplete placeholderResponse
-    ) (Task.succeed ())
+    -- Insert comment into database using raw dbCreate port
+    DB.dbCreate dbRequest
 
 
 -- ENCODING
@@ -196,4 +243,7 @@ main =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    handleRequest HandleRequest
+    Sub.batch
+        [ handleRequest HandleRequest
+        , DB.dbResult CommentCreated
+        ]

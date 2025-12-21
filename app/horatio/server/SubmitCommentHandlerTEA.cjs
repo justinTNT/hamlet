@@ -2848,13 +2848,58 @@ var $author$project$Api$Handlers$SubmitCommentHandlerTEA$init = function (flags)
 };
 var $elm$json$Json$Decode$int = _Json_decodeInt;
 var $elm$json$Json$Decode$string = _Json_decodeString;
+var $author$project$Api$Handlers$SubmitCommentHandlerTEA$CommentCreated = function (a) {
+	return {$: 'CommentCreated', a: a};
+};
 var $author$project$Api$Handlers$SubmitCommentHandlerTEA$HandleRequest = function (a) {
 	return {$: 'HandleRequest', a: a};
 };
+var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$json$Json$Decode$map = _Json_map1;
 var $elm$json$Json$Decode$null = _Json_decodeNull;
 var $elm$json$Json$Decode$oneOf = _Json_oneOf;
 var $elm$json$Json$Decode$succeed = _Json_succeed;
+var $elm$json$Json$Decode$value = _Json_decodeValue;
+var $author$project$Generated$Database$dbResult = _Platform_incomingPort(
+	'dbResult',
+	A2(
+		$elm$json$Json$Decode$andThen,
+		function (success) {
+			return A2(
+				$elm$json$Json$Decode$andThen,
+				function (id) {
+					return A2(
+						$elm$json$Json$Decode$andThen,
+						function (error) {
+							return A2(
+								$elm$json$Json$Decode$andThen,
+								function (data) {
+									return $elm$json$Json$Decode$succeed(
+										{data: data, error: error, id: id, success: success});
+								},
+								A2(
+									$elm$json$Json$Decode$field,
+									'data',
+									$elm$json$Json$Decode$oneOf(
+										_List_fromArray(
+											[
+												$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
+												A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$json$Json$Decode$value)
+											]))));
+						},
+						A2(
+							$elm$json$Json$Decode$field,
+							'error',
+							$elm$json$Json$Decode$oneOf(
+								_List_fromArray(
+									[
+										$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
+										A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$json$Json$Decode$string)
+									]))));
+				},
+				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string));
+		},
+		A2($elm$json$Json$Decode$field, 'success', $elm$json$Json$Decode$bool)));
 var $author$project$Api$Handlers$SubmitCommentHandlerTEA$handleRequest = _Platform_incomingPort(
 	'handleRequest',
 	A2(
@@ -2874,31 +2919,18 @@ var $author$project$Api$Handlers$SubmitCommentHandlerTEA$handleRequest = _Platfo
 							'context',
 							A2(
 								$elm$json$Json$Decode$andThen,
-								function (userId) {
+								function (sessionId) {
 									return A2(
 										$elm$json$Json$Decode$andThen,
-										function (sessionId) {
-											return A2(
-												$elm$json$Json$Decode$andThen,
-												function (host) {
-													return $elm$json$Json$Decode$succeed(
-														{host: host, sessionId: sessionId, userId: userId});
-												},
-												A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
+										function (host) {
+											return $elm$json$Json$Decode$succeed(
+												{host: host, sessionId: sessionId});
 										},
-										A2(
-											$elm$json$Json$Decode$field,
-											'sessionId',
-											$elm$json$Json$Decode$oneOf(
-												_List_fromArray(
-													[
-														$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
-														A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$json$Json$Decode$string)
-													]))));
+										A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
 								},
 								A2(
 									$elm$json$Json$Decode$field,
-									'userId',
+									'sessionId',
 									$elm$json$Json$Decode$oneOf(
 										_List_fromArray(
 											[
@@ -2916,22 +2948,22 @@ var $author$project$Api$Handlers$SubmitCommentHandlerTEA$handleRequest = _Platfo
 				function (text) {
 					return A2(
 						$elm$json$Json$Decode$andThen,
-						function (parentId) {
+						function (parent_id) {
 							return A2(
 								$elm$json$Json$Decode$andThen,
-								function (itemId) {
+								function (item_id) {
 									return A2(
 										$elm$json$Json$Decode$andThen,
 										function (host) {
 											return A2(
 												$elm$json$Json$Decode$andThen,
-												function (authorName) {
+												function (author_name) {
 													return $elm$json$Json$Decode$succeed(
-														{authorName: authorName, host: host, itemId: itemId, parentId: parentId, text: text});
+														{author_name: author_name, host: host, item_id: item_id, parent_id: parent_id, text: text});
 												},
 												A2(
 													$elm$json$Json$Decode$field,
-													'authorName',
+													'author_name',
 													$elm$json$Json$Decode$oneOf(
 														_List_fromArray(
 															[
@@ -2941,11 +2973,11 @@ var $author$project$Api$Handlers$SubmitCommentHandlerTEA$handleRequest = _Platfo
 										},
 										A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
 								},
-								A2($elm$json$Json$Decode$field, 'itemId', $elm$json$Json$Decode$string));
+								A2($elm$json$Json$Decode$field, 'item_id', $elm$json$Json$Decode$string));
 						},
 						A2(
 							$elm$json$Json$Decode$field,
-							'parentId',
+							'parent_id',
 							$elm$json$Json$Decode$oneOf(
 								_List_fromArray(
 									[
@@ -2955,16 +2987,56 @@ var $author$project$Api$Handlers$SubmitCommentHandlerTEA$handleRequest = _Platfo
 				},
 				A2($elm$json$Json$Decode$field, 'text', $elm$json$Json$Decode$string)))));
 var $author$project$Api$Handlers$SubmitCommentHandlerTEA$subscriptions = function (_v0) {
-	return $author$project$Api$Handlers$SubmitCommentHandlerTEA$handleRequest($author$project$Api$Handlers$SubmitCommentHandlerTEA$HandleRequest);
+	return $elm$core$Platform$Sub$batch(
+		_List_fromArray(
+			[
+				$author$project$Api$Handlers$SubmitCommentHandlerTEA$handleRequest($author$project$Api$Handlers$SubmitCommentHandlerTEA$HandleRequest),
+				$author$project$Generated$Database$dbResult($author$project$Api$Handlers$SubmitCommentHandlerTEA$CommentCreated)
+			]));
 };
 var $author$project$Api$Handlers$SubmitCommentHandlerTEA$Complete = function (a) {
 	return {$: 'Complete', a: a};
 };
+var $author$project$Api$Handlers$SubmitCommentHandlerTEA$Failed = function (a) {
+	return {$: 'Failed', a: a};
+};
 var $author$project$Api$Handlers$SubmitCommentHandlerTEA$Processing = {$: 'Processing'};
+var $elm$core$Maybe$andThen = F2(
+	function (callback, maybeValue) {
+		if (maybeValue.$ === 'Just') {
+			var value = maybeValue.a;
+			return callback(value);
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	});
 var $elm$core$Basics$identity = function (x) {
 	return x;
 };
 var $author$project$Api$Handlers$SubmitCommentHandlerTEA$complete = _Platform_outgoingPort('complete', $elm$core$Basics$identity);
+var $elm$json$Json$Encode$object = function (pairs) {
+	return _Json_wrap(
+		A3(
+			$elm$core$List$foldl,
+			F2(
+				function (_v0, obj) {
+					var k = _v0.a;
+					var v = _v0.b;
+					return A3(_Json_addField, k, v, obj);
+				}),
+			_Json_emptyObject(_Utils_Tuple0),
+			pairs));
+};
+var $elm$json$Json$Encode$string = _Json_wrap;
+var $author$project$Api$Handlers$SubmitCommentHandlerTEA$encodeError = function (error) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'error',
+				$elm$json$Json$Encode$string(error))
+			]));
+};
 var $elm$core$Basics$composeL = F3(
 	function (g, f, x) {
 		return g(
@@ -2982,20 +3054,6 @@ var $elm$core$Maybe$map = F2(
 		}
 	});
 var $elm$json$Json$Encode$null = _Json_encodeNull;
-var $elm$json$Json$Encode$object = function (pairs) {
-	return _Json_wrap(
-		A3(
-			$elm$core$List$foldl,
-			F2(
-				function (_v0, obj) {
-					var k = _v0.a;
-					var v = _v0.b;
-					return A3(_Json_addField, k, v, obj);
-				}),
-			_Json_emptyObject(_Utils_Tuple0),
-			pairs));
-};
-var $elm$json$Json$Encode$string = _Json_wrap;
 var $elm$core$Maybe$withDefault = F2(
 	function (_default, maybe) {
 		if (maybe.$ === 'Just') {
@@ -3047,195 +3105,180 @@ var $author$project$Api$Backend$submitCommentResEncoder = function (struct) {
 var $author$project$Api$Handlers$SubmitCommentHandlerTEA$encodeSubmitCommentRes = function (response) {
 	return $author$project$Api$Backend$submitCommentResEncoder(response);
 };
-var $author$project$Api$Handlers$SubmitCommentHandlerTEA$ProcessingComplete = function (a) {
-	return {$: 'ProcessingComplete', a: a};
+var $elm$core$Debug$log = _Debug_log;
+var $author$project$Generated$Database$dbCreate = _Platform_outgoingPort(
+	'dbCreate',
+	function ($) {
+		return $elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'data',
+					$elm$core$Basics$identity($.data)),
+					_Utils_Tuple2(
+					'id',
+					$elm$json$Json$Encode$string($.id)),
+					_Utils_Tuple2(
+					'table',
+					$elm$json$Json$Encode$string($.table))
+				]));
+	});
+var $author$project$Api$Handlers$SubmitCommentHandlerTEA$getServerTimestamp = function (config) {
+	return config.serverNow;
 };
-var $elm$core$Task$Perform = function (a) {
-	return {$: 'Perform', a: a};
-};
-var $elm$core$Task$succeed = _Scheduler_succeed;
-var $elm$core$Task$init = $elm$core$Task$succeed(_Utils_Tuple0);
-var $elm$core$List$foldrHelper = F4(
-	function (fn, acc, ctr, ls) {
-		if (!ls.b) {
-			return acc;
-		} else {
-			var a = ls.a;
-			var r1 = ls.b;
-			if (!r1.b) {
-				return A2(fn, a, acc);
-			} else {
-				var b = r1.a;
-				var r2 = r1.b;
-				if (!r2.b) {
-					return A2(
-						fn,
-						a,
-						A2(fn, b, acc));
-				} else {
-					var c = r2.a;
-					var r3 = r2.b;
-					if (!r3.b) {
-						return A2(
-							fn,
-							a,
-							A2(
-								fn,
-								b,
-								A2(fn, c, acc)));
-					} else {
-						var d = r3.a;
-						var r4 = r3.b;
-						var res = (ctr > 500) ? A3(
-							$elm$core$List$foldl,
-							fn,
-							acc,
-							$elm$core$List$reverse(r4)) : A4($elm$core$List$foldrHelper, fn, acc, ctr + 1, r4);
-						return A2(
-							fn,
-							a,
-							A2(
-								fn,
-								b,
-								A2(
-									fn,
-									c,
-									A2(fn, d, res))));
-					}
-				}
-			}
-		}
+var $author$project$Api$Handlers$SubmitCommentHandlerTEA$processRequest = F2(
+	function (request, model) {
+		var currentTimestamp = $author$project$Api$Handlers$SubmitCommentHandlerTEA$getServerTimestamp(model.globalConfig);
+		var insertData = $elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'item_id',
+					$elm$json$Json$Encode$string(request.item_id)),
+					_Utils_Tuple2(
+					'guest_id',
+					$elm$json$Json$Encode$string(
+						A2($elm$core$Maybe$withDefault, 'guest_anonymous', request.author_name))),
+					_Utils_Tuple2(
+					'author_name',
+					$elm$json$Json$Encode$string(
+						A2($elm$core$Maybe$withDefault, 'Anonymous', request.author_name))),
+					_Utils_Tuple2(
+					'text',
+					$elm$json$Json$Encode$string(request.text)),
+					_Utils_Tuple2(
+					'created_at',
+					$elm$json$Json$Encode$int(currentTimestamp)),
+					_Utils_Tuple2(
+					'parent_id',
+					function () {
+						var _v0 = request.parent_id;
+						if (_v0.$ === 'Just') {
+							var pid = _v0.a;
+							return $elm$json$Json$Encode$string(pid);
+						} else {
+							return $elm$json$Json$Encode$null;
+						}
+					}())
+				]));
+		var dbRequest = {
+			data: insertData,
+			id: 'create_comment_' + $elm$core$String$fromInt(currentTimestamp),
+			table: 'item_comments'
+		};
+		return $author$project$Generated$Database$dbCreate(dbRequest);
 	});
-var $elm$core$List$foldr = F3(
-	function (fn, acc, ls) {
-		return A4($elm$core$List$foldrHelper, fn, acc, 0, ls);
-	});
-var $elm$core$List$map = F2(
-	function (f, xs) {
-		return A3(
-			$elm$core$List$foldr,
-			F2(
-				function (x, acc) {
-					return A2(
-						$elm$core$List$cons,
-						f(x),
-						acc);
-				}),
-			_List_Nil,
-			xs);
-	});
-var $elm$core$Task$andThen = _Scheduler_andThen;
-var $elm$core$Task$map = F2(
-	function (func, taskA) {
-		return A2(
-			$elm$core$Task$andThen,
-			function (a) {
-				return $elm$core$Task$succeed(
-					func(a));
-			},
-			taskA);
-	});
-var $elm$core$Task$map2 = F3(
-	function (func, taskA, taskB) {
-		return A2(
-			$elm$core$Task$andThen,
-			function (a) {
-				return A2(
-					$elm$core$Task$andThen,
-					function (b) {
-						return $elm$core$Task$succeed(
-							A2(func, a, b));
-					},
-					taskB);
-			},
-			taskA);
-	});
-var $elm$core$Task$sequence = function (tasks) {
-	return A3(
-		$elm$core$List$foldr,
-		$elm$core$Task$map2($elm$core$List$cons),
-		$elm$core$Task$succeed(_List_Nil),
-		tasks);
-};
-var $elm$core$Platform$sendToApp = _Platform_sendToApp;
-var $elm$core$Task$spawnCmd = F2(
-	function (router, _v0) {
-		var task = _v0.a;
-		return _Scheduler_spawn(
-			A2(
-				$elm$core$Task$andThen,
-				$elm$core$Platform$sendToApp(router),
-				task));
-	});
-var $elm$core$Task$onEffects = F3(
-	function (router, commands, state) {
-		return A2(
-			$elm$core$Task$map,
-			function (_v0) {
-				return _Utils_Tuple0;
-			},
-			$elm$core$Task$sequence(
-				A2(
-					$elm$core$List$map,
-					$elm$core$Task$spawnCmd(router),
-					commands)));
-	});
-var $elm$core$Task$onSelfMsg = F3(
-	function (_v0, _v1, _v2) {
-		return $elm$core$Task$succeed(_Utils_Tuple0);
-	});
-var $elm$core$Task$cmdMap = F2(
-	function (tagger, _v0) {
-		var task = _v0.a;
-		return $elm$core$Task$Perform(
-			A2($elm$core$Task$map, tagger, task));
-	});
-_Platform_effectManagers['Task'] = _Platform_createManager($elm$core$Task$init, $elm$core$Task$onEffects, $elm$core$Task$onSelfMsg, $elm$core$Task$cmdMap);
-var $elm$core$Task$command = _Platform_leaf('Task');
-var $elm$core$Task$perform = F2(
-	function (toMessage, task) {
-		return $elm$core$Task$command(
-			$elm$core$Task$Perform(
-				A2($elm$core$Task$map, toMessage, task)));
-	});
-var $elm$core$Debug$todo = _Debug_todo;
-var $author$project$Api$Handlers$SubmitCommentHandlerTEA$processRequest = function (request) {
-	var placeholderResponse = _Debug_todo(
-		'Api.Handlers.SubmitCommentHandlerTEA',
-		{
-			start: {line: 158, column: 31},
-			end: {line: 158, column: 41}
-		})('Implement SubmitComment handler');
-	return A2(
-		$elm$core$Task$perform,
-		function (_v0) {
-			return $author$project$Api$Handlers$SubmitCommentHandlerTEA$ProcessingComplete(placeholderResponse);
-		},
-		$elm$core$Task$succeed(_Utils_Tuple0));
-};
 var $author$project$Api$Handlers$SubmitCommentHandlerTEA$update = F2(
 	function (msg, model) {
-		if (msg.$ === 'HandleRequest') {
-			var bundle = msg.a;
-			return _Utils_Tuple2(
-				_Utils_update(
+		switch (msg.$) {
+			case 'HandleRequest':
+				var bundle = msg.a;
+				var updatedModel = _Utils_update(
 					model,
 					{
 						context: $elm$core$Maybe$Just(bundle.context),
 						request: $elm$core$Maybe$Just(bundle.request),
 						stage: $author$project$Api$Handlers$SubmitCommentHandlerTEA$Processing
-					}),
-				$author$project$Api$Handlers$SubmitCommentHandlerTEA$processRequest(bundle.request));
-		} else {
-			var result = msg.a;
-			return _Utils_Tuple2(
-				_Utils_update(
-					model,
-					{
-						stage: $author$project$Api$Handlers$SubmitCommentHandlerTEA$Complete(result)
-					}),
-				$author$project$Api$Handlers$SubmitCommentHandlerTEA$complete(
-					$author$project$Api$Handlers$SubmitCommentHandlerTEA$encodeSubmitCommentRes(result)));
+					});
+				var _v1 = A2($elm$core$Debug$log, '🐛 SubmitComment: Received request', bundle.request);
+				return _Utils_Tuple2(
+					updatedModel,
+					A2($author$project$Api$Handlers$SubmitCommentHandlerTEA$processRequest, bundle.request, updatedModel));
+			case 'ProcessingComplete':
+				var result = msg.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							stage: $author$project$Api$Handlers$SubmitCommentHandlerTEA$Complete(result)
+						}),
+					$author$project$Api$Handlers$SubmitCommentHandlerTEA$complete(
+						$author$project$Api$Handlers$SubmitCommentHandlerTEA$encodeSubmitCommentRes(result)));
+			default:
+				var dbResponse = msg.a;
+				var _v2 = A2($elm$core$Debug$log, '🐛 SubmitComment: CommentCreated dbResponse', dbResponse);
+				if (dbResponse.success) {
+					var _v3 = dbResponse.data;
+					if (_v3.$ === 'Just') {
+						var returnedData = _v3.a;
+						var apiComment = {
+							authorName: A2(
+								$elm$core$Maybe$withDefault,
+								'Anonymous',
+								A2(
+									$elm$core$Maybe$andThen,
+									function ($) {
+										return $.author_name;
+									},
+									model.request)),
+							guestId: A2(
+								$elm$core$Maybe$withDefault,
+								'guest_anonymous',
+								A2(
+									$elm$core$Maybe$andThen,
+									function ($) {
+										return $.author_name;
+									},
+									model.request)),
+							id: 'generated_id_from_db',
+							itemId: A2(
+								$elm$core$Maybe$withDefault,
+								'',
+								A2(
+									$elm$core$Maybe$map,
+									function ($) {
+										return $.item_id;
+									},
+									model.request)),
+							parentId: A2(
+								$elm$core$Maybe$andThen,
+								function ($) {
+									return $.parent_id;
+								},
+								model.request),
+							text: A2(
+								$elm$core$Maybe$withDefault,
+								'',
+								A2(
+									$elm$core$Maybe$map,
+									function ($) {
+										return $.text;
+									},
+									model.request)),
+							timestamp: model.globalConfig.serverNow
+						};
+						var response = {comment: apiComment};
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									stage: $author$project$Api$Handlers$SubmitCommentHandlerTEA$Complete(response)
+								}),
+							$author$project$Api$Handlers$SubmitCommentHandlerTEA$complete(
+								$author$project$Api$Handlers$SubmitCommentHandlerTEA$encodeSubmitCommentRes(response)));
+					} else {
+						var _v4 = A2($elm$core$Debug$log, '🐛 SubmitComment: No data returned from database', _Utils_Tuple0);
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{
+									stage: $author$project$Api$Handlers$SubmitCommentHandlerTEA$Failed('No data returned from database')
+								}),
+							$author$project$Api$Handlers$SubmitCommentHandlerTEA$complete(
+								$author$project$Api$Handlers$SubmitCommentHandlerTEA$encodeError('No data returned from database')));
+					}
+				} else {
+					var error = A2($elm$core$Maybe$withDefault, 'Database operation failed', dbResponse.error);
+					var _v5 = A2($elm$core$Debug$log, '🐛 SubmitComment: DB Error', error);
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								stage: $author$project$Api$Handlers$SubmitCommentHandlerTEA$Failed(error)
+							}),
+						$author$project$Api$Handlers$SubmitCommentHandlerTEA$complete(
+							$author$project$Api$Handlers$SubmitCommentHandlerTEA$encodeError(error)));
+				}
 		}
 	});
 var $elm$core$Platform$worker = _Platform_worker;
