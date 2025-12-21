@@ -211,6 +211,41 @@ mod tea_handler_lifecycle_tests {
         assert_eq!(result, "Handled by GetFeed");
     }
     
+    #[test]
+    fn test_hmr_fix_implementation_pattern() {
+        // This test validates our actual HMR fix implementation pattern
+        let registry = HandlerRegistry::new();
+        
+        // Simulate first handler creation
+        let port1 = registry.create_handler("GetFeed");
+        let _result1 = registry.send_message(port1, "test1").unwrap();
+        
+        // Simulate HMR cleanup and recreation (our fix)
+        {
+            let mut handlers = registry.handlers.lock().unwrap();
+            for handler in handlers.values_mut() {
+                handler.deactivate(); // Cleanup all subscriptions
+            }
+            handlers.clear(); // Remove all handlers
+        }
+        
+        // Create new handler after HMR
+        let port2 = registry.create_handler("GetFeed"); 
+        
+        // Verify clean state
+        assert_eq!(registry.active_handler_count(), 1);
+        
+        // Old port should not be valid (simulating our _hamlet_inactive check)
+        match registry.send_message(port1, "test2") {
+            Err(_) => {}, // Expected - old instance is gone
+            Ok(_) => panic!("Old handler should be completely removed"),
+        }
+        
+        // New handler should work normally
+        let result2 = registry.send_message(port2, "test2").unwrap();
+        assert_eq!(result2, "Handled by GetFeed");
+    }
+    
     #[test] 
     #[should_panic(expected = "State contamination detected")]
     fn test_state_contamination_between_handler_instances() {

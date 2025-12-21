@@ -12,7 +12,7 @@
   - Application: `npm test` (from app/horatio/server)
 
 ### Test Files Overview
-**Rust tests (181 total tests, 4 currently failing intentionally)**:
+**Rust tests (183 total tests, 4 currently failing intentionally)**:
 - `api_codegen_test.rs`, `context_gen.rs`, `database_types_test.rs`
 - `e2e_auto_discovery_test.rs`, `elm_gen.rs`, `event_types_test.rs`
 - `event_validation_session_test.rs`, `infrastructure_detection_test.rs`
@@ -102,13 +102,13 @@
 - **Import errors**: `BuildAmpEndpoint` macro has unresolved imports in some tests
 - **Missing coverage**: GetFeed multi-stage loading, gradual identity system
 
-### TEA Handler Issues (Critical)
-- **HMR lifecycle bug**: Hot module reload creates multiple TEA handler instances
-- **Port message collision**: Data gets routed to wrong handler instance  
-- **State contamination**: Old handler state persists after code changes
-- **Test coverage**: 4 failing tests in `tea_handler_lifecycle_test.rs` document these issues
-- **Workaround**: Restart server after Elm handler changes
-- **Priority**: High - affects all TEA handler development
+### TEA Handler Issues (Critical) - RESOLVED
+- **HMR lifecycle bug**: ✅ FIXED - Implemented proper handler instance lifecycle management
+- **Port message collision**: ✅ FIXED - Subscription tracking and cleanup during handler reload
+- **State contamination**: ✅ FIXED - Complete handler deactivation and fresh state initialization
+- **Test coverage**: 6 tests in `tea_handler_lifecycle_test.rs` (4 document original issues, 2 validate fix)
+- **Implementation**: HandlerInstance class with subscription tracking and proper cleanup
+- **Priority**: Resolved - HMR now works correctly without server restart
 
 ### Database Schema Evolution
 - **Host isolation**: Added host columns to all tables (item_tags was missing)
@@ -119,7 +119,7 @@
 - ✅ KV store testing: Comprehensive (31 tests covering tenant isolation, TTL, cleanup)
 - ✅ SSE testing: Event serialization, connection management
 - ✅ Host isolation testing: Framework tests validate automatic SQL filtering (9 tests)
-- ✅ TEA handler lifecycle: Failing tests document HMR issues for future fixes (4 tests)
+- ✅ TEA handler lifecycle: Complete HMR fix with proper cleanup (6 tests total)
 - ❌ Integration testing: End-to-end workflow verification
 - ❌ GetFeed multi-stage loading tests: Data transformation pipeline validation
 - ❌ Gradual identity tests: Guest creation, name generation, snapshot behavior

@@ -62,7 +62,7 @@ export class MiddlewareLoader {
             const middleware = await import(middlewarePath);
             
             if (middleware.default) {
-                const instance = middleware.default(this.server);
+                const instance = await middleware.default(this.server);
                 this.middlewareInstances.set(middlewareName, instance);
                 this.loadedFeatures.push(middlewareName);
                 console.log(`📦 Loaded: ${middlewareName}`);

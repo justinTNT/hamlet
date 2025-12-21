@@ -30,14 +30,71 @@ function getCurrentRequestContext(requestId) {
     return requestContexts.get(requestId);
 }
 
-export default function createElmService(server) {
+/**
+ * Handler instance tracking for proper HMR lifecycle management
+ */
+class HandlerInstance {
+    constructor(config, elmApp) {
+        this.config = config;
+        this.elmApp = elmApp;
+        this.isActive = true;
+        this.subscriptions = new Set();
+        this.createdAt = Date.now();
+        this.requestCount = 0;
+    }
+    
+    addSubscription(unsubscribeFn) {
+        this.subscriptions.add(unsubscribeFn);
+    }
+    
+    async deactivate() {
+        if (!this.isActive) return;
+        
+        console.log(`🔄 Deactivating handler instance: ${this.config.name} (created: ${new Date(this.createdAt).toISOString()})`);
+        this.isActive = false;
+        
+        // Cleanup all port subscriptions
+        for (const unsubscribe of this.subscriptions) {
+            try {
+                if (typeof unsubscribe === 'function') {
+                    unsubscribe();
+                }
+            } catch (error) {
+                console.warn(`⚠️  Error during subscription cleanup: ${error.message}`);
+            }
+        }
+        this.subscriptions.clear();
+        
+        // Mark Elm app as inactive to prevent further port operations
+        if (this.elmApp && this.elmApp.ports) {
+            this.elmApp._hamlet_inactive = true;
+        }
+        
+        console.log(`✅ Handler instance deactivated: ${this.config.name}`);
+    }
+    
+    isStale() {
+        // Consider instances older than 5 seconds stale during development
+        return Date.now() - this.createdAt > 5000;
+    }
+}
+
+export default async function createElmService(server) {
     console.log('🌳 Setting up Elm service with TEA Handler Support');
     
-    const handlers = new Map();
+    const handlers = new Map(); // name -> HandlerInstance
     const require = createRequire(import.meta.url);
     
+    // Cleanup any existing handlers before creating new ones
+    async function cleanupExistingHandlers() {
+        for (const [name, handlerInstance] of handlers.entries()) {
+            await handlerInstance.deactivate();
+            handlers.delete(name);
+        }
+    }
+    
     // Load compiled Elm handlers
-    try {
+    async function initializeHandlers() {
         const handlersPath = path.join(__dirname, '../../../app/horatio/server');
         
         // Auto-discover TEA handler configurations
@@ -54,6 +111,9 @@ export default function createElmService(server) {
                 handlerConfigs.push({ name: handlerName, file: baseName });
             }
         }
+        
+        // Cleanup existing handlers first (for HMR)
+        await cleanupExistingHandlers();
         
         for (const config of handlerConfigs) {
             try {
@@ -83,13 +143,11 @@ export default function createElmService(server) {
                             }
                         });
                         
-                        // Store the handler app
-                        handlers.set(config.name, {
-                            ...config,
-                            app: elmApp
-                        });
+                        // Create handler instance with proper lifecycle management
+                        const handlerInstance = new HandlerInstance(config, elmApp);
+                        handlers.set(config.name, handlerInstance);
                         
-                        console.log(`✅ Loaded TEA handler: ${config.name}`);
+                        console.log(`✅ Loaded TEA handler: ${config.name} (instance: ${handlerInstance.createdAt})`);
                     } else {
                         console.log(`⚠️  TEA handler ${config.name} structure not found`);
                     }
@@ -102,7 +160,11 @@ export default function createElmService(server) {
         }
         
         console.log(`🎯 Ready with ${handlers.size} TEA Elm handlers`);
-        
+    }
+    
+    // Initialize handlers
+    try {
+        await initializeHandlers();
     } catch (error) {
         console.error('❌ Failed to load Elm handlers:', error.message);
         return createFallbackService(server);
@@ -113,14 +175,26 @@ export default function createElmService(server) {
          * Call a TEA-based Elm handler
          */
         async callHandler(handlerName, requestData, context = {}) {
-            const handlerConfig = handlers.get(handlerName);
+            const handlerInstance = handlers.get(handlerName);
             
-            if (!handlerConfig || !handlerConfig.app) {
+            if (!handlerInstance || !handlerInstance.elmApp) {
                 throw new Error(`Handler ${handlerName} not available`);
             }
             
+            if (!handlerInstance.isActive) {
+                throw new Error(`Handler ${handlerName} instance is inactive`);
+            }
+            
+            // Check if Elm app is marked as inactive (for HMR safety)
+            if (handlerInstance.elmApp._hamlet_inactive) {
+                throw new Error(`Handler ${handlerName} Elm app instance is inactive`);
+            }
+            
+            // Increment request counter for this instance
+            handlerInstance.requestCount++;
+            
             return new Promise((resolve, reject) => {
-                const elmApp = handlerConfig.app;
+                const elmApp = handlerInstance.elmApp;
                 const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                 let isResolved = false;
                 
@@ -130,7 +204,10 @@ export default function createElmService(server) {
                     unsubscribe = elmApp.ports.complete.subscribe((result) => {
                         if (isResolved) return;
                         isResolved = true;
-                        if (unsubscribe) unsubscribe();
+                        if (unsubscribe) {
+                            unsubscribe();
+                            handlerInstance.subscriptions.delete(unsubscribe);
+                        }
                         
                         try {
                             const parsed = typeof result === 'string' ? JSON.parse(result) : result;
@@ -142,6 +219,9 @@ export default function createElmService(server) {
                         }
                     });
                     
+                    // Track subscription for cleanup during HMR
+                    handlerInstance.addSubscription(unsubscribe);
+                    
                     // Store context for this handler instance
                     let currentHandlerContext = null;
                     
@@ -150,7 +230,7 @@ export default function createElmService(server) {
                     
                     // Set up database port handlers
                     if (elmApp.ports.dbFind) {
-                        elmApp.ports.dbFind.subscribe(async (request) => {
+                        const dbFindUnsubscribe = elmApp.ports.dbFind.subscribe(async (request) => {
                             try {
                                 const dbService = server.getService('database');
                                 
@@ -159,13 +239,16 @@ export default function createElmService(server) {
                                 
                                 // Translate Elm query builder to SQL
                                 const { sql, params } = translateQueryToSQL(request.table, request.query, host);
+                                console.log(`🔍 SQL Query for ${request.table}:`, { sql, params });
                                 const result = await dbService.query(sql, params);
+                                console.log(`📊 DB Result for ${request.table}:`, { rowCount: result.rows.length, firstRow: result.rows[0] });
                                 
                                 if (elmApp.ports.dbResult) {
                                     elmApp.ports.dbResult.send({
                                         id: request.id,
                                         success: true,
-                                        data: result.rows
+                                        data: result.rows,
+                                        error: null
                                     });
                                 }
                             } catch (error) {
@@ -173,15 +256,17 @@ export default function createElmService(server) {
                                     elmApp.ports.dbResult.send({
                                         id: request.id,
                                         success: false,
+                                        data: null,
                                         error: error.message
                                     });
                                 }
                             }
                         });
+                        handlerInstance.addSubscription(dbFindUnsubscribe);
                     }
                     
                     if (elmApp.ports.dbCreate) {
-                        elmApp.ports.dbCreate.subscribe(async (request) => {
+                        const dbCreateUnsubscribe = elmApp.ports.dbCreate.subscribe(async (request) => {
                             try {
                                 const dbService = server.getService('database');
                                 const fields = Object.keys(request.data);
@@ -194,7 +279,8 @@ export default function createElmService(server) {
                                     elmApp.ports.dbResult.send({
                                         id: request.id,
                                         success: true,
-                                        data: result.rows[0]
+                                        data: result.rows[0],
+                                        error: null
                                     });
                                 }
                             } catch (error) {
@@ -202,16 +288,18 @@ export default function createElmService(server) {
                                     elmApp.ports.dbResult.send({
                                         id: request.id,
                                         success: false,
+                                        data: null,
                                         error: error.message
                                     });
                                 }
                             }
                         });
+                        handlerInstance.addSubscription(dbCreateUnsubscribe);
                     }
                     
                     // Set up Event Sourcing port handlers
                     if (elmApp.ports.eventPush) {
-                        elmApp.ports.eventPush.subscribe(async (eventRequest) => {
+                        const eventPushUnsubscribe = elmApp.ports.eventPush.subscribe(async (eventRequest) => {
                             try {
                                 console.log(`📧 Event scheduled:`, eventRequest);
                                 
@@ -294,11 +382,12 @@ export default function createElmService(server) {
                                 }
                             }
                         });
+                        handlerInstance.addSubscription(eventPushUnsubscribe);
                     }
                     
                     // Set up external Services port handlers
                     if (elmApp.ports.httpRequest) {
-                        elmApp.ports.httpRequest.subscribe(async (request) => {
+                        const httpRequestUnsubscribe = elmApp.ports.httpRequest.subscribe(async (request) => {
                             try {
                                 // TODO: Implement HTTP client with proper security/rate limiting
                                 console.log(`🌐 HTTP Request: ${request.method} ${request.url}`);
@@ -327,6 +416,7 @@ export default function createElmService(server) {
                                 }
                             }
                         });
+                        handlerInstance.addSubscription(httpRequestUnsubscribe);
                     }
                     
                     // Send request to Elm in TEA format
@@ -357,7 +447,10 @@ export default function createElmService(server) {
                     setTimeout(() => {
                         if (!isResolved) {
                             isResolved = true;
-                            if (unsubscribe) unsubscribe();
+                            if (unsubscribe) {
+                                unsubscribe();
+                                handlerInstance.subscriptions.delete(unsubscribe);
+                            }
                             reject(new Error(`Handler ${handlerName} timed out`));
                         }
                     }, 10000);
@@ -369,7 +462,14 @@ export default function createElmService(server) {
         
         cleanup: async () => {
             console.log('🧹 Cleaning up Elm service');
-            handlers.clear();
+            await cleanupExistingHandlers();
+        },
+        
+        // Expose handler reloading for HMR
+        async reloadHandlers() {
+            console.log('🔄 Reloading TEA handlers for HMR');
+            await initializeHandlers();
+            console.log('✅ Handler reload complete');
         }
     };
     
