@@ -1,5 +1,6 @@
 
 use buildamp_macro::buildamp_auto_discover_models;
+use wasm_bindgen::prelude::wasm_bindgen;
 
 // Mock framework dependencies for testing
 pub mod framework {

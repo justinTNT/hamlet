@@ -12,13 +12,13 @@
 
 import fs from 'fs';
 import { execSync } from 'child_process';
-import { generateDatabaseQueries } from '../../../shared/generation/database_queries.js';
-import { generateApiRoutes } from '../../../shared/generation/api_routes.js';
-import { generateBrowserStorage } from '../../../shared/generation/browser_storage.js';
-import { generateKvStore } from '../../../shared/generation/kv_store.js';
-import { generateSSEEvents } from '../../../shared/generation/sse_events.js';
-import { generateElmHandlers } from '../../../shared/generation/elm_handlers.js';
-import { generateElmSharedModules } from '../../../shared/generation/elm_shared_modules.js';
+import { generateDatabaseQueries } from '../shared/generation/database_queries.js';
+import { generateApiRoutes } from '../shared/generation/api_routes.js';
+import { generateBrowserStorage } from '../shared/generation/browser_storage.js';
+import { generateKvStore } from '../shared/generation/kv_store.js';
+import { generateSSEEvents } from '../shared/generation/sse_events.js';
+import { generateElmHandlers } from '../shared/generation/elm_handlers.js';
+import { generateElmSharedModules } from '../shared/generation/elm_shared_modules.js';
 
 /**
  * Run all generation phases in sequence

@@ -5,7 +5,8 @@
  * These are scaffolding files that developers can then customize with business logic.
  * 
  * Key principles:
- * - Generate files ONLY if they don't exist (preserve developer customizations)
+ * - Generate files ONLY if they don't exist (never overwrite existing files)
+ * - Developer must manually move/delete files to force regeneration  
  * - Parse Rust API definitions to find endpoints
  * - Create properly typed Elm handlers with database placeholders
  */
@@ -14,7 +15,7 @@ import fs from 'fs';
 import path from 'path';
 
 /**
- * Generate Elm handler scaffolding files
+ * Generate Elm handler scaffolding files (only if they don't exist)
  */
 export async function generateElmHandlers(config = {}) {
     console.log('🔧 Analyzing Rust API definitions...');
@@ -70,14 +71,9 @@ export async function generateElmHandlers(config = {}) {
             const handlerFile = path.join(outputDir, `${endpoint.name}HandlerTEA.elm`);
             
             if (fs.existsSync(handlerFile)) {
-                // Check if handler needs regeneration due to shared module changes
-                if (shouldRegenerateHandler(handlerFile, config, PROJECT_NAME)) {
-                    console.log(`   🔄 Regenerating ${endpoint.name}HandlerTEA.elm (dependencies changed)`);
-                } else {
-                    console.log(`   ⏭️  Skipping ${endpoint.name}HandlerTEA.elm (up to date)`);
-                    skippedCount++;
-                    continue;
-                }
+                console.log(`   ⏭️  Skipping ${endpoint.name}HandlerTEA.elm (already exists)`);
+                skippedCount++;
+                continue;
             }
             
             // Check if required shared modules exist before generating new handlers
