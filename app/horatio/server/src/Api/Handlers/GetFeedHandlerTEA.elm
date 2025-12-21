@@ -115,104 +115,116 @@ update msg model =
             )
         
         AllTagsLoaded result ->
-            case handleDbResponse result of
-                Ok data ->
-                    let
-                        _ = Debug.log "🏷️  Raw tags data" data
-                    in
-                    case decodeAllTags data of
-                        Ok tags ->
-                            let
-                                _ = Debug.log "🏷️  Decoded tags" tags
-                            in
-                            ( { model 
-                              | stage = LoadingItems
-                              , allTags = tags 
-                              }
-                            , loadMicroblogItems
-                            )
-                        Err error ->
-                            ( { model | stage = Failed error }
-                            , complete (encodeError error)
-                            )
-                Err error ->
-                    ( { model | stage = Failed error }
-                    , complete (encodeError error)
-                    )
+            if model.stage == LoadingAllTags then
+                case handleDbResponse result of
+                    Ok data ->
+                        let
+                            _ = Debug.log "🏷️  Raw tags data" data
+                        in
+                        case decodeAllTags data of
+                            Ok tags ->
+                                let
+                                    _ = Debug.log "🏷️  Decoded tags" tags
+                                in
+                                ( { model 
+                                  | stage = LoadingItems
+                                  , allTags = tags 
+                                  }
+                                , loadMicroblogItems
+                                )
+                            Err error ->
+                                ( { model | stage = Failed error }
+                                , complete (encodeError error)
+                                )
+                    Err error ->
+                        ( { model | stage = Failed error }
+                        , complete (encodeError error)
+                        )
+            else
+                ( model, Cmd.none )
         
         ItemsLoaded result ->
-            case handleDbResponse result of
-                Ok data ->
-                    let
-                        _ = Debug.log "📄 Raw items data" data
-                    in
-                    case decodeItems data of
-                        Ok items ->
-                            let
-                                itemIds = List.map .id items
-                                _ = Debug.log "📄 Decoded items" items
-                                _ = Debug.log "📄 Item IDs" itemIds
-                            in
-                            ( { model 
-                              | stage = LoadingItemTags
-                              , loadedItems = items 
-                              }
-                            , loadItemTagsForItems itemIds
-                            )
-                        Err error ->
-                            ( { model | stage = Failed error }
-                            , complete (encodeError error)
-                            )
-                Err error ->
-                    ( { model | stage = Failed error }
-                    , complete (encodeError error)
-                    )
+            if model.stage == LoadingItems then
+                case handleDbResponse result of
+                    Ok data ->
+                        let
+                            _ = Debug.log "📄 Raw items data" data
+                        in
+                        case decodeItems data of
+                            Ok items ->
+                                let
+                                    itemIds = List.map .id items
+                                    _ = Debug.log "📄 Decoded items" items
+                                    _ = Debug.log "📄 Item IDs" itemIds
+                                in
+                                ( { model 
+                                  | stage = LoadingItemTags
+                                  , loadedItems = items 
+                                  }
+                                , loadItemTagsForItems itemIds
+                                )
+                            Err error ->
+                                ( { model | stage = Failed error }
+                                , complete (encodeError error)
+                                )
+                    Err error ->
+                        ( { model | stage = Failed error }
+                        , complete (encodeError error)
+                        )
+            else
+                ( model, Cmd.none )
         
         ItemTagsLoaded result ->
-            case handleDbResponse result of
-                Ok data ->
-                    let
-                        _ = Debug.log "🔗 Raw item-tags data" data
-                    in
-                    case decodeItemTags data of
-                        Ok itemTagsList ->
-                            let
-                                itemIds = List.map .id model.loadedItems
-                                _ = Debug.log "🔗 Decoded item-tags" itemTagsList
-                            in
-                            ( { model 
-                              | stage = LoadingComments
-                              , itemTags = itemTagsList 
-                              }
-                            , loadCommentsForItems itemIds
-                            )
-                        Err error ->
-                            ( { model | stage = Failed error }
-                            , complete (encodeError error)
-                            )
-                Err error ->
-                    ( { model | stage = Failed error }
-                    , complete (encodeError error)
-                    )
+            if model.stage == LoadingItemTags then
+                case handleDbResponse result of
+                    Ok data ->
+                        let
+                            _ = Debug.log "🔗 Raw item-tags data" data
+                        in
+                        case decodeItemTags data of
+                            Ok itemTagsList ->
+                                let
+                                    itemIds = List.map .id model.loadedItems
+                                    _ = Debug.log "🔗 Decoded item-tags" itemTagsList
+                                in
+                                ( { model 
+                                  | stage = LoadingComments
+                                  , itemTags = itemTagsList 
+                                  }
+                                , loadCommentsForItems itemIds
+                                )
+                            Err error ->
+                                ( { model | stage = Failed error }
+                                , complete (encodeError error)
+                                )
+                    Err error ->
+                        ( { model | stage = Failed error }
+                        , complete (encodeError error)
+                        )
+            else
+                ( model, Cmd.none )
         
         CommentsLoaded result ->
-            case handleDbResponse result of
-                Ok data ->
-                    case decodeComments data of
-                        Ok comments ->
-                            let feedItems = transformToApiWithRelations model.loadedItems model.allTags model.itemTags comments
-                            in
-                            ( { model | stage = Complete { items = feedItems } }
-                            , complete (encodeGetFeedRes { items = feedItems })
-                            )
-                        Err error ->
-                            ( { model | stage = Failed error }
-                            , complete (encodeError error)
-                            )
-                Err error ->
-                    ( { model | stage = Failed error }
-                    , complete (encodeError error)
-                    )
+            if model.stage == LoadingComments then
+                case handleDbResponse result of
+                    Ok data ->
+                        case decodeComments data of
+                            Ok comments ->
+                                let feedItems = transformToApiWithRelations model.loadedItems model.allTags model.itemTags comments
+                                in
+                                ( { model | stage = Complete { items = feedItems } }
+                                , complete (encodeGetFeedRes { items = feedItems })
+                                )
+                            Err error ->
+                                ( { model | stage = Failed error }
+                                , complete (encodeError error)
+                                )
+                    Err error ->
+                        ( { model | stage = Failed error }
+                        , complete (encodeError error)
+                        )
+            else
+                ( model, Cmd.none )
 
 
 -- BUSINESS LOGIC
@@ -422,15 +434,10 @@ main =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    let
-        dbSub = case model.stage of
-            LoadingAllTags -> DB.dbResult AllTagsLoaded
-            LoadingItems -> DB.dbResult ItemsLoaded
-            LoadingItemTags -> DB.dbResult ItemTagsLoaded 
-            LoadingComments -> DB.dbResult CommentsLoaded
-            _ -> Sub.none
-    in
     Sub.batch
         [ handleRequest HandleRequest
-        , dbSub
+        , DB.dbResult AllTagsLoaded
+        , DB.dbResult ItemsLoaded
+        , DB.dbResult ItemTagsLoaded
+        , DB.dbResult CommentsLoaded
         ]

@@ -31,7 +31,7 @@ function getCurrentRequestContext(requestId) {
 }
 
 /**
- * Handler instance tracking for proper HMR lifecycle management
+ * Fresh handler instance with cleanup capability
  */
 class HandlerInstance {
     constructor(config, elmApp) {
@@ -40,17 +40,16 @@ class HandlerInstance {
         this.isActive = true;
         this.subscriptions = new Set();
         this.createdAt = Date.now();
-        this.requestCount = 0;
     }
     
     addSubscription(unsubscribeFn) {
         this.subscriptions.add(unsubscribeFn);
     }
     
-    async deactivate() {
+    async cleanup() {
         if (!this.isActive) return;
         
-        console.log(`🔄 Deactivating handler instance: ${this.config.name} (created: ${new Date(this.createdAt).toISOString()})`);
+        console.log(`🧹 Cleaning up handler instance: ${this.config.name}`);
         this.isActive = false;
         
         // Cleanup all port subscriptions
@@ -65,31 +64,132 @@ class HandlerInstance {
         }
         this.subscriptions.clear();
         
-        // Mark Elm app as inactive to prevent further port operations
+        // Mark Elm app as inactive
         if (this.elmApp && this.elmApp.ports) {
             this.elmApp._hamlet_inactive = true;
         }
         
-        console.log(`✅ Handler instance deactivated: ${this.config.name}`);
+        console.log(`✅ Handler instance cleaned up: ${this.config.name}`);
+    }
+}
+
+/**
+ * TEA Handler Pool - maintains fresh instances for optimal performance + isolation
+ */
+class TEAHandlerPool {
+    constructor(handlerModule, config, poolSize = 3) {
+        this.handlerModule = handlerModule;
+        this.config = config;
+        this.poolSize = poolSize;
+        this.maxIdle = poolSize * 2; // Allow buffer beyond target
+        this.available = [];      // idle/waiting
+        this.busy = new Set();    // running
+        this.spawning = new Set(); // being created
+        
+        // Initialize pool asynchronously
+        this.ready = this.fillPool();
     }
     
-    isStale() {
-        // Consider instances older than 5 seconds stale during development
-        return Date.now() - this.createdAt > 5000;
+    async fillPool() {
+        console.log(`🏊 Filling TEA handler pool: ${this.config.name} (target: ${this.poolSize})`);
+        const promises = [];
+        for (let i = 0; i < this.poolSize; i++) {
+            promises.push(this.spawnFresh());
+        }
+        const handlers = await Promise.all(promises);
+        this.available.push(...handlers);
+        console.log(`✅ TEA handler pool ready: ${this.config.name} (${this.available.length} instances)`);
+    }
+    
+    async getHandler() {
+        let handler;
+        
+        if (this.available.length > 0) {
+            handler = this.available.pop();
+        } else {
+            console.log(`⚡ Pool empty, spawning fresh handler: ${this.config.name}`);
+            handler = await this.spawnFresh();
+        }
+        
+        this.busy.add(handler);
+        
+        // Smart replacement: only spawn if we need more capacity
+        if (this.available.length < this.maxIdle) {
+            this.spawnReplacement();
+        }
+        
+        console.log(`📊 Pool stats: ${this.config.name} (available: ${this.available.length}, busy: ${this.busy.size}, spawning: ${this.spawning.size})`);
+        
+        return handler;
+    }
+    
+    releaseHandler(handler) {
+        this.busy.delete(handler);
+        handler.cleanup(); // Always fresh, never reuse
+        console.log(`🔄 Released handler: ${this.config.name} (available: ${this.available.length}, busy: ${this.busy.size})`);
+    }
+    
+    async spawnFresh() {
+        const serverNow = Date.now();
+        const elmApp = this.handlerModule.Elm.Api.Handlers[this.config.file].init({
+            node: null,
+            flags: {
+                globalConfig: {
+                    serverNow: serverNow,
+                    hostIsolation: true,
+                    environment: process.env.NODE_ENV || 'development'
+                },
+                globalState: {
+                    requestCount: 0,
+                    lastActivity: serverNow
+                }
+            }
+        });
+        
+        return new HandlerInstance(this.config, elmApp);
+    }
+    
+    spawnReplacement() {
+        const spawnPromise = this.spawnFresh();
+        this.spawning.add(spawnPromise);
+        
+        spawnPromise.then(fresh => {
+            this.spawning.delete(spawnPromise);
+            this.available.push(fresh);
+            console.log(`🆕 Spawned replacement handler: ${this.config.name} (available: ${this.available.length})`);
+        }).catch(error => {
+            this.spawning.delete(spawnPromise);
+            console.error(`❌ Failed to spawn replacement handler: ${this.config.name}:`, error);
+        });
+    }
+    
+    async cleanup() {
+        console.log(`🧹 Cleaning up TEA handler pool: ${this.config.name}`);
+        
+        // Cleanup all handlers
+        const allHandlers = [...this.available, ...this.busy];
+        await Promise.all(allHandlers.map(h => h.cleanup()));
+        
+        this.available = [];
+        this.busy.clear();
+        this.spawning.clear();
+        
+        console.log(`✅ TEA handler pool cleaned up: ${this.config.name}`);
     }
 }
 
 export default async function createElmService(server) {
     console.log('🌳 Setting up Elm service with TEA Handler Support');
     
-    const handlers = new Map(); // name -> HandlerInstance
+    const handlerPools = new Map(); // name -> TEAHandlerPool
     const require = createRequire(import.meta.url);
+    let isReloading = false; // Prevent concurrent reloads
     
-    // Cleanup any existing handlers before creating new ones
-    async function cleanupExistingHandlers() {
-        for (const [name, handlerInstance] of handlers.entries()) {
-            await handlerInstance.deactivate();
-            handlers.delete(name);
+    // Cleanup any existing pools before creating new ones
+    async function cleanupExistingPools() {
+        for (const [name, pool] of handlerPools.entries()) {
+            await pool.cleanup();
+            handlerPools.delete(name);
         }
     }
     
@@ -112,8 +212,8 @@ export default async function createElmService(server) {
             }
         }
         
-        // Cleanup existing handlers first (for HMR)
-        await cleanupExistingHandlers();
+        // Cleanup existing pools first (for HMR)
+        await cleanupExistingPools();
         
         for (const config of handlerConfigs) {
             try {
@@ -126,28 +226,14 @@ export default async function createElmService(server) {
                     
                     // Access the Elm app from our context
                     if (handlerModule.Elm && handlerModule.Elm.Api && handlerModule.Elm.Api.Handlers && handlerModule.Elm.Api.Handlers[config.file]) {
-                        // Initialize TEA handler with server-issued configuration
-                        const serverNow = Date.now(); // Server-issued timestamp
-                        const elmApp = handlerModule.Elm.Api.Handlers[config.file].init({
-                            node: null, // No DOM node for server-side handlers
-                            flags: {
-                                globalConfig: {
-                                    serverNow: serverNow,
-                                    hostIsolation: true,
-                                    environment: process.env.NODE_ENV || 'development'
-                                },
-                                globalState: {
-                                    requestCount: 0,
-                                    lastActivity: serverNow
-                                }
-                            }
-                        });
+                        // Create TEA handler pool for this endpoint
+                        const poolSize = server.config.poolSize || 3;
+                        const handlerPool = new TEAHandlerPool(handlerModule, config, poolSize);
+                        await handlerPool.ready; // Wait for pool to initialize
                         
-                        // Create handler instance with proper lifecycle management
-                        const handlerInstance = new HandlerInstance(config, elmApp);
-                        handlers.set(config.name, handlerInstance);
+                        handlerPools.set(config.name, handlerPool);
                         
-                        console.log(`✅ Loaded TEA handler: ${config.name} (instance: ${handlerInstance.createdAt})`);
+                        console.log(`✅ Loaded TEA handler pool: ${config.name} (${poolSize} instances)`);
                     } else {
                         console.log(`⚠️  TEA handler ${config.name} structure not found`);
                     }
@@ -159,7 +245,7 @@ export default async function createElmService(server) {
             }
         }
         
-        console.log(`🎯 Ready with ${handlers.size} TEA Elm handlers`);
+        console.log(`🎯 Ready with ${handlerPools.size} TEA Elm handler pools`);
     }
     
     // Initialize handlers
@@ -175,28 +261,57 @@ export default async function createElmService(server) {
          * Call a TEA-based Elm handler
          */
         async callHandler(handlerName, requestData, context = {}) {
-            const handlerInstance = handlers.get(handlerName);
+            const handlerPool = handlerPools.get(handlerName);
             
-            if (!handlerInstance || !handlerInstance.elmApp) {
-                throw new Error(`Handler ${handlerName} not available`);
+            if (!handlerPool) {
+                throw new Error(`Handler ${handlerName} pool not available`);
             }
             
-            if (!handlerInstance.isActive) {
-                throw new Error(`Handler ${handlerName} instance is inactive`);
-            }
-            
-            // Check if Elm app is marked as inactive (for HMR safety)
-            if (handlerInstance.elmApp._hamlet_inactive) {
-                throw new Error(`Handler ${handlerName} Elm app instance is inactive`);
-            }
-            
-            // Increment request counter for this instance
-            handlerInstance.requestCount++;
+            // Get fresh handler from pool
+            const handlerInstance = await handlerPool.getHandler();
             
             return new Promise((resolve, reject) => {
                 const elmApp = handlerInstance.elmApp;
                 const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                 let isResolved = false;
+                
+                // Store request context for database operations (request-scoped, not handler-scoped)
+                const requestContext = {
+                    host: context.host || 'localhost',
+                    sessionId: context.session_id || null,
+                    userId: context.user_id || null,
+                    isExtension: context.is_extension || false,
+                    requestId: requestId,
+                    startTime: Date.now()
+                };
+                
+                console.log(`🌳 ${handlerName} TEA request ${requestId} started (pool instance: ${handlerInstance.createdAt})`);
+                console.log(`🔍 Request context:`, {
+                    host: requestContext.host,
+                    sessionId: requestContext.sessionId ? requestContext.sessionId.substring(0, 8) + '...' : null,
+                    userId: requestContext.userId,
+                    requestId: requestId
+                });
+                
+                // Track all request-specific subscriptions for proper cleanup
+                const requestSubscriptions = new Set();
+                
+                // Helper function to clean up all request-specific subscriptions
+                const cleanupRequestSubscriptions = () => {
+                    const subCount = requestSubscriptions.size;
+                    for (const unsubFn of requestSubscriptions) {
+                        try {
+                            if (typeof unsubFn === 'function') {
+                                unsubFn();
+                            }
+                            handlerInstance.subscriptions.delete(unsubFn);
+                        } catch (error) {
+                            console.warn(`⚠️  Error during request subscription cleanup: ${error.message}`);
+                        }
+                    }
+                    requestSubscriptions.clear();
+                    console.log(`🧹 Cleaned up ${subCount} subscriptions for request ${requestId}`);
+                };
                 
                 // Set up TEA completion handler
                 let unsubscribe = null;
@@ -204,44 +319,56 @@ export default async function createElmService(server) {
                     unsubscribe = elmApp.ports.complete.subscribe((result) => {
                         if (isResolved) return;
                         isResolved = true;
-                        if (unsubscribe) {
-                            unsubscribe();
-                            handlerInstance.subscriptions.delete(unsubscribe);
-                        }
                         
                         try {
                             const parsed = typeof result === 'string' ? JSON.parse(result) : result;
-                            console.log(`🌳 ${handlerName} TEA handler completed successfully`);
+                            const duration = Date.now() - requestContext.startTime;
+                            console.log(`🌳 ${handlerName} request ${requestId} completed successfully (${duration}ms)`);
+                            
+                            // Clean up all request-specific subscriptions
+                            cleanupRequestSubscriptions();
+                            
+                            // Return handler to pool (cleanup happens in pool)
+                            handlerPool.releaseHandler(handlerInstance);
+                            
                             resolve(parsed);
                         } catch (parseError) {
-                            console.error(`❌ ${handlerName} handler response parse error:`, parseError);
+                            console.error(`❌ ${handlerName} request ${requestId} response parse error:`, parseError);
+                            cleanupRequestSubscriptions();
+                            
+                            // Return handler to pool even on error
+                            handlerPool.releaseHandler(handlerInstance);
+                            
                             reject(parseError);
                         }
                     });
                     
-                    // Track subscription for cleanup during HMR
+                    // Track subscriptions for both HMR cleanup and request cleanup
                     handlerInstance.addSubscription(unsubscribe);
+                    requestSubscriptions.add(unsubscribe);
                     
-                    // Store context for this handler instance
-                    let currentHandlerContext = null;
-                    
-                    // Request correlation for database operations
+                    // Request correlation for database operations (isolated per request)
                     const pendingDbRequests = new Map();
                     
-                    // Set up database port handlers
+                    // Set up database port handlers (using request-scoped context)
                     if (elmApp.ports.dbFind) {
                         const dbFindUnsubscribe = elmApp.ports.dbFind.subscribe(async (request) => {
                             try {
                                 const dbService = server.getService('database');
                                 
-                                // Use the current handler's context for host isolation
-                                const host = currentHandlerContext?.host || 'localhost';
+                                // Use the request-scoped context for host isolation
+                                const host = requestContext.host;
                                 
                                 // Translate Elm query builder to SQL
                                 const { sql, params } = translateQueryToSQL(request.table, request.query, host);
-                                console.log(`🔍 SQL Query for ${request.table}:`, { sql, params });
+                                console.log(`🔍 SQL Query [${requestId}] for ${request.table}:`, { sql, params, host });
                                 const result = await dbService.query(sql, params);
-                                console.log(`📊 DB Result for ${request.table}:`, { rowCount: result.rows.length, firstRow: result.rows[0] });
+                                console.log(`📊 DB Result [${requestId}] for ${request.table}:`, { 
+                                    rowCount: result.rows.length, 
+                                    firstRow: result.rows[0],
+                                    queryId: request.id,
+                                    host: host
+                                });
                                 
                                 if (elmApp.ports.dbResult) {
                                     elmApp.ports.dbResult.send({
@@ -263,6 +390,7 @@ export default async function createElmService(server) {
                             }
                         });
                         handlerInstance.addSubscription(dbFindUnsubscribe);
+                        requestSubscriptions.add(dbFindUnsubscribe);
                     }
                     
                     if (elmApp.ports.dbCreate) {
@@ -295,6 +423,7 @@ export default async function createElmService(server) {
                             }
                         });
                         handlerInstance.addSubscription(dbCreateUnsubscribe);
+                        requestSubscriptions.add(dbCreateUnsubscribe);
                     }
                     
                     // Set up Event Sourcing port handlers
@@ -325,9 +454,9 @@ export default async function createElmService(server) {
                                 
                                 // Insert event into buildamp_events table with session context
                                 const eventData = {
-                                    session_id: currentHandlerContext?.sessionId || null,
+                                    session_id: requestContext.sessionId || null,
                                     application: server.config.application || process.env.APP_NAME || 'buildamp_app',
-                                    host: currentHandlerContext?.host || 'localhost',
+                                    host: requestContext.host,
                                     event_type: eventRequest.eventType,
                                     correlation_id: eventRequest.correlationId || null,
                                     payload: JSON.stringify(eventRequest.payload || {}),
@@ -383,6 +512,7 @@ export default async function createElmService(server) {
                             }
                         });
                         handlerInstance.addSubscription(eventPushUnsubscribe);
+                        requestSubscriptions.add(eventPushUnsubscribe);
                     }
                     
                     // Set up external Services port handlers
@@ -417,6 +547,7 @@ export default async function createElmService(server) {
                             }
                         });
                         handlerInstance.addSubscription(httpRequestUnsubscribe);
+                        requestSubscriptions.add(httpRequestUnsubscribe);
                     }
                     
                     // Send request to Elm in TEA format
@@ -430,16 +561,20 @@ export default async function createElmService(server) {
                             request: requestData
                         };
                         
-                        // Store context for this handler instance
-                        currentHandlerContext = requestBundle.context;
+                        // Context is already stored in requestContext (request-scoped)
+                        // No need for handler-level context storage which could cause leaks
                         
                         // Update global state with current activity
                         // Note: In a real implementation, this could be handled by the Elm handler itself
-                        console.log(`🕒 Request processed at server time: ${Date.now()}`);
+                        console.log(`🕒 Request ${requestId} processed at server time: ${Date.now()}`);
                         
                         elmApp.ports.handleRequest.send(requestBundle);
                     } else {
-                        if (unsubscribe) unsubscribe();
+                        cleanupRequestSubscriptions();
+                        
+                        // Return handler to pool even on error
+                        handlerPool.releaseHandler(handlerInstance);
+                        
                         reject(new Error(`Handler ${handlerName} missing handleRequest port`));
                     }
                     
@@ -447,14 +582,19 @@ export default async function createElmService(server) {
                     setTimeout(() => {
                         if (!isResolved) {
                             isResolved = true;
-                            if (unsubscribe) {
-                                unsubscribe();
-                                handlerInstance.subscriptions.delete(unsubscribe);
-                            }
-                            reject(new Error(`Handler ${handlerName} timed out`));
+                            console.error(`❌ ${handlerName} request ${requestId} timed out after 10 seconds`);
+                            cleanupRequestSubscriptions();
+                            
+                            // Return handler to pool even on timeout
+                            handlerPool.releaseHandler(handlerInstance);
+                            
+                            reject(new Error(`Handler ${handlerName} request ${requestId} timed out`));
                         }
                     }, 10000);
                 } else {
+                    // Return handler to pool even on error
+                    handlerPool.releaseHandler(handlerInstance);
+                    
                     reject(new Error(`Handler ${handlerName} missing complete port`));
                 }
             });
@@ -462,14 +602,24 @@ export default async function createElmService(server) {
         
         cleanup: async () => {
             console.log('🧹 Cleaning up Elm service');
-            await cleanupExistingHandlers();
+            await cleanupExistingPools();
         },
         
         // Expose handler reloading for HMR
         async reloadHandlers() {
-            console.log('🔄 Reloading TEA handlers for HMR');
-            await initializeHandlers();
-            console.log('✅ Handler reload complete');
+            if (isReloading) {
+                console.log('🔄 Handler reload already in progress, skipping');
+                return;
+            }
+            
+            isReloading = true;
+            try {
+                console.log('🔄 Reloading TEA handlers for HMR');
+                await initializeHandlers();
+                console.log('✅ Handler reload complete');
+            } finally {
+                isReloading = false;
+            }
         }
     };
     

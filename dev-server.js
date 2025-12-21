@@ -241,6 +241,34 @@ function startServer() {
 }
 
 /**
+ * Run targeted generation with TEA handler reload
+ */
+async function runTargetedGeneration(filePath, phase, reason = 'File change') {
+    try {
+        // Run the targeted generation
+        await regenerateCodeForFile(filePath, reason);
+        
+        // Trigger handler reload for the running server if applicable
+        // This ensures handlers pick up new generated code without full restart
+        if (phase === 'api' || phase === 'all') {
+            console.log('🔄 Triggering handler reload...');
+            // In a production setup, we'd send a signal to the running server
+            // For dev mode, we do a full restart to ensure clean state
+            await restart(`Generated code updated (${phase})`, filePath);
+        } else {
+            // For non-handler changes, just rebuild Elm
+            await buildElm();
+            console.log(`✅ ${phase} phase complete`);
+        }
+        
+    } catch (error) {
+        console.error(`❌ Targeted generation failed for ${phase}:`, error.message);
+        // Fall back to full restart on generation errors
+        await restart('Generation error, full restart', filePath);
+    }
+}
+
+/**
  * Restart the development stack with targeted generation
  */
 async function restart(reason = 'File change detected', changedFile = null) {

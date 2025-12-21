@@ -4,6 +4,7 @@ import { HamletServer } from '../../../packages/hamlet-server/core/server.js';
 const config = {
     port: 3000,
     application: 'horatio',
+    poolSize: 5,
     features: {
         database: true, // Enable PostgreSQL integration
         kv: true,       // Enable key-value store

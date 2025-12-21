@@ -2959,28 +2959,15 @@ var $author$project$Api$Handlers$GetFeedHandlerTEA$handleRequest = _Platform_inc
 						{host: host});
 				},
 				A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string)))));
-var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
 var $author$project$Api$Handlers$GetFeedHandlerTEA$subscriptions = function (model) {
-	var dbSub = function () {
-		var _v0 = model.stage;
-		switch (_v0.$) {
-			case 'LoadingAllTags':
-				return $author$project$Generated$Database$dbResult($author$project$Api$Handlers$GetFeedHandlerTEA$AllTagsLoaded);
-			case 'LoadingItems':
-				return $author$project$Generated$Database$dbResult($author$project$Api$Handlers$GetFeedHandlerTEA$ItemsLoaded);
-			case 'LoadingItemTags':
-				return $author$project$Generated$Database$dbResult($author$project$Api$Handlers$GetFeedHandlerTEA$ItemTagsLoaded);
-			case 'LoadingComments':
-				return $author$project$Generated$Database$dbResult($author$project$Api$Handlers$GetFeedHandlerTEA$CommentsLoaded);
-			default:
-				return $elm$core$Platform$Sub$none;
-		}
-	}();
 	return $elm$core$Platform$Sub$batch(
 		_List_fromArray(
 			[
 				$author$project$Api$Handlers$GetFeedHandlerTEA$handleRequest($author$project$Api$Handlers$GetFeedHandlerTEA$HandleRequest),
-				dbSub
+				$author$project$Generated$Database$dbResult($author$project$Api$Handlers$GetFeedHandlerTEA$AllTagsLoaded),
+				$author$project$Generated$Database$dbResult($author$project$Api$Handlers$GetFeedHandlerTEA$ItemsLoaded),
+				$author$project$Generated$Database$dbResult($author$project$Api$Handlers$GetFeedHandlerTEA$ItemTagsLoaded),
+				$author$project$Generated$Database$dbResult($author$project$Api$Handlers$GetFeedHandlerTEA$CommentsLoaded)
 			]));
 };
 var $author$project$Api$Handlers$GetFeedHandlerTEA$Complete = function (a) {
@@ -3760,21 +3747,33 @@ var $author$project$Api$Handlers$GetFeedHandlerTEA$update = F2(
 					$author$project$Api$Handlers$GetFeedHandlerTEA$loadAllTags);
 			case 'AllTagsLoaded':
 				var result = msg.a;
-				var _v1 = $author$project$Api$Handlers$GetFeedHandlerTEA$handleDbResponse(result);
-				if (_v1.$ === 'Ok') {
-					var data = _v1.a;
-					var _v2 = A2($elm$core$Debug$log, '🏷️  Raw tags data', data);
-					var _v3 = $author$project$Api$Handlers$GetFeedHandlerTEA$decodeAllTags(data);
-					if (_v3.$ === 'Ok') {
-						var tags = _v3.a;
-						var _v4 = A2($elm$core$Debug$log, '🏷️  Decoded tags', tags);
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{allTags: tags, stage: $author$project$Api$Handlers$GetFeedHandlerTEA$LoadingItems}),
-							$author$project$Api$Handlers$GetFeedHandlerTEA$loadMicroblogItems);
+				if (_Utils_eq(model.stage, $author$project$Api$Handlers$GetFeedHandlerTEA$LoadingAllTags)) {
+					var _v1 = $author$project$Api$Handlers$GetFeedHandlerTEA$handleDbResponse(result);
+					if (_v1.$ === 'Ok') {
+						var data = _v1.a;
+						var _v2 = A2($elm$core$Debug$log, '🏷️  Raw tags data', data);
+						var _v3 = $author$project$Api$Handlers$GetFeedHandlerTEA$decodeAllTags(data);
+						if (_v3.$ === 'Ok') {
+							var tags = _v3.a;
+							var _v4 = A2($elm$core$Debug$log, '🏷️  Decoded tags', tags);
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{allTags: tags, stage: $author$project$Api$Handlers$GetFeedHandlerTEA$LoadingItems}),
+								$author$project$Api$Handlers$GetFeedHandlerTEA$loadMicroblogItems);
+						} else {
+							var error = _v3.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										stage: $author$project$Api$Handlers$GetFeedHandlerTEA$Failed(error)
+									}),
+								$author$project$Api$Handlers$GetFeedHandlerTEA$complete(
+									$author$project$Api$Handlers$GetFeedHandlerTEA$encodeError(error)));
+						}
 					} else {
-						var error = _v3.a;
+						var error = _v1.a;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
@@ -3785,40 +3784,44 @@ var $author$project$Api$Handlers$GetFeedHandlerTEA$update = F2(
 								$author$project$Api$Handlers$GetFeedHandlerTEA$encodeError(error)));
 					}
 				} else {
-					var error = _v1.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								stage: $author$project$Api$Handlers$GetFeedHandlerTEA$Failed(error)
-							}),
-						$author$project$Api$Handlers$GetFeedHandlerTEA$complete(
-							$author$project$Api$Handlers$GetFeedHandlerTEA$encodeError(error)));
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				}
 			case 'ItemsLoaded':
 				var result = msg.a;
-				var _v5 = $author$project$Api$Handlers$GetFeedHandlerTEA$handleDbResponse(result);
-				if (_v5.$ === 'Ok') {
-					var data = _v5.a;
-					var _v6 = A2($elm$core$Debug$log, '📄 Raw items data', data);
-					var _v7 = $author$project$Api$Handlers$GetFeedHandlerTEA$decodeItems(data);
-					if (_v7.$ === 'Ok') {
-						var items = _v7.a;
-						var itemIds = A2(
-							$elm$core$List$map,
-							function ($) {
-								return $.id;
-							},
-							items);
-						var _v8 = A2($elm$core$Debug$log, '📄 Decoded items', items);
-						var _v9 = A2($elm$core$Debug$log, '📄 Item IDs', itemIds);
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{loadedItems: items, stage: $author$project$Api$Handlers$GetFeedHandlerTEA$LoadingItemTags}),
-							$author$project$Api$Handlers$GetFeedHandlerTEA$loadItemTagsForItems(itemIds));
+				if (_Utils_eq(model.stage, $author$project$Api$Handlers$GetFeedHandlerTEA$LoadingItems)) {
+					var _v5 = $author$project$Api$Handlers$GetFeedHandlerTEA$handleDbResponse(result);
+					if (_v5.$ === 'Ok') {
+						var data = _v5.a;
+						var _v6 = A2($elm$core$Debug$log, '📄 Raw items data', data);
+						var _v7 = $author$project$Api$Handlers$GetFeedHandlerTEA$decodeItems(data);
+						if (_v7.$ === 'Ok') {
+							var items = _v7.a;
+							var itemIds = A2(
+								$elm$core$List$map,
+								function ($) {
+									return $.id;
+								},
+								items);
+							var _v8 = A2($elm$core$Debug$log, '📄 Decoded items', items);
+							var _v9 = A2($elm$core$Debug$log, '📄 Item IDs', itemIds);
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{loadedItems: items, stage: $author$project$Api$Handlers$GetFeedHandlerTEA$LoadingItemTags}),
+								$author$project$Api$Handlers$GetFeedHandlerTEA$loadItemTagsForItems(itemIds));
+						} else {
+							var error = _v7.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										stage: $author$project$Api$Handlers$GetFeedHandlerTEA$Failed(error)
+									}),
+								$author$project$Api$Handlers$GetFeedHandlerTEA$complete(
+									$author$project$Api$Handlers$GetFeedHandlerTEA$encodeError(error)));
+						}
 					} else {
-						var error = _v7.a;
+						var error = _v5.a;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
@@ -3829,39 +3832,43 @@ var $author$project$Api$Handlers$GetFeedHandlerTEA$update = F2(
 								$author$project$Api$Handlers$GetFeedHandlerTEA$encodeError(error)));
 					}
 				} else {
-					var error = _v5.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								stage: $author$project$Api$Handlers$GetFeedHandlerTEA$Failed(error)
-							}),
-						$author$project$Api$Handlers$GetFeedHandlerTEA$complete(
-							$author$project$Api$Handlers$GetFeedHandlerTEA$encodeError(error)));
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				}
 			case 'ItemTagsLoaded':
 				var result = msg.a;
-				var _v10 = $author$project$Api$Handlers$GetFeedHandlerTEA$handleDbResponse(result);
-				if (_v10.$ === 'Ok') {
-					var data = _v10.a;
-					var _v11 = A2($elm$core$Debug$log, '🔗 Raw item-tags data', data);
-					var _v12 = $author$project$Api$Handlers$GetFeedHandlerTEA$decodeItemTags(data);
-					if (_v12.$ === 'Ok') {
-						var itemTagsList = _v12.a;
-						var itemIds = A2(
-							$elm$core$List$map,
-							function ($) {
-								return $.id;
-							},
-							model.loadedItems);
-						var _v13 = A2($elm$core$Debug$log, '🔗 Decoded item-tags', itemTagsList);
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{itemTags: itemTagsList, stage: $author$project$Api$Handlers$GetFeedHandlerTEA$LoadingComments}),
-							$author$project$Api$Handlers$GetFeedHandlerTEA$loadCommentsForItems(itemIds));
+				if (_Utils_eq(model.stage, $author$project$Api$Handlers$GetFeedHandlerTEA$LoadingItemTags)) {
+					var _v10 = $author$project$Api$Handlers$GetFeedHandlerTEA$handleDbResponse(result);
+					if (_v10.$ === 'Ok') {
+						var data = _v10.a;
+						var _v11 = A2($elm$core$Debug$log, '🔗 Raw item-tags data', data);
+						var _v12 = $author$project$Api$Handlers$GetFeedHandlerTEA$decodeItemTags(data);
+						if (_v12.$ === 'Ok') {
+							var itemTagsList = _v12.a;
+							var itemIds = A2(
+								$elm$core$List$map,
+								function ($) {
+									return $.id;
+								},
+								model.loadedItems);
+							var _v13 = A2($elm$core$Debug$log, '🔗 Decoded item-tags', itemTagsList);
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{itemTags: itemTagsList, stage: $author$project$Api$Handlers$GetFeedHandlerTEA$LoadingComments}),
+								$author$project$Api$Handlers$GetFeedHandlerTEA$loadCommentsForItems(itemIds));
+						} else {
+							var error = _v12.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										stage: $author$project$Api$Handlers$GetFeedHandlerTEA$Failed(error)
+									}),
+								$author$project$Api$Handlers$GetFeedHandlerTEA$complete(
+									$author$project$Api$Handlers$GetFeedHandlerTEA$encodeError(error)));
+						}
 					} else {
-						var error = _v12.a;
+						var error = _v10.a;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
@@ -3872,37 +3879,41 @@ var $author$project$Api$Handlers$GetFeedHandlerTEA$update = F2(
 								$author$project$Api$Handlers$GetFeedHandlerTEA$encodeError(error)));
 					}
 				} else {
-					var error = _v10.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								stage: $author$project$Api$Handlers$GetFeedHandlerTEA$Failed(error)
-							}),
-						$author$project$Api$Handlers$GetFeedHandlerTEA$complete(
-							$author$project$Api$Handlers$GetFeedHandlerTEA$encodeError(error)));
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				}
 			default:
 				var result = msg.a;
-				var _v14 = $author$project$Api$Handlers$GetFeedHandlerTEA$handleDbResponse(result);
-				if (_v14.$ === 'Ok') {
-					var data = _v14.a;
-					var _v15 = $author$project$Api$Handlers$GetFeedHandlerTEA$decodeComments(data);
-					if (_v15.$ === 'Ok') {
-						var comments = _v15.a;
-						var feedItems = A4($author$project$Api$Handlers$GetFeedHandlerTEA$transformToApiWithRelations, model.loadedItems, model.allTags, model.itemTags, comments);
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{
-									stage: $author$project$Api$Handlers$GetFeedHandlerTEA$Complete(
-										{items: feedItems})
-								}),
-							$author$project$Api$Handlers$GetFeedHandlerTEA$complete(
-								$author$project$Api$Handlers$GetFeedHandlerTEA$encodeGetFeedRes(
-									{items: feedItems})));
+				if (_Utils_eq(model.stage, $author$project$Api$Handlers$GetFeedHandlerTEA$LoadingComments)) {
+					var _v14 = $author$project$Api$Handlers$GetFeedHandlerTEA$handleDbResponse(result);
+					if (_v14.$ === 'Ok') {
+						var data = _v14.a;
+						var _v15 = $author$project$Api$Handlers$GetFeedHandlerTEA$decodeComments(data);
+						if (_v15.$ === 'Ok') {
+							var comments = _v15.a;
+							var feedItems = A4($author$project$Api$Handlers$GetFeedHandlerTEA$transformToApiWithRelations, model.loadedItems, model.allTags, model.itemTags, comments);
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										stage: $author$project$Api$Handlers$GetFeedHandlerTEA$Complete(
+											{items: feedItems})
+									}),
+								$author$project$Api$Handlers$GetFeedHandlerTEA$complete(
+									$author$project$Api$Handlers$GetFeedHandlerTEA$encodeGetFeedRes(
+										{items: feedItems})));
+						} else {
+							var error = _v15.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{
+										stage: $author$project$Api$Handlers$GetFeedHandlerTEA$Failed(error)
+									}),
+								$author$project$Api$Handlers$GetFeedHandlerTEA$complete(
+									$author$project$Api$Handlers$GetFeedHandlerTEA$encodeError(error)));
+						}
 					} else {
-						var error = _v15.a;
+						var error = _v14.a;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
@@ -3913,15 +3924,7 @@ var $author$project$Api$Handlers$GetFeedHandlerTEA$update = F2(
 								$author$project$Api$Handlers$GetFeedHandlerTEA$encodeError(error)));
 					}
 				} else {
-					var error = _v14.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								stage: $author$project$Api$Handlers$GetFeedHandlerTEA$Failed(error)
-							}),
-						$author$project$Api$Handlers$GetFeedHandlerTEA$complete(
-							$author$project$Api$Handlers$GetFeedHandlerTEA$encodeError(error)));
+					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				}
 		}
 	});
