@@ -16,11 +16,26 @@ import path from 'path';
 /**
  * Generate Elm handler scaffolding files
  */
-export async function generateElmHandlers() {
+export async function generateElmHandlers(config = {}) {
     console.log('🔧 Analyzing Rust API definitions...');
     
-    const apiDir = 'src/models/api';
-    const outputDir = 'app/horatio/server/src/Api/Handlers';
+    // Auto-detect project name for fallback
+    function getProjectName() {
+        const appDir = path.join(process.cwd(), 'app');
+        if (!fs.existsSync(appDir)) return null;
+        const projects = fs.readdirSync(appDir).filter(name => {
+            const fullPath = path.join(appDir, name);
+            const modelsPath = path.join(fullPath, 'models');
+            return fs.statSync(fullPath).isDirectory() && fs.existsSync(modelsPath);
+        });
+        return projects[0];
+    }
+    
+    const PROJECT_NAME = config.projectName || getProjectName();
+    const apiDir = config.inputBasePath ? `${config.inputBasePath}/api` :
+                   (PROJECT_NAME ? `app/${PROJECT_NAME}/models/api` : path.join(process.cwd(), 'src/models/api'));
+    const outputDir = config.handlersPath || 
+                     (PROJECT_NAME ? `app/${PROJECT_NAME}/server/src/Api/Handlers` : path.join(process.cwd(), 'src/Api/Handlers'));
     
     // Ensure output directory exists
     if (!fs.existsSync(outputDir)) {
@@ -52,28 +67,30 @@ export async function generateElmHandlers() {
         
         // Generate handler for each endpoint
         for (const endpoint of endpoints) {
-            const handlerFile = path.join(outputDir, `${endpoint.name}Handler.elm`);
+            const handlerFile = path.join(outputDir, `${endpoint.name}HandlerTEA.elm`);
             
             if (fs.existsSync(handlerFile)) {
                 // Check if handler needs regeneration due to shared module changes
-                if (shouldRegenerateHandler(handlerFile)) {
-                    console.log(`   🔄 Regenerating ${endpoint.name}Handler.elm (dependencies changed)`);
+                if (shouldRegenerateHandler(handlerFile, config, PROJECT_NAME)) {
+                    console.log(`   🔄 Regenerating ${endpoint.name}HandlerTEA.elm (dependencies changed)`);
                 } else {
-                    console.log(`   ⏭️  Skipping ${endpoint.name}Handler.elm (up to date)`);
+                    console.log(`   ⏭️  Skipping ${endpoint.name}HandlerTEA.elm (up to date)`);
                     skippedCount++;
                     continue;
                 }
             }
             
             // Check if required shared modules exist before generating new handlers
-            const databaseModulePath = 'app/horatio/server/generated/Database.elm';
+            const databaseModulePath = config.backendElmPath ? 
+                `${config.backendElmPath}/Generated/Database.elm` :
+                (PROJECT_NAME ? `app/${PROJECT_NAME}/server/generated/Generated/Database.elm` : 'generated/Generated/Database.elm');
             if (!fs.existsSync(databaseModulePath)) {
-                console.log(`   ⚠️  Skipping ${endpoint.name}Handler.elm (Database.elm not found - run shared module generation first)`);
+                console.log(`   ⚠️  Skipping ${endpoint.name}HandlerTEA.elm (Database.elm not found - run shared module generation first)`);
                 skippedCount++;
                 continue;
             }
 
-            console.log(`   ✅ Creating ${endpoint.name}Handler.elm`);
+            console.log(`   ✅ Creating ${endpoint.name}HandlerTEA.elm`);
             
             const handlerContent = generateHandlerContent(endpoint);
             fs.writeFileSync(handlerFile, handlerContent);
@@ -85,10 +102,10 @@ export async function generateElmHandlers() {
     
     console.log('');
     // Generate compilation script for all handlers
-    generateCompileScript(allEndpoints);
+    generateCompileScript(allEndpoints, config, PROJECT_NAME);
     
     // Generate updated elm-service.js integration
-    generateServiceIntegration(allEndpoints);
+    generateServiceIntegration(allEndpoints, config, PROJECT_NAME);
     
     console.log('📊 Elm Handler Generation Summary:');
     console.log(`   Generated: ${generatedCount} new handlers`);
@@ -110,8 +127,8 @@ export async function generateElmHandlers() {
 function parseApiEndpoints(content) {
     const endpoints = [];
     
-    // Match #[buildamp(path = "EndpointName")] patterns (handles multiline attributes)
-    const apiRegex = /#\[buildamp\([^#]*?path\s*=\s*"([^"]+)"[^#]*?\]\s*pub struct\s+(\w+)/gs;
+    // Match #[buildamp_api(path = "EndpointName")] or #[buildamp(path = "EndpointName")] patterns
+    const apiRegex = /#\[buildamp(?:_api)?\([^#]*?path\s*=\s*"([^"]+)"[^#]*?\]\s*pub struct\s+(\w+)/gs;
     
     let match;
     while ((match = apiRegex.exec(content)) !== null) {
@@ -133,7 +150,7 @@ function parseApiEndpoints(content) {
 function generateHandlerContent(endpoint) {
     const { name, requestType, responseType } = endpoint;
     
-    return `port module Api.Handlers.${name}Handler exposing (main)
+    return `port module Api.Handlers.${name}HandlerTEA exposing (main)
 
 {-| ${name} Handler - TEA Architecture
 
@@ -197,6 +214,7 @@ type alias GlobalState = DB.GlobalState  -- Mutable handler state
 
 type Msg
     = HandleRequest RequestBundle
+    | ProcessingComplete ${responseType}
     -- TODO: Add specific messages for your business logic, e.g.:
     -- | DataLoaded (Result String SomeData)
     -- | ValidationComplete (Result String ValidatedInput)
@@ -239,6 +257,11 @@ update msg model =
               , context = Just bundle.context
               }
             , processRequest bundle.request
+            )
+        
+        ProcessingComplete result ->
+            ( { model | stage = Complete result }
+            , complete (encode${responseType} result)
             )
         
         -- TODO: Handle your specific business logic messages here
@@ -287,8 +310,8 @@ processRequest request =
         placeholderResponse = ${generatePlaceholderResponse(endpoint)}
     in
     Task.perform (\\_ -> 
-        -- Simulate successful completion
-        Complete placeholderResponse
+        -- Signal completion with the response
+        ProcessingComplete placeholderResponse
     ) (Task.succeed ())
 
 
@@ -332,7 +355,7 @@ subscriptions _ =
 /**
  * Check if a handler needs regeneration due to dependency changes
  */
-function shouldRegenerateHandler(handlerFilePath) {
+function shouldRegenerateHandler(handlerFilePath, config = {}, PROJECT_NAME = null) {
     try {
         const handlerContent = fs.readFileSync(handlerFilePath, 'utf-8');
         const handlerStat = fs.statSync(handlerFilePath);
@@ -341,7 +364,9 @@ function shouldRegenerateHandler(handlerFilePath) {
         const importsDatabase = /import\s+Generated\.Database/m.test(handlerContent);
         
         if (importsDatabase) {
-            const databaseModulePath = 'app/horatio/server/generated/Database.elm';
+            const databaseModulePath = config.backendElmPath ? 
+                `${config.backendElmPath}/Generated/Database.elm` :
+                (PROJECT_NAME ? `app/${PROJECT_NAME}/server/generated/Generated/Database.elm` : 'generated/Generated/Database.elm');
             
             if (fs.existsSync(databaseModulePath)) {
                 const databaseStat = fs.statSync(databaseModulePath);
@@ -370,16 +395,13 @@ function shouldRegenerateHandler(handlerFilePath) {
             return true;
         }
         
-        // Check for legacy handler patterns that need updating to TEA
-        const hasLegacyPattern = /handleGetTags\s*:\s*GetTagsReq\s*->\s*GetTagsRes/.test(handlerContent) ||
-                                /handleGetFeed\s*:\s*GetFeedReq\s*->\s*GetFeedRes/.test(handlerContent) ||
-                                /handleSubmitItem\s*:\s*SubmitItemReq\s*->\s*SubmitItemRes/.test(handlerContent) ||
-                                /handleSubmitComment\s*:\s*SubmitCommentReq\s*->\s*SubmitCommentRes/.test(handlerContent);
+        // Check for legacy handler patterns that need updating to TEA (generic pattern)
+        const hasLegacyPattern = /handle\w+\s*:\s*\w+Req\s*->\s*\w+Res/.test(handlerContent);
         
-        // Check for old TEA pattern that needs updating
-        const hasOldTEAPattern = handlerContent.includes('GetFeedReqBundle') ||
+        // Check for old TEA pattern that needs updating (generic patterns)
+        const hasOldTEAPattern = /\w+ReqBundle/.test(handlerContent) ||
                                handlerContent.includes('DatabaseService') ||
-                               handlerContent.includes('Task String GetFeedRes');
+                               /Task String \w+Res/.test(handlerContent);
         
         // Check for proper modern TEA pattern - only apply to Platform.worker handlers
         const hasPlatformWorker = handlerContent.includes('Platform.worker');
@@ -429,12 +451,7 @@ function generateResponseEncoder(endpoint) {
 /**
  * Generate compilation script for Elm handlers
  */
-function generateCompileScript(endpoints) {
-    const compileCommands = endpoints.map(endpoint => 
-        `echo "Compiling ${endpoint.name}Handler..."
-elm make src/Api/Handlers/${endpoint.name}Handler.elm --output=${endpoint.name}Handler.cjs --optimize`
-    ).join('\n');
-    
+function generateCompileScript(endpoints, config = {}, PROJECT_NAME = null) {
     const compileScript = `#!/bin/bash
 # Auto-generated Elm handler compilation script
 # Run this from app/horatio/server/ directory
@@ -442,12 +459,23 @@ elm make src/Api/Handlers/${endpoint.name}Handler.elm --output=${endpoint.name}H
 set -e
 echo "🔨 Compiling Elm handlers..."
 
-${compileCommands}
+# Auto-discover all .elm files in the handlers directory
+for elm_file in src/Api/Handlers/*.elm; do
+    if [ -f "$elm_file" ]; then
+        # Extract filename without path and extension
+        basename=$(basename "$elm_file" .elm)
+        
+        echo "Compiling $basename..."
+        elm make "$elm_file" --output="$basename.js" && mv "$basename.js" "$basename.cjs"
+    fi
+done
 
 echo "✅ All handlers compiled successfully!"
 `;
     
-    const scriptPath = 'app/horatio/server/compile-handlers.sh';
+    const scriptPath = config.backendElmPath ? 
+        `${config.backendElmPath.replace('/generated', '')}/compile-handlers.sh` :
+        (PROJECT_NAME ? `app/${PROJECT_NAME}/server/compile-handlers.sh` : 'compile-handlers.sh');
     fs.writeFileSync(scriptPath, compileScript);
     fs.chmodSync(scriptPath, '755'); // Make executable
     
@@ -457,10 +485,15 @@ echo "✅ All handlers compiled successfully!"
 /**
  * Generate updated elm-service.js integration
  */
-function generateServiceIntegration(endpoints) {
+function generateServiceIntegration(endpoints, config = {}, PROJECT_NAME = null) {
     const handlerConfigs = endpoints.map(endpoint => 
-        `            { name: '${endpoint.name}', file: '${endpoint.name}Handler', function: 'handle${endpoint.name}' }`
+        `            { name: '${endpoint.name}', file: '${endpoint.name}HandlerTEA', function: 'handle${endpoint.name}' }`
     ).join(',\n');
+    
+    // Compute handler path outside the template
+    const baseHandlersPath = config.backendElmPath ? 
+        config.backendElmPath.replace('/generated', '') :
+        (PROJECT_NAME ? `app/${PROJECT_NAME}/server` : 'server');
     
     const serviceCode = `/**
  * Elm Service Middleware - Auto-generated
@@ -485,35 +518,35 @@ export default function createElmService(server) {
     
     // Load compiled Elm handlers
     try {
-        const handlersPath = path.join(__dirname, '../../../app/horatio/server');
+        const handlersPath = path.join(__dirname, '../../../${baseHandlersPath}');
         
         // Auto-generated handler configurations
         const handlerConfigs = [
 ${handlerConfigs}
         ];
         
-        for (const config of handlerConfigs) {
+        for (const handlerConfig of handlerConfigs) {
             try {
-                const handlerPath = path.join(handlersPath, \`\${config.file}.cjs\`);
+                const handlerPath = path.join(handlersPath, handlerConfig.file + '.cjs');
                 
                 // Load the compiled handler module
                 delete require.cache[require.resolve(handlerPath)];
                 const handlerModule = require(handlerPath);
                 
                 // Store the handler function
-                handlers.set(config.name, {
-                    ...config,
-                    handler: handlerModule.Elm[\`Api.Handlers.\${config.file}\`][\`\${config.function}\`]
+                handlers.set(handlerConfig.name, {
+                    ...handlerConfig,
+                    handler: handlerModule.Elm['Api.Handlers.' + handlerConfig.file][handlerConfig.function]
                 });
                 
-                console.log(\`✅ Loaded handler: \${config.name}\`);
+                console.log('✅ Loaded handler: ' + handlerConfig.name);
             } catch (error) {
-                console.log(\`⚠️  Handler \${config.name} not found: \${error.message}\`);
+                console.log('⚠️  Handler ' + handlerConfig.name + ' not found: ' + error.message);
                 // Handler will use fallback
             }
         }
         
-        console.log(\`🎯 Ready with \${handlers.size} Elm handlers\`);
+        console.log('🎯 Ready with ' + handlers.size + ' Elm handlers');
         
     } catch (error) {
         console.error('❌ Failed to load Elm handlers:', error.message);
@@ -528,18 +561,18 @@ ${handlerConfigs}
             const handlerConfig = handlers.get(handlerName);
             
             if (!handlerConfig || !handlerConfig.handler) {
-                throw new Error(\`Handler \${handlerName} not available\`);
+                throw new Error('Handler ' + handlerName + ' not available');
             }
             
             try {
                 // Call the Elm handler function directly
                 const result = handlerConfig.handler(requestData);
                 
-                console.log(\`🌳 \${handlerName} handler completed successfully\`);
+                console.log('🌳 ' + handlerName + ' handler completed successfully');
                 return result;
                 
             } catch (error) {
-                console.error(\`❌ \${handlerName} handler failed:\`, error);
+                console.error('❌ ' + handlerName + ' handler failed:', error);
                 throw error;
             }
         },
@@ -562,7 +595,7 @@ function createFallbackService(server) {
     
     const fallbackService = {
         async callHandler(handlerName, requestData) {
-            throw new Error(\`Elm service not available. Cannot call handler: \${handlerName}\`);
+            throw new Error('Elm service not available. Cannot call handler: ' + handlerName);
         },
         
         cleanup: async () => console.log('🧹 Cleaning up fallback Elm service')
@@ -580,9 +613,11 @@ function createFallbackService(server) {
     const hasPackagesStructure = fs.existsSync('packages/hamlet-server/middleware');
     const inHamletServer = cwd.includes('packages/hamlet-server');
     
-    const servicePath = (inHamletServer && !hasPackagesStructure)
-        ? 'middleware/elm-service.js' 
-        : 'packages/hamlet-server/middleware/elm-service.js';
+    const servicePath = config.jsOutputPath ? 
+        `${config.jsOutputPath}/middleware/elm-service.js` :
+        ((inHamletServer && !hasPackagesStructure)
+            ? 'middleware/elm-service.js' 
+            : 'packages/hamlet-server/middleware/elm-service.js');
     
     // Check if middleware already has TEA handler support
     const existingCode = fs.existsSync(servicePath) ? fs.readFileSync(servicePath, 'utf-8') : '';

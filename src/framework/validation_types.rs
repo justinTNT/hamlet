@@ -261,13 +261,15 @@ pub struct Json;
 impl FormatValidation<Email> for String {
     fn validate_format(&self) -> bool {
         // Basic email validation for boundary safety
-        self.contains('@') && self.len() > 3 && !self.starts_with('@') && !self.ends_with('@')
+        let at_count = self.matches('@').count();
+        at_count == 1 && self.len() > 3 && !self.starts_with('@') && !self.ends_with('@')
     }
 }
 
 impl FormatValidation<Email> for &str {
     fn validate_format(&self) -> bool {
-        self.contains('@') && self.len() > 3 && !self.starts_with('@') && !self.ends_with('@')
+        let at_count = self.matches('@').count();
+        at_count == 1 && self.len() > 3 && !self.starts_with('@') && !self.ends_with('@')
     }
 }
 
@@ -314,13 +316,43 @@ impl FormatValidation<Uuid> for &str {
 impl FormatValidation<DateTimeFormat> for String {
     fn validate_format(&self) -> bool {
         // Basic ISO 8601 validation (contains T and ends with Z or has timezone)
-        self.contains('T') && (self.ends_with('Z') || self.contains('+') || self.contains('-'))
+        if !self.contains('T') {
+            return false;
+        }
+        
+        // Must have timezone: either Z suffix or +/- offset after the time part
+        if self.ends_with('Z') {
+            return true;
+        }
+        
+        // Check for timezone offset (+HH:MM or -HH:MM) after the T and time
+        if let Some(t_pos) = self.find('T') {
+            let time_part = &self[t_pos + 1..];
+            // Look for + or - in the time part (indicating timezone offset)
+            time_part.contains('+') || (time_part.contains('-') && time_part.len() > 8)
+        } else {
+            false
+        }
     }
 }
 
 impl FormatValidation<DateTimeFormat> for &str {
     fn validate_format(&self) -> bool {
-        self.contains('T') && (self.ends_with('Z') || self.contains('+') || self.contains('-'))
+        // Same logic as String implementation
+        if !self.contains('T') {
+            return false;
+        }
+        
+        if self.ends_with('Z') {
+            return true;
+        }
+        
+        if let Some(t_pos) = self.find('T') {
+            let time_part = &self[t_pos + 1..];
+            time_part.contains('+') || (time_part.contains('-') && time_part.len() > 8)
+        } else {
+            false
+        }
     }
 }
 
@@ -414,43 +446,96 @@ pub struct Percent;
 impl EncodingValidation<Base64> for String {
     fn validate_encoding(&self) -> bool {
         // Basic base64 validation - valid characters and proper padding
+        if self.is_empty() {
+            return true; // Empty string is valid base64
+        }
+        
+        // Check for valid characters
         let valid_chars = self.chars().all(|c| {
             c.is_alphanumeric() || c == '+' || c == '/' || c == '='
         });
-        let proper_padding = match self.len() % 4 {
-            0 => true,
-            2 => self.ends_with("=="),
-            3 => self.ends_with('='),
+        
+        if !valid_chars {
+            return false;
+        }
+        
+        // Split into padding and content
+        let trimmed = self.trim_end_matches('=');
+        let padding_len = self.len() - trimmed.len();
+        
+        // Padding can only be 0, 1, or 2 characters
+        if padding_len > 2 {
+            return false;
+        }
+        
+        // No padding characters allowed in content
+        if trimmed.contains('=') {
+            return false;
+        }
+        
+        // Length validation - must be multiple of 4 when including padding
+        if self.len() % 4 != 0 {
+            return false;
+        }
+        
+        // Padding rules
+        match padding_len {
+            0 => true, // No padding required
+            1 => trimmed.len() % 4 == 3, // Single = for 3 content chars
+            2 => trimmed.len() % 4 == 2, // Double == for 2 content chars
             _ => false,
-        };
-        valid_chars && proper_padding
+        }
     }
 }
 
 impl EncodingValidation<Base64> for &str {
     fn validate_encoding(&self) -> bool {
+        // Same logic as String implementation
+        if self.is_empty() {
+            return true;
+        }
+        
         let valid_chars = self.chars().all(|c| {
             c.is_alphanumeric() || c == '+' || c == '/' || c == '='
         });
-        let proper_padding = match self.len() % 4 {
+        
+        if !valid_chars {
+            return false;
+        }
+        
+        let trimmed = self.trim_end_matches('=');
+        let padding_len = self.len() - trimmed.len();
+        
+        if padding_len > 2 {
+            return false;
+        }
+        
+        if trimmed.contains('=') {
+            return false;
+        }
+        
+        if self.len() % 4 != 0 {
+            return false;
+        }
+        
+        match padding_len {
             0 => true,
-            2 => self.ends_with("=="),
-            3 => self.ends_with('='),
+            1 => trimmed.len() % 4 == 3,
+            2 => trimmed.len() % 4 == 2,
             _ => false,
-        };
-        valid_chars && proper_padding
+        }
     }
 }
 
 impl EncodingValidation<Hex> for String {
     fn validate_encoding(&self) -> bool {
-        !self.is_empty() && self.chars().all(|c| c.is_ascii_hexdigit())
+        self.chars().all(|c| c.is_ascii_hexdigit())
     }
 }
 
 impl EncodingValidation<Hex> for &str {
     fn validate_encoding(&self) -> bool {
-        !self.is_empty() && self.chars().all(|c| c.is_ascii_hexdigit())
+        self.chars().all(|c| c.is_ascii_hexdigit())
     }
 }
 

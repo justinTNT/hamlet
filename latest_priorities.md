@@ -45,6 +45,13 @@ database = false  // OR event_store = false
 
 ## Major Components (Latest Priorities)
 
+├── 🔄 TEA Handler Lifecycle Management  ← NEW BIG ITEM
+  │   ├── Proper HMR cleanup
+  │   ├── Handler instance management
+  │   ├── Port message routing isolation
+  │   └── Graceful handler replacement
+
+
 ---
 
 ### 🔗 **Phase 1.5: WebSocket Implementation (2-3 weeks)**

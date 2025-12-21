@@ -33,9 +33,9 @@ export async function generateElmHandlers(config = {}) {
     
     const PROJECT_NAME = config.projectName || getProjectName();
     const apiDir = config.inputBasePath ? `${config.inputBasePath}/api` :
-                   (PROJECT_NAME ? `app/${PROJECT_NAME}/models/api` : 'models/api');
+                   (PROJECT_NAME ? `app/${PROJECT_NAME}/models/api` : path.join(process.cwd(), 'src/models/api'));
     const outputDir = config.handlersPath || 
-                     (PROJECT_NAME ? `app/${PROJECT_NAME}/server/src/Api/Handlers` : 'src/Api/Handlers');
+                     (PROJECT_NAME ? `app/${PROJECT_NAME}/server/src/Api/Handlers` : path.join(process.cwd(), 'src/Api/Handlers'));
     
     // Ensure output directory exists
     if (!fs.existsSync(outputDir)) {

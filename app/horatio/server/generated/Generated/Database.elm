@@ -224,38 +224,402 @@ encodeMaybePagination maybePagination =
 
 -- DATABASE MODELS AND FUNCTIONS (Generated from Rust database models)
 
--- MICROBLOGITEM TYPES (Generated from undefined)
+-- GUEST TYPES (Generated from guest.rs)
+
+{-| Database entity for Guest
+This corresponds to the Rust Guest struct with database-specific types
+-}
+type alias GuestDb =
+    {     id : String -- DatabaseId<String> in Rust
+    , name : String -- String in Rust
+    , picture : String -- String in Rust
+    , sessionId : String -- String in Rust
+    , createdAt : Int -- Timestamp in Rust
+    }
+
+{-| Database entity for creating new Guest
+Only includes fields that can be set during creation
+-}
+type alias GuestDbCreate =
+    {     name : String
+    , picture : String
+    , sessionId : String
+    , createdAt : Int
+    }
+
+{-| Database entity for updating existing Guest
+All fields optional to support partial updates
+-}
+type alias GuestDbUpdate = 
+    {     name : Maybe String
+    , picture : Maybe String
+    , sessionId : Maybe String
+    , createdAt : Maybe Int
+    }
+
+-- GUEST CRUD OPERATIONS
+
+{-| Find multiple guests with query builder
+-}
+findGuests : Query GuestDb -> Cmd msg
+findGuests query =
+    let
+        requestId = "find_guests_" ++ String.fromInt (abs (hashString (toString query)))
+    in
+    dbFind 
+        { id = requestId
+        , table = "guests"
+        , query = encodeQuery query
+        }
+
+
+{-| Create a new guest
+-}
+createGuest : GuestDbCreate -> (Result String GuestDb -> msg) -> Cmd msg
+createGuest data toMsg =
+    let
+        requestId = "create_guests_" ++ String.fromInt (abs (hashString (encodeGuestDbCreate data |> Encode.encode 0)))
+    in
+    dbCreate
+        { id = requestId
+        , table = "guests"
+        , data = encodeGuestDbCreate data
+        }
+
+
+{-| Update an existing guest
+-}
+updateGuest : String -> GuestDbUpdate -> (Result String GuestDb -> msg) -> Cmd msg
+updateGuest id data toMsg =
+    let
+        requestId = "update_guests_" ++ id
+    in
+    dbUpdate
+        { id = requestId
+        , table = "guests"
+        , data = encodeGuestDbUpdate data
+        , whereClause = "id = $1"
+        , params = [id]
+        }
+
+
+{-| Delete a guest
+-}
+killGuest : String -> (Result String Int -> msg) -> Cmd msg
+killGuest id toMsg =
+    let
+        requestId = "kill_guests_" ++ id
+    in
+    dbKill
+        { id = requestId
+        , table = "guests"
+        , whereClause = "id = $1"
+        , params = [id]
+        }
+
+-- GUEST ENCODERS/DECODERS
+
+guestDbDecoder : Decode.Decoder GuestDb
+guestDbDecoder =
+    Decode.succeed GuestDb
+        |> decodeField "id" Decode.string
+        |> decodeField "name" Decode.string
+        |> decodeField "picture" Decode.string
+        |> decodeField "session_id" Decode.string
+        |> decodeField "created_at" timestampDecoder
+
+
+encodeGuestDbCreate : GuestDbCreate -> Encode.Value
+encodeGuestDbCreate item =
+    Encode.object
+        [ ("name", Encode.string item.name)
+        , ("picture", Encode.string item.picture)
+        , ("session_id", Encode.string item.sessionId)
+        , ("created_at", Encode.int item.createdAt)
+        ]
+
+
+encodeGuestDbUpdate : GuestDbUpdate -> Encode.Value
+encodeGuestDbUpdate item =
+    Encode.object
+        [ ("name", encodeMaybe Encode.string item.name)
+        , ("picture", encodeMaybe Encode.string item.picture)
+        , ("session_id", encodeMaybe Encode.string item.sessionId)
+        , ("created_at", encodeMaybe Encode.int item.createdAt)
+        ]
+
+-- ITEMCOMMENT TYPES (Generated from item_comment.rs)
+
+{-| Database entity for ItemComment
+This corresponds to the Rust ItemComment struct with database-specific types
+-}
+type alias ItemCommentDb =
+    {     id : String -- DatabaseId<String> in Rust
+    , itemId : String -- String in Rust
+    , guestId : String -- String in Rust
+    , parentId : Maybe String -- Option<String> in Rust
+    , authorName : String -- String in Rust
+    , text : String -- String in Rust
+    , createdAt : Int -- Timestamp in Rust
+    }
+
+{-| Database entity for creating new ItemComment
+Only includes fields that can be set during creation
+-}
+type alias ItemCommentDbCreate =
+    {     itemId : String
+    , guestId : String
+    , authorName : String
+    , text : String
+    , createdAt : Int
+    }
+
+{-| Database entity for updating existing ItemComment
+All fields optional to support partial updates
+-}
+type alias ItemCommentDbUpdate = 
+    {     itemId : Maybe String
+    , guestId : Maybe String
+    , parentId : Maybe String
+    , authorName : Maybe String
+    , text : Maybe String
+    , createdAt : Maybe Int
+    }
+
+-- ITEMCOMMENT CRUD OPERATIONS
+
+{-| Find multiple itemComments with query builder
+-}
+findItemComments : Query ItemCommentDb -> Cmd msg
+findItemComments query =
+    let
+        requestId = "find_item_comments_" ++ String.fromInt (abs (hashString (toString query)))
+    in
+    dbFind 
+        { id = requestId
+        , table = "item_comments"
+        , query = encodeQuery query
+        }
+
+
+{-| Create a new itemComment
+-}
+createItemComment : ItemCommentDbCreate -> (Result String ItemCommentDb -> msg) -> Cmd msg
+createItemComment data toMsg =
+    let
+        requestId = "create_item_comments_" ++ String.fromInt (abs (hashString (encodeItemCommentDbCreate data |> Encode.encode 0)))
+    in
+    dbCreate
+        { id = requestId
+        , table = "item_comments"
+        , data = encodeItemCommentDbCreate data
+        }
+
+
+{-| Update an existing itemComment
+-}
+updateItemComment : String -> ItemCommentDbUpdate -> (Result String ItemCommentDb -> msg) -> Cmd msg
+updateItemComment id data toMsg =
+    let
+        requestId = "update_item_comments_" ++ id
+    in
+    dbUpdate
+        { id = requestId
+        , table = "item_comments"
+        , data = encodeItemCommentDbUpdate data
+        , whereClause = "id = $1"
+        , params = [id]
+        }
+
+
+{-| Delete a itemComment
+-}
+killItemComment : String -> (Result String Int -> msg) -> Cmd msg
+killItemComment id toMsg =
+    let
+        requestId = "kill_item_comments_" ++ id
+    in
+    dbKill
+        { id = requestId
+        , table = "item_comments"
+        , whereClause = "id = $1"
+        , params = [id]
+        }
+
+-- ITEMCOMMENT ENCODERS/DECODERS
+
+itemcommentDbDecoder : Decode.Decoder ItemCommentDb
+itemcommentDbDecoder =
+    Decode.succeed ItemCommentDb
+        |> decodeField "id" Decode.string
+        |> decodeField "item_id" Decode.string
+        |> decodeField "guest_id" Decode.string
+        |> decodeField "parent_id" (Decode.nullable Decode.string)
+        |> decodeField "author_name" Decode.string
+        |> decodeField "text" Decode.string
+        |> decodeField "created_at" timestampDecoder
+
+
+encodeItemCommentDbCreate : ItemCommentDbCreate -> Encode.Value
+encodeItemCommentDbCreate item =
+    Encode.object
+        [ ("item_id", Encode.string item.itemId)
+        , ("guest_id", Encode.string item.guestId)
+        , ("author_name", Encode.string item.authorName)
+        , ("text", Encode.string item.text)
+        , ("created_at", Encode.int item.createdAt)
+        ]
+
+
+encodeItemCommentDbUpdate : ItemCommentDbUpdate -> Encode.Value
+encodeItemCommentDbUpdate item =
+    Encode.object
+        [ ("item_id", encodeMaybe Encode.string item.itemId)
+        , ("guest_id", encodeMaybe Encode.string item.guestId)
+        , ("parent_id", encodeMaybe Encode.string item.parentId)
+        , ("author_name", encodeMaybe Encode.string item.authorName)
+        , ("text", encodeMaybe Encode.string item.text)
+        , ("created_at", encodeMaybe Encode.int item.createdAt)
+        ]
+
+-- ITEMTAG TYPES (Generated from item_tag.rs)
+
+{-| Database entity for ItemTag
+This corresponds to the Rust ItemTag struct with database-specific types
+-}
+type alias ItemTagDb =
+    {     itemId : String -- String in Rust
+    , tagId : String -- String in Rust
+    }
+
+{-| Database entity for creating new ItemTag
+Only includes fields that can be set during creation
+-}
+type alias ItemTagDbCreate =
+    {     itemId : String
+    , tagId : String
+    }
+
+{-| Database entity for updating existing ItemTag
+All fields optional to support partial updates
+-}
+type alias ItemTagDbUpdate = 
+    {     itemId : Maybe String
+    , tagId : Maybe String
+    }
+
+-- ITEMTAG CRUD OPERATIONS
+
+{-| Find multiple itemTags with query builder
+-}
+findItemTags : Query ItemTagDb -> Cmd msg
+findItemTags query =
+    let
+        requestId = "find_item_tags_" ++ String.fromInt (abs (hashString (toString query)))
+    in
+    dbFind 
+        { id = requestId
+        , table = "item_tags"
+        , query = encodeQuery query
+        }
+
+
+{-| Create a new itemTag
+-}
+createItemTag : ItemTagDbCreate -> (Result String ItemTagDb -> msg) -> Cmd msg
+createItemTag data toMsg =
+    let
+        requestId = "create_item_tags_" ++ String.fromInt (abs (hashString (encodeItemTagDbCreate data |> Encode.encode 0)))
+    in
+    dbCreate
+        { id = requestId
+        , table = "item_tags"
+        , data = encodeItemTagDbCreate data
+        }
+
+
+{-| Update an existing itemTag
+-}
+updateItemTag : String -> ItemTagDbUpdate -> (Result String ItemTagDb -> msg) -> Cmd msg
+updateItemTag id data toMsg =
+    let
+        requestId = "update_item_tags_" ++ id
+    in
+    dbUpdate
+        { id = requestId
+        , table = "item_tags"
+        , data = encodeItemTagDbUpdate data
+        , whereClause = "id = $1"
+        , params = [id]
+        }
+
+
+{-| Delete a itemTag
+-}
+killItemTag : String -> (Result String Int -> msg) -> Cmd msg
+killItemTag id toMsg =
+    let
+        requestId = "kill_item_tags_" ++ id
+    in
+    dbKill
+        { id = requestId
+        , table = "item_tags"
+        , whereClause = "id = $1"
+        , params = [id]
+        }
+
+-- ITEMTAG ENCODERS/DECODERS
+
+itemtagDbDecoder : Decode.Decoder ItemTagDb
+itemtagDbDecoder =
+    Decode.succeed ItemTagDb
+        |> decodeField "item_id" Decode.string
+        |> decodeField "tag_id" Decode.string
+
+
+encodeItemTagDbCreate : ItemTagDbCreate -> Encode.Value
+encodeItemTagDbCreate item =
+    Encode.object
+        [ ("item_id", Encode.string item.itemId)
+        , ("tag_id", Encode.string item.tagId)
+        ]
+
+
+encodeItemTagDbUpdate : ItemTagDbUpdate -> Encode.Value
+encodeItemTagDbUpdate item =
+    Encode.object
+        [ ("item_id", encodeMaybe Encode.string item.itemId)
+        , ("tag_id", encodeMaybe Encode.string item.tagId)
+        ]
+
+-- MICROBLOGITEM TYPES (Generated from microblog_item.rs)
 
 {-| Database entity for MicroblogItem
 This corresponds to the Rust MicroblogItem struct with database-specific types
 -}
 type alias MicroblogItemDb =
-    {     id : String
-    , title : String
-    , link : Maybe String
-    , image : Maybe String
-    , extract : Maybe String
-    , ownerComment : String
-    , timestamp : Int
+    {     id : String -- DatabaseId<String> in Rust
+    , data : MicroblogItemDataDb -- JsonBlob<MicroblogItemData> in Rust
+    , createdAt : Int -- Timestamp in Rust
+    , viewCount : Int -- i32 in Rust
     }
 
 {-| Database entity for creating new MicroblogItem
 Only includes fields that can be set during creation
 -}
 type alias MicroblogItemDbCreate =
-    {     title : String
-    , ownerComment : String
+    {     data : MicroblogItemDataDb
+    , createdAt : Int
+    , viewCount : Int
     }
 
 {-| Database entity for updating existing MicroblogItem
 All fields optional to support partial updates
 -}
 type alias MicroblogItemDbUpdate = 
-    {     title : Maybe String
-    , link : Maybe String
-    , image : Maybe String
-    , extract : Maybe String
-    , ownerComment : Maybe String
+    {     data : Maybe MicroblogItemDataDb
+    , createdAt : Maybe Int
+    , viewCount : Maybe Int
     }
 
 -- MICROBLOGITEM CRUD OPERATIONS
@@ -324,32 +688,184 @@ microblogitemDbDecoder : Decode.Decoder MicroblogItemDb
 microblogitemDbDecoder =
     Decode.succeed MicroblogItemDb
         |> decodeField "id" Decode.string
-        |> decodeField "title" Decode.string
-        |> decodeField "link" (Decode.nullable Decode.string)
-        |> decodeField "image" (Decode.nullable Decode.string)
-        |> decodeField "extract" (Decode.nullable Decode.string)
-        |> decodeField "ownerComment" Decode.string
-        |> decodeField "timestamp" Decode.int
+        |> decodeField "data" microblogitemdataDbDecoder
+        |> decodeField "created_at" timestampDecoder
+        |> decodeField "view_count" Decode.int
 
 
 encodeMicroblogItemDbCreate : MicroblogItemDbCreate -> Encode.Value
 encodeMicroblogItemDbCreate item =
     Encode.object
-        [ ("title", Encode.string item.title)
-        , ("ownerComment", Encode.string item.ownerComment)
+        [ ("data", encodeMicroblogItemDataDb item.data)
+        , ("created_at", Encode.int item.createdAt)
+        , ("view_count", Encode.int item.viewCount)
         ]
 
 
 encodeMicroblogItemDbUpdate : MicroblogItemDbUpdate -> Encode.Value
 encodeMicroblogItemDbUpdate item =
     Encode.object
-        [ ("title", encodeMaybe Encode.string item.title)
+        [ ("data", encodeMaybe encodeMicroblogItemDataDb item.data)
+        , ("created_at", encodeMaybe Encode.int item.createdAt)
+        , ("view_count", encodeMaybe Encode.int item.viewCount)
+        ]
+
+-- MICROBLOGITEMDATA COMPONENT TYPE (Generated from microblog_item.rs)
+
+{-| Database entity for MicroblogItemData
+This corresponds to the Rust MicroblogItemData struct with database-specific types
+-}
+type alias MicroblogItemDataDb =
+    {     title : String -- String in Rust
+    , link : Maybe String -- Option<String> in Rust
+    , image : Maybe String -- Option<String> in Rust
+    , extract : Maybe String -- Option<String> in Rust
+    , ownerComment : String -- DefaultComment in Rust
+    }
+
+-- MICROBLOGITEMDATA ENCODERS/DECODERS
+
+microblogitemdataDbDecoder : Decode.Decoder MicroblogItemDataDb
+microblogitemdataDbDecoder =
+    Decode.succeed MicroblogItemDataDb
+        |> decodeField "title" Decode.string
+        |> decodeField "link" (Decode.nullable Decode.string)
+        |> decodeField "image" (Decode.nullable Decode.string)
+        |> decodeField "extract" (Decode.nullable Decode.string)
+        |> decodeField "owner_comment" Decode.string
+
+
+encodeMicroblogItemDataDb : MicroblogItemDataDb -> Encode.Value
+encodeMicroblogItemDataDb item =
+    Encode.object
+        [ ("title", Encode.string item.title)
         , ("link", encodeMaybe Encode.string item.link)
         , ("image", encodeMaybe Encode.string item.image)
         , ("extract", encodeMaybe Encode.string item.extract)
-        , ("ownerComment", encodeMaybe Encode.string item.ownerComment)
+        , ("owner_comment", Encode.string item.ownerComment)
         ]
 
+-- TAG TYPES (Generated from tag.rs)
+
+{-| Database entity for Tag
+This corresponds to the Rust Tag struct with database-specific types
+-}
+type alias TagDb =
+    {     id : String -- String in Rust
+    , host : String -- String in Rust
+    , name : String -- String in Rust
+    }
+
+{-| Database entity for creating new Tag
+Only includes fields that can be set during creation
+-}
+type alias TagDbCreate =
+    {     host : String
+    , name : String
+    }
+
+{-| Database entity for updating existing Tag
+All fields optional to support partial updates
+-}
+type alias TagDbUpdate = 
+    {     host : Maybe String
+    , name : Maybe String
+    }
+
+-- TAG CRUD OPERATIONS
+
+{-| Find multiple tags with query builder
+-}
+findTags : Query TagDb -> Cmd msg
+findTags query =
+    let
+        requestId = "find_tags_" ++ String.fromInt (abs (hashString (toString query)))
+    in
+    dbFind 
+        { id = requestId
+        , table = "tags"
+        , query = encodeQuery query
+        }
+
+
+{-| Create a new tag
+-}
+createTag : TagDbCreate -> (Result String TagDb -> msg) -> Cmd msg
+createTag data toMsg =
+    let
+        requestId = "create_tags_" ++ String.fromInt (abs (hashString (encodeTagDbCreate data |> Encode.encode 0)))
+    in
+    dbCreate
+        { id = requestId
+        , table = "tags"
+        , data = encodeTagDbCreate data
+        }
+
+
+{-| Update an existing tag
+-}
+updateTag : String -> TagDbUpdate -> (Result String TagDb -> msg) -> Cmd msg
+updateTag id data toMsg =
+    let
+        requestId = "update_tags_" ++ id
+    in
+    dbUpdate
+        { id = requestId
+        , table = "tags"
+        , data = encodeTagDbUpdate data
+        , whereClause = "id = $1"
+        , params = [id]
+        }
+
+
+{-| Delete a tag
+-}
+killTag : String -> (Result String Int -> msg) -> Cmd msg
+killTag id toMsg =
+    let
+        requestId = "kill_tags_" ++ id
+    in
+    dbKill
+        { id = requestId
+        , table = "tags"
+        , whereClause = "id = $1"
+        , params = [id]
+        }
+
+-- TAG ENCODERS/DECODERS
+
+tagDbDecoder : Decode.Decoder TagDb
+tagDbDecoder =
+    Decode.succeed TagDb
+        |> decodeField "id" Decode.string
+        |> decodeField "host" Decode.string
+        |> decodeField "name" Decode.string
+
+
+encodeTagDbCreate : TagDbCreate -> Encode.Value
+encodeTagDbCreate item =
+    Encode.object
+        [ ("host", Encode.string item.host)
+        , ("name", Encode.string item.name)
+        ]
+
+
+encodeTagDbUpdate : TagDbUpdate -> Encode.Value
+encodeTagDbUpdate item =
+    Encode.object
+        [ ("host", encodeMaybe Encode.string item.host)
+        , ("name", encodeMaybe Encode.string item.name)
+        ]
+
+
+encodeMaybe : (a -> Encode.Value) -> Maybe a -> Encode.Value
+encodeMaybe encoder maybeValue =
+    case maybeValue of
+        Nothing -> Encode.null
+        Just value -> encoder value
+
+
+-- DECODER HELPER FUNCTIONS
 
 -- Helper for pipeline-style decoding  
 andMap : Decode.Decoder a -> Decode.Decoder (a -> b) -> Decode.Decoder b
@@ -360,11 +876,20 @@ decodeField fieldName decoder =
     andMap (Decode.field fieldName decoder)
 
 
-encodeMaybe : (a -> Encode.Value) -> Maybe a -> Encode.Value
-encodeMaybe encoder maybeValue =
-    case maybeValue of
-        Nothing -> Encode.null
-        Just value -> encoder value
+-- PostgreSQL BIGINT timestamp decoder (handles both string and int)
+timestampDecoder : Decode.Decoder Int
+timestampDecoder =
+    Decode.oneOf
+        [ Decode.int
+        , Decode.string |> Decode.andThen stringToInt
+        ]
+
+
+stringToInt : String -> Decode.Decoder Int
+stringToInt str =
+    case String.toInt str of
+        Just int -> Decode.succeed int
+        Nothing -> Decode.fail ("Could not parse timestamp: " ++ str)
 
 
 -- UTILITY FUNCTIONS

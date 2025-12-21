@@ -16,7 +16,7 @@
         "dev": "npm run dev --workspaces",
         "dev:server": "node dev-server.js",
         "generate": "node .buildamp/generate-all.js",
-        "generate:watch": "nodemon --watch src/models/ --ext rs --exec 'npm run generate'",
+        "generate:watch": "nodemon --watch app/horatio/models --ext rs --exec 'npm run generate'",
         "test": "npm run test:hamlet && npm run test:create-buildamp",
         "test:hamlet": "npm run test:generation && npm run test:integration",
         "test:create-buildamp": "cd packages/create-buildamp && npm test",

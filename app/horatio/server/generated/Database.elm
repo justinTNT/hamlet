@@ -328,8 +328,12 @@ microblogitemDbDecoder =
         |> decodeField "link" (Decode.nullable Decode.string)
         |> decodeField "image" (Decode.nullable Decode.string)
         |> decodeField "extract" (Decode.nullable Decode.string)
-        |> decodeField "ownerComment" Decode.string
-        |> decodeField "timestamp" Decode.int
+        |> decodeField "owner_comment" Decode.string
+        |> decodeField "created_at" (Decode.string |> Decode.andThen (\s -> 
+            case String.toInt s of
+                Just i -> Decode.succeed i
+                Nothing -> Decode.fail ("Invalid timestamp: " ++ s)
+        ))
 
 
 encodeMicroblogItemDbCreate : MicroblogItemDbCreate -> Encode.Value

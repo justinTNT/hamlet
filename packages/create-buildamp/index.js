@@ -339,22 +339,23 @@ function emptyDir(dir) {
     }
 }
 
-// Dynamic imports for generation scripts from current working directory
+// Dynamic imports for generation scripts from shared directory
 async function loadGenerationScripts() {
-    const generationDir = path.join(process.cwd(), '.buildamp', 'generation');
+    // Look for shared generation directory relative to Hamlet root
+    const sharedGenerationDir = path.join(process.cwd(), 'shared', 'generation');
     
-    if (!fs.existsSync(generationDir)) {
-        throw new Error(`Generation scripts not found in current directory: ${generationDir}`);
+    if (!fs.existsSync(sharedGenerationDir)) {
+        throw new Error(`Shared generation scripts not found: ${sharedGenerationDir}`);
     }
     
     try {
-        const { generateApiRoutes } = await import(path.join(generationDir, 'api_routes.js'));
-        const { generateDatabaseQueries } = await import(path.join(generationDir, 'database_queries.js'));
-        const { generateBrowserStorage } = await import(path.join(generationDir, 'browser_storage.js'));
-        const { generateKvStore } = await import(path.join(generationDir, 'kv_store.js'));
-        const { generateSSEEvents } = await import(path.join(generationDir, 'sse_events.js'));
-        const { generateElmSharedModules } = await import(path.join(generationDir, 'elm_shared_modules.js'));
-        const { generateElmHandlers } = await import(path.join(generationDir, 'elm_handlers.js'));
+        const { generateApiRoutes } = await import(path.join(sharedGenerationDir, 'api_routes.js'));
+        const { generateDatabaseQueries } = await import(path.join(sharedGenerationDir, 'database_queries.js'));
+        const { generateBrowserStorage } = await import(path.join(sharedGenerationDir, 'browser_storage.js'));
+        const { generateKvStore } = await import(path.join(sharedGenerationDir, 'kv_store.js'));
+        const { generateSSEEvents } = await import(path.join(sharedGenerationDir, 'sse_events.js'));
+        const { generateElmSharedModules } = await import(path.join(sharedGenerationDir, 'elm_shared_modules.js'));
+        const { generateElmHandlers } = await import(path.join(sharedGenerationDir, 'elm_handlers.js'));
         
         return {
             generateApiRoutes,
@@ -366,7 +367,7 @@ async function loadGenerationScripts() {
             generateElmHandlers
         };
     } catch (error) {
-        throw new Error(`Failed to load generation scripts: ${error.message}`);
+        throw new Error(`Failed to load shared generation scripts: ${error.message}`);
     }
 }
 

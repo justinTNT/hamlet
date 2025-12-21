@@ -2874,18 +2874,31 @@ var $author$project$Api$Handlers$SubmitCommentHandlerTEA$handleRequest = _Platfo
 							'context',
 							A2(
 								$elm$json$Json$Decode$andThen,
-								function (sessionId) {
+								function (userId) {
 									return A2(
 										$elm$json$Json$Decode$andThen,
-										function (host) {
-											return $elm$json$Json$Decode$succeed(
-												{host: host, sessionId: sessionId});
+										function (sessionId) {
+											return A2(
+												$elm$json$Json$Decode$andThen,
+												function (host) {
+													return $elm$json$Json$Decode$succeed(
+														{host: host, sessionId: sessionId, userId: userId});
+												},
+												A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
 										},
-										A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
+										A2(
+											$elm$json$Json$Decode$field,
+											'sessionId',
+											$elm$json$Json$Decode$oneOf(
+												_List_fromArray(
+													[
+														$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
+														A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$json$Json$Decode$string)
+													]))));
 								},
 								A2(
 									$elm$json$Json$Decode$field,
-									'sessionId',
+									'userId',
 									$elm$json$Json$Decode$oneOf(
 										_List_fromArray(
 											[
@@ -2952,6 +2965,23 @@ var $elm$core$Basics$identity = function (x) {
 	return x;
 };
 var $author$project$Api$Handlers$SubmitCommentHandlerTEA$complete = _Platform_outgoingPort('complete', $elm$core$Basics$identity);
+var $elm$core$Basics$composeL = F3(
+	function (g, f, x) {
+		return g(
+			f(x));
+	});
+var $elm$json$Json$Encode$int = _Json_wrap;
+var $elm$core$Maybe$map = F2(
+	function (f, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return $elm$core$Maybe$Just(
+				f(value));
+		} else {
+			return $elm$core$Maybe$Nothing;
+		}
+	});
+var $elm$json$Json$Encode$null = _Json_encodeNull;
 var $elm$json$Json$Encode$object = function (pairs) {
 	return _Json_wrap(
 		A3(
@@ -2965,8 +2995,57 @@ var $elm$json$Json$Encode$object = function (pairs) {
 			_Json_emptyObject(_Utils_Tuple0),
 			pairs));
 };
+var $elm$json$Json$Encode$string = _Json_wrap;
+var $elm$core$Maybe$withDefault = F2(
+	function (_default, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return value;
+		} else {
+			return _default;
+		}
+	});
+var $author$project$Api$Backend$itemCommentEncoder = function (struct) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'id',
+				$elm$json$Json$Encode$string(struct.id)),
+				_Utils_Tuple2(
+				'item_id',
+				$elm$json$Json$Encode$string(struct.itemId)),
+				_Utils_Tuple2(
+				'guest_id',
+				$elm$json$Json$Encode$string(struct.guestId)),
+				_Utils_Tuple2(
+				'parent_id',
+				A2(
+					$elm$core$Basics$composeL,
+					$elm$core$Maybe$withDefault($elm$json$Json$Encode$null),
+					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.parentId)),
+				_Utils_Tuple2(
+				'author_name',
+				$elm$json$Json$Encode$string(struct.authorName)),
+				_Utils_Tuple2(
+				'text',
+				$elm$json$Json$Encode$string(struct.text)),
+				_Utils_Tuple2(
+				'timestamp',
+				$elm$json$Json$Encode$int(struct.timestamp))
+			]));
+};
+var $author$project$Api$Backend$submitCommentResEncoder = function (struct) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'comment',
+				$author$project$Api$Backend$itemCommentEncoder(struct.comment))
+			]));
+};
 var $author$project$Api$Handlers$SubmitCommentHandlerTEA$encodeSubmitCommentRes = function (response) {
-	return $elm$json$Json$Encode$object(_List_Nil);
+	return $author$project$Api$Backend$submitCommentResEncoder(response);
 };
 var $author$project$Api$Handlers$SubmitCommentHandlerTEA$ProcessingComplete = function (a) {
 	return {$: 'ProcessingComplete', a: a};
@@ -3124,8 +3203,8 @@ var $author$project$Api$Handlers$SubmitCommentHandlerTEA$processRequest = functi
 	var placeholderResponse = _Debug_todo(
 		'Api.Handlers.SubmitCommentHandlerTEA',
 		{
-			start: {line: 157, column: 31},
-			end: {line: 157, column: 41}
+			start: {line: 158, column: 31},
+			end: {line: 158, column: 41}
 		})('Implement SubmitComment handler');
 	return A2(
 		$elm$core$Task$perform,

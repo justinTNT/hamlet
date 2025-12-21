@@ -415,8 +415,9 @@ ${actionDecoderCases}
 }
 
 // Generate all API routes
-function generateApiRoutes() {
-    // Auto-detect project name from app directory
+function generateApiRoutes(config = {}) {
+    
+    // Auto-detect project name for fallback
     function getProjectName() {
         const appDir = path.join(process.cwd(), 'app');
         if (!fs.existsSync(appDir)) return null;
@@ -433,12 +434,17 @@ function generateApiRoutes() {
         return projects[0]; // Use first valid project found
     }
 
-    const PROJECT_NAME = getProjectName();
-    const apiModelsPath = PROJECT_NAME ? path.join(process.cwd(), `app/${PROJECT_NAME}/models/api`) : null;
-    const outputPath = path.join(process.cwd(), 'generated');
+    const PROJECT_NAME = config.projectName || getProjectName();
+    const apiModelsPath = config.inputBasePath ? 
+        path.resolve(config.inputBasePath, 'api') :
+        (PROJECT_NAME ? path.join(process.cwd(), `app/${PROJECT_NAME}/models/api`) : path.join(process.cwd(), 'src/models/api'));
+    const outputPath = config.jsOutputPath ? 
+        path.resolve(config.jsOutputPath) :
+        path.join(__dirname, '../../packages/hamlet-server/generated');
+    
     
     if (!fs.existsSync(apiModelsPath)) {
-        console.log('📁 No src/models/api directory found, skipping API route generation');
+        console.log('❌ No API models directory found, skipping API route generation');
         return;
     }
     
@@ -499,7 +505,9 @@ ${allRoutes}
     fs.writeFileSync(jsOutputFile, outputContent);
     
     // Write Elm client file
-    const elmOutputPath = path.join(process.cwd(), 'generated');
+    const elmOutputPath = config.elmOutputPath ? 
+        path.resolve(config.elmOutputPath) : 
+        path.join(__dirname, '../../app/generated');
     if (!fs.existsSync(elmOutputPath)) {
         fs.mkdirSync(elmOutputPath, { recursive: true });
     }
@@ -507,7 +515,9 @@ ${allRoutes}
     fs.writeFileSync(elmOutputFile, elmClientCode);
     
     // Write Elm backend types file
-    const backendOutputPath = PROJECT_NAME ? path.join(process.cwd(), `app/${PROJECT_NAME}/server/generated`) : null;
+    const backendOutputPath = config.backendElmPath ? 
+        path.resolve(config.backendElmPath) :
+        (PROJECT_NAME ? path.join(process.cwd(), `app/${PROJECT_NAME}/server/generated`) : path.join(process.cwd(), 'generated/Generated'));
     if (!fs.existsSync(backendOutputPath)) {
         fs.mkdirSync(backendOutputPath, { recursive: true });
     }

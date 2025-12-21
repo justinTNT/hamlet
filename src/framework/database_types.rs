@@ -74,6 +74,40 @@ impl<T> From<T> for Generated<T> {
     }
 }
 
+/// A JSONB database field storing structured component data
+/// Maps to SQL: `field_name JSONB NOT NULL`
+/// The component type T must implement Serialize + Deserialize + Elm traits
+#[derive(Debug, Clone, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+#[repr(transparent)]
+pub struct JsonBlob<T>(pub T);
+
+impl<T> JsonBlob<T> {
+    pub fn new(value: T) -> Self {
+        JsonBlob(value)
+    }
+    
+    pub fn get(&self) -> &T {
+        &self.0
+    }
+    
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+impl<T> std::ops::Deref for JsonBlob<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> From<T> for JsonBlob<T> {
+    fn from(value: T) -> Self {
+        JsonBlob::new(value)
+    }
+}
+
 // Type aliases for common database patterns
 pub type DatabaseId<T> = Generated<T>;
 pub type AutoIncrement<T> = Generated<T>;

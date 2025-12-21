@@ -15,13 +15,19 @@ import fs from 'fs';
 import path from 'path';
 
 /**
- * Generate all shared Elm modules
+ * Generate all shared Elm modules (configurable version)
  */
-export async function generateElmSharedModules() {
+export async function generateElmSharedModules(config = {}) {
     console.log('🔧 Generating shared Elm modules...');
     
-    // Auto-detect project name from app directory
-    function getProjectName() {
+    // Use config values or fallback to auto-detection for backwards compatibility
+    const PROJECT_NAME = config.projectName || getProjectNameFallback();
+    const outputDir = config.backendElmPath ? 
+        `${config.backendElmPath}/Generated` : 
+        (PROJECT_NAME ? `app/${PROJECT_NAME}/server/generated/Generated` : 'generated/Generated');
+    
+    // Auto-detect fallback function (for backwards compatibility)
+    function getProjectNameFallback() {
         const appDir = path.join(process.cwd(), 'app');
         if (!fs.existsSync(appDir)) return null;
         
@@ -36,11 +42,6 @@ export async function generateElmSharedModules() {
         
         return projects[0]; // Use first valid project found
     }
-
-    const PROJECT_NAME = getProjectName();
-    const outputDir = PROJECT_NAME ? 
-        `app/${PROJECT_NAME}/server/generated/Generated` : 
-        'generated/Generated';
     
     // Ensure output directory exists
     if (!fs.existsSync(outputDir)) {
@@ -48,9 +49,9 @@ export async function generateElmSharedModules() {
     }
     
     const modules = [
-        { name: 'Database.elm', content: generateDatabaseModule(PROJECT_NAME) },
-        { name: 'Events.elm', content: generateEventsModule(PROJECT_NAME) },
-        { name: 'Services.elm', content: generateServicesModule() }
+        { name: 'Database.elm', content: generateDatabaseModule(PROJECT_NAME, config) },
+        { name: 'Events.elm', content: generateEventsModule(PROJECT_NAME, config) },
+        { name: 'Services.elm', content: generateServicesModule(config) }
     ];
     
     for (const module of modules) {
@@ -66,9 +67,9 @@ export async function generateElmSharedModules() {
 /**
  * Generate Database module with query builder interface
  */
-function generateDatabaseModule(PROJECT_NAME) {
+function generateDatabaseModule(PROJECT_NAME, config = {}) {
     // Parse actual Rust models to generate correct Elm types
-    const dbModels = parseRustDbModels(PROJECT_NAME);
+    const dbModels = parseRustDbModels(PROJECT_NAME, config);
     
     return `port module Generated.Database exposing (..)
 
@@ -306,6 +307,33 @@ encodeMaybe encoder maybeValue =
         Just value -> encoder value
 
 
+-- DECODER HELPER FUNCTIONS
+
+-- Helper for pipeline-style decoding  
+andMap : Decode.Decoder a -> Decode.Decoder (a -> b) -> Decode.Decoder b
+andMap = Decode.map2 (|>)
+
+decodeField : String -> Decode.Decoder a -> Decode.Decoder (a -> b) -> Decode.Decoder b
+decodeField fieldName decoder =
+    andMap (Decode.field fieldName decoder)
+
+
+-- PostgreSQL BIGINT timestamp decoder (handles both string and int)
+timestampDecoder : Decode.Decoder Int
+timestampDecoder =
+    Decode.oneOf
+        [ Decode.int
+        , Decode.string |> Decode.andThen stringToInt
+        ]
+
+
+stringToInt : String -> Decode.Decoder Int
+stringToInt str =
+    case String.toInt str of
+        Just int -> Decode.succeed int
+        Nothing -> Decode.fail ("Could not parse timestamp: " ++ str)
+
+
 -- UTILITY FUNCTIONS
 
 hashString : String -> Int
@@ -324,9 +352,9 @@ toString query =
 /**
  * Generate Events module for Event Sourcing
  */
-function generateEventsModule(PROJECT_NAME) {
+function generateEventsModule(PROJECT_NAME, config = {}) {
     // Parse actual Rust event models to generate correct types
-    const eventModels = parseRustEventModels(PROJECT_NAME);
+    const eventModels = parseRustEventModels(PROJECT_NAME, config);
     
     return `port module Generated.Events exposing (..)
 
@@ -414,7 +442,7 @@ encodeMaybe encoder maybeValue =
 /**
  * Generate Services module for external API calls
  */
-function generateServicesModule() {
+function generateServicesModule(config = {}) {
     return `port module Generated.Services exposing (..)
 
 {-| Generated services interface for TEA handlers
@@ -574,9 +602,10 @@ hashString str =
 /**
  * Parse Rust database models from src/models/db/*.rs files
  */
-function parseRustDbModels(PROJECT_NAME) {
+function parseRustDbModels(PROJECT_NAME, config = {}) {
     const models = [];
-    const dbPath = PROJECT_NAME ? `app/${PROJECT_NAME}/models/db/` : 'models/db/';
+    const dbPath = config.inputBasePath ? `${config.inputBasePath}/src/models/db/` : 
+                   (PROJECT_NAME ? `app/${PROJECT_NAME}/models/db/` : 'src/models/db/');
     
     if (!fs.existsSync(dbPath)) {
         console.warn('Database models directory not found, using fallback types');
@@ -592,7 +621,7 @@ function parseRustDbModels(PROJECT_NAME) {
     for (const file of files) {
         const filePath = path.join(dbPath, file);
         const content = fs.readFileSync(filePath, 'utf-8');
-        const modelStructs = parseRustStructs(content);
+        const modelStructs = parseRustStructs(content, [], file);
         
         for (const struct of modelStructs) {
             allKnownModels.push(struct.name);
@@ -603,7 +632,7 @@ function parseRustDbModels(PROJECT_NAME) {
     for (const file of files) {
         const filePath = path.join(dbPath, file);
         const content = fs.readFileSync(filePath, 'utf-8');
-        const modelStructs = parseRustStructs(content, allKnownModels);
+        const modelStructs = parseRustStructs(content, allKnownModels, file);
         
         for (const struct of modelStructs) {
             // Normalize struct name - convert snake_case to PascalCase for Elm compatibility  
@@ -616,7 +645,9 @@ function parseRustDbModels(PROJECT_NAME) {
                 modelsByName.set(normalizedName, {
                     name: normalizedName,
                     fields: struct.fields,
-                    tableName: camelToSnake(struct.name.replace(/([a-z])([A-Z])/g, '$1_$2')).toLowerCase(),
+                    tableName: struct.isMainModel ? pluralize(pascalToSnake(struct.name)) : null,
+                    isMainModel: struct.isMainModel,
+                    isComponent: struct.isComponent,
                     sourceFile: file
                 });
             }
@@ -630,24 +661,46 @@ function parseRustDbModels(PROJECT_NAME) {
 /**
  * Parse Rust struct definitions from file content
  */
-function parseRustStructs(content, knownModels = []) {
+function parseRustStructs(content, knownModels = [], filename = null) {
     const structs = [];
     
-    // Match struct definitions with buildamp_domain annotation
-    const structPattern = /#\[buildamp_domain\]\s*pub\s+struct\s+(\w+)\s*\{([^}]+)\}/gs;
+    // Match all pub struct definitions (no annotation required)
+    const structPattern = /pub\s+struct\s+(\w+)\s*\{([^}]+)\}/gs;
     let match;
     
     while ((match = structPattern.exec(content)) !== null) {
         const [, structName, fieldsContent] = match;
         const fields = parseStructFields(fieldsContent, knownModels);
         
+        // Classify based on filename convention
+        const isMainModel = filename ? fuzzyMatchFilename(structName, filename) : true;
+        
         structs.push({
             name: structName,
-            fields: fields
+            fields: fields,
+            isMainModel: isMainModel,
+            isComponent: !isMainModel
         });
     }
     
     return structs;
+}
+
+/**
+ * Check if struct name fuzzy matches filename
+ * e.g., "MicroblogItem" matches "microblog_item.rs"
+ */
+function fuzzyMatchFilename(structName, filename) {
+    // Remove .rs extension
+    const baseName = filename.replace(/\.rs$/, '');
+    
+    // Convert struct name from PascalCase to snake_case
+    const snakeCaseStruct = structName
+        .replace(/([A-Z])/g, '_$1')  // Insert underscore before capitals
+        .toLowerCase()               // Convert to lowercase
+        .replace(/^_/, '');          // Remove leading underscore
+    
+    return snakeCaseStruct === baseName;
 }
 
 /**
@@ -700,6 +753,15 @@ function rustTypeToElmType(rustType, knownModels = []) {
         'Guest': 'GuestDb', 
         'Tag': 'TagDb',
     };
+    
+    if (rustType.startsWith('JsonBlob<')) {
+        const match = rustType.match(/JsonBlob<(.+)>/);
+        if (match) {
+            const innerType = match[1];
+            // JsonBlob<T> becomes the component type directly in Elm
+            return rustTypeToElmType(innerType, knownModels);
+        }
+    }
     
     if (rustType.startsWith('Option<')) {
         const match = rustType.match(/Option<(.+)>/);
@@ -767,6 +829,24 @@ function camelToSnake(str) {
     return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
 }
 
+function pascalToSnake(str) {
+    // Convert PascalCase to snake_case properly
+    return str.replace(/([A-Z])/g, (match, letter, index) => {
+        return (index > 0 ? '_' : '') + letter.toLowerCase();
+    });
+}
+
+function pluralize(str) {
+    // Simple pluralization - add 's' or handle common cases
+    if (str.endsWith('y')) {
+        return str.slice(0, -1) + 'ies';
+    } else if (str.endsWith('s') || str.endsWith('sh') || str.endsWith('ch') || str.endsWith('x') || str.endsWith('z')) {
+        return str + 'es';
+    } else {
+        return str + 's';
+    }
+}
+
 function snakeToCamel(str) {
     return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
               .replace(/_([0-9])/g, (_, digit) => digit);
@@ -778,12 +858,15 @@ function snakeToCamel(str) {
 function generateDbModelTypes(models) {
     return models.map(model => {
         const modelTypeAlias = generateModelTypeAlias(model);
-        const createTypeAlias = generateCreateTypeAlias(model);
-        const updateTypeAlias = generateUpdateTypeAlias(model);
-        const crudFunctions = generateCrudFunctions(model);
         const encodersDecoders = generateEncodersDecoders(model);
         
-        return `-- ${model.name.toUpperCase()} TYPES (Generated from ${model.sourceFile})
+        // Only generate CRUD operations for main models (database tables)
+        if (model.isMainModel) {
+            const createTypeAlias = generateCreateTypeAlias(model);
+            const updateTypeAlias = generateUpdateTypeAlias(model);
+            const crudFunctions = generateCrudFunctions(model);
+            
+            return `-- ${model.name.toUpperCase()} TYPES (Generated from ${model.sourceFile})
 
 ${modelTypeAlias}
 
@@ -798,6 +881,17 @@ ${crudFunctions}
 -- ${model.name.toUpperCase()} ENCODERS/DECODERS
 
 ${encodersDecoders}`;
+        } else {
+            // Component types: only type alias and simple encoders/decoders (no CRUD)
+            const componentEncoders = generateComponentEncodersDecoders(model);
+            return `-- ${model.name.toUpperCase()} COMPONENT TYPE (Generated from ${model.sourceFile})
+
+${modelTypeAlias}
+
+-- ${model.name.toUpperCase()} ENCODERS/DECODERS
+
+${componentEncoders}`;
+        }
     }).join('\n\n');
 }
 
@@ -939,6 +1033,33 @@ kill${modelName} id toMsg =
 }
 
 /**
+ * Generate simple encoder and decoder for component types (no Create/Update variants)
+ */
+function generateComponentEncodersDecoders(model) {
+    const modelName = model.name;
+    
+    return `${modelName.toLowerCase()}DbDecoder : Decode.Decoder ${modelName}Db
+${modelName.toLowerCase()}DbDecoder =
+    Decode.succeed ${modelName}Db
+${model.fields.map(field => {
+    const elmFieldName = snakeToCamel(field.name);
+    const decoder = generateFieldDecoder(field);
+    return `        |> decodeField "${field.name}" ${decoder}`;
+}).join('\n')}
+
+
+encode${modelName}Db : ${modelName}Db -> Encode.Value
+encode${modelName}Db item =
+    Encode.object
+        [ ${model.fields.map(field => {
+            const elmFieldName = snakeToCamel(field.name);
+            const encoder = generateFieldEncoder(field);
+            return `("${field.name}", ${encoder} item.${elmFieldName})`;
+        }).join('\n        , ')}
+        ]`;
+}
+
+/**
  * Generate encoder and decoder functions for a model
  */
 function generateEncodersDecoders(model) {
@@ -977,22 +1098,26 @@ encode${modelName}DbUpdate item =
                 const encoder = generateFieldEncoder(field, true); // optional for update
                 return `("${field.name}", ${encoder} item.${elmFieldName})`;
             }).join('\n        , ')}
-        ]
-
-
--- Helper for pipeline-style decoding  
-andMap : Decode.Decoder a -> Decode.Decoder (a -> b) -> Decode.Decoder b
-andMap = Decode.map2 (|>)
-
-decodeField : String -> Decode.Decoder a -> Decode.Decoder (a -> b) -> Decode.Decoder b
-decodeField fieldName decoder =
-    andMap (Decode.field fieldName decoder)`;
+        ]`;
 }
 
 /**
  * Generate appropriate decoder for a field
  */
 function generateFieldDecoder(field) {
+    // Special handling for JsonBlob fields - decode JSONB column as component type
+    if (field.rustType && field.rustType.startsWith('JsonBlob<')) {
+        const componentType = field.elmType; // e.g., "MicroblogItemDataDb"
+        // Remove "Db" suffix to get base name, then add "DbDecoder"
+        const baseName = componentType.replace(/Db$/, '');
+        return `${baseName.toLowerCase()}DbDecoder`;
+    }
+    
+    // Special handling for Timestamp fields - PostgreSQL BIGINT comes as string
+    if (field.rustType === 'Timestamp') {
+        return 'timestampDecoder';
+    }
+    
     if (field.elmType.startsWith('Maybe ')) {
         const innerType = field.elmType.replace('Maybe ', '');
         return `(Decode.nullable ${generateBasicDecoder(innerType)})`;
@@ -1023,7 +1148,12 @@ function generateBasicDecoder(elmType) {
 function generateFieldEncoder(field, isOptional = false) {
     let baseEncoder;
     
-    if (field.elmType.startsWith('Maybe ')) {
+    // Special handling for JsonBlob fields - encode using component encoder
+    if (field.rustType && field.rustType.startsWith('JsonBlob<')) {
+        const componentType = field.elmType; // e.g., "MicroblogItemDataDb"
+        const baseName = componentType.replace(/Db$/, '');
+        baseEncoder = `encode${baseName}Db`;
+    } else if (field.elmType.startsWith('Maybe ')) {
         const innerType = field.elmType.replace('Maybe ', '');
         baseEncoder = `encodeMaybe ${generateBasicEncoder(innerType)}`;
     } else {
@@ -1061,9 +1191,10 @@ function generateBasicEncoder(elmType) {
 /**
  * Parse Rust event models from src/models/events/*.rs files
  */
-function parseRustEventModels(PROJECT_NAME) {
+function parseRustEventModels(PROJECT_NAME, config = {}) {
     const models = [];
-    const eventsPath = PROJECT_NAME ? `app/${PROJECT_NAME}/models/events/` : 'models/events/';
+    const eventsPath = config.inputBasePath ? `${config.inputBasePath}/src/models/events/` :
+                      (PROJECT_NAME ? `app/${PROJECT_NAME}/models/events/` : 'src/models/events/');
     
     if (!fs.existsSync(eventsPath)) {
         console.warn('Events models directory not found, using fallback types');

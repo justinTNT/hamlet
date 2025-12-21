@@ -416,6 +416,7 @@ ${actionDecoderCases}
 
 // Generate all API routes
 function generateApiRoutes(config = {}) {
+    
     // Auto-detect project name for fallback
     function getProjectName() {
         const appDir = path.join(process.cwd(), 'app');
@@ -436,13 +437,14 @@ function generateApiRoutes(config = {}) {
     const PROJECT_NAME = config.projectName || getProjectName();
     const apiModelsPath = config.inputBasePath ? 
         path.resolve(config.inputBasePath, 'api') :
-        (PROJECT_NAME ? path.join(process.cwd(), `app/${PROJECT_NAME}/models/api`) : null);
+        (PROJECT_NAME ? path.join(process.cwd(), `app/${PROJECT_NAME}/models/api`) : path.join(process.cwd(), 'src/models/api'));
     const outputPath = config.jsOutputPath ? 
         path.resolve(config.jsOutputPath) :
         path.join(__dirname, '../../packages/hamlet-server/generated');
     
+    
     if (!fs.existsSync(apiModelsPath)) {
-        console.log('📁 No src/models/api directory found, skipping API route generation');
+        console.log('❌ No API models directory found, skipping API route generation');
         return;
     }
     
@@ -515,7 +517,7 @@ ${allRoutes}
     // Write Elm backend types file
     const backendOutputPath = config.backendElmPath ? 
         path.resolve(config.backendElmPath) :
-        (PROJECT_NAME ? path.join(process.cwd(), `app/${PROJECT_NAME}/server/generated`) : null);
+        (PROJECT_NAME ? path.join(process.cwd(), `app/${PROJECT_NAME}/server/generated`) : path.join(process.cwd(), 'generated/Generated'));
     if (!fs.existsSync(backendOutputPath)) {
         fs.mkdirSync(backendOutputPath, { recursive: true });
     }

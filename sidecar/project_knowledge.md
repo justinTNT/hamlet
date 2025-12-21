@@ -4,11 +4,11 @@
 
 ### Location
 - **Framework unit tests**: `/tests/` (18 test files)
-- **Framework integration tests**: `/framework-tests/` (20 projects + 4 scripts)
+- **Framework integration tests**: `/buildamp-tests/` (20 projects + 4 scripts)
 - **Application tests**: `app/horatio/server/__tests__/` (2 test files)
 - **Test commands**: 
   - Framework unit: `cargo test` (from project root)
-  - Framework integration: `cd framework-tests && ./test-*.js`
+  - Framework integration: `cd buildamp-tests && ./test-*.js`
   - Application: `npm test` (from app/horatio/server)
 
 ### Test Files Overview
@@ -21,7 +21,7 @@
 - `storage_types_test.rs`, `validation_aliases_test.rs`, `validation_integration_test.rs`
 - `validation_types_test.rs`, `host_isolation_test.rs`, `tea_handler_lifecycle_test.rs`
 
-**Framework integration tests (20 projects + 4 scripts)**:
+**BuildAmp integration tests (20 projects + 4 scripts)**:
 - `test-validation/` - Full validation system with models/API/DB
 - `test-handlers-webhooks/` - TEA handler and webhook generation
 - `test-codegen-output/` - Code generation pipeline verification  

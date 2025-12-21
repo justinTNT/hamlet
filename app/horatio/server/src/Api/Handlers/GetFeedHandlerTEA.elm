@@ -30,17 +30,19 @@ type alias Model =
     , context : Maybe Context
     , globalConfig : GlobalConfig
     , globalState : GlobalState
-    -- TODO: Add domain-specific state fields here
+    , loadedItems : List DB.MicroblogItemDb
+    , allTags : List DB.TagDb  -- All tags loaded upfront
+    , itemTags : List DB.ItemTagDb -- item_id to tag_id mappings  
+    , loadedComments : List DB.ItemCommentDb
     }
 
 
 type Stage
     = Idle
-    | Processing
-    -- TODO: Add specific stages for your business logic, e.g.:
-    -- | LoadingData
-    -- | ValidatingInput  
-    -- | SavingResults
+    | LoadingAllTags
+    | LoadingItems
+    | LoadingItemTags
+    | LoadingComments
     | Complete GetFeedRes
     | Failed String
 
@@ -61,11 +63,10 @@ type alias GlobalState = DB.GlobalState  -- Mutable handler state
 
 type Msg
     = HandleRequest RequestBundle
-    | ProcessingComplete GetFeedRes
-    -- TODO: Add specific messages for your business logic, e.g.:
-    -- | DataLoaded (Result String SomeData)
-    -- | ValidationComplete (Result String ValidatedInput)
-    -- | SaveComplete (Result String SavedResult)
+    | AllTagsLoaded DB.DbResponse
+    | ItemsLoaded DB.DbResponse
+    | ItemTagsLoaded DB.DbResponse
+    | CommentsLoaded DB.DbResponse
 
 
 type alias RequestBundle =
@@ -82,6 +83,10 @@ init flags =
       , context = Nothing
       , globalConfig = flags.globalConfig
       , globalState = flags.globalState
+      , loadedItems = []
+      , allTags = []
+      , itemTags = []
+      , loadedComments = []
       }
     , Cmd.none
     )
@@ -97,137 +102,298 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         HandleRequest bundle ->
-            -- Start the business logic pipeline
             ( { model 
-              | stage = Processing
+              | stage = LoadingAllTags
               , request = Just bundle.request
               , context = Just bundle.context
+              , loadedItems = []
+              , allTags = []
+              , itemTags = []
+              , loadedComments = []
               }
-            , processRequest bundle.request
+            , loadAllTags
             )
         
-        ProcessingComplete result ->
-            ( { model | stage = Complete result }
-            , complete (encodeGetFeedRes result)
-            )
+        AllTagsLoaded result ->
+            case handleDbResponse result of
+                Ok data ->
+                    let
+                        _ = Debug.log "🏷️  Raw tags data" data
+                    in
+                    case decodeAllTags data of
+                        Ok tags ->
+                            let
+                                _ = Debug.log "🏷️  Decoded tags" tags
+                            in
+                            ( { model 
+                              | stage = LoadingItems
+                              , allTags = tags 
+                              }
+                            , loadMicroblogItems
+                            )
+                        Err error ->
+                            ( { model | stage = Failed error }
+                            , complete (encodeError error)
+                            )
+                Err error ->
+                    ( { model | stage = Failed error }
+                    , complete (encodeError error)
+                    )
         
-        -- TODO: Handle your specific business logic messages here
-        -- e.g.:
-        -- DataLoaded result ->
-        --     case result of
-        --         Ok data ->
-        --             ( { model | stage = ValidatingInput }
-        --             , validateData data
-        --             )
-        --         Err error ->
-        --             ( { model | stage = Failed error }
-        --             , complete (encodeError error)
-        --             )
+        ItemsLoaded result ->
+            case handleDbResponse result of
+                Ok data ->
+                    let
+                        _ = Debug.log "📄 Raw items data" data
+                    in
+                    case decodeItems data of
+                        Ok items ->
+                            let
+                                itemIds = List.map .id items
+                                _ = Debug.log "📄 Decoded items" items
+                                _ = Debug.log "📄 Item IDs" itemIds
+                            in
+                            ( { model 
+                              | stage = LoadingItemTags
+                              , loadedItems = items 
+                              }
+                            , loadItemTagsForItems itemIds
+                            )
+                        Err error ->
+                            ( { model | stage = Failed error }
+                            , complete (encodeError error)
+                            )
+                Err error ->
+                    ( { model | stage = Failed error }
+                    , complete (encodeError error)
+                    )
+        
+        ItemTagsLoaded result ->
+            case handleDbResponse result of
+                Ok data ->
+                    let
+                        _ = Debug.log "🔗 Raw item-tags data" data
+                    in
+                    case decodeItemTags data of
+                        Ok itemTagsList ->
+                            let
+                                itemIds = List.map .id model.loadedItems
+                                _ = Debug.log "🔗 Decoded item-tags" itemTagsList
+                            in
+                            ( { model 
+                              | stage = LoadingComments
+                              , itemTags = itemTagsList 
+                              }
+                            , loadCommentsForItems itemIds
+                            )
+                        Err error ->
+                            ( { model | stage = Failed error }
+                            , complete (encodeError error)
+                            )
+                Err error ->
+                    ( { model | stage = Failed error }
+                    , complete (encodeError error)
+                    )
+        
+        CommentsLoaded result ->
+            case handleDbResponse result of
+                Ok data ->
+                    case decodeComments data of
+                        Ok comments ->
+                            let feedItems = transformToApiWithRelations model.loadedItems model.allTags model.itemTags comments
+                            in
+                            ( { model | stage = Complete { items = feedItems } }
+                            , complete (encodeGetFeedRes { items = feedItems })
+                            )
+                        Err error ->
+                            ( { model | stage = Failed error }
+                            , complete (encodeError error)
+                            )
+                Err error ->
+                    ( { model | stage = Failed error }
+                    , complete (encodeError error)
+                    )
 
 
 -- BUSINESS LOGIC
 
-{-| Get server-issued timestamp for reliable time operations
-This ensures all timestamps come from the server, preventing client manipulation
+{-| Load all tags upfront (there won't be many)
 -}
-getServerTimestamp : GlobalConfig -> Int
-getServerTimestamp config =
-    config.serverNow
+loadAllTags : Cmd Msg
+loadAllTags =
+    DB.findTags DB.queryAll
 
 
-processRequest : GetFeedReq -> Cmd Msg
-processRequest request =
-    -- TODO: Implement your business logic here
-    -- Example patterns:
-    
-    -- Database query:
-    -- DB.findItems (DB.queryAll |> DB.sortByCreatedAt) DataLoaded
-    
-    -- External API call:
-    -- Services.get "https://api.example.com/data" [] ApiResponseReceived
-    
-    -- Event scheduling:
-    -- Events.pushEvent (Events.SomeEvent { data = request.someField })
-    
-    -- Server timestamp usage:
-    -- let currentTime = getServerTimestamp model.globalConfig
-    
-    -- [AGENT-WRITTEN] Mock response implementation to replace Debug.todo
+{-| Load all microblog items, sorted by creation date (newest first)
+-}
+loadMicroblogItems : Cmd Msg  
+loadMicroblogItems =
+    DB.findMicroblogItems (DB.queryAll |> DB.sortByCreatedAt)
+
+
+{-| Load item-tag relationships for specific item IDs
+-}
+loadItemTagsForItems : List String -> Cmd Msg
+loadItemTagsForItems itemIds =
+    -- Query item_tags junction table for the given item IDs
+    -- For now, query all item_tags (would be optimized with filters in production)
+    DB.findItemTags DB.queryAll
+
+
+{-| Load comments for specific item IDs
+-}  
+loadCommentsForItems : List String -> Cmd Msg
+loadCommentsForItems itemIds =
+    -- Query for all comments where item_id is in our list of item IDs
+    -- For now, we'll query all comments and filter later
+    DB.findItemComments DB.queryAll
+
+
+{-| Handle database response with error checking
+-}
+handleDbResponse : DB.DbResponse -> Result String Encode.Value
+handleDbResponse response =
+    if response.success then
+        case response.data of
+            Just data -> Ok data
+            Nothing -> Err "No data returned from database"
+    else
+        Err (response.error |> Maybe.withDefault "Database query failed")
+
+
+{-| Decode all tags
+-}
+decodeAllTags : Encode.Value -> Result String (List DB.TagDb)
+decodeAllTags data =
+    case Decode.decodeValue (Decode.list DB.tagDbDecoder) data of
+        Ok tags -> Ok tags
+        Err error -> Err ("Failed to decode tags: " ++ Decode.errorToString error)
+
+
+{-| Decode list of MicroblogItemDb from JSON
+-}
+decodeItems : Encode.Value -> Result String (List DB.MicroblogItemDb)
+decodeItems data =
+    case Decode.decodeValue (Decode.list microblogItemDbDecoder) data of
+        Ok items -> Ok items
+        Err error -> Err ("Failed to decode items: " ++ Decode.errorToString error)
+
+
+{-| Decode item-tag junction table data
+-}
+decodeItemTags : Encode.Value -> Result String (List DB.ItemTagDb)
+decodeItemTags data =
+    case Decode.decodeValue (Decode.list DB.itemtagDbDecoder) data of
+        Ok itemTags -> Ok itemTags
+        Err error -> Err ("Failed to decode item tags: " ++ Decode.errorToString error)
+
+
+{-| Decode comments from JSON
+-}
+decodeComments : Encode.Value -> Result String (List DB.ItemCommentDb)
+decodeComments data =
+    case Decode.decodeValue (Decode.list DB.itemcommentDbDecoder) data of
+        Ok comments -> Ok comments
+        Err error -> Err ("Failed to decode comments: " ++ Decode.errorToString error)
+
+
+{-| Transform items with their related data to API format
+-}
+transformToApiWithRelations : List DB.MicroblogItemDb -> List DB.TagDb -> List DB.ItemTagDb -> List DB.ItemCommentDb -> List Api.Backend.MicroblogItem
+transformToApiWithRelations items allTags itemTags comments =
+    List.map (transformDbItemToApiWithRelations allTags itemTags comments) items
+
+
+{-| Transform a single item with its related data
+-}  
+transformDbItemToApiWithRelations : List DB.TagDb -> List DB.ItemTagDb -> List DB.ItemCommentDb -> DB.MicroblogItemDb -> Api.Backend.MicroblogItem
+transformDbItemToApiWithRelations allTags itemTags comments dbItem =
     let
-        mockResponse = 
-            { items = 
-                [ { id = "1"
-                  , title = "Welcome to Hamlet"
-                  , link = "https://example.com"
-                  , image = ""
-                  , extract = "This is a sample microblog item"
-                  , ownerComment = "First post!"
-                  , tags = ["demo", "hamlet"]
-                  , comments = []
-                  , timestamp = 1640995200000
-                  }
-                , { id = "2"
-                  , title = "Getting Started"
-                  , link = "https://docs.example.com"
-                  , image = ""
-                  , extract = "Documentation for getting started"
-                  , ownerComment = "Useful docs"
-                  , tags = ["docs", "getting-started"]
-                  , comments = []
-                  , timestamp = 1640995100000
-                  }
-                ]
-            }
+        _ = Debug.log "🔗 Item ID" dbItem.id
+        
+        -- Get tag IDs for this item
+        itemTagIds = itemTags 
+                    |> List.filter (\itemTag -> itemTag.itemId == dbItem.id)
+                    |> List.map .tagId
+        
+        _ = Debug.log "🔗 Item tag IDs for this item" itemTagIds
+        _ = Debug.log "🔗 All available tags" (List.map (\tag -> {id = tag.id, name = tag.name}) allTags)
+        
+        -- Get tag names by looking up tag IDs in the allTags list
+        itemTagNames = allTags
+                      |> List.filter (\tag -> List.member tag.id itemTagIds)
+                      |> List.map .name
+        
+        _ = Debug.log "🔗 Final tag names" itemTagNames
+        
+        itemComments = comments
+                      |> List.filter (\comment -> comment.itemId == dbItem.id)
+                      |> List.map transformDbCommentToApi
     in
-    Task.perform (\_ -> 
-        -- Signal completion with the response
-        ProcessingComplete mockResponse
-    ) (Task.succeed ())
+    { id = dbItem.id
+    , title = dbItem.data.title
+    , link = dbItem.data.link |> Maybe.withDefault ""
+    , image = dbItem.data.image |> Maybe.withDefault ""
+    , extract = dbItem.data.extract |> Maybe.withDefault ""
+    , ownerComment = dbItem.data.ownerComment
+    , tags = itemTagNames
+    , comments = itemComments
+    , timestamp = dbItem.createdAt
+    }
+
+
+{-| Transform database comment to API comment format
+-}
+transformDbCommentToApi : DB.ItemCommentDb -> Api.Backend.ItemComment
+transformDbCommentToApi dbComment =
+    { id = dbComment.id
+    , itemId = dbComment.itemId
+    , guestId = dbComment.guestId
+    , parentId = dbComment.parentId
+    , authorName = dbComment.authorName
+    , text = dbComment.text
+    , timestamp = dbComment.createdAt
+    }
+
+
+{-| Custom decoder for MicroblogItemDb that handles bigint timestamps as strings
+-}
+microblogItemDbDecoder : Decode.Decoder DB.MicroblogItemDb
+microblogItemDbDecoder =
+    Decode.succeed DB.MicroblogItemDb
+        |> andMap (Decode.field "id" Decode.string)
+        |> andMap (Decode.field "data" DB.microblogitemdataDbDecoder)
+        |> andMap (Decode.field "created_at" timestampDecoder)
+        |> andMap (Decode.field "view_count" Decode.int)
+
+
+{-| Decoder that handles timestamps as either strings (from BIGINT) or ints
+-}
+timestampDecoder : Decode.Decoder Int
+timestampDecoder =
+    Decode.oneOf
+        [ Decode.int
+        , Decode.string |> Decode.andThen stringToInt
+        ]
+
+
+stringToInt : String -> Decode.Decoder Int
+stringToInt str =
+    case String.toInt str of
+        Just int -> Decode.succeed int
+        Nothing -> Decode.fail ("Could not parse timestamp: " ++ str)
+
+
+-- Helper for pipeline-style decoding
+andMap : Decode.Decoder a -> Decode.Decoder (a -> b) -> Decode.Decoder b
+andMap = Decode.map2 (|>)
 
 
 -- ENCODING
 
-{- [AGENT-WRITTEN] Encoding functions for GetFeedRes and related types -}
 encodeGetFeedRes : GetFeedRes -> Encode.Value
 encodeGetFeedRes response =
-    Encode.object
-        [ ("items", Encode.list encodeMicroblogItem response.items)
-        ]
-
-
-encodeMicroblogItem : Api.Backend.MicroblogItem -> Encode.Value
-encodeMicroblogItem item =
-    Encode.object
-        [ ("id", Encode.string item.id)
-        , ("title", Encode.string item.title)
-        , ("link", Encode.string item.link)
-        , ("image", Encode.string item.image)
-        , ("extract", Encode.string item.extract)
-        , ("owner_comment", Encode.string item.ownerComment)
-        , ("tags", Encode.list Encode.string item.tags)
-        , ("comments", Encode.list encodeItemComment item.comments)
-        , ("timestamp", Encode.int item.timestamp)
-        ]
-
-
-encodeItemComment : Api.Backend.ItemComment -> Encode.Value
-encodeItemComment comment =
-    Encode.object
-        [ ("id", Encode.string comment.id)
-        , ("item_id", Encode.string comment.itemId)
-        , ("guest_id", Encode.string comment.guestId)
-        , ("parent_id", encodeMaybe Encode.string comment.parentId)
-        , ("author_name", Encode.string comment.authorName)
-        , ("text", Encode.string comment.text)
-        , ("timestamp", Encode.int comment.timestamp)
-        ]
-
-
-encodeMaybe : (a -> Encode.Value) -> Maybe a -> Encode.Value
-encodeMaybe encoder maybeValue =
-    case maybeValue of
-        Nothing -> Encode.null
-        Just value -> encoder value
+    Api.Backend.getFeedResEncoder response
 
 
 encodeError : String -> Encode.Value
@@ -255,5 +421,16 @@ main =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
-    handleRequest HandleRequest
+subscriptions model =
+    let
+        dbSub = case model.stage of
+            LoadingAllTags -> DB.dbResult AllTagsLoaded
+            LoadingItems -> DB.dbResult ItemsLoaded
+            LoadingItemTags -> DB.dbResult ItemTagsLoaded 
+            LoadingComments -> DB.dbResult CommentsLoaded
+            _ -> Sub.none
+    in
+    Sub.batch
+        [ handleRequest HandleRequest
+        , dbSub
+        ]

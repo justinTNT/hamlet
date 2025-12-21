@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS item_comments (
     host TEXT NOT NULL,
     item_id TEXT NOT NULL REFERENCES microblog_items(id),
     guest_id TEXT NOT NULL,
+    author_name TEXT NOT NULL,
     text TEXT NOT NULL,
     timestamp BIGINT NOT NULL
 );

@@ -47,6 +47,7 @@ type Stage
 
 type alias Context =
     { host : String
+    , userId : Maybe String
     , sessionId : Maybe String
     }
 
@@ -166,13 +167,7 @@ processRequest request =
 
 encodeSubmitCommentRes : SubmitCommentRes -> Encode.Value
 encodeSubmitCommentRes response =
-    -- TODO: Implement proper encoding based on your SubmitCommentRes structure
-    Encode.object
-        [ -- TODO: Add proper fields based on your SubmitCommentRes structure
-        -- Example:
-        -- ("items", Encode.list encodeItem response.items)
-        -- ("message", Encode.string response.message)
-        ]
+    Api.Backend.submitCommentResEncoder response
 
 
 encodeError : String -> Encode.Value
