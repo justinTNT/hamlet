@@ -34,7 +34,7 @@ export default defineConfig({
   ],
   server: {
     fs: {
-      allow: ['../..', '../../../pkg-web'],
+      allow: ['../..', '../../../pkg-web', '../../../packages'],
     },
     proxy: {
       '/api': 'http://localhost:3000',

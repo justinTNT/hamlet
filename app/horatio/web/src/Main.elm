@@ -4,10 +4,12 @@ import Api
 import Api.Http
 import Api.Schema
 import Browser
-import Html exposing (Html, button, div, h1, h2, h3, h4, p, a, img, text, section, input, textarea, label)
+import Html exposing (Html, button, div, h1, h2, h3, h4, p, a, img, text, section, input, textarea, label, span)
 import Html.Attributes exposing (src, href, style, class, value, placeholder)
 import Html.Events exposing (onClick, onInput)
 import Http
+import Random
+import Storage
 
 port log : String -> Cmd msg
 
@@ -17,8 +19,10 @@ type alias Model =
     { feed : FeedState
     , replyingTo : Maybe { itemId : String, parentId : Maybe String }
     , newComment : String
-    , authorName : String
+    , guestSession : Maybe GuestSession
     }
+
+type alias GuestSession = Storage.GuestSession
 
 type FeedState
     = Loading
@@ -30,10 +34,24 @@ init =
     ( { feed = Loading
       , replyingTo = Nothing
       , newComment = ""
-      , authorName = ""
+      , guestSession = Nothing
       }
-    , getFeed
+    , Cmd.batch [ getFeed, Storage.loadGuestSession ]
     )
+
+-- GUEST SESSION MANAGEMENT
+
+createGuestSession : Cmd Msg
+createGuestSession =
+    Random.generate
+        (\randomInt ->
+            GuestSessionCreated
+                { guest_id = "guest-" ++ String.fromInt randomInt
+                , display_name = "Guest" ++ String.fromInt (modBy 1000 randomInt)
+                , created_at = 0  -- Will be set by server timestamp later
+                }
+        )
+        (Random.int 1 9999)
 
 -- API CALLS
 
@@ -64,7 +82,7 @@ submitComment model =
                 , itemId = itemId
                 , parentId = parentId
                 , text = model.newComment
-                , authorName = if String.isEmpty model.authorName then Nothing else Just model.authorName
+                , authorName = Maybe.map .display_name model.guestSession
                 }
                 |> Api.Http.send SubmittedComment
         
@@ -79,10 +97,11 @@ type Msg
     | SubmittedItem (Result Http.Error Api.Schema.SubmitItemRes)
     | SetReplyTo String (Maybe String)
     | SetCommentText String
-    | SetAuthorName String
     | PerformSubmitComment
     | SubmittedComment (Result Http.Error Api.Schema.SubmitCommentRes)
     | CancelReply
+    | GuestSessionCreated GuestSession
+    | GuestSessionLoaded (Maybe GuestSession)
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -109,8 +128,17 @@ update msg model =
         SetCommentText text ->
             ( { model | newComment = text }, Cmd.none )
 
-        SetAuthorName name ->
-            ( { model | authorName = name }, Cmd.none )
+        GuestSessionCreated session ->
+            ( { model | guestSession = Just session }, Storage.saveGuestSession session )
+        
+        GuestSessionLoaded maybeSession ->
+            case maybeSession of
+                Just session ->
+                    ( { model | guestSession = Just session }, Cmd.none )
+                
+                Nothing ->
+                    -- No existing session, create a new one
+                    ( model, createGuestSession )
 
         PerformSubmitComment ->
             ( model, submitComment model )
@@ -139,7 +167,11 @@ view : Model -> Html Msg
 view model =
     div [ style "font-family" "sans-serif", style "max-width" "800px", style "margin" "0 auto", style "padding" "20px" ]
         [ h1 [] [ text "Horatio Reader" ]
-        , button [ onClick PerformSubmitItem, style "margin-bottom" "20px" ] [ text "Test: Submit Item" ]
+        , div [ style "margin-bottom" "20px", style "display" "flex", style "justify-content" "space-between", style "align-items" "center" ]
+            [ button [ onClick PerformSubmitItem ] [ text "Test: Submit Item" ]
+            , span [ style "font-size" "0.9em", style "color" "#666" ]
+                [ text ("Signed in as: " ++ (Maybe.map .display_name model.guestSession |> Maybe.withDefault "Loading...")) ]
+            ]
         , viewContent model
         ]
 
@@ -204,14 +236,8 @@ viewReplyButton model itemId parentId =
         Just activeReply ->
             if activeReply.itemId == itemId && activeReply.parentId == parentId then
                 div [ style "margin-top" "5px", style "background" "#f0f0f0", style "padding" "10px" ]
-                    [ input 
-                        [ placeholder "Your Name (Optional for returning users)"
-                        , value model.authorName
-                        , onInput SetAuthorName
-                        , style "display" "block"
-                        , style "margin-bottom" "5px"
-                        , style "width" "100%"
-                        ] []
+                    [ div [ style "margin-bottom" "5px", style "font-size" "0.9em", style "color" "#666" ]
+                        [ text ("Commenting as: " ++ (Maybe.map .display_name model.guestSession |> Maybe.withDefault "Guest")) ]
                     , textarea 
                         [ placeholder "Write a reply..."
                         , value model.newComment
@@ -251,6 +277,11 @@ main =
         { init = \_ -> init
         , view = view
         , update = update
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = subscriptions
         }
+
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Storage.onGuestSessionLoaded GuestSessionLoaded
 

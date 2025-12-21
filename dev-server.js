@@ -29,13 +29,50 @@ console.log('');
 let serverProcess = null;
 let isRestarting = false;
 
-const WATCH_PATHS = [
-    'src/models/',           // Rust models
-    'packages/hamlet-server/generated/', // Generated JS
-    'app/generated/',        // Generated Elm
-];
+// Watch paths will be set after path discovery
+let WATCH_PATHS = [];
 
 const SERVER_DIR = 'app/horatio/server';
+
+/**
+ * Discover project structure and return standardized paths
+ */
+function discoverProjectPaths() {
+    // Check for app/${project}/models pattern (BuildAmp framework)
+    if (fs.existsSync('app/horatio/models')) {
+        return {
+            modelsDir: 'app/horatio/models',
+            dbModelsDir: 'app/horatio/models/db',
+            apiModelsDir: 'app/horatio/models/api', 
+            storageModelsDir: 'app/horatio/models/storage',
+            kvModelsDir: 'app/horatio/models/kv',
+            sseModelsDir: 'app/horatio/models/sse',
+            eventsModelsDir: 'app/horatio/models/events',
+            elmOutputDir: 'app/generated',
+            jsOutputDir: 'packages/hamlet-server/generated',
+            elmApiDir: 'app/horatio/web/src/Api',
+            serverHandlersDir: 'app/horatio/server/src/Api/Handlers'
+        };
+    }
+    
+    // Fallback to src/models pattern (simple projects)
+    return {
+        modelsDir: 'src/models',
+        dbModelsDir: 'src/models/db',
+        apiModelsDir: 'src/models/api',
+        storageModelsDir: 'src/models/storage', 
+        kvModelsDir: 'src/models/kv',
+        sseModelsDir: 'src/models/sse',
+        eventsModelsDir: 'src/models/events',
+        elmOutputDir: 'app/generated',
+        jsOutputDir: 'packages/hamlet-server/generated',
+        elmApiDir: 'app/horatio/web/src/Api',
+        serverHandlersDir: 'app/horatio/server/src/Api/Handlers'
+    };
+}
+
+// Global paths discovered once at startup
+const PROJECT_PATHS = discoverProjectPaths();
 
 /**
  * Detect which generation phase to run based on file path
@@ -72,29 +109,34 @@ async function regenerateCodeForFile(filePath, reason = 'File change') {
         console.log(`🎯 Running ${phase} generation phase...`);
         
         if (phase === 'database') {
-            await generateDatabaseQueries();
+            await generateDatabaseQueries(PROJECT_PATHS.dbModelsDir, PROJECT_PATHS.jsOutputDir);
             console.log('✅ Database queries regenerated');
             
         } else if (phase === 'api') {
-            await generateApiRoutes();
-            await generateElmHandlers(); // API changes might need new handlers
+            await generateApiRoutes(PROJECT_PATHS.apiModelsDir, PROJECT_PATHS.jsOutputDir);
+            await generateElmHandlers(PROJECT_PATHS.apiModelsDir, PROJECT_PATHS.serverHandlersDir, PROJECT_PATHS.elmOutputDir); // API changes might need new handlers
             console.log('✅ API routes and handlers regenerated');
             
         } else if (phase === 'browser') {
-            await generateBrowserStorage();
+            await generateBrowserStorage({
+                inputBasePath: path.dirname(PROJECT_PATHS.storageModelsDir), // app/horatio/models
+                elmOutputPath: PROJECT_PATHS.elmOutputDir,
+                jsOutputPath: PROJECT_PATHS.jsOutputDir,
+                elmApiPath: PROJECT_PATHS.elmApiDir
+            });
             console.log('✅ Browser storage regenerated');
             
         } else if (phase === 'kv') {
-            await generateKvStore();
+            await generateKvStore(PROJECT_PATHS.kvModelsDir, PROJECT_PATHS.jsOutputDir);
             console.log('✅ KV store regenerated');
             
         } else if (phase === 'sse') {
-            await generateSSEEvents();
-            await generateElmSharedModules(); // SSE events affect shared modules
+            await generateSSEEvents(PROJECT_PATHS.sseModelsDir, PROJECT_PATHS.jsOutputDir);
+            await generateElmSharedModules(PROJECT_PATHS.modelsDir, PROJECT_PATHS.elmOutputDir); // SSE events affect shared modules
             console.log('✅ SSE events and shared modules regenerated');
             
         } else if (phase === 'shared') {
-            await generateElmSharedModules();
+            await generateElmSharedModules(PROJECT_PATHS.modelsDir, PROJECT_PATHS.elmOutputDir);
             console.log('✅ Shared modules regenerated');
             
         } else {
@@ -254,20 +296,27 @@ async function initialSetup() {
 function setupWatchers() {
     console.log('👁️  Setting up intelligent file watchers...');
     
+    // Set up watch paths based on discovered project structure  
+    WATCH_PATHS = [
+        PROJECT_PATHS.modelsDir,           // Rust models
+        PROJECT_PATHS.jsOutputDir,         // Generated JS
+        PROJECT_PATHS.elmOutputDir,        // Generated Elm
+    ];
+    
     // Watch Rust model files with smart regeneration
-    const modelPaths = ['src/models/', 'app/horatio/models/'];
-    for (const modelPath of modelPaths) {
-        if (fs.existsSync(modelPath)) {
-            watch(modelPath, { recursive: true }, (eventType, filename) => {
-                if (filename && filename.endsWith('.rs')) {
-                    const fullPath = path.join(modelPath, filename);
-                    const phase = getGenerationPhaseForFile(fullPath);
-                    console.log(`📝 Rust model changed: ${filename} (${phase} phase)`);
-                    restart('Rust model updated', fullPath);
-                }
-            });
-            console.log(`   👀 Watching ${modelPath} for targeted Rust generation`);
-        }
+    if (fs.existsSync(PROJECT_PATHS.modelsDir)) {
+        const modelPath = PROJECT_PATHS.modelsDir;
+        watch(modelPath, { recursive: true }, (eventType, filename) => {
+            if (filename && filename.endsWith('.rs')) {
+                const fullPath = path.join(modelPath, filename);
+                const phase = getGenerationPhaseForFile(fullPath);
+                console.log(`📝 Rust model changed: ${filename} (${phase} phase)`);
+                runTargetedGeneration(fullPath, phase, 'Model file changed');
+            }
+        });
+        console.log(`   👀 Watching ${PROJECT_PATHS.modelsDir} for targeted Rust generation`);
+    } else {
+        console.log(`⚠️  Models directory not found: ${PROJECT_PATHS.modelsDir}`);
     }
     
     // Watch Elm handler files (no generation needed, just rebuild)

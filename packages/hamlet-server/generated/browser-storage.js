@@ -10,67 +10,67 @@
  */
 
 /**
- * Auto-generated browser storage for AuthState
+ * Auto-generated browser storage for GuestSession
  * Provides type-safe localStorage operations with Elm port integration
  */
-class AuthStateStorage {
-    static storageKey = 'auth_state';
+class GuestSessionStorage {
+    static storageKey = 'guest_session';
     
     /**
-     * Save AuthState to localStorage and notify Elm
-     * @param {Object} authstate - AuthState data to save
+     * Save GuestSession to localStorage and notify Elm
+     * @param {Object} guestsession - GuestSession data to save
      */
-    static save(authstate) {
+    static save(guestsession) {
         try {
-            localStorage.setItem(this.storageKey, JSON.stringify(authstate));
+            localStorage.setItem(this.storageKey, JSON.stringify(guestsession));
             
             // Notify Elm of the change (if ports are available)
-            if (typeof app !== 'undefined' && app.ports && app.ports.authstateChanged) {
-                app.ports.authstateChanged.send(authstate);
+            if (typeof app !== 'undefined' && app.ports && app.ports.guestsessionChanged) {
+                app.ports.guestsessionChanged.send(guestsession);
             }
             
             return true;
         } catch (error) {
-            console.error('Error saving AuthState:', error);
+            console.error('Error saving GuestSession:', error);
             return false;
         }
     }
     
     /**
-     * Load AuthState from localStorage
-     * @returns {Object|null} AuthState data or null if not found
+     * Load GuestSession from localStorage
+     * @returns {Object|null} GuestSession data or null if not found
      */
     static load() {
         try {
             const data = localStorage.getItem(this.storageKey);
             return data ? JSON.parse(data) : null;
         } catch (error) {
-            console.error('Error loading AuthState:', error);
+            console.error('Error loading GuestSession:', error);
             return null;
         }
     }
     
     /**
-     * Clear AuthState from localStorage and notify Elm
+     * Clear GuestSession from localStorage and notify Elm
      */
     static clear() {
         try {
             localStorage.removeItem(this.storageKey);
             
             // Notify Elm of the change (if ports are available)
-            if (typeof app !== 'undefined' && app.ports && app.ports.authstateChanged) {
-                app.ports.authstateChanged.send(null);
+            if (typeof app !== 'undefined' && app.ports && app.ports.guestsessionChanged) {
+                app.ports.guestsessionChanged.send(null);
             }
             
             return true;
         } catch (error) {
-            console.error('Error clearing AuthState:', error);
+            console.error('Error clearing GuestSession:', error);
             return false;
         }
     }
     
     /**
-     * Check if AuthState exists in localStorage
+     * Check if GuestSession exists in localStorage
      * @returns {boolean} True if data exists
      */
     static exists() {
@@ -78,335 +78,7 @@ class AuthStateStorage {
     }
     
     /**
-     * Update specific fields in stored AuthState
-     * @param {Object} updates - Fields to update
-     */
-    static update(updates) {
-        const current = this.load();
-        if (current) {
-            const updated = { ...current, ...updates };
-            return this.save(updated);
-        }
-        return false;
-    }
-}
-
-/**
- * Auto-generated browser storage for FileProcessingStatus
- * Provides type-safe localStorage operations with Elm port integration
- */
-class FileProcessingStatusStorage {
-    static storageKey = 'file_processing_status';
-    
-    /**
-     * Save FileProcessingStatus to localStorage and notify Elm
-     * @param {Object} fileprocessingstatus - FileProcessingStatus data to save
-     */
-    static save(fileprocessingstatus) {
-        try {
-            localStorage.setItem(this.storageKey, JSON.stringify(fileprocessingstatus));
-            
-            // Notify Elm of the change (if ports are available)
-            if (typeof app !== 'undefined' && app.ports && app.ports.fileprocessingstatusChanged) {
-                app.ports.fileprocessingstatusChanged.send(fileprocessingstatus);
-            }
-            
-            return true;
-        } catch (error) {
-            console.error('Error saving FileProcessingStatus:', error);
-            return false;
-        }
-    }
-    
-    /**
-     * Load FileProcessingStatus from localStorage
-     * @returns {Object|null} FileProcessingStatus data or null if not found
-     */
-    static load() {
-        try {
-            const data = localStorage.getItem(this.storageKey);
-            return data ? JSON.parse(data) : null;
-        } catch (error) {
-            console.error('Error loading FileProcessingStatus:', error);
-            return null;
-        }
-    }
-    
-    /**
-     * Clear FileProcessingStatus from localStorage and notify Elm
-     */
-    static clear() {
-        try {
-            localStorage.removeItem(this.storageKey);
-            
-            // Notify Elm of the change (if ports are available)
-            if (typeof app !== 'undefined' && app.ports && app.ports.fileprocessingstatusChanged) {
-                app.ports.fileprocessingstatusChanged.send(null);
-            }
-            
-            return true;
-        } catch (error) {
-            console.error('Error clearing FileProcessingStatus:', error);
-            return false;
-        }
-    }
-    
-    /**
-     * Check if FileProcessingStatus exists in localStorage
-     * @returns {boolean} True if data exists
-     */
-    static exists() {
-        return localStorage.getItem(this.storageKey) !== null;
-    }
-    
-    /**
-     * Update specific fields in stored FileProcessingStatus
-     * @param {Object} updates - Fields to update
-     */
-    static update(updates) {
-        const current = this.load();
-        if (current) {
-            const updated = { ...current, ...updates };
-            return this.save(updated);
-        }
-        return false;
-    }
-}
-
-/**
- * Auto-generated browser storage for ProcessingStep
- * Provides type-safe localStorage operations with Elm port integration
- */
-class ProcessingStepStorage {
-    static storageKey = 'processing_step';
-    
-    /**
-     * Save ProcessingStep to localStorage and notify Elm
-     * @param {Object} processingstep - ProcessingStep data to save
-     */
-    static save(processingstep) {
-        try {
-            localStorage.setItem(this.storageKey, JSON.stringify(processingstep));
-            
-            // Notify Elm of the change (if ports are available)
-            if (typeof app !== 'undefined' && app.ports && app.ports.processingstepChanged) {
-                app.ports.processingstepChanged.send(processingstep);
-            }
-            
-            return true;
-        } catch (error) {
-            console.error('Error saving ProcessingStep:', error);
-            return false;
-        }
-    }
-    
-    /**
-     * Load ProcessingStep from localStorage
-     * @returns {Object|null} ProcessingStep data or null if not found
-     */
-    static load() {
-        try {
-            const data = localStorage.getItem(this.storageKey);
-            return data ? JSON.parse(data) : null;
-        } catch (error) {
-            console.error('Error loading ProcessingStep:', error);
-            return null;
-        }
-    }
-    
-    /**
-     * Clear ProcessingStep from localStorage and notify Elm
-     */
-    static clear() {
-        try {
-            localStorage.removeItem(this.storageKey);
-            
-            // Notify Elm of the change (if ports are available)
-            if (typeof app !== 'undefined' && app.ports && app.ports.processingstepChanged) {
-                app.ports.processingstepChanged.send(null);
-            }
-            
-            return true;
-        } catch (error) {
-            console.error('Error clearing ProcessingStep:', error);
-            return false;
-        }
-    }
-    
-    /**
-     * Check if ProcessingStep exists in localStorage
-     * @returns {boolean} True if data exists
-     */
-    static exists() {
-        return localStorage.getItem(this.storageKey) !== null;
-    }
-    
-    /**
-     * Update specific fields in stored ProcessingStep
-     * @param {Object} updates - Fields to update
-     */
-    static update(updates) {
-        const current = this.load();
-        if (current) {
-            const updated = { ...current, ...updates };
-            return this.save(updated);
-        }
-        return false;
-    }
-}
-
-/**
- * Auto-generated browser storage for UserPreferences
- * Provides type-safe localStorage operations with Elm port integration
- */
-class UserPreferencesStorage {
-    static storageKey = 'user_preferences';
-    
-    /**
-     * Save UserPreferences to localStorage and notify Elm
-     * @param {Object} userpreferences - UserPreferences data to save
-     */
-    static save(userpreferences) {
-        try {
-            localStorage.setItem(this.storageKey, JSON.stringify(userpreferences));
-            
-            // Notify Elm of the change (if ports are available)
-            if (typeof app !== 'undefined' && app.ports && app.ports.userpreferencesChanged) {
-                app.ports.userpreferencesChanged.send(userpreferences);
-            }
-            
-            return true;
-        } catch (error) {
-            console.error('Error saving UserPreferences:', error);
-            return false;
-        }
-    }
-    
-    /**
-     * Load UserPreferences from localStorage
-     * @returns {Object|null} UserPreferences data or null if not found
-     */
-    static load() {
-        try {
-            const data = localStorage.getItem(this.storageKey);
-            return data ? JSON.parse(data) : null;
-        } catch (error) {
-            console.error('Error loading UserPreferences:', error);
-            return null;
-        }
-    }
-    
-    /**
-     * Clear UserPreferences from localStorage and notify Elm
-     */
-    static clear() {
-        try {
-            localStorage.removeItem(this.storageKey);
-            
-            // Notify Elm of the change (if ports are available)
-            if (typeof app !== 'undefined' && app.ports && app.ports.userpreferencesChanged) {
-                app.ports.userpreferencesChanged.send(null);
-            }
-            
-            return true;
-        } catch (error) {
-            console.error('Error clearing UserPreferences:', error);
-            return false;
-        }
-    }
-    
-    /**
-     * Check if UserPreferences exists in localStorage
-     * @returns {boolean} True if data exists
-     */
-    static exists() {
-        return localStorage.getItem(this.storageKey) !== null;
-    }
-    
-    /**
-     * Update specific fields in stored UserPreferences
-     * @param {Object} updates - Fields to update
-     */
-    static update(updates) {
-        const current = this.load();
-        if (current) {
-            const updated = { ...current, ...updates };
-            return this.save(updated);
-        }
-        return false;
-    }
-}
-
-/**
- * Auto-generated browser storage for ViewportState
- * Provides type-safe localStorage operations with Elm port integration
- */
-class ViewportStateStorage {
-    static storageKey = 'viewport_state';
-    
-    /**
-     * Save ViewportState to localStorage and notify Elm
-     * @param {Object} viewportstate - ViewportState data to save
-     */
-    static save(viewportstate) {
-        try {
-            localStorage.setItem(this.storageKey, JSON.stringify(viewportstate));
-            
-            // Notify Elm of the change (if ports are available)
-            if (typeof app !== 'undefined' && app.ports && app.ports.viewportstateChanged) {
-                app.ports.viewportstateChanged.send(viewportstate);
-            }
-            
-            return true;
-        } catch (error) {
-            console.error('Error saving ViewportState:', error);
-            return false;
-        }
-    }
-    
-    /**
-     * Load ViewportState from localStorage
-     * @returns {Object|null} ViewportState data or null if not found
-     */
-    static load() {
-        try {
-            const data = localStorage.getItem(this.storageKey);
-            return data ? JSON.parse(data) : null;
-        } catch (error) {
-            console.error('Error loading ViewportState:', error);
-            return null;
-        }
-    }
-    
-    /**
-     * Clear ViewportState from localStorage and notify Elm
-     */
-    static clear() {
-        try {
-            localStorage.removeItem(this.storageKey);
-            
-            // Notify Elm of the change (if ports are available)
-            if (typeof app !== 'undefined' && app.ports && app.ports.viewportstateChanged) {
-                app.ports.viewportstateChanged.send(null);
-            }
-            
-            return true;
-        } catch (error) {
-            console.error('Error clearing ViewportState:', error);
-            return false;
-        }
-    }
-    
-    /**
-     * Check if ViewportState exists in localStorage
-     * @returns {boolean} True if data exists
-     */
-    static exists() {
-        return localStorage.getItem(this.storageKey) !== null;
-    }
-    
-    /**
-     * Update specific fields in stored ViewportState
+     * Update specific fields in stored GuestSession
      * @param {Object} updates - Fields to update
      */
     static update(updates) {
@@ -434,94 +106,22 @@ function connectStoragePorts(app) {
     console.log('🔌 Connecting auto-generated storage ports...');
     
     
-    // AuthState port bindings
-    if (app.ports.saveAuthState) {
-        app.ports.saveAuthState.subscribe(AuthStateStorage.save);
+    // GuestSession port bindings
+    if (app.ports.saveGuestSession) {
+        app.ports.saveGuestSession.subscribe(GuestSessionStorage.save);
     }
     
-    if (app.ports.loadAuthState) {
-        app.ports.loadAuthState.subscribe(() => {
-            const data = AuthStateStorage.load();
-            if (app.ports.authstateLoaded) {
-                app.ports.authstateLoaded.send(data);
+    if (app.ports.loadGuestSession) {
+        app.ports.loadGuestSession.subscribe(() => {
+            const data = GuestSessionStorage.load();
+            if (app.ports.guestsessionLoaded) {
+                app.ports.guestsessionLoaded.send(data);
             }
         });
     }
     
-    if (app.ports.clearAuthState) {
-        app.ports.clearAuthState.subscribe(AuthStateStorage.clear);
-    }
-
-    // FileProcessingStatus port bindings
-    if (app.ports.saveFileProcessingStatus) {
-        app.ports.saveFileProcessingStatus.subscribe(FileProcessingStatusStorage.save);
-    }
-    
-    if (app.ports.loadFileProcessingStatus) {
-        app.ports.loadFileProcessingStatus.subscribe(() => {
-            const data = FileProcessingStatusStorage.load();
-            if (app.ports.fileprocessingstatusLoaded) {
-                app.ports.fileprocessingstatusLoaded.send(data);
-            }
-        });
-    }
-    
-    if (app.ports.clearFileProcessingStatus) {
-        app.ports.clearFileProcessingStatus.subscribe(FileProcessingStatusStorage.clear);
-    }
-
-    // ProcessingStep port bindings
-    if (app.ports.saveProcessingStep) {
-        app.ports.saveProcessingStep.subscribe(ProcessingStepStorage.save);
-    }
-    
-    if (app.ports.loadProcessingStep) {
-        app.ports.loadProcessingStep.subscribe(() => {
-            const data = ProcessingStepStorage.load();
-            if (app.ports.processingstepLoaded) {
-                app.ports.processingstepLoaded.send(data);
-            }
-        });
-    }
-    
-    if (app.ports.clearProcessingStep) {
-        app.ports.clearProcessingStep.subscribe(ProcessingStepStorage.clear);
-    }
-
-    // UserPreferences port bindings
-    if (app.ports.saveUserPreferences) {
-        app.ports.saveUserPreferences.subscribe(UserPreferencesStorage.save);
-    }
-    
-    if (app.ports.loadUserPreferences) {
-        app.ports.loadUserPreferences.subscribe(() => {
-            const data = UserPreferencesStorage.load();
-            if (app.ports.userpreferencesLoaded) {
-                app.ports.userpreferencesLoaded.send(data);
-            }
-        });
-    }
-    
-    if (app.ports.clearUserPreferences) {
-        app.ports.clearUserPreferences.subscribe(UserPreferencesStorage.clear);
-    }
-
-    // ViewportState port bindings
-    if (app.ports.saveViewportState) {
-        app.ports.saveViewportState.subscribe(ViewportStateStorage.save);
-    }
-    
-    if (app.ports.loadViewportState) {
-        app.ports.loadViewportState.subscribe(() => {
-            const data = ViewportStateStorage.load();
-            if (app.ports.viewportstateLoaded) {
-                app.ports.viewportstateLoaded.send(data);
-            }
-        });
-    }
-    
-    if (app.ports.clearViewportState) {
-        app.ports.clearViewportState.subscribe(ViewportStateStorage.clear);
+    if (app.ports.clearGuestSession) {
+        app.ports.clearGuestSession.subscribe(GuestSessionStorage.clear);
     }
     
     console.log('✅ Storage ports connected successfully');
@@ -529,10 +129,6 @@ function connectStoragePorts(app) {
 
 // Export all storage classes
 export {
-    AuthStateStorage,
-    FileProcessingStatusStorage,
-    ProcessingStepStorage,
-    UserPreferencesStorage,
-    ViewportStateStorage,
+    GuestSessionStorage,
     connectStoragePorts
 };

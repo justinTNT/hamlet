@@ -6,37 +6,9 @@
 
 port module Generated.StoragePorts exposing (..)
 
--- Auto-generated Elm ports for AuthState
-port saveAuthState : AuthState -> Cmd msg
-port loadAuthState : () -> Cmd msg  
-port clearAuthState : () -> Cmd msg
-port authstateLoaded : (Maybe AuthState -> msg) -> Sub msg
-port authstateChanged : (Maybe AuthState -> msg) -> Sub msg
-
--- Auto-generated Elm ports for FileProcessingStatus
-port saveFileProcessingStatus : FileProcessingStatus -> Cmd msg
-port loadFileProcessingStatus : () -> Cmd msg  
-port clearFileProcessingStatus : () -> Cmd msg
-port fileprocessingstatusLoaded : (Maybe FileProcessingStatus -> msg) -> Sub msg
-port fileprocessingstatusChanged : (Maybe FileProcessingStatus -> msg) -> Sub msg
-
--- Auto-generated Elm ports for ProcessingStep
-port saveProcessingStep : ProcessingStep -> Cmd msg
-port loadProcessingStep : () -> Cmd msg  
-port clearProcessingStep : () -> Cmd msg
-port processingstepLoaded : (Maybe ProcessingStep -> msg) -> Sub msg
-port processingstepChanged : (Maybe ProcessingStep -> msg) -> Sub msg
-
--- Auto-generated Elm ports for UserPreferences
-port saveUserPreferences : UserPreferences -> Cmd msg
-port loadUserPreferences : () -> Cmd msg  
-port clearUserPreferences : () -> Cmd msg
-port userpreferencesLoaded : (Maybe UserPreferences -> msg) -> Sub msg
-port userpreferencesChanged : (Maybe UserPreferences -> msg) -> Sub msg
-
--- Auto-generated Elm ports for ViewportState
-port saveViewportState : ViewportState -> Cmd msg
-port loadViewportState : () -> Cmd msg  
-port clearViewportState : () -> Cmd msg
-port viewportstateLoaded : (Maybe ViewportState -> msg) -> Sub msg
-port viewportstateChanged : (Maybe ViewportState -> msg) -> Sub msg
+-- Auto-generated Elm ports for GuestSession
+port saveGuestSession : GuestSession -> Cmd msg
+port loadGuestSession : () -> Cmd msg  
+port clearGuestSession : () -> Cmd msg
+port guestsessionLoaded : (Maybe GuestSession -> msg) -> Sub msg
+port guestsessionChanged : (Maybe GuestSession -> msg) -> Sub msg

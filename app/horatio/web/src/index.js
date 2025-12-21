@@ -13,15 +13,35 @@ async function run() {
         return;
     }
 
-    // Session ID will be managed by server-side session cookies
-    console.log("Using server-managed session cookies");
-    window.HAMLET_SESSION_ID = null; // No longer needed
+    console.log("About to initialize Elm app...");
 
     const app = Elm.Main.init({
         node: document.getElementById('app'),
     });
 
-    console.log('Elm app initialized.');
+    console.log("Elm app created:", !!app);
+    
+    // Make app available in console for debugging
+    window.app = app;
+    console.log('Elm app initialized and assigned to window.app');
+
+    // Connect storage ports for guest sessions
+    if (app.ports && app.ports.saveGuestSession) {
+        app.ports.saveGuestSession.subscribe(function(guestSession) {
+            console.log('Saving guest session:', guestSession);
+            localStorage.setItem('guest_session', JSON.stringify(guestSession));
+        });
+    }
+
+    if (app.ports && app.ports.loadGuestSession) {
+        app.ports.loadGuestSession.subscribe(function() {
+            console.log('Loading guest session...');
+            const saved = localStorage.getItem('guest_session');
+            const guestSession = saved ? JSON.parse(saved) : null;
+            console.log('Loaded guest session:', guestSession);
+            app.ports.guestsessionLoaded.send(guestSession);
+        });
+    }
 
     if (app.ports && app.ports.log) {
         app.ports.log.subscribe((message) => {
