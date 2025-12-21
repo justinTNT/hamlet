@@ -288,13 +288,16 @@ async function restart(reason = 'File change detected', changedFile = null) {
         // Smart regeneration based on what changed
         if (changedFile && changedFile.endsWith('.rs')) {
             await regenerateCodeForFile(changedFile, reason);
+            await buildElm();
+        } else if (changedFile && changedFile.endsWith('.elm')) {
+            // For Elm handler changes, rebuild handlers
+            console.log('🎯 Elm handler change detected, rebuilding...');
+            await buildElm();
         } else {
-            // For Elm or other changes, just rebuild Elm
-            console.log('🎯 Elm change detected, skipping generation...');
+            // For other changes, just rebuild Elm
+            console.log('🎯 Other change detected, rebuilding Elm...');
+            await buildElm();
         }
-        
-        // Build Elm
-        await buildElm();
         
         // Start server
         startServer();

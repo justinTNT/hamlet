@@ -397,10 +397,19 @@ export default async function createElmService(server) {
                         const dbCreateUnsubscribe = elmApp.ports.dbCreate.subscribe(async (request) => {
                             try {
                                 const dbService = server.getService('database');
-                                const fields = Object.keys(request.data);
-                                const values = Object.values(request.data);
+                                
+                                // Automatically inject host field for tenant isolation
+                                const dataWithHost = {
+                                    ...request.data,
+                                    host: requestContext.host
+                                };
+                                
+                                const fields = Object.keys(dataWithHost);
+                                const values = Object.values(dataWithHost);
                                 const placeholders = fields.map((_, i) => `$${i + 1}`).join(', ');
                                 const sql = `INSERT INTO ${request.table} (${fields.join(', ')}) VALUES (${placeholders}) RETURNING *`;
+                                
+                                console.log(`🔍 SQL Insert [${requestId}] for ${request.table}:`, { sql, values, host: requestContext.host });
                                 const result = await dbService.query(sql, values);
                                 
                                 if (elmApp.ports.dbResult) {
@@ -567,6 +576,9 @@ export default async function createElmService(server) {
                         // Update global state with current activity
                         // Note: In a real implementation, this could be handled by the Elm handler itself
                         console.log(`🕒 Request ${requestId} processed at server time: ${Date.now()}`);
+                        
+                        // DEBUG: Log the exact data being sent to Elm (remove this after fixing)
+                        // console.log('🐛 DEBUG: Sending to Elm port:', JSON.stringify(requestBundle, null, 2));
                         
                         elmApp.ports.handleRequest.send(requestBundle);
                     } else {
