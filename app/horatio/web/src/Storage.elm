@@ -20,11 +20,7 @@ import Generated.Storage.GuestSession as GuestSessionStorage
 
 {-| GuestSession type for storage operations
 -}
-type alias GuestSession =
-    { guest_id : String
-    , display_name : String
-    , created_at : Int
-    }
+type alias GuestSession = GuestSessionStorage.GuestSession
 
 
 -- STORAGE FUNCTIONS
@@ -33,8 +29,8 @@ type alias GuestSession =
 
 {-| Load GuestSession from localStorage
 -}
-loadGuestSession : Cmd msg
-loadGuestSession =
+loadGuestSession : () -> Cmd msg
+loadGuestSession () =
     GuestSessionStorage.load
 
 {-| Save GuestSession to localStorage  

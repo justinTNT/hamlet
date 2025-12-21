@@ -4,7 +4,7 @@ import Api
 import Api.Http
 import Api.Schema
 import Browser
-import Html exposing (Html, button, div, h1, h2, h3, h4, p, a, img, text, section, input, textarea, label, span)
+import Html exposing (Html, button, div, h1, h2, h3, h4, p, a, img, text, section, input, textarea, label, span, br)
 import Html.Attributes exposing (src, href, style, class, value, placeholder)
 import Html.Events exposing (onClick, onInput)
 import Http
@@ -36,7 +36,7 @@ init =
       , newComment = ""
       , guestSession = Nothing
       }
-    , Cmd.batch [ getFeed, Storage.loadGuestSession ]
+    , Cmd.batch [ getFeed, Storage.loadGuestSession () ]
     )
 
 -- GUEST SESSION MANAGEMENT
@@ -232,6 +232,12 @@ filterChildComments parentId allComments =
 
 viewReplyButton : Model -> String -> Maybe String -> Html Msg
 viewReplyButton model itemId parentId =
+    let
+        action =
+            case parentId of
+                Just _ -> "Reply"
+                Nothing -> "Leave a comment"
+    in
     case model.replyingTo of
         Just activeReply ->
             if activeReply.itemId == itemId && activeReply.parentId == parentId then
@@ -251,10 +257,13 @@ viewReplyButton model itemId parentId =
                         ]
                     ]
             else
-                button [ onClick (SetReplyTo itemId parentId), style "font-size" "0.8em", style "color" "gray", style "background" "none", style "border" "none", style "cursor" "pointer", style "text-decoration" "underline" ] [ text "Reply" ]
+                button [ onClick (SetReplyTo itemId parentId), style "font-size" "0.8em", style "color" "gray", style "background" "none", style "border" "none", style "cursor" "pointer", style "text-decoration" "underline" ] [ text "Respond" ]
         
         Nothing ->
-            button [ onClick (SetReplyTo itemId parentId), style "font-size" "0.8em", style "color" "gray", style "background" "none", style "border" "none", style "cursor" "pointer", style "text-decoration" "underline" ] [ text "Reply" ]
+            div []
+                [ br [] [],
+                button [ onClick (SetReplyTo itemId parentId), style "font-size" "0.8em", style "color" "gray", style "background" "none", style "border" "none", style "cursor" "pointer", style "text-decoration" "underline" ] [ text action ]
+                ]
 
 viewTag : String -> Html Msg
 viewTag tag =

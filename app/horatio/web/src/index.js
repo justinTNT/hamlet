@@ -42,6 +42,17 @@ async function run() {
             app.ports.guestsessionLoaded.send(guestSession);
         });
     }
+    
+    // Trigger initial load of guest session
+    setTimeout(() => {
+        if (app.ports && app.ports.guestsessionLoaded) {
+            console.log('Loading guest session on app start...');
+            const saved = localStorage.getItem('guest_session');
+            const guestSession = saved ? JSON.parse(saved) : null;
+            console.log('Loaded guest session:', guestSession);
+            app.ports.guestsessionLoaded.send(guestSession);
+        }
+    }, 100);
 
     if (app.ports && app.ports.log) {
         app.ports.log.subscribe((message) => {
