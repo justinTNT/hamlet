@@ -273,10 +273,11 @@ pub struct TestModel {
 
                 const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
                 
-                expect(databaseContent).toContain('findMicroblogItems : Query MicroblogItemDb -> Cmd msg');
-                expect(databaseContent).toContain('createMicroblogItem : MicroblogItemDbCreate -> (Result String MicroblogItemDb -> msg) -> Cmd msg');
-                expect(databaseContent).toContain('updateMicroblogItem : String -> MicroblogItemDbUpdate -> (Result String MicroblogItemDb -> msg) -> Cmd msg');
-                expect(databaseContent).toContain('killMicroblogItem : String -> (Result String Int -> msg) -> Cmd msg');
+                // Check for port-based database interface (current system)
+                expect(databaseContent).toContain('port dbFind : DbFindRequest -> Cmd msg');
+                expect(databaseContent).toContain('port dbCreate : DbCreateRequest -> Cmd msg');
+                expect(databaseContent).toContain('port dbUpdate : DbUpdateRequest -> Cmd msg');
+                expect(databaseContent).toContain('port dbKill : DbKillRequest -> Cmd msg');
 
             } finally {
                 process.chdir(originalCwd);

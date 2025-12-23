@@ -1,0 +1,17 @@
+./app/horatio/extension/test-harness.html
+./app/horatio/server/tests
+./app/horatio/models/kv/test_cache.rs
+./target/test_output
+./.buildamp/macros/tests
+./tests
+./buildamp-tests
+./packages/create-buildamp/tests
+./packages/create-buildamp/template/.buildamp/macros/tests
+./packages/create-buildamp/template/tests
+./packages/create-buildamp/new-val/.buildamp/macros/tests
+./packages/create-buildamp/new-val/tests
+./packages/create-buildamp/new-val/src/models/models/kv/test_cache.rs
+./packages/create-buildamp/my-test-projeck/.buildamp/macros/tests
+./packages/create-buildamp/my-test-projeck/tests
+./packages/hamlet-server/test-imports.js
+./packages/hamlet-server/tests

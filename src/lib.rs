@@ -12,7 +12,10 @@ pub mod framework {
     pub mod core;
     pub mod validation_types;
     pub mod validation_aliases;
+    pub mod rich_content;
 }
+
+pub mod models;
 // Auto-discover all models - no manual declarations needed!
 use buildamp_macro::buildamp_auto_discover_models;
 buildamp_auto_discover_models!();

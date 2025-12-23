@@ -11,6 +11,8 @@
   },
   "scripts": {
     "test": "npx --node-options='--experimental-vm-modules' jest",
+    "test:core": "npx --node-options='--experimental-vm-modules' jest tests/core.test.js tests/database.test.js tests/middleware/ tests/security/",
+    "test:generation": "npx --node-options='--experimental-vm-modules' jest tests/generation/",
     "test:watch": "npx --node-options='--experimental-vm-modules' jest --watch",
     "lint": "eslint ."
   },

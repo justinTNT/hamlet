@@ -205,6 +205,210 @@ export default function createDatabase(server) {
         // These replace the dangerous string manipulation methods above
         ...createDbQueries(pool),
         
+        // CFUK (Create, Find, Update, Kill) aliases for admin interface
+        // Create
+        createGuest: function(...args) { return this.insertGuest(...args); },
+        createItemComment: function(...args) { return this.insertItemComment(...args); },
+        createItemTag: function(...args) { return this.insertItemTag(...args); },
+        createMicroblogItem: function(...args) { return this.insertMicroblogItem(...args); },
+        createTag: async function(tagDataWithHost) {
+            // Work around generated query bug - create UUID and insert manually
+            console.log('🔍 CreateTag method - received:', tagDataWithHost);
+            const { host, ...tagData } = tagDataWithHost;
+            console.log('🔍 CreateTag method - host:', host, 'tagData:', tagData);
+            
+            const { randomUUID } = await import('crypto');
+            const id = randomUUID();
+            
+            const result = await pool.query(
+                'INSERT INTO tag (id, host, name) VALUES ($1, $2, $3) RETURNING *',
+                [id, host, tagData.name]
+            );
+            return result.rows[0];
+        },
+        
+        // Find methods with soft delete support
+        findGuestsByHost: async function(host) {
+            const result = await pool.query(
+                'SELECT * FROM guest WHERE host = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
+                [host]
+            );
+            return result.rows;
+        },
+        findTagsByHost: async function(host) {
+            const result = await pool.query(
+                'SELECT * FROM tag WHERE host = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
+                [host]
+            );
+            return result.rows;
+        },
+        findMicroblogItemsByHost: async function(host) {
+            const result = await pool.query(
+                'SELECT * FROM microblog_item WHERE host = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
+                [host]
+            );
+            return result.rows;
+        },
+        findItemCommentsByHost: async function(host) {
+            const result = await pool.query(
+                'SELECT * FROM item_comment WHERE host = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
+                [host]
+            );
+            return result.rows;
+        },
+        findItemTagsByHost: async function(host) {
+            const result = await pool.query(
+                'SELECT * FROM item_tag WHERE host = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
+                [host]
+            );
+            return result.rows;
+        },
+        
+        // Find by ID with soft delete support
+        findGuestById: async function(id, host) {
+            const result = await pool.query(
+                'SELECT * FROM guest WHERE id = $1 AND host = $2 AND deleted_at IS NULL',
+                [id, host]
+            );
+            return result.rows[0] || null;
+        },
+        findTagById: async function(id, host) {
+            // Try with soft delete filter first, fallback without it
+            try {
+                const result = await pool.query(
+                    'SELECT * FROM tag WHERE id = $1 AND host = $2 AND deleted_at IS NULL',
+                    [id, host]
+                );
+                return result.rows[0] || null;
+            } catch (error) {
+                if (error.message.includes('column "deleted_at"')) {
+                    // Fallback without soft delete filter
+                    const result = await pool.query(
+                        'SELECT * FROM tag WHERE id = $1 AND host = $2',
+                        [id, host]
+                    );
+                    return result.rows[0] || null;
+                } else {
+                    throw error;
+                }
+            }
+        },
+        
+        // Update methods with graceful degradation for missing audit columns
+        updateTag: async function(id, updatesWithHost) {
+            // Extract host from the combined object
+            const { host, ...updates } = updatesWithHost;
+            const updateFields = Object.keys(updates).filter(key => key !== 'id');
+            const setClause = updateFields.map((field, i) => field + ' = $' + (i + 3)).join(', ');
+            const values = updateFields.map(field => updates[field]);
+            
+            console.log('🔍 UpdateTag method - host:', host, 'updates:', updates);
+            
+            if (setClause === '') {
+                // Try soft delete-aware get first, fallback to regular get
+                try {
+                    return await this.findTagById(id, host);
+                } catch (e) {
+                    return await this.getTagById(id, host);
+                }
+            }
+            
+            // Try with updated_at first, fallback without it
+            try {
+                const sql = 'UPDATE tag SET ' + setClause + ', updated_at = NOW() WHERE id = $1 AND host = $2 RETURNING *';
+                console.log('🔍 UpdateTag Debug - SQL:', sql);
+                console.log('🔍 UpdateTag Debug - Values:', [id, host, ...values]);
+                const result = await pool.query(sql, [id, host, ...values]);
+                console.log('🔍 UpdateTag Debug - Result rows:', result.rows.length);
+                return result.rows[0] || null;
+            } catch (error) {
+                if (error.message.includes('column "updated_at"')) {
+                    // Retry without updated_at
+                    const sql = 'UPDATE tag SET ' + setClause + ' WHERE id = $1 AND host = $2 RETURNING *';
+                    console.log('🔍 UpdateTag Debug (no updated_at) - SQL:', sql);
+                    console.log('🔍 UpdateTag Debug (no updated_at) - Values:', [id, host, ...values]);
+                    const result = await pool.query(sql, [id, host, ...values]);
+                    console.log('🔍 UpdateTag Debug (no updated_at) - Result rows:', result.rows.length);
+                    return result.rows[0] || null;
+                } else {
+                    throw error;
+                }
+            }
+        },
+        
+        // Other update methods with graceful degradation
+        updateGuest: async function(id, updates, host) {
+            const updateFields = Object.keys(updates).filter(key => key !== 'id' && key !== 'host');
+            const setClause = updateFields.map((field, i) => field + ' = $' + (i + 3)).join(', ');
+            const values = updateFields.map(field => updates[field]);
+            
+            if (setClause === '') {
+                try {
+                    return await this.findGuestById(id, host);
+                } catch (e) {
+                    return await this.getGuestById(id, host);
+                }
+            }
+            
+            try {
+                const sql = 'UPDATE guest SET ' + setClause + ', updated_at = NOW() WHERE id = $1 AND host = $2 RETURNING *';
+                const result = await pool.query(sql, [id, host, ...values]);
+                return result.rows[0] || null;
+            } catch (error) {
+                if (error.message.includes('column "updated_at"')) {
+                    const sql = 'UPDATE guest SET ' + setClause + ' WHERE id = $1 AND host = $2 RETURNING *';
+                    const result = await pool.query(sql, [id, host, ...values]);
+                    return result.rows[0] || null;
+                } else {
+                    throw error;
+                }
+            }
+        },
+        
+        // Kill (soft delete)
+        killGuest: async function(id, host) {
+            const result = await pool.query(
+                'UPDATE guest SET deleted_at = NOW() WHERE id = $1 AND host = $2 AND deleted_at IS NULL RETURNING *',
+                [id, host]
+            );
+            return result.rows[0] || null;
+        },
+        killItemComment: async function(id, host) {
+            const result = await pool.query(
+                'UPDATE item_comment SET deleted_at = NOW() WHERE id = $1 AND host = $2 AND deleted_at IS NULL RETURNING *',
+                [id, host]
+            );
+            return result.rows[0] || null;
+        },
+        killItemTag: async function(id, host) {
+            const result = await pool.query(
+                'UPDATE item_tag SET deleted_at = NOW() WHERE id = $1 AND host = $2 AND deleted_at IS NULL RETURNING *',
+                [id, host]
+            );
+            return result.rows[0] || null;
+        },
+        killMicroblogItem: async function(id, host) {
+            const result = await pool.query(
+                'UPDATE microblog_item SET deleted_at = NOW() WHERE id = $1 AND host = $2 AND deleted_at IS NULL RETURNING *',
+                [id, host]
+            );
+            return result.rows[0] || null;
+        },
+        killTag: async function(id, host) {
+            const result = await pool.query(
+                'UPDATE tag SET deleted_at = NOW() WHERE id = $1 AND host = $2 AND deleted_at IS NULL RETURNING *',
+                [id, host]
+            );
+            return result.rows[0] || null;
+        },
+        
+        // Hard delete methods (for admin use when needed)
+        hardDeleteGuest: function(...args) { return this.deleteGuest(...args); },
+        hardDeleteItemComment: function(...args) { return this.deleteItemComment(...args); },
+        hardDeleteItemTag: function(...args) { return this.deleteItemTag(...args); },
+        hardDeleteMicroblogItem: function(...args) { return this.deleteMicroblogItem(...args); },
+        hardDeleteTag: function(...args) { return this.deleteTag(...args); },
+        
         // Transaction support
         async transaction(callback) {
             const client = await pool.connect();

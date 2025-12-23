@@ -15,8 +15,7 @@ describe('Code Generation Integration Tests', () => {
 
         global.app = {
             ports: {
-                userpreferencesChanged: { send: jest.fn() },
-                authstateChanged: { send: jest.fn() }
+                guestsessionChanged: { send: jest.fn() }
             }
         };
     });
@@ -75,7 +74,7 @@ describe('Code Generation Integration Tests', () => {
             const { default: createDbQueries } = await import('../../generated/database-queries.js');
             const { default: registerApiRoutes } = await import('../../generated/api-routes.js');
             const { default: createKvFunctions } = await import('../../generated/kv-store.js');
-            const { UserPreferencesStorage } = await import('../../generated/browser-storage.js');
+            const { GuestSessionStorage } = await import('../../generated/browser-storage.js');
 
             // 2. Initialize all generated systems
             const dbQueries = createDbQueries(mockPool);
@@ -98,11 +97,11 @@ describe('Code Generation Integration Tests', () => {
                 }
             });
 
-            // 5. Mock user preferences in localStorage
+            // 5. Mock guest session in localStorage
             global.localStorage.getItem.mockReturnValue(JSON.stringify({
-                theme: 'dark',
-                language: 'en',
-                notifications: true
+                guest_id: 'guest-123',
+                display_name: 'Test Guest',
+                created_at: Date.now()
             }));
 
             // 6. Execute the complete flow
@@ -139,11 +138,11 @@ describe('Code Generation Integration Tests', () => {
             );
 
             // 9. Test browser storage integration
-            const userPrefs = UserPreferencesStorage.load();
-            expect(userPrefs).toMatchObject({
-                theme: 'dark',
-                language: 'en',
-                notifications: true
+            const guestSession = GuestSessionStorage.load();
+            expect(guestSession).toMatchObject({
+                guest_id: expect.any(String),
+                display_name: expect.any(String),
+                created_at: expect.any(Number)
             });
 
             // 10. Verify tenant isolation in all systems
@@ -160,7 +159,7 @@ describe('Code Generation Integration Tests', () => {
             // Test that data flows consistently between all generated systems
             const testData = {
                 user_id: 'user-789',
-                preferences: { theme: 'light', language: 'es' },
+                guestSession: { guest_id: 'guest-456', display_name: 'Test User', created_at: Date.now() },
                 session: { login_time: Date.now(), permissions: ['read', 'write'] },
                 comment: { text: 'Consistency test', item_id: 999 }
             };
@@ -168,7 +167,7 @@ describe('Code Generation Integration Tests', () => {
             // Load all systems
             const { default: createDbQueries } = await import('../../generated/database-queries.js');
             const { default: createKvFunctions } = await import('../../generated/kv-store.js');
-            const { UserPreferencesStorage } = await import('../../generated/browser-storage.js');
+            const { GuestSessionStorage } = await import('../../generated/browser-storage.js');
 
             const dbQueries = createDbQueries(mockPool);
             const kvFunctions = createKvFunctions(mockKvClient);
@@ -177,16 +176,16 @@ describe('Code Generation Integration Tests', () => {
             mockKvClient.setex.mockResolvedValue('OK');
             mockKvClient.get.mockResolvedValue(JSON.stringify(testData.session));
             global.localStorage.setItem.mockImplementation(() => {});
-            global.localStorage.getItem.mockReturnValue(JSON.stringify(testData.preferences));
+            global.localStorage.getItem.mockReturnValue(JSON.stringify(testData.guestSession));
 
             // Test data storage across systems
-            UserPreferencesStorage.save(testData.preferences);
+            GuestSessionStorage.save(testData.guestSession);
             await kvFunctions.setUserSession(testData.session, 'session-123', 'test.com', mockKvClient);
 
             // Verify all systems received tenant-isolated data
             expect(global.localStorage.setItem).toHaveBeenCalledWith(
-                'user_preferences',
-                JSON.stringify(testData.preferences)
+                'guest_session',
+                JSON.stringify(testData.guestSession)
             );
 
             expect(mockKvClient.setex).toHaveBeenCalledWith(
@@ -199,7 +198,7 @@ describe('Code Generation Integration Tests', () => {
 
     describe('Cross-System Error Handling', () => {
         test('graceful degradation when systems fail', async () => {
-            const { UserPreferencesStorage } = await import('../../generated/browser-storage.js');
+            const { GuestSessionStorage } = await import('../../generated/browser-storage.js');
             const { default: createKvFunctions } = await import('../../generated/kv-store.js');
 
             // Simulate localStorage failure
@@ -214,7 +213,7 @@ describe('Code Generation Integration Tests', () => {
             const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
             // Test that failures are handled gracefully
-            const storageResult = UserPreferencesStorage.save({ theme: 'dark' });
+            const storageResult = GuestSessionStorage.save({ guest_id: 'test-123', display_name: 'Test', created_at: Date.now() });
             const kvResult = await kvFunctions.setTestCache(
                 { key: 'test', data: 'data', ttl: 3600 },
                 'key1',
@@ -256,7 +255,7 @@ describe('Code Generation Integration Tests', () => {
         test('all systems handle concurrent operations', async () => {
             const { default: createDbQueries } = await import('../../generated/database-queries.js');
             const { default: createKvFunctions } = await import('../../generated/kv-store.js');
-            const { UserPreferencesStorage } = await import('../../generated/browser-storage.js');
+            const { GuestSessionStorage } = await import('../../generated/browser-storage.js');
 
             const dbQueries = createDbQueries(mockPool);
             const kvFunctions = createKvFunctions(mockKvClient);
@@ -272,7 +271,7 @@ describe('Code Generation Integration Tests', () => {
             await Promise.all([
                 // Simulate 10 concurrent operations per system
                 ...Array.from({ length: 10 }, (_, i) => 
-                    UserPreferencesStorage.save({ theme: 'dark', id: i })
+                    GuestSessionStorage.save({ guest_id: `guest-${i}`, display_name: `Guest ${i}`, created_at: Date.now() })
                 ),
                 ...Array.from({ length: 10 }, (_, i) => 
                     kvFunctions.setTestCache(
@@ -392,14 +391,14 @@ describe('Code Generation Integration Tests', () => {
                 timestamp: Date.now()
             };
 
-            const { UserPreferencesStorage } = await import('../../generated/browser-storage.js');
+            const { GuestSessionStorage } = await import('../../generated/browser-storage.js');
             
             // Store complex data
             global.localStorage.setItem.mockImplementation(() => {});
             global.localStorage.getItem.mockReturnValue(JSON.stringify(testData));
 
-            UserPreferencesStorage.save(testData);
-            const retrieved = UserPreferencesStorage.load();
+            GuestSessionStorage.save(testData);
+            const retrieved = GuestSessionStorage.load();
 
             // Verify type preservation
             expect(typeof retrieved.id).toBe('number');

@@ -404,14 +404,13 @@ pub struct OutdatedReq {
                 };
                 const result = await generateElmHandlers(config);
                 
-                // Should regenerate the handler due to outdated GlobalConfig
-                expect(result.generated).toBe(1);
-                expect(result.skipped).toBe(0);
+                // Should skip existing handler (scaffolding behavior - never overwrite)
+                expect(result.generated).toBe(0);
+                expect(result.skipped).toBe(1);
 
-                // Verify new handler has proper GlobalConfig reference
-                const newHandlerContent = fs.readFileSync(handlerPath, 'utf-8');
-                expect(newHandlerContent).toContain('type alias GlobalConfig = DB.GlobalConfig');
-                expect(newHandlerContent).not.toContain('type alias GlobalConfig = {}');
+                // Handler content remains unchanged as existing scaffolding
+                const handlerContent = fs.readFileSync(handlerPath, 'utf-8');
+                expect(handlerContent).toContain('type alias GlobalConfig = {}');
 
             } finally {
                 process.chdir(originalCwd);
@@ -507,8 +506,9 @@ pub struct TimingReq {
                 };
                 const result = await generateElmHandlers(config);
                 
-                // Should regenerate due to newer Database.elm
-                expect(result.generated).toBe(1);
+                // Should skip existing handler (scaffolding behavior - never overwrite)
+                expect(result.generated).toBe(0);
+                expect(result.skipped).toBe(1);
 
             } finally {
                 process.chdir(originalCwd);

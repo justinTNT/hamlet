@@ -12,27 +12,7 @@
   - Application: `npm test` (from app/horatio/server)
 
 ### Test Files Overview
-**Rust tests (183 total tests, 4 currently failing intentionally)**:
-- `api_codegen_test.rs`, `context_gen.rs`, `database_types_test.rs`
-- `e2e_auto_discovery_test.rs`, `elm_gen.rs`, `event_types_test.rs`
-- `event_validation_session_test.rs`, `infrastructure_detection_test.rs`
-- `macro_test.rs`, `session_sse_integration_test.rs`, `sse_codegen_test.rs`
-- `sse_effect_test.rs`, `sse_tests.rs`, `storage_codegen_test.rs`
-- `storage_types_test.rs`, `validation_aliases_test.rs`, `validation_integration_test.rs`
-- `validation_types_test.rs`, `host_isolation_test.rs`, `tea_handler_lifecycle_test.rs`
-
-**BuildAmp integration tests (20 projects + 4 scripts)**:
-- `test-validation/` - Full validation system with models/API/DB
-- `test-handlers-webhooks/` - TEA handler and webhook generation
-- `test-codegen-output/` - Code generation pipeline verification  
-- `test-elm-generation/` - Elm code generation validation
-- `test-decoration-comparison/` - Manual vs auto-decoration testing
-- `test-auto-decoration.js`, `test-integration.js`, `test-simple.js` - Framework validation scripts
-- Plus 16 other specialized framework test projects
-
-**Application tests (31 total tests, all passing)**:
-- `kv-store.test.js` - KV store testing (tenant isolation, TTL, cleanup)  
-- `sse-integration.test.js` - SSE event handling and connection management
+run_all_tests.sh
 
 ### Current Test Coverage
 - ✅ API validation framework (Rust)

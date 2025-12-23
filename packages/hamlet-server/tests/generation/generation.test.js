@@ -233,8 +233,7 @@ describe('Hamlet Code Generation Tests', () => {
         });
 
         test('JavaScript storage file has correct structure', () => {
-            expect(jsContent).toContain('class UserPreferencesStorage');
-            expect(jsContent).toContain('class AuthStateStorage');
+            expect(jsContent).toContain('class GuestSessionStorage');
             expect(jsContent).toContain('function connectStoragePorts');
             expect(jsContent).toContain('ESSENTIAL: This enables direct Elm-to-localStorage communication');
         });
@@ -261,11 +260,11 @@ describe('Hamlet Code Generation Tests', () => {
 
         test('Elm port file has correct structure', () => {
             expect(elmContent).toContain('port module Generated.StoragePorts exposing (..)');
-            expect(elmContent).toContain('port saveUserPreferences');
-            expect(elmContent).toContain('port loadUserPreferences');
-            expect(elmContent).toContain('port clearUserPreferences');
-            expect(elmContent).toContain('port userpreferencesLoaded');
-            expect(elmContent).toContain('port userpreferencesChanged');
+            expect(elmContent).toContain('port saveGuestSession');
+            expect(elmContent).toContain('port loadGuestSession');
+            expect(elmContent).toContain('port clearGuestSession');
+            expect(elmContent).toContain('port guestsessionLoaded');
+            expect(elmContent).toContain('port guestsessionChanged');
         });
     });
 

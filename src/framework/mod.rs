@@ -6,3 +6,4 @@ pub mod storage_types;
 pub mod migration_gen;
 pub mod core;
 pub mod validation_types_simple;
+pub mod rich_content;

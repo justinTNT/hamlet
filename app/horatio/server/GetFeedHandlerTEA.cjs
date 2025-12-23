@@ -3751,11 +3751,11 @@ var $author$project$Api$Handlers$GetFeedHandlerTEA$update = F2(
 					var _v1 = $author$project$Api$Handlers$GetFeedHandlerTEA$handleDbResponse(result);
 					if (_v1.$ === 'Ok') {
 						var data = _v1.a;
-						var _v2 = A2($elm$core$Debug$log, '🏷️  Raw tags data', data);
+						var _v2 = A2($elm$core$Debug$log, '🏷️  Raw tags data ;)', data);
 						var _v3 = $author$project$Api$Handlers$GetFeedHandlerTEA$decodeAllTags(data);
 						if (_v3.$ === 'Ok') {
 							var tags = _v3.a;
-							var _v4 = A2($elm$core$Debug$log, '🏷️  Decoded tags', tags);
+							var _v4 = A2($elm$core$Debug$log, '🏷️  Decoded tags ;)', tags);
 							return _Utils_Tuple2(
 								_Utils_update(
 									model,

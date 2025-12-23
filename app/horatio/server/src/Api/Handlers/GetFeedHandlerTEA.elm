@@ -119,12 +119,12 @@ update msg model =
                 case handleDbResponse result of
                     Ok data ->
                         let
-                            _ = Debug.log "🏷️  Raw tags data" data
+                            _ = Debug.log "🏷️  Raw tags data ;)" data
                         in
                         case decodeAllTags data of
                             Ok tags ->
                                 let
-                                    _ = Debug.log "🏷️  Decoded tags" tags
+                                    _ = Debug.log "🏷️  Decoded tags ;)" tags
                                 in
                                 ( { model 
                                   | stage = LoadingItems

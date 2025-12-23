@@ -12,15 +12,15 @@ function parseRustStruct(content, filename) {
     const structs = [];
     const structRegex = /pub struct\s+(\w+)\s*{([^}]+)}/g;
     let match;
-    
+
     while ((match = structRegex.exec(content)) !== null) {
         const [, structName, fieldsContent] = match;
-        
+
         // Parse fields
         const fields = [];
         const fieldRegex = /pub\s+(\w+):\s*([^,\n]+)/g;
         let fieldMatch;
-        
+
         while ((fieldMatch = fieldRegex.exec(fieldsContent)) !== null) {
             const [, fieldName, fieldType] = fieldMatch;
             fields.push({
@@ -32,13 +32,13 @@ function parseRustStruct(content, filename) {
                 isOptional: fieldType.includes('Option<')
             });
         }
-        
+
         // Determine table name from struct name (convert CamelCase to snake_case)
         const tableName = structName
             .replace(/([A-Z])/g, '_$1')
             .toLowerCase()
             .substring(1);
-        
+
         structs.push({
             name: structName,
             tableName,
@@ -46,24 +46,24 @@ function parseRustStruct(content, filename) {
             filename
         });
     }
-    
+
     return structs;
 }
 
 // Generate database query functions for a struct
 function generateQueryFunctions(struct) {
     const { name, tableName, fields } = struct;
-    
-    const nonIdFields = fields.filter(f => !f.isPrimaryKey);
+
+    const nonIdFields = fields.filter(f => !f.isPrimaryKey && f.name !== 'host');
     const columnNames = nonIdFields.map(f => f.name).join(', ');
     const columnPlaceholders = nonIdFields.map((_, i) => '$' + (i + 2)).join(', '); // $1 is for host
     const fieldAccess = nonIdFields.map(f => name.toLowerCase() + '.' + f.name).join(', ');
-    
+
     const insertSql = `INSERT INTO ${tableName} (${columnNames}, host) VALUES (${columnPlaceholders}, $1) RETURNING *`;
     const selectAllSql = `SELECT * FROM ${tableName} WHERE host = $1 ORDER BY created_at DESC`;
     const selectByIdSql = `SELECT * FROM ${tableName} WHERE id = $1 AND host = $2`;
     const deleteSql = `DELETE FROM ${tableName} WHERE id = $1 AND host = $2 RETURNING id`;
-    
+
     return `
 // Auto-generated database functions for ${name}
 
@@ -135,53 +135,53 @@ export function generateDatabaseQueries(config = {}) {
     function getProjectName() {
         const appDir = path.join(process.cwd(), 'app');
         if (!fs.existsSync(appDir)) return null;
-        
+
         const projects = fs.readdirSync(appDir).filter(name => {
             const fullPath = path.join(appDir, name);
             const modelsPath = path.join(fullPath, 'models');
-            
-            return fs.statSync(fullPath).isDirectory() && 
-                   fs.existsSync(modelsPath);
+
+            return fs.statSync(fullPath).isDirectory() &&
+                fs.existsSync(modelsPath);
         });
-        
+
         return projects[0];
     }
 
     const PROJECT_NAME = config.projectName || getProjectName();
-    const dbModelsPath = config.inputBasePath ? 
+    const dbModelsPath = config.inputBasePath ?
         path.resolve(config.inputBasePath, 'db') :
         (PROJECT_NAME ? path.join(process.cwd(), `app/${PROJECT_NAME}/models/db`) : path.join(process.cwd(), 'src/models/db'));
-    const outputPath = config.jsOutputPath ? 
+    const outputPath = config.jsOutputPath ?
         path.resolve(config.jsOutputPath) :
         path.join(process.cwd(), 'packages/hamlet-server/generated');
-    
+
     if (!fs.existsSync(dbModelsPath)) {
         console.log(`📁 No models/db directory found at ${dbModelsPath}, skipping database query generation`);
         return;
     }
-    
+
     // Ensure output directory exists
     if (!fs.existsSync(outputPath)) {
         fs.mkdirSync(outputPath, { recursive: true });
     }
-    
+
     const allStructs = [];
-    
+
     // Read all .rs files in models/db directory
     const files = fs.readdirSync(dbModelsPath).filter(file => file.endsWith('.rs') && file !== 'mod.rs');
-    
+
     for (const file of files) {
         const filePath = path.join(dbModelsPath, file);
         const content = fs.readFileSync(filePath, 'utf-8');
         const structs = parseRustStruct(content, file);
         allStructs.push(...structs);
     }
-    
+
     console.log(`🔍 Found ${allStructs.length} database models: ${allStructs.map(s => s.name).join(', ')}`);
-    
+
     // Generate functions for each struct
     const allFunctions = allStructs.map(generateQueryFunctions).join('\n\n');
-    
+
     const outputContent = `/**
  * Auto-Generated Database Query Functions
  * Generated from database models
@@ -207,13 +207,18 @@ ${allStructs.map(s => `        insert${s.name},
     };
 }
 `;
-    
+
     // Write generated file
     const outputFile = path.join(outputPath, 'database-queries.js');
     fs.writeFileSync(outputFile, outputContent);
-    
+
     console.log(`✅ Generated type-safe database queries: ${outputFile}`);
     console.log(`📊 Generated ${allStructs.length * 5} query functions (5 per model)`);
-    
-    return outputFile;
+
+    return {
+        outputFile,
+        models: allStructs,
+        structs: allStructs.length,
+        functions: allStructs.length * 5
+    };
 }

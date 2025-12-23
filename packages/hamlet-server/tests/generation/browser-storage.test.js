@@ -13,23 +13,19 @@ Object.defineProperty(global, 'localStorage', {
 Object.defineProperty(global, 'app', {
     value: {
         ports: {
-            userpreferencesChanged: { send: jest.fn() },
-            authstateChanged: { send: jest.fn() },
-            fileprocessingstatusChanged: { send: jest.fn() },
-            processingstepChanged: { send: jest.fn() },
-            viewportstateChanged: { send: jest.fn() }
+            guestsessionChanged: { send: jest.fn() },
+            guestsessionLoaded: { send: jest.fn() }
         }
     },
     writable: true
 });
 
 describe('Browser Storage Generation', () => {
-    let UserPreferencesStorage, AuthStateStorage, connectStoragePorts;
+    let GuestSessionStorage, connectStoragePorts;
 
     beforeAll(async () => {
         const storageModule = await import('../../generated/browser-storage.js');
-        UserPreferencesStorage = storageModule.UserPreferencesStorage;
-        AuthStateStorage = storageModule.AuthStateStorage;
+        GuestSessionStorage = storageModule.GuestSessionStorage;
         connectStoragePorts = storageModule.connectStoragePorts;
     });
 
@@ -43,47 +39,44 @@ describe('Browser Storage Generation', () => {
         // Ensure global.app is properly restored
         global.app = {
             ports: {
-                userpreferencesChanged: { send: jest.fn() },
-                authstateChanged: { send: jest.fn() },
-                fileprocessingstatusChanged: { send: jest.fn() },
-                processingstepChanged: { send: jest.fn() },
-                viewportstateChanged: { send: jest.fn() }
+                guestsessionChanged: { send: jest.fn() },
+                guestsessionLoaded: { send: jest.fn() }
             }
         };
     });
 
-    describe('UserPreferencesStorage class', () => {
+    describe('GuestSessionStorage class', () => {
         test('save() stores data in localStorage and notifies Elm', () => {
-            const preferences = { 
-                theme: 'dark', 
-                language: 'en',
-                notifications: true 
+            const guestSession = { 
+                guest_id: 'guest_123', 
+                display_name: 'Test User',
+                created_at: 1640995200000 
             };
 
-            const result = UserPreferencesStorage.save(preferences);
+            const result = GuestSessionStorage.save(guestSession);
 
             expect(localStorage.setItem).toHaveBeenCalledWith(
-                'user_preferences',
-                JSON.stringify(preferences)
+                'guest_session',
+                JSON.stringify(guestSession)
             );
-            expect(global.app.ports.userpreferencesChanged.send).toHaveBeenCalledWith(preferences);
+            expect(global.app.ports.guestsessionChanged.send).toHaveBeenCalledWith(guestSession);
             expect(result).toBe(true);
         });
 
         test('load() retrieves data from localStorage', () => {
-            const preferences = { theme: 'light', language: 'es' };
-            localStorage.getItem.mockReturnValue(JSON.stringify(preferences));
+            const guestSession = { guest_id: 'guest_456', display_name: 'Another User', created_at: 1640995300000 };
+            localStorage.getItem.mockReturnValue(JSON.stringify(guestSession));
 
-            const result = UserPreferencesStorage.load();
+            const result = GuestSessionStorage.load();
 
-            expect(localStorage.getItem).toHaveBeenCalledWith('user_preferences');
-            expect(result).toEqual(preferences);
+            expect(localStorage.getItem).toHaveBeenCalledWith('guest_session');
+            expect(result).toEqual(guestSession);
         });
 
         test('load() returns null for missing data', () => {
             localStorage.getItem.mockReturnValue(null);
 
-            const result = UserPreferencesStorage.load();
+            const result = GuestSessionStorage.load();
 
             expect(result).toBeNull();
         });
@@ -92,11 +85,11 @@ describe('Browser Storage Generation', () => {
             localStorage.getItem.mockReturnValue('invalid json');
             const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
-            const result = UserPreferencesStorage.load();
+            const result = GuestSessionStorage.load();
 
             expect(result).toBeNull();
             expect(consoleSpy).toHaveBeenCalledWith(
-                'Error loading UserPreferences:',
+                'Error loading GuestSession:',
                 expect.any(Error)
             );
             
@@ -104,32 +97,32 @@ describe('Browser Storage Generation', () => {
         });
 
         test('clear() removes data and notifies Elm', () => {
-            const result = UserPreferencesStorage.clear();
+            const result = GuestSessionStorage.clear();
 
-            expect(localStorage.removeItem).toHaveBeenCalledWith('user_preferences');
-            expect(global.app.ports.userpreferencesChanged.send).toHaveBeenCalledWith(null);
+            expect(localStorage.removeItem).toHaveBeenCalledWith('guest_session');
+            expect(global.app.ports.guestsessionChanged.send).toHaveBeenCalledWith(null);
             expect(result).toBe(true);
         });
 
         test('exists() checks localStorage correctly', () => {
-            localStorage.getItem.mockReturnValue('{"theme": "dark"}');
-            expect(UserPreferencesStorage.exists()).toBe(true);
+            localStorage.getItem.mockReturnValue('{"guest_id": "guest_123"}');
+            expect(GuestSessionStorage.exists()).toBe(true);
 
             localStorage.getItem.mockReturnValue(null);
-            expect(UserPreferencesStorage.exists()).toBe(false);
+            expect(GuestSessionStorage.exists()).toBe(false);
         });
 
         test('update() merges with existing data', () => {
-            const existing = { theme: 'dark', language: 'en', notifications: true };
-            const updates = { theme: 'light', fontSize: 'large' };
-            const expected = { theme: 'light', language: 'en', notifications: true, fontSize: 'large' };
+            const existing = { guest_id: 'guest_123', display_name: 'Old Name', created_at: 1640995200000 };
+            const updates = { display_name: 'New Name', last_active: 1640995500000 };
+            const expected = { guest_id: 'guest_123', display_name: 'New Name', created_at: 1640995200000, last_active: 1640995500000 };
 
             localStorage.getItem.mockReturnValue(JSON.stringify(existing));
 
-            const result = UserPreferencesStorage.update(updates);
+            const result = GuestSessionStorage.update(updates);
 
             expect(localStorage.setItem).toHaveBeenCalledWith(
-                'user_preferences',
+                'guest_session',
                 JSON.stringify(expected)
             );
             expect(result).toBe(true);
@@ -138,7 +131,7 @@ describe('Browser Storage Generation', () => {
         test('update() returns false when no existing data', () => {
             localStorage.getItem.mockReturnValue(null);
 
-            const result = UserPreferencesStorage.update({ theme: 'dark' });
+            const result = GuestSessionStorage.update({ display_name: 'Updated Name' });
 
             expect(result).toBe(false);
             expect(localStorage.setItem).not.toHaveBeenCalled();
@@ -152,11 +145,11 @@ describe('Browser Storage Generation', () => {
             });
             const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
-            const result = UserPreferencesStorage.save({ theme: 'dark' });
+            const result = GuestSessionStorage.save({ guest_id: 'test', display_name: 'Test', created_at: Date.now() });
 
             expect(result).toBe(false);
             expect(consoleSpy).toHaveBeenCalledWith(
-                'Error saving UserPreferences:',
+                'Error saving GuestSession:',
                 expect.any(Error)
             );
             
@@ -169,11 +162,11 @@ describe('Browser Storage Generation', () => {
             });
             const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
-            const result = UserPreferencesStorage.clear();
+            const result = GuestSessionStorage.clear();
 
             expect(result).toBe(false);
             expect(consoleSpy).toHaveBeenCalledWith(
-                'Error clearing UserPreferences:',
+                'Error clearing GuestSession:',
                 expect.any(Error)
             );
             
@@ -184,32 +177,12 @@ describe('Browser Storage Generation', () => {
             const originalApp = global.app;
             global.app = undefined;
 
-            const result = UserPreferencesStorage.save({ theme: 'dark' });
+            const result = GuestSessionStorage.save({ guest_id: 'test', display_name: 'Test', created_at: Date.now() });
 
             expect(result).toBe(true);
             expect(localStorage.setItem).toHaveBeenCalled();
 
             global.app = originalApp;
-        });
-    });
-
-    describe('AuthStateStorage class', () => {
-        test('uses correct storage key', () => {
-            AuthStateStorage.save({ isLoggedIn: true, token: 'abc123' });
-
-            expect(localStorage.setItem).toHaveBeenCalledWith(
-                'auth_state',
-                expect.any(String)
-            );
-        });
-
-        test('notifies correct Elm port', () => {
-            // Ensure global.app is available for this test
-            const authState = { isLoggedIn: true, userId: 'user123' };
-            
-            AuthStateStorage.save(authState);
-
-            expect(global.app.ports.authstateChanged.send).toHaveBeenCalledWith(authState);
         });
     });
 
@@ -219,13 +192,10 @@ describe('Browser Storage Generation', () => {
         beforeEach(() => {
             mockApp = {
                 ports: {
-                    saveUserPreferences: { subscribe: jest.fn() },
-                    loadUserPreferences: { subscribe: jest.fn() },
-                    clearUserPreferences: { subscribe: jest.fn() },
-                    userpreferencesLoaded: { send: jest.fn() },
-                    saveAuthState: { subscribe: jest.fn() },
-                    loadAuthState: { subscribe: jest.fn() },
-                    clearAuthState: { subscribe: jest.fn() }
+                    saveGuestSession: { subscribe: jest.fn() },
+                    loadGuestSession: { subscribe: jest.fn() },
+                    clearGuestSession: { subscribe: jest.fn() },
+                    guestsessionLoaded: { send: jest.fn() }
                 }
             };
         });
@@ -233,26 +203,29 @@ describe('Browser Storage Generation', () => {
         test('connectStoragePorts subscribes to all ports', () => {
             connectStoragePorts(mockApp);
 
-            expect(mockApp.ports.saveUserPreferences.subscribe).toHaveBeenCalledWith(
-                UserPreferencesStorage.save
+            expect(mockApp.ports.saveGuestSession.subscribe).toHaveBeenCalledWith(
+                GuestSessionStorage.save
             );
-            expect(mockApp.ports.loadUserPreferences.subscribe).toHaveBeenCalled();
-            expect(mockApp.ports.clearUserPreferences.subscribe).toHaveBeenCalledWith(
-                UserPreferencesStorage.clear
+            expect(mockApp.ports.loadGuestSession.subscribe).toHaveBeenCalled();
+            expect(mockApp.ports.clearGuestSession.subscribe).toHaveBeenCalledWith(
+                GuestSessionStorage.clear
             );
         });
 
         test('load port triggers data retrieval and response', () => {
-            const testData = { theme: 'dark' };
+            const testData = { guest_id: 'test', display_name: 'Test User', created_at: Date.now() };
             localStorage.getItem.mockReturnValue(JSON.stringify(testData));
 
             connectStoragePorts(mockApp);
-
-            // Simulate Elm sending load request
-            const loadCallback = mockApp.ports.loadUserPreferences.subscribe.mock.calls[0][0];
+            
+            // Get the callback function that was passed to loadGuestSession.subscribe
+            const loadCallback = mockApp.ports.loadGuestSession.subscribe.mock.calls[0][0];
+            
+            // Call the callback function to simulate Elm sending a load message
             loadCallback();
 
-            expect(mockApp.ports.userpreferencesLoaded.send).toHaveBeenCalledWith(testData);
+            expect(localStorage.getItem).toHaveBeenCalledWith('guest_session');
+            expect(mockApp.ports.guestsessionLoaded.send).toHaveBeenCalledWith(testData);
         });
 
         test('handles missing app gracefully', () => {
@@ -260,9 +233,7 @@ describe('Browser Storage Generation', () => {
 
             connectStoragePorts(null);
 
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'Elm app or ports not available for storage integration'
-            );
+            expect(consoleSpy).toHaveBeenCalledWith('Elm app or ports not available for storage integration');
             
             consoleSpy.mockRestore();
         });
@@ -272,89 +243,88 @@ describe('Browser Storage Generation', () => {
 
             connectStoragePorts({ ports: null });
 
-            expect(consoleSpy).toHaveBeenCalledWith(
-                'Elm app or ports not available for storage integration'
-            );
+            expect(consoleSpy).toHaveBeenCalledWith('Elm app or ports not available for storage integration');
             
             consoleSpy.mockRestore();
         });
 
         test('skips missing individual ports', () => {
-            const partialApp = {
+            // App with incomplete port structure
+            const incompleteApp = {
                 ports: {
-                    saveUserPreferences: { subscribe: jest.fn() }
-                    // Missing other ports
+                    // Only some ports available
+                    saveGuestSession: { subscribe: jest.fn() }
+                    // loadGuestSession missing
+                    // clearGuestSession missing
                 }
             };
 
-            // Should not throw error
-            connectStoragePorts(partialApp);
-
-            expect(partialApp.ports.saveUserPreferences.subscribe).toHaveBeenCalled();
+            expect(() => connectStoragePorts(incompleteApp)).not.toThrow();
+            
+            // Should still connect the available port
+            expect(incompleteApp.ports.saveGuestSession.subscribe).toHaveBeenCalled();
         });
     });
 
     describe('type safety', () => {
         test('generated storage classes match Rust struct names', () => {
-            // Test that storage class names correspond to Rust structs
-            expect(UserPreferencesStorage).toBeDefined();
-            expect(AuthStateStorage).toBeDefined();
-            
-            // Storage keys should be snake_case versions of struct names
-            expect(UserPreferencesStorage.storageKey).toBe('user_preferences');
-            expect(AuthStateStorage.storageKey).toBe('auth_state');
+            // Test that the storage class name follows the expected pattern
+            expect(GuestSessionStorage).toBeDefined();
+            expect(typeof GuestSessionStorage.save).toBe('function');
+            expect(typeof GuestSessionStorage.load).toBe('function');
+            expect(typeof GuestSessionStorage.clear).toBe('function');
+            expect(typeof GuestSessionStorage.exists).toBe('function');
+            expect(typeof GuestSessionStorage.update).toBe('function');
         });
 
         test('storage operations preserve data types', () => {
-            const complexData = {
-                string: 'test',
-                number: 42,
-                boolean: true,
-                array: [1, 2, 3],
-                object: { nested: 'value' }
+            const originalData = {
+                guest_id: 'guest_123',
+                display_name: 'Test User',
+                created_at: 1640995200000
             };
 
-            localStorage.getItem.mockReturnValue(JSON.stringify(complexData));
+            GuestSessionStorage.save(originalData);
+            const saveCallArgs = localStorage.setItem.mock.calls[0];
+            const savedData = JSON.parse(saveCallArgs[1]);
 
-            const retrieved = UserPreferencesStorage.load();
-
-            expect(retrieved).toEqual(complexData);
-            expect(typeof retrieved.string).toBe('string');
-            expect(typeof retrieved.number).toBe('number');
-            expect(typeof retrieved.boolean).toBe('boolean');
-            expect(Array.isArray(retrieved.array)).toBe(true);
-            expect(typeof retrieved.object).toBe('object');
+            expect(savedData).toEqual(originalData);
+            expect(typeof savedData.guest_id).toBe('string');
+            expect(typeof savedData.display_name).toBe('string');
+            expect(typeof savedData.created_at).toBe('number');
         });
     });
 
     describe('performance', () => {
         test('storage operations are synchronous', () => {
-            const start = Date.now();
+            const start = performance.now();
             
-            UserPreferencesStorage.save({ theme: 'dark' });
-            UserPreferencesStorage.load();
-            UserPreferencesStorage.exists();
-            UserPreferencesStorage.clear();
+            GuestSessionStorage.save({ guest_id: 'test', display_name: 'Test', created_at: Date.now() });
+            GuestSessionStorage.load();
+            GuestSessionStorage.exists();
+            GuestSessionStorage.clear();
             
-            const duration = Date.now() - start;
+            const end = performance.now();
             
-            expect(duration).toBeLessThan(10); // Should be very fast
+            // Should complete within 10ms
+            expect(end - start).toBeLessThan(10);
         });
 
         test('JSON serialization is efficient', () => {
             const largeData = {
-                items: Array.from({ length: 1000 }, (_, i) => ({
-                    id: i,
-                    name: `Item ${i}`,
-                    data: Array.from({ length: 10 }, () => Math.random())
-                }))
+                guest_id: 'guest_123',
+                display_name: 'User with very long name '.repeat(100),
+                created_at: Date.now(),
+                metadata: Array(1000).fill().map((_, i) => ({ key: `prop_${i}`, value: `value_${i}` }))
             };
 
-            const start = Date.now();
-            UserPreferencesStorage.save(largeData);
-            const duration = Date.now() - start;
+            const start = performance.now();
+            GuestSessionStorage.save(largeData);
+            const end = performance.now();
 
-            expect(duration).toBeLessThan(100); // Should handle large data efficiently
+            // Should handle large objects within reasonable time
+            expect(end - start).toBeLessThan(50);
+            expect(localStorage.setItem).toHaveBeenCalled();
         });
     });
 });

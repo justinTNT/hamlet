@@ -1,0 +1,74 @@
+# Admin UI Generation Plan
+
+## Goal
+Auto-generate a functional "Database Admin" web application in Elm that allows viewing, editing, and creating records for all strictly typed Rust database models. The UI should be "operational basic"—functional, type-safe, and tenant-isolated, but not necessarily pretty.
+
+## Core Concept
+Extend the "Rust once, JSON never" pipeline to "Rust once, UI never".
+Each Rust `struct` in `models/db` -> One "Resource" in Admin UI.
+
+## Proposed Strategy
+
+### 1. New Generator Script: `shared/generation/admin_ui.js`
+Create a new generation phase that outputs `Admin/Generated/Resources.elm`.
+
+This script will:
+1.  Iterate over all DB models (already parsed by `database_queries.js`).
+2.  Generate a `type Resource` enum (e.g., `Guest | MicroblogItem | Tag`).
+3.  Generate a **Table View** for each model:
+    *   Columns = Fields.
+    *   Values = `toString` of the field.
+4.  Generate a **Form View** for each model:
+    *   `String` -> `<input type="text">`
+    *   `i32/Int` -> `<input type="number">`
+    *   `Bool` -> `<input type="checkbox">`
+    *   `JsonBlob<T>` -> Sub-form (recursively generated) or Textarea (MVP).
+    *   `Option<T>` -> Checkbox to enable + Input.
+
+### 2. Output Structure
+```
+app/horatio/admin/
+├── src/
+│   ├── Main.elm          (Hand-written shell, handles routing/auth)
+│   ├── Generated/
+│   │   ├── Resources.elm (Auto-generated Views & Types)
+│   │   └── Api.elm       (Auto-generated Admin API clients)
+```
+
+### 3. API & Security
+The Admin UI needs an API to talk to.
+**Option A (Fastest)**: Reuse the existing `database-queries.js` but expose them via a generic `/api/admin/:resource` endpoint.
+**Security**: This endpoint **MUST** be protected.
+*   We will generate a `AdminService.js` middleware.
+*   It checks for a special `ADMIN_SECRET` header or cookie.
+*   It exposes `list`, `get`, `create`, `update`, `delete` dynamically mapping to `get{Model}sByHost`, etc.
+
+## Execution Steps
+
+### Phase 1: The "Read-Only" Admin
+1.  **Generate `Resources.elm`**:
+    *   Type definitions.
+    *   `viewTable : Resource -> List item -> Html msg`.
+    *   Table headers and rows derived from struct fields.
+2.  **Generic Admin API**:
+    *   Create `packages/hamlet-server/middleware/admin-api.js`.
+    *   Route: `GET /admin/api/:resource` -> calls `db.get{Resource}sByHost`.
+    *   Route: `GET /admin` -> serves the compiled Elm Admin app.
+
+### Phase 2: The "Write" Admin (CRUD)
+1.  **Generate Forms**:
+    *   `viewForm : Resource -> Html msg`.
+    *   Inputs wired to Elm state.
+2.  **Write API**:
+    *   `POST /admin/api/:resource` -> calls `db.insert{Resource}`.
+    *   `PUT /admin/api/:resource/:id` -> calls `db.update{Resource}`.
+
+## Technical specifics
+*   **JsonBlob**: For MVP, `MicroblogItem.data` will be a read-only JSON string in the list view. In the detail/edit view, we can try to generate fields for `MicroblogItemData` since we have that struct definition too.
+
+## User Review Required
+> [!IMPORTANT]
+> **Security Model**: We need to define *who* can access `/admin`. For this generic implementation, I propose a simple Environment Variable `HAMLET_ADMIN_TOKEN`. If the user has this token (in URL or Cookie), they are Admin.
+
+> [!NOTE]
+> **Tenant Isolation**: The Admin UI will still be tenant-scoped. An admin logged in context of "host A" sees Host A's data. To see Host B, they must switch URL/Context.

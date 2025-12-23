@@ -333,8 +333,8 @@ async function deleteMicroblogItemData(id, host) {
  */
 async function insertTag(tag, host) {
     const result = await pool.query(
-        'INSERT INTO tag (id, host, name, host) VALUES ($2, $3, $4, $1) RETURNING *',
-        [host, tag.id, tag.host, tag.name]
+        'INSERT INTO tag (name, host) VALUES ($2, $1) RETURNING *',
+        [host, tag.name]
     );
     return result.rows[0];
 }

@@ -719,8 +719,8 @@ type alias MicroblogItemDataDb =
     {     title : String -- String in Rust
     , link : Maybe String -- Option<String> in Rust
     , image : Maybe String -- Option<String> in Rust
-    , extract : Maybe String -- Option<String> in Rust
-    , ownerComment : String -- DefaultComment in Rust
+    , extract : Maybe String -- Option<RichContent> in Rust
+    , ownerComment : String -- RichContent in Rust
     }
 
 -- MICROBLOGITEMDATA ENCODERS/DECODERS
@@ -751,7 +751,7 @@ encodeMicroblogItemDataDb item =
 This corresponds to the Rust Tag struct with database-specific types
 -}
 type alias TagDb =
-    {     id : String -- String in Rust
+    {     id : String -- DatabaseId<String> in Rust
     , host : String -- String in Rust
     , name : String -- String in Rust
     }

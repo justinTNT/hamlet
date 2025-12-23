@@ -25,39 +25,69 @@ export default function createSessionCookies(server) {
         return crypto.randomBytes(32).toString('base64url');
     }
     
+    // In-memory pending session creation tracker to handle concurrent requests
+    const pendingSessions = new Map(); // host -> Promise<sessionId>
+    
     // Session management middleware
-    server.app.use((req, res, next) => {
+    server.app.use(async (req, res, next) => {
         const host = req.tenant?.host || 'localhost';
         
         // Check for existing session cookie
         let sessionId = req.cookies?.[config.cookieName];
         
-        if (!sessionId || !sessionStore.has(sessionId)) {
-            // Create new session
-            sessionId = generateSessionId();
-            
-            // Store session with tenant context
-            sessionStore.set(sessionId, {
-                id: sessionId,
-                host: host,
-                created_at: new Date(),
-                last_seen: new Date()
-            });
-            
-            // Set persistent cookie
-            res.cookie(config.cookieName, sessionId, {
-                maxAge: config.maxAge,
-                secure: config.secure,
-                httpOnly: config.httpOnly,
-                sameSite: config.sameSite
-            });
-            
-            console.log(`🍪 Created new session: ${sessionId.substring(0, 8)}... for ${host}`);
-        } else {
-            // Update existing session
+        if (sessionId && sessionStore.has(sessionId)) {
+            // Valid existing session - update last seen and continue
             const session = sessionStore.get(sessionId);
             session.last_seen = new Date();
             sessionStore.set(sessionId, session);
+        } else {
+            // Need to create a session - handle concurrent requests for same host
+            if (pendingSessions.has(host)) {
+                // Another request is already creating a session for this host - wait for it
+                console.log(`🍪 Waiting for pending session creation for ${host}`);
+                sessionId = await pendingSessions.get(host);
+            } else {
+                // We need to create the session
+                const sessionCreationPromise = new Promise((resolve) => {
+                    if (sessionId && !sessionStore.has(sessionId)) {
+                        // Clear invalid cookie
+                        res.clearCookie(config.cookieName);
+                        console.log(`🍪 Clearing invalid session cookie: ${sessionId.substring(0, 8)}... for ${host}`);
+                    }
+                    
+                    // Generate new session
+                    const newSessionId = generateSessionId();
+                    
+                    // Store session with tenant context
+                    sessionStore.set(newSessionId, {
+                        id: newSessionId,
+                        host: host,
+                        created_at: new Date(),
+                        last_seen: new Date()
+                    });
+                    
+                    // Set persistent cookie
+                    res.cookie(config.cookieName, newSessionId, {
+                        maxAge: config.maxAge,
+                        secure: config.secure,
+                        httpOnly: config.httpOnly,
+                        sameSite: config.sameSite
+                    });
+                    
+                    console.log(`🍪 Created new session: ${newSessionId.substring(0, 8)}... for ${host}`);
+                    
+                    // Resolve immediately since we've created the session
+                    resolve(newSessionId);
+                });
+                
+                pendingSessions.set(host, sessionCreationPromise);
+                sessionId = await sessionCreationPromise;
+                
+                // Clean up the pending promise after a short delay
+                setTimeout(() => {
+                    pendingSessions.delete(host);
+                }, 1000);
+            }
         }
         
         // Add session to request context

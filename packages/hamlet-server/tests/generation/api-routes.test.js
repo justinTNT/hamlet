@@ -9,7 +9,8 @@ describe('API Route Generation - Simple Tests', () => {
 
     beforeEach(() => {
         app = express();
-        app.use(express.json());
+        app.use(express.json({ limit: '50mb' }));
+        app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
         mockElmService = {
             callHandler: jest.fn()
