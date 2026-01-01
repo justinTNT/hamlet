@@ -194,8 +194,8 @@ Enhanced tooling and documentation.
 - [ ] Workers can trigger event workflows
 
 ### Phase 5 (DevEx)
-- [ ] Interactive API documentation
-- [ ] Comprehensive guides and examples
+- [-] Interactive API documentation
+- [-] Comprehensive guides and examples
 - [x] Support basic validation type constructors on rust models where appropriate ✅ **COMPLETED**
 
   **Validation Types Implementation - COMPLETED**

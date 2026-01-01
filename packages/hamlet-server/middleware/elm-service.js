@@ -8,7 +8,6 @@
 
 import path from 'path';
 import fs from 'fs';
-import vm from 'vm';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 
@@ -274,6 +273,7 @@ export default async function createElmService(server) {
                 const elmApp = handlerInstance.elmApp;
                 const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                 let isResolved = false;
+                let timeoutId = null;
                 
                 // Store request context for database operations (request-scoped, not handler-scoped)
                 const requestContext = {
@@ -297,6 +297,12 @@ export default async function createElmService(server) {
                 const requestSubscriptions = new Set();
                 
                 // Helper function to clean up all request-specific subscriptions
+                const cleanup = () => {
+                    if (timeoutId) clearTimeout(timeoutId);
+                    cleanupRequestSubscriptions();
+                    handlerPool.releaseHandler(handlerInstance);
+                };
+                
                 const cleanupRequestSubscriptions = () => {
                     const subCount = requestSubscriptions.size;
                     for (const unsubFn of requestSubscriptions) {
@@ -325,20 +331,11 @@ export default async function createElmService(server) {
                             const duration = Date.now() - requestContext.startTime;
                             console.log(`🌳 ${handlerName} request ${requestId} completed successfully (${duration}ms)`);
                             
-                            // Clean up all request-specific subscriptions
-                            cleanupRequestSubscriptions();
-                            
-                            // Return handler to pool (cleanup happens in pool)
-                            handlerPool.releaseHandler(handlerInstance);
-                            
+                            cleanup();
                             resolve(parsed);
                         } catch (parseError) {
                             console.error(`❌ ${handlerName} request ${requestId} response parse error:`, parseError);
-                            cleanupRequestSubscriptions();
-                            
-                            // Return handler to pool even on error
-                            handlerPool.releaseHandler(handlerInstance);
-                            
+                            cleanup();
                             reject(parseError);
                         }
                     });
@@ -351,6 +348,18 @@ export default async function createElmService(server) {
                     const pendingDbRequests = new Map();
                     
                     // Set up database port handlers (using request-scoped context)
+                    
+                    // Helper function to send DB results consistently
+                    const sendDbResult = (success, data = null, error = null) => {
+                        if (elmApp.ports.dbResult) {
+                            elmApp.ports.dbResult.send({
+                                id: request.id,
+                                success,
+                                data,
+                                error
+                            });
+                        }
+                    };
                     if (elmApp.ports.dbFind) {
                         const dbFindUnsubscribe = elmApp.ports.dbFind.subscribe(async (request) => {
                             try {
@@ -370,23 +379,9 @@ export default async function createElmService(server) {
                                     host: host
                                 });
                                 
-                                if (elmApp.ports.dbResult) {
-                                    elmApp.ports.dbResult.send({
-                                        id: request.id,
-                                        success: true,
-                                        data: result.rows,
-                                        error: null
-                                    });
-                                }
+                                sendDbResult(true, result.rows);
                             } catch (error) {
-                                if (elmApp.ports.dbResult) {
-                                    elmApp.ports.dbResult.send({
-                                        id: request.id,
-                                        success: false,
-                                        data: null,
-                                        error: error.message
-                                    });
-                                }
+                                sendDbResult(false, null, error.message);
                             }
                         });
                         handlerInstance.addSubscription(dbFindUnsubscribe);
@@ -412,27 +407,118 @@ export default async function createElmService(server) {
                                 console.log(`🔍 SQL Insert [${requestId}] for ${request.table}:`, { sql, values, host: requestContext.host });
                                 const result = await dbService.query(sql, values);
                                 
-                                if (elmApp.ports.dbResult) {
-                                    elmApp.ports.dbResult.send({
-                                        id: request.id,
-                                        success: true,
-                                        data: result.rows[0],
-                                        error: null
-                                    });
-                                }
+                                sendDbResult(true, result.rows[0]);
                             } catch (error) {
-                                if (elmApp.ports.dbResult) {
-                                    elmApp.ports.dbResult.send({
-                                        id: request.id,
-                                        success: false,
-                                        data: null,
-                                        error: error.message
-                                    });
-                                }
+                                sendDbResult(false, null, error.message);
                             }
                         });
                         handlerInstance.addSubscription(dbCreateUnsubscribe);
                         requestSubscriptions.add(dbCreateUnsubscribe);
+                    }
+                    
+                    // Set up KV Store port handlers
+                    
+                    // Helper function to send KV results consistently
+                    const sendKvResult = (operation, success, data = null, error = null) => {
+                        if (elmApp.ports.kvResult) {
+                            elmApp.ports.kvResult.send({
+                                id: request.id,
+                                success,
+                                operation,
+                                data,
+                                error
+                            });
+                        }
+                    };
+                    
+                    if (elmApp.ports.kvSet) {
+                        const kvSetUnsubscribe = elmApp.ports.kvSet.subscribe(async (request) => {
+                            try {
+                                const kvService = server.getService('kv');
+                                const host = requestContext.host;
+                                
+                                console.log(`📦 KV Set [${requestId}]:`, { 
+                                    type: request.type, 
+                                    key: request.key, 
+                                    ttl: request.ttl,
+                                    host: host
+                                });
+                                
+                                const result = kvService.set(host, request.type, request.key, request.value, request.ttl);
+                                sendKvResult('set', result.success, result);
+                            } catch (error) {
+                                sendKvResult('set', false, null, error.message);
+                            }
+                        });
+                        handlerInstance.addSubscription(kvSetUnsubscribe);
+                        requestSubscriptions.add(kvSetUnsubscribe);
+                    }
+                    
+                    if (elmApp.ports.kvGet) {
+                        const kvGetUnsubscribe = elmApp.ports.kvGet.subscribe(async (request) => {
+                            try {
+                                const kvService = server.getService('kv');
+                                const host = requestContext.host;
+                                
+                                console.log(`📦 KV Get [${requestId}]:`, { 
+                                    type: request.type, 
+                                    key: request.key,
+                                    host: host
+                                });
+                                
+                                const result = kvService.get(host, request.type, request.key);
+                                sendKvResult('get', true, result);
+                            } catch (error) {
+                                sendKvResult('get', false, null, error.message);
+                            }
+                        });
+                        handlerInstance.addSubscription(kvGetUnsubscribe);
+                        requestSubscriptions.add(kvGetUnsubscribe);
+                    }
+                    
+                    if (elmApp.ports.kvDelete) {
+                        const kvDeleteUnsubscribe = elmApp.ports.kvDelete.subscribe(async (request) => {
+                            try {
+                                const kvService = server.getService('kv');
+                                const host = requestContext.host;
+                                
+                                console.log(`📦 KV Delete [${requestId}]:`, { 
+                                    type: request.type, 
+                                    key: request.key,
+                                    host: host
+                                });
+                                
+                                const result = kvService.delete(host, request.type, request.key);
+                                sendKvResult('delete', result.success, result);
+                            } catch (error) {
+                                sendKvResult('delete', false, null, error.message);
+                            }
+                        });
+                        handlerInstance.addSubscription(kvDeleteUnsubscribe);
+                        requestSubscriptions.add(kvDeleteUnsubscribe);
+                    }
+                    
+                    if (elmApp.ports.kvExists) {
+                        const kvExistsUnsubscribe = elmApp.ports.kvExists.subscribe(async (request) => {
+                            try {
+                                const kvService = server.getService('kv');
+                                const host = requestContext.host;
+                                
+                                console.log(`📦 KV Exists [${requestId}]:`, { 
+                                    type: request.type, 
+                                    key: request.key,
+                                    host: host
+                                });
+                                
+                                const result = kvService.get(host, request.type, request.key);
+                                const exists = result.found && !result.expired;
+                                sendKvResult('exists', true, { exists });
+                            } catch (error) {
+                                sendKvResult('exists', false, null, error.message);
+                            }
+                        });
+                        handlerInstance.addSubscription(kvExistsUnsubscribe);
+                        requestSubscriptions.add(kvExistsUnsubscribe);
                     }
                     
                     // Set up Event Sourcing port handlers
@@ -582,31 +668,21 @@ export default async function createElmService(server) {
                         
                         elmApp.ports.handleRequest.send(requestBundle);
                     } else {
-                        cleanupRequestSubscriptions();
-                        
-                        // Return handler to pool even on error
-                        handlerPool.releaseHandler(handlerInstance);
-                        
+                        cleanup();
                         reject(new Error(`Handler ${handlerName} missing handleRequest port`));
                     }
                     
                     // Timeout after 10 seconds for async operations
-                    setTimeout(() => {
+                    timeoutId = setTimeout(() => {
                         if (!isResolved) {
                             isResolved = true;
                             console.error(`❌ ${handlerName} request ${requestId} timed out after 10 seconds`);
-                            cleanupRequestSubscriptions();
-                            
-                            // Return handler to pool even on timeout
-                            handlerPool.releaseHandler(handlerInstance);
-                            
+                            cleanup();
                             reject(new Error(`Handler ${handlerName} request ${requestId} timed out`));
                         }
                     }, 10000);
                 } else {
-                    // Return handler to pool even on error
-                    handlerPool.releaseHandler(handlerInstance);
-                    
+                    cleanup();
                     reject(new Error(`Handler ${handlerName} missing complete port`));
                 }
             });

@@ -591,6 +591,328 @@ pub struct TestModel {
         });
     });
 
+    describe('KV Module Generation', () => {
+        test('generates KV.elm with proper structure', async () => {
+            const originalCwd = process.cwd();
+            process.chdir(testOutputDir);
+
+            try {
+                // Configure for simple project structure (not monorepo)
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir  // The function adds /Generated automatically
+                };
+                
+                // Create output directory
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
+
+                const kvPath = path.join(testOutputDir, 'Generated', 'KV.elm');
+                expect(fs.existsSync(kvPath)).toBe(true);
+
+                const kvContent = fs.readFileSync(kvPath, 'utf-8');
+                expect(kvContent).toContain('port module Generated.KV exposing (..)');
+                expect(kvContent).toContain('type alias KvRequest =');
+                expect(kvContent).toContain('type alias KvResult =');
+                expect(kvContent).toContain('type alias KvData =');
+                expect(kvContent).toContain('port kvSet : KvRequest -> Cmd msg');
+                expect(kvContent).toContain('port kvGet : KvRequest -> Cmd msg');
+                expect(kvContent).toContain('port kvDelete : KvRequest -> Cmd msg');
+                expect(kvContent).toContain('port kvExists : KvRequest -> Cmd msg');
+                expect(kvContent).toContain('port kvResult : (KvResult -> msg) -> Sub msg');
+
+            } finally {
+                process.chdir(originalCwd);
+            }
+        });
+
+        test('generates KV types from Rust models', async () => {
+            const mockKvDir = path.join(testOutputDir, 'src', 'models', 'kv');
+            fs.mkdirSync(mockKvDir, { recursive: true });
+
+            const testCacheContent = `
+pub struct TestCache {
+    pub key: String,
+    pub data: String, 
+    pub ttl: u32,
+}
+            `;
+
+            const userSessionContent = `
+pub struct UserProfile {
+    pub id: String,
+    pub name: String,
+    pub string: String,
+}
+
+pub struct UserSession {
+    pub profile: UserProfile,
+    pub login_time: i64,
+    pub permissions: Vec<String>,
+    pub ttl: u32,
+}
+            `;
+
+            fs.writeFileSync(path.join(mockKvDir, 'test_cache.rs'), testCacheContent);
+            fs.writeFileSync(path.join(mockKvDir, 'user_session.rs'), userSessionContent);
+
+            const originalCwd = process.cwd();
+            process.chdir(testOutputDir);
+
+            try {
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir
+                };
+                
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
+
+                const kvContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'KV.elm'), 'utf-8');
+                expect(kvContent).toContain('type alias TestCache =');
+                expect(kvContent).toContain('type alias UserProfile =');
+                expect(kvContent).toContain('type alias UserSession =');
+                expect(kvContent).toContain('key : String');
+                expect(kvContent).toContain('data : String');
+                expect(kvContent).toContain('ttl : Int');
+                expect(kvContent).toContain('loginTime : Int');
+                expect(kvContent).toContain('permissions : List String');
+
+            } finally {
+                process.chdir(originalCwd);
+            }
+        });
+
+        test('generates KV encoders and decoders', async () => {
+            const mockKvDir = path.join(testOutputDir, 'src', 'models', 'kv');
+            fs.mkdirSync(mockKvDir, { recursive: true });
+
+            const simpleModelContent = `
+pub struct SimpleKvModel {
+    pub id: String,
+    pub value: i32,
+    pub active: bool,
+}
+            `;
+
+            fs.writeFileSync(path.join(mockKvDir, 'simple_model.rs'), simpleModelContent);
+
+            const originalCwd = process.cwd();
+            process.chdir(testOutputDir);
+
+            try {
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir
+                };
+                
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
+
+                const kvContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'KV.elm'), 'utf-8');
+                expect(kvContent).toContain('encodeSimpleKvModel : SimpleKvModel -> Encode.Value');
+                expect(kvContent).toContain('decodeSimpleKvModel : Decode.Decoder SimpleKvModel');
+                expect(kvContent).toContain('Encode.object');
+                expect(kvContent).toContain('Decode.field');
+
+            } finally {
+                process.chdir(originalCwd);
+            }
+        });
+
+        test('handles empty KV models directory gracefully', async () => {
+            const originalCwd = process.cwd();
+            process.chdir(testOutputDir);
+
+            try {
+                // No KV models directory created
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir
+                };
+                
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                const result = await generateElmSharedModules(config);
+                
+                expect(result).toBeDefined();
+                
+                // Should still generate KV.elm but without model types
+                const kvPath = path.join(testOutputDir, 'Generated', 'KV.elm');
+                expect(fs.existsSync(kvPath)).toBe(true);
+                
+                const kvContent = fs.readFileSync(kvPath, 'utf-8');
+                expect(kvContent).toContain('port module Generated.KV exposing (..)');
+                expect(kvContent).toContain('-- KV OPERATIONS');
+                expect(kvContent).toContain('set : String -> String -> Encode.Value -> Maybe Int -> Cmd msg');
+
+            } finally {
+                process.chdir(originalCwd);
+            }
+        });
+
+        test('generates KV operations with correct signatures', async () => {
+            const originalCwd = process.cwd();
+            process.chdir(testOutputDir);
+
+            try {
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir
+                };
+                
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
+
+                const kvContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'KV.elm'), 'utf-8');
+                
+                // Test KV operation signatures
+                expect(kvContent).toContain('set : String -> String -> Encode.Value -> Maybe Int -> Cmd msg');
+                expect(kvContent).toContain('get : String -> String -> Cmd msg');
+                expect(kvContent).toContain('delete : String -> String -> Cmd msg');
+                expect(kvContent).toContain('exists : String -> String -> Cmd msg');
+                
+                // Test helper functions
+                expect(kvContent).toContain('generateRequestId : () -> String');
+
+            } finally {
+                process.chdir(originalCwd);
+            }
+        });
+
+        test('KV request structure includes all required fields', async () => {
+            const originalCwd = process.cwd();
+            process.chdir(testOutputDir);
+
+            try {
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir
+                };
+                
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
+
+                const kvContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'KV.elm'), 'utf-8');
+                
+                // Check KvRequest type structure
+                expect(kvContent).toContain('type alias KvRequest =');
+                expect(kvContent).toContain('id : String');
+                expect(kvContent).toContain('type_ : String');
+                expect(kvContent).toContain('key : String');
+                expect(kvContent).toContain('value : Maybe Encode.Value');
+                expect(kvContent).toContain('ttl : Maybe Int');
+                
+                // Check KvResult type structure  
+                expect(kvContent).toContain('type alias KvResult =');
+                expect(kvContent).toContain('success : Bool');
+                expect(kvContent).toContain('operation : String');
+                expect(kvContent).toContain('data : Maybe KvData');
+                expect(kvContent).toContain('error : Maybe String');
+
+            } finally {
+                process.chdir(originalCwd);
+            }
+        });
+
+        test('KV data wrapper supports all operation results', async () => {
+            const originalCwd = process.cwd();
+            process.chdir(testOutputDir);
+
+            try {
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir
+                };
+                
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
+
+                const kvContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'KV.elm'), 'utf-8');
+                
+                // Check KvData type supports all KV operations
+                expect(kvContent).toContain('type alias KvData =');
+                expect(kvContent).toContain('value : Maybe Encode.Value'); // For get operations
+                expect(kvContent).toContain('found : Bool'); // For get operations
+                expect(kvContent).toContain('exists : Bool'); // For exists operations
+                expect(kvContent).toContain('expired : Maybe Bool'); // For TTL tracking
+
+            } finally {
+                process.chdir(originalCwd);
+            }
+        });
+
+        test('preserves Rust model source file information in comments', async () => {
+            const mockKvDir = path.join(testOutputDir, 'src', 'models', 'kv');
+            fs.mkdirSync(mockKvDir, { recursive: true });
+
+            const testModelContent = `
+pub struct DocumentedModel {
+    pub field1: String,
+    pub field2: i32,
+}
+            `;
+
+            fs.writeFileSync(path.join(mockKvDir, 'documented_model.rs'), testModelContent);
+
+            const originalCwd = process.cwd();
+            process.chdir(testOutputDir);
+
+            try {
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir
+                };
+                
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
+
+                const kvContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'KV.elm'), 'utf-8');
+                expect(kvContent).toContain('from documented_model.rs');
+                expect(kvContent).toContain('Generated from Rust models in: models/kv/*.rs');
+
+            } finally {
+                process.chdir(originalCwd);
+            }
+        });
+
+        test('enforces "Rust once" principle - no hardcoded models', async () => {
+            const originalCwd = process.cwd();
+            process.chdir(testOutputDir);
+
+            try {
+                const config = {
+                    inputBasePath: testOutputDir,
+                    backendElmPath: testOutputDir
+                };
+                
+                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
+                
+                await generateElmSharedModules(config);
+
+                const kvContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'KV.elm'), 'utf-8');
+                
+                // Should not contain hardcoded model names that don't exist in Rust files
+                expect(kvContent).not.toContain('type alias HardcodedModel');
+                expect(kvContent).not.toContain('TestCache'); // Only if actually parsed from Rust
+                expect(kvContent).not.toContain('UserSession'); // Only if actually parsed from Rust
+                
+                // Should contain proper dynamic generation indicators
+                expect(kvContent).toContain('Generated from Rust models in: models/kv/*.rs');
+
+            } finally {
+                process.chdir(originalCwd);
+            }
+        });
+    });
+
     describe('Performance', () => {
         test('generation completes within reasonable time', async () => {
             const originalCwd = process.cwd();

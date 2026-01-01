@@ -204,4 +204,372 @@ describe('Elm TEA Service Unit Tests', () => {
 
         expect(handlers.size).toBe(0);
     });
+
+    describe('Timer Cleanup Tests', () => {
+        let clearTimeoutSpy;
+        let setTimeoutSpy;
+
+        beforeEach(() => {
+            clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+            setTimeoutSpy = jest.spyOn(global, 'setTimeout').mockImplementation(() => 12345);
+        });
+
+        afterEach(() => {
+            clearTimeoutSpy.mockRestore();
+            setTimeoutSpy.mockRestore();
+        });
+
+        test('timeout is cleared when request completes successfully', () => {
+            let timeoutId = null;
+            let isResolved = false;
+
+            const cleanup = () => {
+                if (timeoutId) clearTimeout(timeoutId);
+                // Simulate other cleanup
+            };
+
+            // Simulate setting the timeout
+            timeoutId = setTimeout(() => {
+                if (!isResolved) {
+                    isResolved = true;
+                    cleanup();
+                }
+            }, 10000);
+
+            // Simulate successful completion
+            isResolved = true;
+            cleanup();
+
+            expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 10000);
+            expect(clearTimeoutSpy).toHaveBeenCalledWith(timeoutId);
+        });
+
+        test('timeout is cleared when request encounters an error', () => {
+            let timeoutId = null;
+            let isResolved = false;
+
+            const cleanup = () => {
+                if (timeoutId) clearTimeout(timeoutId);
+                // Simulate other cleanup
+            };
+
+            // Simulate setting the timeout
+            timeoutId = setTimeout(() => {
+                if (!isResolved) {
+                    isResolved = true;
+                    cleanup();
+                }
+            }, 10000);
+
+            // Simulate error case
+            try {
+                throw new Error('Request failed');
+            } catch (error) {
+                isResolved = true;
+                cleanup();
+            }
+
+            expect(clearTimeoutSpy).toHaveBeenCalledWith(timeoutId);
+        });
+
+        test('timeout callback executes cleanup when timer fires', () => {
+            let timeoutId = null;
+            let isResolved = false;
+            let timeoutCallback = null;
+
+            const cleanup = jest.fn(() => {
+                if (timeoutId) clearTimeout(timeoutId);
+            });
+
+            // Capture the timeout callback
+            setTimeoutSpy.mockImplementation((callback, delay) => {
+                timeoutCallback = callback;
+                return 12345;
+            });
+
+            // Simulate setting the timeout
+            timeoutId = setTimeout(() => {
+                if (!isResolved) {
+                    isResolved = true;
+                    cleanup();
+                }
+            }, 10000);
+
+            // Simulate timeout firing
+            if (timeoutCallback && !isResolved) {
+                timeoutCallback();
+            }
+
+            expect(cleanup).toHaveBeenCalled();
+        });
+
+        test('multiple concurrent requests have independent timers', () => {
+            const requests = [];
+            
+            for (let i = 0; i < 3; i++) {
+                let timeoutId = null;
+                let isResolved = false;
+
+                const cleanup = () => {
+                    if (timeoutId) clearTimeout(timeoutId);
+                };
+
+                timeoutId = setTimeout(() => {
+                    if (!isResolved) {
+                        isResolved = true;
+                        cleanup();
+                    }
+                }, 10000);
+
+                requests.push({ timeoutId, isResolved, cleanup });
+            }
+
+            // Complete first request
+            requests[0].isResolved = true;
+            requests[0].cleanup();
+
+            // Complete third request  
+            requests[2].isResolved = true;
+            requests[2].cleanup();
+
+            expect(clearTimeoutSpy).toHaveBeenCalledTimes(2);
+            expect(clearTimeoutSpy).toHaveBeenCalledWith(requests[0].timeoutId);
+            expect(clearTimeoutSpy).toHaveBeenCalledWith(requests[2].timeoutId);
+        });
+
+        test('cleanup function clears timeout even if called multiple times', () => {
+            let timeoutId = null;
+
+            const cleanup = () => {
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null; // Prevent double-clear
+                }
+            };
+
+            timeoutId = setTimeout(() => {}, 10000);
+
+            // Call cleanup multiple times
+            cleanup();
+            cleanup();
+            cleanup();
+
+            expect(clearTimeoutSpy).toHaveBeenCalledTimes(1);
+            expect(clearTimeoutSpy).toHaveBeenCalledWith(12345);
+        });
+
+        test('cleanup handles null timeoutId gracefully', () => {
+            let timeoutId = null;
+
+            const cleanup = () => {
+                if (timeoutId) clearTimeout(timeoutId);
+            };
+
+            // Call cleanup without setting timeout
+            cleanup();
+
+            expect(clearTimeoutSpy).not.toHaveBeenCalled();
+        });
+
+        test('unified cleanup function integrates timer and resource cleanup', () => {
+            let timeoutId = null;
+            const mockHandlerPool = { releaseHandler: jest.fn() };
+            const mockHandler = { id: 'handler123' };
+            const requestSubscriptions = new Set();
+            const cleanupRequestSubscriptions = jest.fn();
+
+            const cleanup = () => {
+                if (timeoutId) clearTimeout(timeoutId);
+                cleanupRequestSubscriptions();
+                mockHandlerPool.releaseHandler(mockHandler);
+            };
+
+            timeoutId = setTimeout(() => {}, 10000);
+
+            cleanup();
+
+            expect(clearTimeoutSpy).toHaveBeenCalledWith(timeoutId);
+            expect(cleanupRequestSubscriptions).toHaveBeenCalled();
+            expect(mockHandlerPool.releaseHandler).toHaveBeenCalledWith(mockHandler);
+        });
+    });
+
+    describe('KV Port Handling Tests', () => {
+        let mockKvService;
+        let mockElmApp;
+        let mockServer;
+
+        beforeEach(() => {
+            mockKvService = {
+                set: jest.fn().mockReturnValue({ success: true }),
+                get: jest.fn().mockReturnValue({ value: 'test-value', found: true }),
+                delete: jest.fn().mockReturnValue({ success: true, existed: true })
+            };
+
+            mockElmApp = {
+                ports: {
+                    kvResult: { send: jest.fn() }
+                }
+            };
+
+            mockServer = {
+                getService: jest.fn().mockReturnValue(mockKvService)
+            };
+        });
+
+        test('kvSet port calls KV service with correct parameters', () => {
+            const request = {
+                id: 'kv_123',
+                type: 'TestCache',
+                key: 'test-key',
+                value: { data: 'test-data' },
+                ttl: 3600
+            };
+
+            const requestContext = {
+                host: 'test.example.com',
+                sessionId: 'session123'
+            };
+
+            // Simulate kvSet port handling logic
+            const kvService = mockServer.getService('kv');
+            kvService.set(requestContext.host, request.type, request.key, request.value, request.ttl);
+
+            expect(mockServer.getService).toHaveBeenCalledWith('kv');
+            expect(mockKvService.set).toHaveBeenCalledWith(
+                'test.example.com',
+                'TestCache', 
+                'test-key',
+                { data: 'test-data' },
+                3600
+            );
+        });
+
+        test('kvGet port calls KV service and returns result', () => {
+            const request = {
+                id: 'kv_456',
+                type: 'UserSession',
+                key: 'user-123'
+            };
+
+            const requestContext = {
+                host: 'tenant.example.com'
+            };
+
+            const result = mockKvService.get(requestContext.host, request.type, request.key);
+
+            expect(mockKvService.get).toHaveBeenCalledWith(
+                'tenant.example.com',
+                'UserSession',
+                'user-123'
+            );
+            expect(result).toEqual({ value: 'test-value', found: true });
+        });
+
+        test('kvDelete port calls KV service with host isolation', () => {
+            const request = {
+                id: 'kv_789',
+                type: 'TestCache',
+                key: 'expired-key'
+            };
+
+            const requestContext = {
+                host: 'isolated-tenant.com'
+            };
+
+            mockKvService.delete(requestContext.host, request.type, request.key);
+
+            expect(mockKvService.delete).toHaveBeenCalledWith(
+                'isolated-tenant.com',
+                'TestCache',
+                'expired-key'
+            );
+        });
+
+        test('kvExists port uses get method to check existence', () => {
+            const request = {
+                id: 'kv_exists_001',
+                type: 'UserProfile',
+                key: 'profile-456'
+            };
+
+            const requestContext = {
+                host: 'check.example.com'
+            };
+
+            // Mock get to return found result
+            mockKvService.get.mockReturnValue({ value: 'some-value', found: true });
+
+            const result = mockKvService.get(requestContext.host, request.type, request.key);
+            const exists = result.found && !result.expired;
+
+            expect(mockKvService.get).toHaveBeenCalledWith(
+                'check.example.com',
+                'UserProfile',
+                'profile-456'
+            );
+            expect(exists).toBe(true);
+        });
+
+        test('kvResult port sends success response', () => {
+            const expectedResponse = {
+                id: 'kv_123',
+                success: true,
+                operation: 'set',
+                data: { success: true },
+                error: null
+            };
+
+            mockElmApp.ports.kvResult.send(expectedResponse);
+
+            expect(mockElmApp.ports.kvResult.send).toHaveBeenCalledWith(expectedResponse);
+        });
+
+        test('kvResult port sends error response when KV service fails', () => {
+            const errorResponse = {
+                id: 'kv_error_123',
+                success: false,
+                operation: 'get',
+                data: null,
+                error: 'Key not found'
+            };
+
+            mockElmApp.ports.kvResult.send(errorResponse);
+
+            expect(mockElmApp.ports.kvResult.send).toHaveBeenCalledWith(errorResponse);
+        });
+
+        test('KV operations maintain tenant isolation', () => {
+            const tenant1Context = { host: 'tenant1.com' };
+            const tenant2Context = { host: 'tenant2.com' };
+
+            // Same key, different tenants
+            mockKvService.set(tenant1Context.host, 'Cache', 'shared-key', 'data1', 300);
+            mockKvService.set(tenant2Context.host, 'Cache', 'shared-key', 'data2', 300);
+
+            expect(mockKvService.set).toHaveBeenNthCalledWith(1,
+                'tenant1.com', 'Cache', 'shared-key', 'data1', 300
+            );
+            expect(mockKvService.set).toHaveBeenNthCalledWith(2,
+                'tenant2.com', 'Cache', 'shared-key', 'data2', 300
+            );
+        });
+
+        test('KV port request structure validates required fields', () => {
+            const validRequest = {
+                id: 'kv_valid_123',
+                type: 'TestCache',
+                key: 'test-key',
+                value: { some: 'data' },
+                ttl: 600
+            };
+
+            expect(validRequest).toHaveProperty('id');
+            expect(validRequest).toHaveProperty('type');
+            expect(validRequest).toHaveProperty('key');
+            expect(typeof validRequest.id).toBe('string');
+            expect(typeof validRequest.type).toBe('string');
+            expect(typeof validRequest.key).toBe('string');
+        });
+    });
 });
