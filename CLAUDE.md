@@ -11,6 +11,12 @@
   - Files with "generated" in path or comments
   - `Storage.elm`, `Database.elm`, API files, etc.
 
+### Code Generation - NEVER HARDCODE BUSINESS MODELS
+- **NEVER** put business domain models directly in codegen source files
+- Always parse from actual Rust files using existing parsing functions (parseRustDbModels, parseRustKvModels, etc.)
+- Follow "Rust once" principle - business logic defined only in Rust, generated everywhere else
+- Test mocks can use realistic examples, but generation code must be dynamic
+
 ### Server Management
 - I do NOT start, stop, or kill servers
 - User handles all server management due to node version issues
