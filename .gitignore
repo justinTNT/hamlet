@@ -33,3 +33,6 @@ frontend/elm.js
 my-test-proj*/
 new-val/
 packages/create-buildamp/template/.buildamp/generation/
+packages/create-buildamp/template/.buildamp/generate*.js
+packages/create-buildamp/template/.buildamp/macros/src/
+packages/create-buildamp/template/.buildamp/macros/Cargo.toml
