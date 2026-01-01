@@ -5,7 +5,8 @@
  * These are scaffolding files that developers can then customize with business logic.
  * 
  * Key principles:
- * - Generate files ONLY if they don't exist (preserve developer customizations)
+ * - Generate files ONLY if they don't exist (never overwrite existing files)
+ * - Developer must manually move/delete files to force regeneration  
  * - Parse Rust API definitions to find endpoints
  * - Create properly typed Elm handlers with database placeholders
  */
@@ -14,11 +15,10 @@ import fs from 'fs';
 import path from 'path';
 
 /**
- * Generate Elm handler scaffolding files
+ * Generate Elm handler scaffolding files (only if they don't exist)
  */
 export async function generateElmHandlers(config = {}) {
-    console.log('🔧 Starting Handler Generation...');
-    console.log('📂 DEBUG: Current working directory:', process.cwd());
+    console.log('🔧 Analyzing Rust API definitions...');
     
     // Auto-detect project name for fallback
     function getProjectName() {
@@ -38,15 +38,9 @@ export async function generateElmHandlers(config = {}) {
     const outputDir = config.handlersPath || 
                      (PROJECT_NAME ? `app/${PROJECT_NAME}/server/src/Api/Handlers` : path.join(process.cwd(), 'src/Api/Handlers'));
     
-    console.log('📂 DEBUG: PROJECT_NAME detected:', PROJECT_NAME);
-    console.log('📂 DEBUG: API directory:', apiDir);
-    console.log('📂 DEBUG: Output directory:', outputDir);
-    console.log('📂 DEBUG: API directory exists:', fs.existsSync(apiDir));
-    
     // Ensure output directory exists
     if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
-        console.log('📁 Created output directory:', outputDir);
     }
     
     // Find all API files
@@ -55,7 +49,6 @@ export async function generateElmHandlers(config = {}) {
         apiFiles = fs.readdirSync(apiDir)
             .filter(file => file.endsWith('.rs') && !file.startsWith('.'))
             .map(file => path.join(apiDir, file));
-        console.log('📂 DEBUG: Found API files:', apiFiles);
     }
         
     console.log(`📁 Found ${apiFiles.length} API definition files`);
@@ -78,14 +71,9 @@ export async function generateElmHandlers(config = {}) {
             const handlerFile = path.join(outputDir, `${endpoint.name}HandlerTEA.elm`);
             
             if (fs.existsSync(handlerFile)) {
-                // Check if handler needs regeneration due to shared module changes
-                if (shouldRegenerateHandler(handlerFile, config, PROJECT_NAME)) {
-                    console.log(`   🔄 Regenerating ${endpoint.name}HandlerTEA.elm (dependencies changed)`);
-                } else {
-                    console.log(`   ⏭️  Skipping ${endpoint.name}HandlerTEA.elm (up to date)`);
-                    skippedCount++;
-                    continue;
-                }
+                console.log(`   ⏭️  Skipping ${endpoint.name}HandlerTEA.elm (already exists)`);
+                skippedCount++;
+                continue;
             }
             
             // Check if required shared modules exist before generating new handlers

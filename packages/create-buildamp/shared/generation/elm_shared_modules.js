@@ -51,6 +51,7 @@ export async function generateElmSharedModules(config = {}) {
     const modules = [
         { name: 'Database.elm', content: generateDatabaseModule(PROJECT_NAME, config) },
         { name: 'Events.elm', content: generateEventsModule(PROJECT_NAME, config) },
+        { name: 'KV.elm', content: generateKvModule(PROJECT_NAME, config) },
         { name: 'Services.elm', content: generateServicesModule(config) }
     ];
     
@@ -440,6 +441,183 @@ encodeMaybe encoder maybeValue =
 }
 
 /**
+ * Generate KV Store module with type-safe operations
+ */
+function generateKvModule(PROJECT_NAME, config = {}) {
+    // Parse actual Rust KV models to generate correct Elm types
+    const kvModels = parseRustKvModels(PROJECT_NAME, config);
+    
+    const modelDocs = kvModels.length > 0 ? 
+        kvModels.map(model => `@docs ${model.name}`).join('\n') : 
+        '';
+    
+    const modelTypes = kvModels.map(model => `
+{-| ${model.name} KV model (from ${model.sourceFile})
+-}
+type alias ${model.name} =
+    { ${model.fields.map(field => {
+        const elmFieldName = snakeToCamel(field.name);
+        return `${elmFieldName} : ${field.elmType}`;
+    }).join('\n    , ')}
+    }`).join('\n');
+
+    const typeHelpers = kvModels.map(model => `
+{-| Encoder for ${model.name}
+-}
+encode${model.name} : ${model.name} -> Encode.Value
+encode${model.name} record =
+    Encode.object
+        [ ${model.fields.map(field => {
+            const elmFieldName = snakeToCamel(field.name);
+            const encoderType = generateBasicEncoder(field.elmType);
+            return `( "${field.name}", ${encoderType} record.${elmFieldName} )`;
+        }).join('\n        , ')}
+        ]
+
+
+{-| Decoder for ${model.name}
+-}
+decode${model.name} : Decode.Decoder ${model.name}
+decode${model.name} =
+    Decode.map${model.fields.length} ${model.name}
+        ${model.fields.map((field, i) => {
+            const elmFieldName = snakeToCamel(field.name);
+            const decoderType = generateBasicDecoder(field.elmType);
+            return `(Decode.field "${field.name}" ${decoderType})`;
+        }).join('\n        ')}`).join('\n');
+
+    return `port module Generated.KV exposing (..)
+
+{-| Generated KV Store interface for TEA handlers
+
+This module provides a strongly-typed, capability-based key-value store interface
+that automatically handles host isolation and TTL management.
+
+Generated from Rust models in: models/kv/*.rs
+
+@docs KvRequest, KvResult, KvData
+@docs set, get, delete, exists
+${modelDocs}
+
+-}
+
+import Json.Encode as Encode
+import Json.Decode as Decode
+
+
+-- KV STORE TYPES
+
+{-| KV operation request structure
+-}
+type alias KvRequest =
+    { id : String
+    , type_ : String
+    , key : String
+    , value : Maybe Encode.Value
+    , ttl : Maybe Int
+    }
+
+
+{-| KV operation result structure
+-}
+type alias KvResult =
+    { id : String
+    , success : Bool
+    , operation : String
+    , data : Maybe KvData
+    , error : Maybe String
+    }
+
+
+{-| KV data wrapper
+-}
+type alias KvData =
+    { value : Maybe Encode.Value
+    , found : Bool
+    , exists : Bool
+    , expired : Maybe Bool
+    }
+
+${modelTypes.length > 0 ? '\n-- GENERATED KV MODEL TYPES' + modelTypes : ''}
+
+
+-- KV OPERATIONS
+
+{-| Set a value in the KV store with optional TTL
+-}
+set : String -> String -> Encode.Value -> Maybe Int -> Cmd msg
+set type_ key value ttl =
+    kvSet
+        { id = generateRequestId()
+        , type_ = type_
+        , key = key
+        , value = Just value
+        , ttl = ttl
+        }
+
+
+{-| Get a value from the KV store
+-}
+get : String -> String -> Cmd msg
+get type_ key =
+    kvGet
+        { id = generateRequestId()
+        , type_ = type_
+        , key = key
+        , value = Nothing
+        , ttl = Nothing
+        }
+
+
+{-| Delete a value from the KV store
+-}
+delete : String -> String -> Cmd msg
+delete type_ key =
+    kvDelete
+        { id = generateRequestId()
+        , type_ = type_
+        , key = key
+        , value = Nothing
+        , ttl = Nothing
+        }
+
+
+{-| Check if a key exists in the KV store
+-}
+exists : String -> String -> Cmd msg
+exists type_ key =
+    kvExists
+        { id = generateRequestId()
+        , type_ = type_
+        , key = key
+        , value = Nothing
+        , ttl = Nothing
+        }
+
+
+-- PORTS
+
+port kvSet : KvRequest -> Cmd msg
+port kvGet : KvRequest -> Cmd msg  
+port kvDelete : KvRequest -> Cmd msg
+port kvExists : KvRequest -> Cmd msg
+port kvResult : (KvResult -> msg) -> Sub msg
+
+
+-- HELPERS
+
+{-| Generate a unique request ID
+-}
+generateRequestId : () -> String
+generateRequestId _ =
+    "kv_" ++ String.fromInt (round ((*) 1000000 (toFloat (floor (toFloat 0)))))
+
+${typeHelpers.length > 0 ? '\n-- TYPE HELPERS' + typeHelpers : ''}
+
+`;
+}
+
+/**
  * Generate Services module for external API calls
  */
 function generateServicesModule(config = {}) {
@@ -659,6 +837,43 @@ function parseRustDbModels(PROJECT_NAME, config = {}) {
 }
 
 /**
+ * Parse Rust KV models from src/models/kv/*.rs files
+ */
+function parseRustKvModels(PROJECT_NAME, config = {}) {
+    const models = [];
+    const kvPath = config.inputBasePath ? `${config.inputBasePath}/src/models/kv/` : 
+                   (PROJECT_NAME ? `app/${PROJECT_NAME}/models/kv/` : 'src/models/kv/');
+    
+    if (!fs.existsSync(kvPath)) {
+        console.warn('KV models directory not found, generating empty KV module');
+        return [];
+    }
+    
+    const files = fs.readdirSync(kvPath).filter(f => f.endsWith('.rs') && f !== 'mod.rs');
+    
+    for (const file of files) {
+        const filePath = path.join(kvPath, file);
+        const content = fs.readFileSync(filePath, 'utf-8');
+        const modelStructs = parseRustStructs(content, [], file);
+        
+        for (const struct of modelStructs) {
+            // Normalize struct name for Elm
+            const normalizedName = struct.name.includes('_') 
+                ? struct.name.split('_').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('')
+                : struct.name.charAt(0).toUpperCase() + struct.name.slice(1);
+            
+            models.push({
+                name: normalizedName,
+                fields: struct.fields,
+                sourceFile: file
+            });
+        }
+    }
+    
+    return models;
+}
+
+/**
  * Parse Rust struct definitions from file content
  */
 function parseRustStructs(content, knownModels = [], filename = null) {
@@ -741,6 +956,8 @@ function rustTypeToElmType(rustType, knownModels = []) {
         'String': 'String',
         'i32': 'Int', 
         'i64': 'Int',
+        'u32': 'Int',
+        'u64': 'Int',
         'f32': 'Float',
         'f64': 'Float',
         'bool': 'Bool',

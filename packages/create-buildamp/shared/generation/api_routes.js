@@ -416,8 +416,6 @@ ${actionDecoderCases}
 
 // Generate all API routes
 function generateApiRoutes(config = {}) {
-    console.log('🔍 Starting API Routes Generation...');
-    console.log('📂 DEBUG: Current working directory:', process.cwd());
     
     // Auto-detect project name for fallback
     function getProjectName() {
@@ -444,9 +442,6 @@ function generateApiRoutes(config = {}) {
         path.resolve(config.jsOutputPath) :
         path.join(__dirname, '../../packages/hamlet-server/generated');
     
-    console.log('📂 DEBUG: PROJECT_NAME detected:', PROJECT_NAME);
-    console.log('📂 DEBUG: API models path:', apiModelsPath);
-    console.log('📂 DEBUG: API models path exists:', fs.existsSync(apiModelsPath));
     
     if (!fs.existsSync(apiModelsPath)) {
         console.log('❌ No API models directory found, skipping API route generation');

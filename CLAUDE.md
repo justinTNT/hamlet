@@ -24,6 +24,12 @@
 
 ## BuildAmp System Architecture
 
+### Vite Monorepo Structure
+- **Build Tool**: Vite handles bundling and workspace dependency resolution
+- **Framework Packages**: Single source of truth in `/packages/hamlet-server/`
+- **Template Projects**: Reference framework via workspace dependencies, not duplicated files
+- **Code Generation**: Shared generation scripts in `/shared/generation/` synced to templates
+
 ### TEA Handler Pool System
 - Implemented fresh instance pool to fix state corruption bug
 - Pool uses utilization-based replacement instead of persistent handlers

@@ -1,7 +1,0 @@
-node_modules
-target
-dist
-pkg-web
-pkg-node
-.DS_Store
-*.log

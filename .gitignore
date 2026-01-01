@@ -28,3 +28,8 @@ frontend/node_modules/
 
 # Elm Artifacts
 frontend/elm.js
+
+# create-buildamp artifacts and test projects
+my-test-proj*/
+new-val/
+packages/create-buildamp/template/.buildamp/generation/

@@ -167,19 +167,107 @@ port ${varName}Loaded : (Maybe ${modelName} -> msg) -> Sub msg
 port ${varName}Changed : (Maybe ${modelName} -> msg) -> Sub msg`.trim();
 }
 
+// Generate clean Storage.elm wrapper that re-exports storage functions
+function generateStorageWrapper(models) {
+    const imports = models.map(model => 
+        `import Generated.Storage.${model.name} as ${model.name}Storage`
+    ).join('\n');
+    
+    const typeAliases = models.map(model => {
+        const fields = model.fields.map(field => {
+            const elmType = field.type.replace('String', 'String')
+                                    .replace('u64', 'Int')
+                                    .replace('bool', 'Bool');
+            return `${field.name} : ${elmType}`;
+        }).join('\n    , ');
+        
+        return `{-| ${model.name} type for storage operations
+-}
+type alias ${model.name} =
+    { ${fields}
+    }`;
+    }).join('\n\n');
+    
+    const functions = models.map(model => {
+        const lowerName = model.name.toLowerCase();
+        return `-- ${model.name.toUpperCase()} STORAGE
+
+{-| Load ${model.name} from localStorage
+-}
+load${model.name} : Cmd msg
+load${model.name} =
+    ${model.name}Storage.load
+
+{-| Save ${model.name} to localStorage  
+-}
+save${model.name} : ${model.name} -> Cmd msg
+save${model.name} ${lowerName} =
+    ${model.name}Storage.save ${lowerName}
+
+{-| Subscribe to ${model.name} load results
+-}
+on${model.name}Loaded : (Maybe ${model.name} -> msg) -> Sub msg
+on${model.name}Loaded toMsg =
+    ${model.name}Storage.onLoad toMsg`;
+    }).join('\n\n');
+    
+    const exposedFunctions = models.map(model => 
+        `load${model.name}, save${model.name}, on${model.name}Loaded`
+    ).join('\n    , ');
+    
+    const exposedTypes = models.map(model => model.name).join(', ');
+    
+    return `module Storage exposing
+    ( ${exposedTypes}
+    , ${exposedFunctions}
+    )
+
+{-| Clean Storage API for Elm developers
+
+Generated from storage models in app/*/models/storage/
+This provides a clean interface hiding Generated.* implementation details.
+
+${models.map(model => `# ${model.name}\n@docs ${model.name}, load${model.name}, save${model.name}, on${model.name}Loaded`).join('\n\n')}
+
+-}
+
+${imports}
+
+
+-- TYPES
+
+${typeAliases}
+
+
+-- STORAGE FUNCTIONS
+
+${functions}
+`;
+}
+
 // Generate Elm helper module for a model
 function generateElmHelper(model) {
     const { name } = model;
-    const moduleName = `Storage.${name}`;
+    const moduleName = `Generated.Storage.${name}`;
     const varName = name.toLowerCase();
     
+    const fields = model.fields.map(field => {
+        const elmType = field.type.replace('String', 'String')
+                                .replace('u64', 'Int')
+                                .replace('bool', 'Bool');
+        return `${field.name} : ${elmType}`;
+    }).join('\n    , ');
+
     return `
-module ${moduleName} exposing 
-    ( save, load, clear, exists, update
+port module ${moduleName} exposing 
+    ( ${name}, save, load, clear, exists, update
     , onLoad, onChange
     )
 
 {-| Auto-generated storage helpers for ${name}
+
+# Types
+@docs ${name}
 
 # Storage Operations
 @docs save, load, clear, exists, update
@@ -188,6 +276,15 @@ module ${moduleName} exposing
 @docs onLoad, onChange
 
 -}
+
+-- TYPES
+
+{-| ${name} type for storage operations
+-}
+type alias ${name} =
+    { ${fields}
+    }
+
 
 -- PORTS
 
@@ -390,11 +487,32 @@ ${allPorts}
     const elmPortsFile = path.join(elmOutputPath, 'StoragePorts.elm');
     fs.writeFileSync(elmPortsFile, elmPortsContent);
     
-    // Generate individual Elm helper modules
+    // Generate individual Elm helper modules with proper directory structure
     for (const model of allModels) {
         const helperContent = generateElmHelper(model);
-        const helperFile = path.join(elmOutputPath, `Storage${model.name}.elm`);
+        const helperDir = path.join(elmOutputPath, 'Generated', 'Storage');
+        const helperFile = path.join(helperDir, `${model.name}.elm`);
+        
+        // Ensure directory exists
+        if (!fs.existsSync(helperDir)) {
+            fs.mkdirSync(helperDir, { recursive: true });
+        }
+        
         fs.writeFileSync(helperFile, helperContent);
+    }
+    
+    // Generate clean Storage.elm wrapper
+    if (config.elmApiPath) {
+        const storageWrapperContent = generateStorageWrapper(allModels);
+        const storageWrapperFile = path.join(config.elmApiPath, 'Storage.elm');
+        
+        // Ensure directory exists
+        if (!fs.existsSync(config.elmApiPath)) {
+            fs.mkdirSync(config.elmApiPath, { recursive: true });
+        }
+        
+        fs.writeFileSync(storageWrapperFile, storageWrapperContent);
+        console.log(`✅ Generated clean Storage.elm wrapper: ${storageWrapperFile}`);
     }
     
     console.log(`✅ Generated browser storage APIs: ${jsOutputFile}`);
