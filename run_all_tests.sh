@@ -39,16 +39,26 @@ run_test_suite() {
     TESTS_RUN=$((TESTS_RUN + 1))
     
     if [ -d "$directory" ]; then
+        # Save current directory
+        local original_pwd=$(pwd)
         cd "$directory"
-        if eval "$command"; then
+        
+        # Run command and capture actual exit code
+        set +e  # Temporarily disable exit on error
+        eval "$command"
+        local exit_code=$?
+        set -e  # Re-enable exit on error
+        
+        cd "$original_pwd"
+        
+        if [ $exit_code -eq 0 ]; then
             echo -e "${GREEN}✅ $name: PASSED${NC}"
             TESTS_PASSED=$((TESTS_PASSED + 1))
         else
-            echo -e "${RED}❌ $name: FAILED${NC}"
+            echo -e "${RED}❌ $name: FAILED (exit code: $exit_code)${NC}"
             TESTS_FAILED=$((TESTS_FAILED + 1))
             FAILED_SUITES+=("$name")
         fi
-        cd - > /dev/null
     else
         echo -e "${YELLOW}⚠️  $name: DIRECTORY NOT FOUND - $directory${NC}"
         TESTS_FAILED=$((TESTS_FAILED + 1))
@@ -107,10 +117,11 @@ run_test_suite \
 # Horatio app directory has no tests, skipping
 
 # Test Suite 2: Horatio Server Tests
+# Note: Using timeout but checking actual test result
 run_test_suite \
     "Horatio Server Tests" \
     "/Users/jtnt/Play/hamlet/app/horatio/server" \
-    "timeout 30 npm test || echo 'Horatio server tests completed (may have port conflicts in integration tests)'" \
+    "timeout 30 npm test" \
     "TEA handler pools, performance, state corruption, KV store, SSE integration"
 
 # Test Suite 3: Hamlet Server Tests  

@@ -10,7 +10,9 @@
     "scripts": {
         "test": "npx --node-options='--experimental-vm-modules' jest"
     },
-    "dependencies": {},
+    "dependencies": {
+        "hamlet-core": "*"
+    },
     "devDependencies": {
         "jest": "^29.7.0"
     },

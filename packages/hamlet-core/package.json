@@ -1,0 +1,21 @@
+{
+  "name": "hamlet-core",
+  "version": "0.1.0",
+  "description": "Core utilities for Hamlet build system - path discovery and constants",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "keywords": [
+    "hamlet",
+    "buildamp",
+    "core",
+    "utilities"
+  ],
+  "author": "Hamlet Team",
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
