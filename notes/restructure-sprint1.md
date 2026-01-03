@@ -50,64 +50,14 @@ describe('HMR Boundaries', () => {
 - All generation tests should still pass (15+ tests)
 - Horatio dev server should still work
 
+
 ## Day 2: Contract Integrity
 
-### Implementation
-- Contract hash calculation from Rust model files
-- Dirty detection logic
-- contracts.json storage format
-
-### Contract Storage Format
-```json
-// .hamlet-gen/contracts.json
-{
-    "modelHash": "sha256:abc123...",
-    "generatedAt": "2024-01-03T10:00:00Z",
-    "rustFiles": [
-        "models/db/microblog.rs",
-        "models/api/handlers.rs"
-    ]
-}
-```
-
-### Tests to Write
-```javascript
-// packages/hamlet-server/tests/contracts/hash-calculation.test.js
-describe('Contract Hash Calculation', () => {
-  test('produces deterministic hash from model files', () => {})
-  test('hash changes when model content changes', () => {})
-  test('hash unchanged when only whitespace changes', () => {})
-  test('includes all model subdirectories (db, api, storage, kv, sse)', () => {})
-  test('performance: hashes 100 files in <100ms', () => {})
-})
-
-// packages/hamlet-server/tests/contracts/dirty-detection.test.js
-describe('Contract Dirty Detection', () => {
-  test('detects dirty when model files change', () => {})
-  test('detects clean when hashes match', () => {})
-  test('handles missing contracts.json gracefully', () => {})
-  test('reports which files changed', () => {})
-})
-
-// packages/hamlet-server/tests/contracts/integrity-check.test.js
-describe('Server Startup Contract Check', () => {
-  test('server starts when contracts match', () => {})
-  test('server fails fast on contract mismatch', () => {})
-  test('error message includes hash details', () => {})
-  test('startup check can be disabled for dev', () => {})
-})
-```
+*Moved to Sprint 2 (hamlet-contracts package) - Completed*
 
 ## Day 3: Integration & Cleanup
 
-### Implementation
-- Wire up HMR with contract changes
-- Remove requestContexts dead code from elm-service.js
-- Full integration testing
-
-### Technical Debt Cleanup
-- Remove `requestContexts` Map and helper functions from `packages/hamlet-server/middleware/elm-service.js`
-- Already using local scoping in `callHandler`
+*Completed in Sprint 1 wrap-up*
 
 ### Tests to Write
 ```javascript

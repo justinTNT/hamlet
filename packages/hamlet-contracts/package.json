@@ -1,0 +1,25 @@
+{
+    "name": "hamlet-contracts",
+    "version": "0.1.0",
+    "description": "Single Source of Truth for Hamlet contract integrity and change detection",
+    "type": "module",
+    "main": "index.js",
+    "exports": {
+        ".": "./index.js"
+    },
+    "scripts": {
+        "test": "npx --node-options='--experimental-vm-modules' jest"
+    },
+    "dependencies": {},
+    "devDependencies": {
+        "jest": "^29.7.0"
+    },
+    "keywords": [
+        "hamlet",
+        "contracts",
+        "integrity",
+        "hash"
+    ],
+    "author": "Hamlet Team",
+    "license": "MIT"
+}
