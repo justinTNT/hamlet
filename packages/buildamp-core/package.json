@@ -1,19 +1,19 @@
 {
-  "name": "hamlet-core",
+  "name": "buildamp-core",
   "version": "0.1.0",
-  "description": "Core utilities for Hamlet build system - path discovery and constants",
+  "description": "Core utilities for BuildAmp - path discovery and constants",
   "type": "module",
   "main": "index.js",
   "scripts": {
     "test": "node --experimental-vm-modules ../../node_modules/.bin/jest"
   },
   "keywords": [
-    "hamlet",
+    "buildamp",
     "buildamp",
     "core",
     "utilities"
   ],
-  "author": "Hamlet Team",
+  "author": "BuildAmp Team",
   "license": "MIT",
   "devDependencies": {
     "jest": "^29.7.0"

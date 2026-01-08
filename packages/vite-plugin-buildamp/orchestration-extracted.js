@@ -1,5 +1,5 @@
 // This file contains the orchestration logic extracted from the Vite plugin
-// It will be moved to the hamlet CLI in Sprint 2
+// It will be moved to the buildamp CLI in Sprint 2
 
 import { spawn } from 'child_process';
 import path from 'path';
@@ -126,7 +126,7 @@ export async function buildWasm(config) {
     }
 }
 
-// File watching logic that will be moved to hamlet CLI
+// File watching logic that will be moved to buildamp CLI
 export function watchRustFiles(config, onChangeCallback) {
     const chokidar = require('chokidar');
     

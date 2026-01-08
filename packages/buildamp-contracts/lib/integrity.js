@@ -28,7 +28,7 @@ export async function verifyContractIntegrity(modelsDir, contractsPath, options 
     const logWarn = (msg) => {
         logger('\n🚨 Contract Integrity Warning\n');
         logger(`   ${msg}\n`);
-        logger('   Run "hamlet gen" to synchronize.\n');
+        logger('   Run "buildamp gen" to synchronize.\n');
     };
 
     // Check if contracts.json exists

@@ -48,16 +48,16 @@ The Hamlet framework currently uses JSON serialization through Elm ports for all
 
 ## Proposed WASM Architecture
 
-### Enable BuildAmp Macros
-All Rust models need proper macro attributes:
-- `#[buildamp_db]` for database models
-- `#[buildamp_storage]` for storage models  
-- `#[buildamp_api]` for API models
-- `#[buildamp_kv]` for KV models
-- `#[buildamp_sse]` for SSE event models
-- `#[buildamp_event]` for event sourcing models
+### Model Discovery
+Hamlet already identifies models by file location - WASM generation uses the same pattern:
+- `src/models/db/*.rs` → Database models
+- `src/models/storage/*.rs` → Storage models  
+- `src/models/api/*.rs` → API models
+- `src/models/kv/*.rs` → KV models
+- `src/models/sse/*.rs` → SSE event models
+- `src/models/events/*.rs` → Event sourcing models
 
-These macros add `elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode` derives.
+No macro attributes needed - the generator adds appropriate derives based on location.
 
 ### WASM Binding Generation
 Create generators that produce:
@@ -86,13 +86,53 @@ Create generators that produce:
 
 ## Migration Strategy
 
-This should be done as a separate focused effort after Sprint 4 completion:
-1. Add macro attributes to all models
-2. Generate WASM bindings alongside current JSON
-3. Gradually migrate each subsystem
-4. Remove JSON code once WASM is proven
-5. Performance benchmarks at each stage
-6. add hamlet-cli tests to the run_all_tests.sh script to ensure the cli commands (including gen:wasm) are properly tested.
+1. Generate WASM bindings alongside current JSON
+2. Gradually migrate each subsystem
+3. Remove JSON code once WASM is proven
+4. Performance benchmarks at each stage
+
+### Tests
+
+Update and add existing hamlet-cli tests to the run_all_tests.sh script to ensure the cli commands (including gen:wasm) are properly tested.
+
+## Broader Vision: WASM Generation as a Standalone Tool
+
+While implementing WASM generation for Hamlet, we should architect it as a potentially standalone tool that other frameworks could adopt:
+
+### Design Principles
+- **Framework agnostic**: Core WASM generation shouldn't depend on Hamlet-specific concepts
+- **Composable**: Output that can be piped, transformed, and integrated into different build systems
+- **Minimal opinions**: Just solve "Rust types → WASM" perfectly, nothing more
+
+### Potential Interface
+```bash
+# Within BuildAmp (primary interface)
+buildamp gen:wasm
+
+# Future standalone tool (if extracted)
+rust-to-wasm-gen \
+  --input src/models \
+  --output pkg-web \
+  --target js,elm,typescript
+
+# Could eventually support pipeline usage  
+buildamp gen:wasm --format json | other-transform
+```
+
+### Benefits for the Ecosystem
+- **Phoenix/Elixir**: Could use WASM models instead of Ecto schemas for certain use cases
+- **SvelteKit**: Type-safe data layer without GraphQL complexity
+- **Elm apps**: Direct WASM integration without JSON ports
+- **Rust web frameworks**: Share models between server and WASM client code
+
+### Implementation Approach
+1. Start with Hamlet's specific needs (stay focused)
+2. Keep generation logic cleanly separated from Hamlet framework code
+3. Design APIs that could work standalone
+4. Consider publishing as separate crate/npm package once stable
+5. Let community needs drive generalization (not speculation)
+
+This positions the WASM work as potentially industry-changing while keeping Hamlet itself focused on its "few weird holes" philosophy.
 
 
 ## Technical Notes
@@ -110,7 +150,7 @@ Based on typical JSON overhead:
 - Significant reduction in code complexity
 - Elimination of encoder/decoder bugs
 
-**SSE-specific improvements:**
+*SSE-specific improvements:**
 - Reduced bandwidth usage for event streams
 - Lower server CPU usage per connected client
 - Ability to handle more concurrent SSE connections

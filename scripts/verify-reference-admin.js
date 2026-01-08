@@ -70,7 +70,7 @@ function expect(actual, message) {
 test('Admin UI generation completes successfully', () => {
     console.log('\n👑 Testing admin UI generation...');
     try {
-        const output = execSync('npx hamlet gen', { stdio: 'pipe', encoding: 'utf8' });
+        const output = execSync('npx buildamp gen', { stdio: 'pipe', encoding: 'utf8' });
         const success = output.includes('Admin UI Generation') && output.includes('app/horatio/admin/src/Generated/Resources.elm');
         return expect(success, 'Admin UI generation ran without errors').toBe(true);
     } catch (error) {

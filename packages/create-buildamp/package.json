@@ -8,10 +8,7 @@
     "type": "module",
     "scripts": {
         "test": "node --test tests/*.test.js",
-        "test:watch": "node --test --watch tests/*.test.js",
-        "sync-shared": "cp -r ../../shared/generation/* template/.buildamp/generation/ && cp ../../.buildamp/generate*.js template/.buildamp/ && cp -r ../../.buildamp/macros/src/* template/.buildamp/macros/src/ && cp ../../.buildamp/macros/Cargo.toml template/.buildamp/macros/",
-        "prepublishOnly": "npm run sync-shared",
-        "prepack": "npm run sync-shared"
+        "test:watch": "node --test --watch tests/*.test.js"
     },
     "keywords": [
         "buildamp",

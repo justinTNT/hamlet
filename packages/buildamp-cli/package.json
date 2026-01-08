@@ -1,10 +1,10 @@
 {
-  "name": "hamlet-cli",
+  "name": "buildamp-cli",
   "version": "0.1.0",
-  "description": "The central orchestration CLI for Hamlet",
+  "description": "The central orchestration CLI for BuildAmp code generation",
   "main": "index.js",
   "bin": {
-    "hamlet": "./bin/hamlet.js"
+    "buildamp": "./bin/buildamp.js"
   },
   "type": "module",
   "scripts": {
@@ -13,8 +13,8 @@
   "dependencies": {
     "chalk": "^5.3.0",
     "commander": "^11.0.0",
-    "hamlet-contracts": "*",
-    "hamlet-core": "*"
+    "buildamp-contracts": "*",
+    "buildamp-core": "*"
   },
   "devDependencies": {
     "jest": "^29.7.0"

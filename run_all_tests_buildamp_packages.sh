@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Test runner for new hamlet packages
-# Tests hamlet-core, hamlet-cli, and hamlet-contracts
+# Test runner for BuildAmp packages
+# Tests buildamp-core, buildamp-cli, and buildamp-contracts
 
-echo "🧪 Testing Hamlet Packages"
+echo "🧪 Testing BuildAmp Packages"
 echo "========================="
 
 # Colors for output
@@ -51,9 +51,9 @@ run_package_test() {
 }
 
 # Test each package
-run_package_test "hamlet-core"
-run_package_test "hamlet-contracts" 
-run_package_test "hamlet-cli"
+run_package_test "buildamp-core"
+run_package_test "buildamp-contracts" 
+run_package_test "buildamp-cli"
 
 echo ""
 echo "========================="
@@ -63,7 +63,7 @@ echo "   Failed: $TESTS_FAILED"
 echo ""
 
 if [ $TESTS_FAILED -eq 0 ]; then
-    echo -e "${GREEN}🎉 All hamlet package tests passed!${NC}"
+    echo -e "${GREEN}🎉 All BuildAmp package tests passed!${NC}"
     exit 0
 else
     echo -e "${RED}❌ Some tests failed${NC}"

@@ -2,8 +2,8 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { discoverProjectPaths, ensureGlueDirs, getContractsPath, HAMLET_GEN_DIR } from 'hamlet-core';
-import { calculateContractHash, isContractDirty, verifyContractIntegrity } from 'hamlet-contracts';
+import { discoverProjectPaths, ensureGlueDirs, getContractsPath, HAMLET_GEN_DIR } from 'buildamp-core';
+import { calculateContractHash, isContractDirty, verifyContractIntegrity } from 'buildamp-contracts';
 import { gen, genElm, genWasm } from '../lib/gen.js';
 import { watch } from '../lib/watch.js';
 import { serve } from '../lib/serve.js';
@@ -13,8 +13,8 @@ import path from 'path';
 const program = new Command();
 
 program
-    .name('hamlet')
-    .description('Hamlet build system for BuildAmp framework')
+    .name('buildamp')
+    .description('BuildAmp code generation and build system')
     .version('0.1.0');
 
 program
@@ -23,7 +23,7 @@ program
     .option('-f, --force', 'Force regeneration even if contracts are clean')
     .action(async (options) => {
         try {
-            console.log(chalk.blue('🔨 Hamlet Generation'));
+            console.log(chalk.blue('🔨 BuildAmp Generation'));
             
             const projectPaths = discoverProjectPaths();
             const contractsPath = getContractsPath(projectPaths);
@@ -68,7 +68,7 @@ program
     .option('-f, --force', 'Force regeneration even if contracts are clean')
     .action(async (options) => {
         try {
-            console.log(chalk.blue('🔨 Hamlet Elm Generation'));
+            console.log(chalk.blue('🔨 BuildAmp Elm Generation'));
             
             const projectPaths = discoverProjectPaths();
             
@@ -91,7 +91,7 @@ program
     .description('Generate only WASM code')
     .action(async (options) => {
         try {
-            console.log(chalk.blue('🔨 Hamlet WASM Generation'));
+            console.log(chalk.blue('🔨 BuildAmp WASM Generation'));
             
             const projectPaths = discoverProjectPaths();
             
@@ -111,7 +111,7 @@ program
     .description('Watch for changes and regenerate automatically')
     .action(async () => {
         try {
-            console.log(chalk.blue('👁  Hamlet Watch Mode'));
+            console.log(chalk.blue('👁  BuildAmp Watch Mode'));
             
             const projectPaths = discoverProjectPaths();
             
@@ -152,7 +152,7 @@ program
     .option('-p, --port <number>', 'Server port', '3737')
     .action(async (options) => {
         try {
-            console.log(chalk.blue('🚀 Hamlet Development Server'));
+            console.log(chalk.blue('🚀 BuildAmp Development Server'));
             
             const projectPaths = discoverProjectPaths();
             
@@ -162,7 +162,7 @@ program
                 await verifyContractIntegrity(projectPaths.modelsDir, contractsPath);
             } catch (error) {
                 console.error(chalk.red('✗ Integrity check failed:'), error.message);
-                console.error(chalk.yellow('  Run "hamlet gen" to fix'));
+                console.error(chalk.yellow('  Run "buildamp gen" to fix'));
                 process.exit(1);
             }
             

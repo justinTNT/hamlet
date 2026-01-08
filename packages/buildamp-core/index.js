@@ -107,7 +107,8 @@ export function discoverProjectPaths(rootDir = process.cwd()) {
 }
 
 /**
- * Path constants for hamlet-gen structure
+ * Path constants for BuildAmp-generated code
+ * Uses .hamlet-gen to indicate these are generated for Hamlet apps
  */
 export const HAMLET_GEN_DIR = '.hamlet-gen';
 export const CONTRACTS_FILE = 'contracts.json';

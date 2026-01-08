@@ -6,15 +6,15 @@
     "scripts": {
         "build": "npm run build --workspaces",
         "dev": "npm run dev --workspaces",
-        "dev:server": "hamlet serve",
-        "generate": "hamlet gen",
-        "generate:watch": "hamlet watch",
+        "dev:server": "buildamp serve",
+        "generate": "buildamp gen",
+        "generate:watch": "buildamp watch",
         "dev:web": "cd web && vite",
         "dev:backend": "cd server && node --watch server.js"
     },
     "devDependencies": {
         "concurrently": "^8.0.0",
-        "hamlet-cli": "*"
+        "buildamp-cli": "*"
     },
     "workspaces": [
         "web",

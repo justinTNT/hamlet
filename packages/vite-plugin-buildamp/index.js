@@ -22,14 +22,15 @@ export default function buildampPlugin(options = {}) {
             name: 'vite-plugin-buildamp-reactive',
             
             config(viteConfig, { command }) {
-                // Set up aliases for importing from .hamlet-gen
+                // Set up aliases for importing from .hamlet-gen (BuildAmp-generated code)
                 const hamletGenPath = path.resolve(config.projectRoot, '.hamlet-gen');
                 
                 return {
                     resolve: {
                         alias: {
                             '@hamlet-gen': hamletGenPath,
-                            '@generated': hamletGenPath
+                            '@generated': hamletGenPath,
+                            '@buildamp-gen': hamletGenPath
                         }
                     }
                 };

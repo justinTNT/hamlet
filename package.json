@@ -14,9 +14,9 @@
     "scripts": {
         "build": "npm run build --workspaces",
         "dev": "npm run dev --workspaces",
-        "dev:server": "hamlet serve",
-        "generate": "hamlet gen",
-        "generate:watch": "hamlet watch",
+        "dev:server": "buildamp serve",
+        "generate": "buildamp gen",
+        "generate:watch": "buildamp watch",
         "test": "npm run test:hamlet && npm run test:create-buildamp",
         "test:hamlet": "npm run test:generation && npm run test:integration",
         "test:create-buildamp": "cd packages/create-buildamp && npm test",
@@ -26,7 +26,7 @@
         "test:generation-dry": "node --experimental-vm-modules node_modules/.bin/jest tests/generation-dry/generation-dry.test.js"
     },
     "devDependencies": {
-        "hamlet-cli": "*"
+        "buildamp-cli": "*"
     },
     "hamlet": {
         "defaultApp": "horatio"
