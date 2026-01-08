@@ -6,18 +6,18 @@
     "scripts": {
         "build": "npm run build --workspaces",
         "dev": "npm run dev --workspaces",
-        "dev:server": "node dev-server.js",
-        "generate": "node .buildamp/generate-all.js",
-        "generate:watch": "nodemon --watch src/models/ --ext rs --exec 'npm run generate'",
-        "dev:frontend": "cd frontend && vite",
-        "dev:backend": "cd backend && node --watch server.js"
+        "dev:server": "hamlet serve",
+        "generate": "hamlet gen",
+        "generate:watch": "hamlet watch",
+        "dev:web": "cd web && vite",
+        "dev:backend": "cd server && node --watch server.js"
     },
     "devDependencies": {
         "concurrently": "^8.0.0",
-        "nodemon": "^3.0.0"
+        "hamlet-cli": "*"
     },
     "workspaces": [
-        "frontend",
-        "backend"
+        "web",
+        "server"
     ]
 }

@@ -6,6 +6,7 @@ import {
     getContractsPath, 
     ensureGlueDirs, 
     isBuildAmpProject,
+    getActiveApp,
     HAMLET_GEN_DIR,
     CONTRACTS_FILE
 } from '../index.js';
@@ -30,7 +31,7 @@ describe('hamlet-core path utilities', () => {
             
             expect(paths.modelsDir).toBe('app/horatio/models');
             expect(paths.elmGlueDir).toBe('app/horatio/web/src/.hamlet-gen');
-            expect(paths.jsGlueDir).toBe('packages/hamlet-server/.hamlet-gen');
+            expect(paths.jsGlueDir).toBe('app/horatio/server/.hamlet-gen');
             expect(paths.serverHandlersDir).toBe('app/horatio/server/src/Api/Handlers');
         });
         
@@ -40,8 +41,52 @@ describe('hamlet-core path utilities', () => {
             
             expect(paths.modelsDir).toBe('src/models');
             expect(paths.elmGlueDir).toBe('src/.hamlet-gen');
-            expect(paths.jsGlueDir).toBe('packages/hamlet-server/.hamlet-gen');
+            expect(paths.jsGlueDir).toBe('.hamlet-gen');
             expect(paths.elmApiDir).toBe('src/Api');
+        });
+        
+        test('uses custom app from environment variable', () => {
+            // Set env var
+            const originalEnv = process.env.HAMLET_APP;
+            process.env.HAMLET_APP = 'playground';
+            
+            // Create custom app structure
+            fs.mkdirSync(path.join(testDir, 'app/playground/models'), { recursive: true });
+            
+            const paths = discoverProjectPaths(testDir);
+            
+            expect(paths.appName).toBe('playground');
+            expect(paths.modelsDir).toBe('app/playground/models');
+            expect(paths.elmGlueDir).toBe('app/playground/web/src/.hamlet-gen');
+            expect(paths.jsGlueDir).toBe('app/playground/server/.hamlet-gen');
+            
+            // Restore env
+            if (originalEnv) {
+                process.env.HAMLET_APP = originalEnv;
+            } else {
+                delete process.env.HAMLET_APP;
+            }
+        });
+        
+        test('uses custom app from package.json config', () => {
+            // Create package.json with hamlet config
+            const packageJson = {
+                "hamlet": {
+                    "defaultApp": "my-example"
+                }
+            };
+            fs.writeFileSync(
+                path.join(testDir, 'package.json'),
+                JSON.stringify(packageJson, null, 2)
+            );
+            
+            // Create custom app structure
+            fs.mkdirSync(path.join(testDir, 'app/my-example/models'), { recursive: true });
+            
+            const paths = discoverProjectPaths(testDir);
+            
+            expect(paths.appName).toBe('my-example');
+            expect(paths.modelsDir).toBe('app/my-example/models');
         });
         
         test('includes legacy paths for migration', () => {

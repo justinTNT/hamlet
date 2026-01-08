@@ -6,6 +6,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { getGenerationPaths, modelsExist, getModelsFullPath, ensureOutputDir } from './shared-paths.js';
 
 // Parse a Rust struct from file content
 function parseRustStruct(content, filename) {
@@ -131,39 +132,27 @@ async function delete${name}(id, host) {
 
 // Generate all database query functions
 export function generateDatabaseQueries(config = {}) {
-    // Auto-detect project name for fallback
-    function getProjectName() {
-        const appDir = path.join(process.cwd(), 'app');
-        if (!fs.existsSync(appDir)) return null;
-
-        const projects = fs.readdirSync(appDir).filter(name => {
-            const fullPath = path.join(appDir, name);
-            const modelsPath = path.join(fullPath, 'models');
-
-            return fs.statSync(fullPath).isDirectory() &&
-                fs.existsSync(modelsPath);
-        });
-
-        return projects[0];
-    }
-
-    const PROJECT_NAME = config.projectName || getProjectName();
-    const dbModelsPath = config.inputBasePath ?
-        path.resolve(config.inputBasePath, 'db') :
-        (PROJECT_NAME ? path.join(process.cwd(), `app/${PROJECT_NAME}/models/db`) : path.join(process.cwd(), 'src/models/db'));
-    const outputPath = config.jsOutputPath ?
-        path.resolve(config.jsOutputPath) :
-        path.join(process.cwd(), 'packages/hamlet-server/generated');
-
-    if (!fs.existsSync(dbModelsPath)) {
-        console.log(`📁 No models/db directory found at ${dbModelsPath}, skipping database query generation`);
+    // Use shared path utilities for consistent path discovery
+    const paths = getGenerationPaths(config);
+    
+    // Debug logging
+    const dbPath = paths.getModelPath('db');
+    const fullDbPath = getModelsFullPath('db', paths);
+    const exists = modelsExist('db', paths);
+    
+    // Check if database models exist
+    if (!exists) {
+        console.log(`📁 No models/db directory found at ${dbPath}, skipping database query generation`);
+        console.log(`   (Full path: ${fullDbPath})`);
+        console.log(`   (CWD: ${process.cwd()})`);
         return;
     }
 
-    // Ensure output directory exists
-    if (!fs.existsSync(outputPath)) {
-        fs.mkdirSync(outputPath, { recursive: true });
-    }
+    // Get full path to database models
+    const dbModelsPath = getModelsFullPath('db', paths);
+    
+    // Ensure output directory exists (using jsGlueDir)
+    const outputPath = ensureOutputDir(paths.jsOutputPath);
 
     const allStructs = [];
 

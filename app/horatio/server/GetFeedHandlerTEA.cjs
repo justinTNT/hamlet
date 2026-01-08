@@ -3483,7 +3483,7 @@ var $author$project$Generated$Database$toString = function (query) {
 		$elm$core$List$length(query.sort)) + ('_paginated:' + ((!_Utils_eq(query.paginate, $elm$core$Maybe$Nothing)) ? 'yes' : 'no')))));
 };
 var $author$project$Generated$Database$findTags = function (query) {
-	var requestId = 'find_tags_' + $elm$core$String$fromInt(
+	var requestId = 'find_tag_' + $elm$core$String$fromInt(
 		$elm$core$Basics$abs(
 			$author$project$Generated$Database$hashString(
 				$author$project$Generated$Database$toString(query))));
@@ -3491,13 +3491,13 @@ var $author$project$Generated$Database$findTags = function (query) {
 		{
 			id: requestId,
 			query: $author$project$Generated$Database$encodeQuery(query),
-			table: 'tags'
+			table: 'tag'
 		});
 };
 var $author$project$Generated$Database$queryAll = {filter: _List_Nil, paginate: $elm$core$Maybe$Nothing, sort: _List_Nil};
 var $author$project$Api$Handlers$GetFeedHandlerTEA$loadAllTags = $author$project$Generated$Database$findTags($author$project$Generated$Database$queryAll);
 var $author$project$Generated$Database$findItemComments = function (query) {
-	var requestId = 'find_item_comments_' + $elm$core$String$fromInt(
+	var requestId = 'find_item_comment_' + $elm$core$String$fromInt(
 		$elm$core$Basics$abs(
 			$author$project$Generated$Database$hashString(
 				$author$project$Generated$Database$toString(query))));
@@ -3505,14 +3505,14 @@ var $author$project$Generated$Database$findItemComments = function (query) {
 		{
 			id: requestId,
 			query: $author$project$Generated$Database$encodeQuery(query),
-			table: 'item_comments'
+			table: 'item_comment'
 		});
 };
 var $author$project$Api$Handlers$GetFeedHandlerTEA$loadCommentsForItems = function (itemIds) {
 	return $author$project$Generated$Database$findItemComments($author$project$Generated$Database$queryAll);
 };
 var $author$project$Generated$Database$findItemTags = function (query) {
-	var requestId = 'find_item_tags_' + $elm$core$String$fromInt(
+	var requestId = 'find_item_tag_' + $elm$core$String$fromInt(
 		$elm$core$Basics$abs(
 			$author$project$Generated$Database$hashString(
 				$author$project$Generated$Database$toString(query))));
@@ -3520,14 +3520,14 @@ var $author$project$Generated$Database$findItemTags = function (query) {
 		{
 			id: requestId,
 			query: $author$project$Generated$Database$encodeQuery(query),
-			table: 'item_tags'
+			table: 'item_tag'
 		});
 };
 var $author$project$Api$Handlers$GetFeedHandlerTEA$loadItemTagsForItems = function (itemIds) {
 	return $author$project$Generated$Database$findItemTags($author$project$Generated$Database$queryAll);
 };
 var $author$project$Generated$Database$findMicroblogItems = function (query) {
-	var requestId = 'find_microblog_items_' + $elm$core$String$fromInt(
+	var requestId = 'find_microblog_item_' + $elm$core$String$fromInt(
 		$elm$core$Basics$abs(
 			$author$project$Generated$Database$hashString(
 				$author$project$Generated$Database$toString(query))));
@@ -3535,7 +3535,7 @@ var $author$project$Generated$Database$findMicroblogItems = function (query) {
 		{
 			id: requestId,
 			query: $author$project$Generated$Database$encodeQuery(query),
-			table: 'microblog_items'
+			table: 'microblog_item'
 		});
 };
 var $author$project$Generated$Database$CreatedAtDesc = {$: 'CreatedAtDesc'};

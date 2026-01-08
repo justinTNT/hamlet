@@ -7,6 +7,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { getGenerationPaths, modelsExist, getModelsFullPath, ensureOutputDir } from './shared-paths.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -416,42 +417,19 @@ ${actionDecoderCases}
 
 // Generate all API routes
 function generateApiRoutes(config = {}) {
+    // Use shared path discovery
+    const paths = getGenerationPaths(config);
     
-    // Auto-detect project name for fallback
-    function getProjectName() {
-        const appDir = path.join(process.cwd(), 'app');
-        if (!fs.existsSync(appDir)) return null;
-        
-        const projects = fs.readdirSync(appDir).filter(name => {
-            const fullPath = path.join(appDir, name);
-            const modelsPath = path.join(fullPath, 'models');
-            
-            // Must be directory with a models/ subdirectory (actual project)
-            return fs.statSync(fullPath).isDirectory() && 
-                   fs.existsSync(modelsPath);
-        });
-        
-        return projects[0]; // Use first valid project found
-    }
-
-    const PROJECT_NAME = config.projectName || getProjectName();
-    const apiModelsPath = config.inputBasePath ? 
-        path.resolve(config.inputBasePath, 'api') :
-        (PROJECT_NAME ? path.join(process.cwd(), `app/${PROJECT_NAME}/models/api`) : path.join(process.cwd(), 'src/models/api'));
-    const outputPath = config.jsOutputPath ? 
-        path.resolve(config.jsOutputPath) :
-        path.join(__dirname, '../../packages/hamlet-server/generated');
-    
-    
-    if (!fs.existsSync(apiModelsPath)) {
+    // Check if API models exist
+    if (!modelsExist('api', paths)) {
         console.log('❌ No API models directory found, skipping API route generation');
         return;
     }
     
-    // Ensure output directory exists
-    if (!fs.existsSync(outputPath)) {
-        fs.mkdirSync(outputPath, { recursive: true });
-    }
+    const apiModelsPath = getModelsFullPath('api', paths);
+    const outputPath = ensureOutputDir(paths.jsGlueDir);
+    
+    
     
     const allApis = [];
     
@@ -505,22 +483,16 @@ ${allRoutes}
     fs.writeFileSync(jsOutputFile, outputContent);
     
     // Write Elm client file
-    const elmOutputPath = config.elmOutputPath ? 
-        path.resolve(config.elmOutputPath) : 
-        path.join(__dirname, '../../app/generated');
-    if (!fs.existsSync(elmOutputPath)) {
-        fs.mkdirSync(elmOutputPath, { recursive: true });
-    }
+    const elmOutputPath = ensureOutputDir(paths.elmGlueDir);
     const elmOutputFile = path.join(elmOutputPath, 'ApiClient.elm');
     fs.writeFileSync(elmOutputFile, elmClientCode);
     
     // Write Elm backend types file
+    // BackendTypes.elm goes to the server's generated directory (not in .hamlet-gen)
     const backendOutputPath = config.backendElmPath ? 
         path.resolve(config.backendElmPath) :
-        (PROJECT_NAME ? path.join(process.cwd(), `app/${PROJECT_NAME}/server/generated`) : path.join(process.cwd(), 'generated/Generated'));
-    if (!fs.existsSync(backendOutputPath)) {
-        fs.mkdirSync(backendOutputPath, { recursive: true });
-    }
+        path.join(process.cwd(), paths.appName === 'default' ? 'generated/Generated' : `app/${paths.appName}/server/generated`);
+    ensureOutputDir(backendOutputPath);
     const backendOutputFile = path.join(backendOutputPath, 'BackendTypes.elm');
     fs.writeFileSync(backendOutputFile, elmBackendCode);
     

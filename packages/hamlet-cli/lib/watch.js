@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
-import { calculateContractHash, isDirty } from 'hamlet-contracts';
+import { calculateContractHash, isContractDirty } from 'hamlet-contracts';
 import { getContractsPath } from 'hamlet-core';
 import { gen, genElm, genWasm } from './gen.js';
 
@@ -63,7 +63,7 @@ export async function watch(projectPaths) {
                 
                 // Check if dirty
                 const contractsPath = getContractsPath(projectPaths);
-                const dirty = await isDirty(projectPaths.modelsDir, contractsPath);
+                const dirty = await isContractDirty(projectPaths.modelsDir, contractsPath);
                 
                 if (!dirty) {
                     console.log(chalk.yellow('  No model changes detected (non-model file?)'));

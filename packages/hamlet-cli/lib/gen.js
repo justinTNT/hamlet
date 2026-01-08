@@ -54,27 +54,14 @@ export async function gen(projectPaths) {
 export async function genElm(projectPaths) {
     console.log(chalk.gray('Generating Elm code...'));
     
-    // Check for v2 script first, then fallback to v1
-    const v2Script = path.join(process.cwd(), '.buildamp', 'generate-all-v2.js');
-    const v1Script = path.join(process.cwd(), '.buildamp', 'generate-all.js');
+    // Import and run the generation orchestrator
+    const { runGeneration } = await import('./generation-orchestrator.js');
+    const success = await runGeneration();
     
-    let generateScript;
-    if (fs.existsSync(v2Script)) {
-        generateScript = v2Script;
-        console.log(chalk.gray('  Using v2 generation (.hamlet-gen output)'));
-    } else if (fs.existsSync(v1Script)) {
-        generateScript = v1Script;
-        console.log(chalk.yellow('  ⚠️  Using v1 generation (legacy output)'));
-    } else {
-        throw new Error('Generation scripts not found. Is this a Hamlet project?');
+    if (!success) {
+        throw new Error('Elm code generation failed');
     }
     
-    // Run the generation script
-    await runCommand('node', [generateScript], {
-        cwd: process.cwd()
-    });
-    
-    // TODO: Update generated files to output to .hamlet-gen instead of app/generated
     console.log(chalk.green('  ✓ Elm code generated'));
 }
 

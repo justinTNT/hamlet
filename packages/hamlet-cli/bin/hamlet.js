@@ -3,7 +3,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { discoverProjectPaths, ensureGlueDirs, getContractsPath, HAMLET_GEN_DIR } from 'hamlet-core';
-import { calculateContractHash, isDirty, verifyIntegrity } from 'hamlet-contracts';
+import { calculateContractHash, isContractDirty, verifyContractIntegrity } from 'hamlet-contracts';
 import { gen, genElm, genWasm } from '../lib/gen.js';
 import { watch } from '../lib/watch.js';
 import { serve } from '../lib/serve.js';
@@ -30,7 +30,7 @@ program
             
             // Check if generation is needed
             if (!options.force && fs.existsSync(contractsPath)) {
-                const dirty = await isDirty(projectPaths.modelsDir, contractsPath);
+                const dirty = await isContractDirty(projectPaths.modelsDir, contractsPath);
                 if (!dirty) {
                     console.log(chalk.green('✓ Contracts are clean, nothing to generate'));
                     console.log(chalk.gray('  (use --force to regenerate anyway)'));
@@ -120,7 +120,7 @@ program
             
             // Initial generation
             const contractsPath = getContractsPath(projectPaths);
-            const dirty = await isDirty(projectPaths.modelsDir, contractsPath);
+            const dirty = await isContractDirty(projectPaths.modelsDir, contractsPath);
             if (dirty) {
                 console.log(chalk.yellow('⚠  Contracts are dirty, running initial generation...'));
                 await gen(projectPaths);
@@ -158,7 +158,8 @@ program
             
             // Verify integrity before starting
             try {
-                await verifyIntegrity(projectPaths);
+                const contractsPath = getContractsPath(projectPaths);
+                await verifyContractIntegrity(projectPaths.modelsDir, contractsPath);
             } catch (error) {
                 console.error(chalk.red('✗ Integrity check failed:'), error.message);
                 console.error(chalk.yellow('  Run "hamlet gen" to fix'));

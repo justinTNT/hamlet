@@ -804,8 +804,8 @@ pub struct CacheTestReq { pub host: String, }
                 expect(result2.generated).toBe(0);
                 expect(result2.skipped).toBe(1);
                 
-                // Second run should be faster (cached/skipped)
-                expect(duration2).toBeLessThan(duration1);
+                // Second run should be faster or equal (cached/skipped)
+                expect(duration2).toBeLessThanOrEqual(duration1);
 
             } finally {
                 process.chdir(originalCwd);

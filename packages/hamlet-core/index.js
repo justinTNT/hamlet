@@ -2,32 +2,74 @@ import fs from 'fs';
 import path from 'path';
 
 /**
+ * Get the active app name from environment or package.json config
+ */
+function getActiveApp(rootDir = process.cwd()) {
+    // 1. Check environment variable first (for local dev)
+    if (process.env.HAMLET_APP) {
+        return process.env.HAMLET_APP;
+    }
+    
+    // 2. Check package.json hamlet config
+    try {
+        const packageJsonPath = path.join(rootDir, 'package.json');
+        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+        if (packageJson.hamlet?.defaultApp) {
+            return packageJson.hamlet.defaultApp;
+        }
+    } catch (e) {
+        // Ignore errors, fall through to auto-discovery
+    }
+    
+    // 3. Auto-discover first app in app directory
+    const appDir = path.join(rootDir, 'app');
+    if (fs.existsSync(appDir)) {
+        const apps = fs.readdirSync(appDir)
+            .filter(name => {
+                const stats = fs.statSync(path.join(appDir, name));
+                return stats.isDirectory() && fs.existsSync(path.join(appDir, name, 'models'));
+            });
+        
+        if (apps.length > 0) {
+            return apps[0];
+        }
+    }
+    
+    // 4. Default fallback
+    return 'horatio';
+}
+
+/**
  * Discover project paths based on directory structure
  * Supports both BuildAmp framework (app/project/models) and simple (src/models) patterns
  */
 export function discoverProjectPaths(rootDir = process.cwd()) {
-    const appHoratioModels = path.join(rootDir, 'app/horatio/models');
+    const activeApp = getActiveApp(rootDir);
+    const appModelsPath = path.join(rootDir, 'app', activeApp, 'models');
     
-    // Check for app/${project}/models pattern (BuildAmp framework)
-    if (fs.existsSync(appHoratioModels)) {
+    // Check for app/${activeApp}/models pattern (BuildAmp framework)
+    if (fs.existsSync(appModelsPath)) {
         return {
+            // App name for reference
+            appName: activeApp,
+            
             // Source paths (Rust models)
-            modelsDir: 'app/horatio/models',
-            dbModelsDir: 'app/horatio/models/db',
-            apiModelsDir: 'app/horatio/models/api',
-            storageModelsDir: 'app/horatio/models/storage',
-            kvModelsDir: 'app/horatio/models/kv',
-            sseModelsDir: 'app/horatio/models/sse',
-            eventsModelsDir: 'app/horatio/models/events',
+            modelsDir: `app/${activeApp}/models`,
+            dbModelsDir: `app/${activeApp}/models/db`,
+            apiModelsDir: `app/${activeApp}/models/api`,
+            storageModelsDir: `app/${activeApp}/models/storage`,
+            kvModelsDir: `app/${activeApp}/models/kv`,
+            sseModelsDir: `app/${activeApp}/models/sse`,
+            eventsModelsDir: `app/${activeApp}/models/events`,
             
             // Output paths - UPDATED for new architecture
             // Glue (clobberable) - goes in .hamlet-gen
-            elmGlueDir: 'app/horatio/web/src/.hamlet-gen',
-            jsGlueDir: 'packages/hamlet-server/.hamlet-gen',
+            elmGlueDir: `app/${activeApp}/web/src/.hamlet-gen`,
+            jsGlueDir: `app/${activeApp}/server/.hamlet-gen`,
             
             // Skeletons (owned) - stays in app src
-            elmApiDir: 'app/horatio/web/src/Api',
-            serverHandlersDir: 'app/horatio/server/src/Api/Handlers',
+            elmApiDir: `app/${activeApp}/web/src/Api`,
+            serverHandlersDir: `app/${activeApp}/server/src/Api/Handlers`,
             
             // Legacy paths (for migration)
             legacyElmOutputDir: 'app/generated',
@@ -37,6 +79,9 @@ export function discoverProjectPaths(rootDir = process.cwd()) {
     
     // Fallback to src/models pattern (simple projects)
     return {
+        // App name for reference
+        appName: 'default',
+        
         // Source paths (Rust models)
         modelsDir: 'src/models',
         dbModelsDir: 'src/models/db',
@@ -49,7 +94,7 @@ export function discoverProjectPaths(rootDir = process.cwd()) {
         // Output paths - UPDATED for new architecture
         // Glue (clobberable)
         elmGlueDir: 'src/.hamlet-gen',
-        jsGlueDir: 'packages/hamlet-server/.hamlet-gen',
+        jsGlueDir: '.hamlet-gen',
         
         // Skeletons (owned)
         elmApiDir: 'src/Api',
@@ -91,5 +136,11 @@ export function ensureGlueDirs(projectPaths) {
  * Check if this is a BuildAmp framework project
  */
 export function isBuildAmpProject(rootDir = process.cwd()) {
-    return fs.existsSync(path.join(rootDir, 'app/horatio/models'));
+    const activeApp = getActiveApp(rootDir);
+    return fs.existsSync(path.join(rootDir, 'app', activeApp, 'models'));
 }
+
+/**
+ * Export for testing/debugging
+ */
+export { getActiveApp };

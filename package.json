@@ -14,9 +14,9 @@
     "scripts": {
         "build": "npm run build --workspaces",
         "dev": "npm run dev --workspaces",
-        "dev:server": "node dev-server.js",
-        "generate": "node .buildamp/generate-all.js",
-        "generate:watch": "nodemon --watch app/horatio/models --ext rs --exec 'npm run generate'",
+        "dev:server": "hamlet serve",
+        "generate": "hamlet gen",
+        "generate:watch": "hamlet watch",
         "test": "npm run test:hamlet && npm run test:create-buildamp",
         "test:hamlet": "npm run test:generation && npm run test:integration",
         "test:create-buildamp": "cd packages/create-buildamp && npm test",
@@ -24,5 +24,11 @@
         "test:integration": "node test-integration.js",
         "test:simple": "node test-simple.js",
         "test:generation-dry": "node --experimental-vm-modules node_modules/.bin/jest tests/generation-dry/generation-dry.test.js"
+    },
+    "devDependencies": {
+        "hamlet-cli": "*"
+    },
+    "hamlet": {
+        "defaultApp": "horatio"
     }
 }

@@ -142,14 +142,14 @@ run_test_suite \
 run_test_suite \
     "BuildAmp Integration Tests" \
     "/Users/jtnt/Play/hamlet" \
-    "node buildamp-tests/test-simple.js" \
+    "node test-integration.js" \
     "Code generation integration testing"
 
 # Test Suite 6: Shared Generation Tests
 run_test_suite \
     "Shared Generation Tests" \
-    "/Users/jtnt/Play/hamlet/shared" \
-    "npm test" \
+    "/Users/jtnt/Play/hamlet/packages/hamlet-server" \
+    "npm test -- tests/generation/" \
     "Code generation, templates, macros"
 
 # Test Suite 7: Golden Model Verification

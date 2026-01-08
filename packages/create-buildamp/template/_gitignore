@@ -3,5 +3,6 @@ target
 dist
 pkg-web
 pkg-node
+.hamlet-gen
 .DS_Store
 *.log

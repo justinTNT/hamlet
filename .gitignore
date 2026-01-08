@@ -21,6 +21,9 @@ frontend/elm-stuff/
 .vscode/
 .idea/
 
+# Environment variables (for local dev)
+.env
+
 # WASM artifacts
 proto-rust/pkg/
 backend/node_modules/

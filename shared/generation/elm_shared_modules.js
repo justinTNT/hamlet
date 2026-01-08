@@ -13,6 +13,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { getGenerationPaths, ensureOutputDir } from './shared-paths.js';
 
 /**
  * Generate all shared Elm modules (configurable version)
@@ -20,38 +21,23 @@ import path from 'path';
 export async function generateElmSharedModules(config = {}) {
     console.log('🔧 Generating shared Elm modules...');
     
-    // Use config values or fallback to auto-detection for backwards compatibility
-    const PROJECT_NAME = config.projectName || getProjectNameFallback();
+    // Use shared path utilities for consistency
+    const paths = getGenerationPaths(config);
+    
+    // For elm_shared_modules, we need to write to the server's generated directory
+    // NOT to .hamlet-gen (which is for glue code)
+    // These are owned files that go in the server's src
     const outputDir = config.backendElmPath ? 
         `${config.backendElmPath}/Generated` : 
-        (PROJECT_NAME ? `app/${PROJECT_NAME}/server/generated/Generated` : 'generated/Generated');
-    
-    // Auto-detect fallback function (for backwards compatibility)
-    function getProjectNameFallback() {
-        const appDir = path.join(process.cwd(), 'app');
-        if (!fs.existsSync(appDir)) return null;
-        
-        const projects = fs.readdirSync(appDir).filter(name => {
-            const fullPath = path.join(appDir, name);
-            const modelsPath = path.join(fullPath, 'models');
-            
-            // Must be directory with a models/ subdirectory (actual project)
-            return fs.statSync(fullPath).isDirectory() && 
-                   fs.existsSync(modelsPath);
-        });
-        
-        return projects[0]; // Use first valid project found
-    }
+        path.join(paths.serverHandlersDir, '../../generated/Generated');
     
     // Ensure output directory exists
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-    }
+    ensureOutputDir(outputDir);
     
     const modules = [
-        { name: 'Database.elm', content: generateDatabaseModule(PROJECT_NAME, config) },
-        { name: 'Events.elm', content: generateEventsModule(PROJECT_NAME, config) },
-        { name: 'KV.elm', content: generateKvModule(PROJECT_NAME, config) },
+        { name: 'Database.elm', content: generateDatabaseModule(paths, config) },
+        { name: 'Events.elm', content: generateEventsModule(paths, config) },
+        { name: 'KV.elm', content: generateKvModule(paths, config) },
         { name: 'Services.elm', content: generateServicesModule(config) }
     ];
     
@@ -68,9 +54,9 @@ export async function generateElmSharedModules(config = {}) {
 /**
  * Generate Database module with query builder interface
  */
-function generateDatabaseModule(PROJECT_NAME, config = {}) {
+function generateDatabaseModule(paths, config = {}) {
     // Parse actual Rust models to generate correct Elm types
-    const dbModels = parseRustDbModels(PROJECT_NAME, config);
+    const dbModels = parseRustDbModels(paths, config);
     
     return `port module Generated.Database exposing (..)
 
@@ -353,9 +339,9 @@ toString query =
 /**
  * Generate Events module for Event Sourcing
  */
-function generateEventsModule(PROJECT_NAME, config = {}) {
+function generateEventsModule(paths, config = {}) {
     // Parse actual Rust event models to generate correct types
-    const eventModels = parseRustEventModels(PROJECT_NAME, config);
+    const eventModels = parseRustEventModels(paths, config);
     
     return `port module Generated.Events exposing (..)
 
@@ -443,9 +429,9 @@ encodeMaybe encoder maybeValue =
 /**
  * Generate KV Store module with type-safe operations
  */
-function generateKvModule(PROJECT_NAME, config = {}) {
+function generateKvModule(paths, config = {}) {
     // Parse actual Rust KV models to generate correct Elm types
-    const kvModels = parseRustKvModels(PROJECT_NAME, config);
+    const kvModels = parseRustKvModels(paths, config);
     
     const modelDocs = kvModels.length > 0 ? 
         kvModels.map(model => `@docs ${model.name}`).join('\n') : 
@@ -780,10 +766,12 @@ hashString str =
 /**
  * Parse Rust database models from src/models/db/*.rs files
  */
-function parseRustDbModels(PROJECT_NAME, config = {}) {
+function parseRustDbModels(paths, config = {}) {
     const models = [];
     const dbPath = config.inputBasePath ? `${config.inputBasePath}/src/models/db/` : 
-                   (PROJECT_NAME ? `app/${PROJECT_NAME}/models/db/` : 'src/models/db/');
+                   paths.getModelPath('db');
+    
+    console.log('Looking for DB models at:', dbPath);
     
     if (!fs.existsSync(dbPath)) {
         console.warn('Database models directory not found, using fallback types');
@@ -823,7 +811,7 @@ function parseRustDbModels(PROJECT_NAME, config = {}) {
                 modelsByName.set(normalizedName, {
                     name: normalizedName,
                     fields: struct.fields,
-                    tableName: struct.isMainModel ? pluralize(pascalToSnake(struct.name)) : null,
+                    tableName: struct.isMainModel ? pascalToSnake(struct.name) : null,
                     isMainModel: struct.isMainModel,
                     isComponent: struct.isComponent,
                     sourceFile: file
@@ -839,10 +827,10 @@ function parseRustDbModels(PROJECT_NAME, config = {}) {
 /**
  * Parse Rust KV models from src/models/kv/*.rs files
  */
-function parseRustKvModels(PROJECT_NAME, config = {}) {
+function parseRustKvModels(paths, config = {}) {
     const models = [];
     const kvPath = config.inputBasePath ? `${config.inputBasePath}/src/models/kv/` : 
-                   (PROJECT_NAME ? `app/${PROJECT_NAME}/models/kv/` : 'src/models/kv/');
+                   paths.getModelPath('kv');
     
     if (!fs.existsSync(kvPath)) {
         console.warn('KV models directory not found, generating empty KV module');
@@ -1408,10 +1396,10 @@ function generateBasicEncoder(elmType) {
 /**
  * Parse Rust event models from src/models/events/*.rs files
  */
-function parseRustEventModels(PROJECT_NAME, config = {}) {
+function parseRustEventModels(paths, config = {}) {
     const models = [];
     const eventsPath = config.inputBasePath ? `${config.inputBasePath}/src/models/events/` :
-                      (PROJECT_NAME ? `app/${PROJECT_NAME}/models/events/` : 'src/models/events/');
+                      paths.getModelPath('events');
     
     if (!fs.existsSync(eventsPath)) {
         console.warn('Events models directory not found, using fallback types');

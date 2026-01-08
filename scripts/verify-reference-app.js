@@ -56,7 +56,7 @@ function expect(actual, message) {
 test('Generation pipeline completes successfully', () => {
     console.log('\n📊 Testing code generation...');
     try {
-        execSync('node .buildamp/generate-all.js', { stdio: 'pipe' });
+        execSync('npm run generate', { stdio: 'pipe' });
         return expect(true, 'Generation pipeline ran without errors').toBe(true);
     } catch (error) {
         return expect(false, 'Generation pipeline ran without errors').toBe(true);
@@ -67,12 +67,12 @@ test('Generation pipeline completes successfully', () => {
 test('Generated files exist', () => {
     console.log('\n📁 Testing generated files...');
     const files = [
-        'packages/hamlet-server/generated/api-routes.js',
-        'packages/hamlet-server/generated/database-queries.js',
-        'packages/hamlet-server/generated/kv-store.js',
-        'packages/hamlet-server/generated/browser-storage.js',
-        'app/generated/ApiClient.elm',
-        'app/generated/StoragePorts.elm'
+        'app/horatio/server/.hamlet-gen/api-routes.js',
+        'app/horatio/server/.hamlet-gen/database-queries.js',
+        'app/horatio/server/.hamlet-gen/kv-store.js',
+        'app/horatio/web/src/.hamlet-gen/browser-storage.js',
+        'app/horatio/web/src/.hamlet-gen/ApiClient.elm',
+        'app/horatio/web/src/.hamlet-gen/StoragePorts.elm'
     ];
     
     let allExist = true;
@@ -88,8 +88,8 @@ test('Generated files exist', () => {
 test('Generated content has expected structure', () => {
     console.log('\n🔍 Testing generated content...');
     
-    const apiRoutes = fs.readFileSync('packages/hamlet-server/generated/api-routes.js', 'utf-8');
-    const elmClient = fs.readFileSync('app/generated/ApiClient.elm', 'utf-8');
+    const apiRoutes = fs.readFileSync('app/horatio/server/.hamlet-gen/api-routes.js', 'utf-8');
+    const elmClient = fs.readFileSync('app/horatio/web/src/.hamlet-gen/ApiClient.elm', 'utf-8');
     
     let allValid = true;
     
@@ -105,7 +105,7 @@ test('Generated content has expected structure', () => {
 test('Unit tests pass', () => {
     console.log('\n🧪 Testing unit tests...');
     try {
-        execSync('cd packages/hamlet-server && npm test -- tests/generation/generation.test.js', { stdio: 'pipe' });
+        execSync('cd packages/hamlet-server && npm test -- tests/generation/generation.test.js --no-coverage', { stdio: 'pipe' });
         return expect(true, 'Unit tests pass').toBe(true);
     } catch (error) {
         return expect(false, 'Unit tests pass').toBe(true);
@@ -116,7 +116,7 @@ test('Unit tests pass', () => {
 test('No dangerous code patterns', () => {
     console.log('\n🔒 Testing security...');
     
-    const dbQueries = fs.readFileSync('packages/hamlet-server/generated/database-queries.js', 'utf-8');
+    const dbQueries = fs.readFileSync('app/horatio/server/.hamlet-gen/database-queries.js', 'utf-8');
     
     let allSafe = true;
     

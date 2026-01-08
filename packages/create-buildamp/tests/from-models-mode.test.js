@@ -85,8 +85,8 @@ pub struct TestModel {
         assert.ok(fs.existsSync(testAppDir), 'Should create app directory');
         assert.ok(fs.existsSync(path.join(testAppDir, 'Cargo.toml')), 'Should create Cargo.toml');
         assert.ok(fs.existsSync(path.join(testAppDir, 'src')), 'Should create src directory');
-        assert.ok(fs.existsSync(path.join(testAppDir, 'frontend')), 'Should create frontend directory');
-        assert.ok(fs.existsSync(path.join(testAppDir, 'backend')), 'Should create backend directory');
+        assert.ok(fs.existsSync(path.join(testAppDir, 'web')), 'Should create web directory');
+        assert.ok(fs.existsSync(path.join(testAppDir, 'server')), 'Should create server directory');
         
         // Verify models were copied
         const modelsDirInApp = path.join(testAppDir, 'src', 'models');

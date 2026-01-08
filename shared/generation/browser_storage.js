@@ -6,6 +6,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { getGenerationPaths, modelsExist, getModelsFullPath, ensureOutputDir } from './shared-paths.js';
 
 // Parse storage models from Rust file content
 function parseStorageModels(content, filename) {
@@ -160,33 +161,22 @@ function generateElmPorts(model) {
     
     return `
 -- Auto-generated Elm ports for ${name}
-port save${modelName} : ${modelName} -> Cmd msg
+port save${modelName} : Json.Encode.Value -> Cmd msg
 port load${modelName} : () -> Cmd msg  
 port clear${modelName} : () -> Cmd msg
-port ${varName}Loaded : (Maybe ${modelName} -> msg) -> Sub msg
-port ${varName}Changed : (Maybe ${modelName} -> msg) -> Sub msg`.trim();
+port ${varName}Loaded : (Json.Decode.Value -> msg) -> Sub msg
+port ${varName}Changed : (Json.Decode.Value -> msg) -> Sub msg`.trim();
 }
 
 // Generate clean Storage.elm wrapper that re-exports storage functions
 function generateStorageWrapper(models) {
     const imports = models.map(model => 
-        `import Generated.Storage.${model.name} as ${model.name}Storage`
+        `import Generated.Storage.${model.name} exposing (${model.name})`
     ).join('\n');
     
-    const typeAliases = models.map(model => {
-        const fields = model.fields.map(field => {
-            const elmType = field.type.replace('String', 'String')
-                                    .replace('u64', 'Int')
-                                    .replace('bool', 'Bool');
-            return `${field.name} : ${elmType}`;
-        }).join('\n    , ');
-        
-        return `{-| ${model.name} type for storage operations
--}
-type alias ${model.name} =
-    { ${fields}
-    }`;
-    }).join('\n\n');
+    const importedFunctions = models.map(model => 
+        `import Generated.Storage.${model.name} as ${model.name}Storage`
+    ).join('\n');
     
     const functions = models.map(model => {
         const lowerName = model.name.toLowerCase();
@@ -232,11 +222,7 @@ ${models.map(model => `# ${model.name}\n@docs ${model.name}, load${model.name}, 
 -}
 
 ${imports}
-
-
--- TYPES
-
-${typeAliases}
+${importedFunctions}
 
 
 -- STORAGE FUNCTIONS
@@ -258,10 +244,36 @@ function generateElmHelper(model) {
         return `${field.name} : ${elmType}`;
     }).join('\n    , ');
 
+    // Generate JSON encoder
+    const encoderFields = model.fields.map(field => {
+        const elmType = field.type;
+        if (elmType === 'String') {
+            return `        ("${field.name}", Json.Encode.string ${varName}.${field.name})`;
+        } else if (elmType === 'u64' || elmType === 'Int') {
+            return `        ("${field.name}", Json.Encode.int ${varName}.${field.name})`;
+        } else if (elmType === 'bool' || elmType === 'Bool') {
+            return `        ("${field.name}", Json.Encode.bool ${varName}.${field.name})`;
+        }
+        return `        ("${field.name}", Json.Encode.string ${varName}.${field.name})`;
+    }).join('\n        , ');
+
+    // Generate JSON decoder
+    const decoderFields = model.fields.map(field => {
+        const elmType = field.type;
+        let decoder = 'Json.Decode.string';
+        if (elmType === 'u64' || elmType === 'Int') {
+            decoder = 'Json.Decode.int';
+        } else if (elmType === 'bool' || elmType === 'Bool') {
+            decoder = 'Json.Decode.bool';
+        }
+        return `(Json.Decode.field "${field.name}" ${decoder})`;
+    }).join('\n        ');
+
     return `
-port module ${moduleName} exposing 
+module ${moduleName} exposing 
     ( ${name}, save, load, clear, exists, update
     , onLoad, onChange
+    , encode${name}, decode${name}
     )
 
 {-| Auto-generated storage helpers for ${name}
@@ -275,7 +287,15 @@ port module ${moduleName} exposing
 # Subscriptions  
 @docs onLoad, onChange
 
+# JSON Helpers
+@docs encode${name}, decode${name}
+
 -}
+
+import Json.Decode
+import Json.Encode
+import Generated.StoragePorts
+
 
 -- TYPES
 
@@ -286,13 +306,22 @@ type alias ${name} =
     }
 
 
--- PORTS
+-- JSON ENCODING/DECODING
 
-port save${name} : ${name} -> Cmd msg
-port load${name} : () -> Cmd msg
-port clear${name} : () -> Cmd msg  
-port ${varName}Loaded : (Maybe ${name} -> msg) -> Sub msg
-port ${varName}Changed : (Maybe ${name} -> msg) -> Sub msg
+{-| Encode ${name} to JSON
+-}
+encode${name} : ${name} -> Json.Encode.Value
+encode${name} ${varName} =
+    Json.Encode.object
+        [ ${encoderFields}
+        ]
+
+{-| Decode ${name} from JSON
+-}
+decode${name} : Json.Decode.Decoder ${name}
+decode${name} =
+    Json.Decode.map${model.fields.length} ${name}
+        ${decoderFields}
 
 
 -- API
@@ -300,17 +329,20 @@ port ${varName}Changed : (Maybe ${name} -> msg) -> Sub msg
 {-| Save ${name} to localStorage
 -}
 save : ${name} -> Cmd msg
-save ${varName} = save${name} ${varName}
+save ${varName} = 
+    Generated.StoragePorts.save${name} (encode${name} ${varName})
 
 {-| Load ${name} from localStorage  
 -}
 load : Cmd msg
-load = load${name} ()
+load = 
+    Generated.StoragePorts.load${name} ()
 
 {-| Clear ${name} from localStorage
 -}
 clear : Cmd msg
-clear = clear${name} ()
+clear = 
+    Generated.StoragePorts.clear${name} ()
 
 {-| Check if ${name} exists (you'll need to implement this via load + subscription)
 -}
@@ -329,12 +361,22 @@ update updateFn =
 {-| Subscribe to ${name} load results
 -}
 onLoad : (Maybe ${name} -> msg) -> Sub msg
-onLoad toMsg = ${varName}Loaded toMsg
+onLoad toMsg = 
+    Generated.StoragePorts.${varName}Loaded (\\value ->
+        case Json.Decode.decodeValue (Json.Decode.nullable decode${name}) value of
+            Ok maybeData -> toMsg maybeData
+            Err _ -> toMsg Nothing
+    )
 
 {-| Subscribe to ${name} changes
 -}
 onChange : (Maybe ${name} -> msg) -> Sub msg
-onChange toMsg = ${varName}Changed toMsg`.trim();
+onChange toMsg = 
+    Generated.StoragePorts.${varName}Changed (\\value ->
+        case Json.Decode.decodeValue (Json.Decode.nullable decode${name}) value of
+            Ok maybeData -> toMsg maybeData
+            Err _ -> toMsg Nothing
+    )`.trim();
 }
 
 // Generate port integration JavaScript
@@ -347,20 +389,26 @@ function generatePortIntegration(allModels) {
         return `
     // ${name} port bindings
     if (app.ports.save${name}) {
-        app.ports.save${name}.subscribe(${className}.save);
+        app.ports.save${name}.subscribe((jsonData) => {
+            // jsonData is already a JavaScript object from Elm's Json.Encode.Value
+            ${className}.save(jsonData);
+        });
     }
     
     if (app.ports.load${name}) {
         app.ports.load${name}.subscribe(() => {
             const data = ${className}.load();
             if (app.ports.${varName}Loaded) {
+                // Send the raw JavaScript object/null - Elm will decode it
                 app.ports.${varName}Loaded.send(data);
             }
         });
     }
     
     if (app.ports.clear${name}) {
-        app.ports.clear${name}.subscribe(${className}.clear);
+        app.ports.clear${name}.subscribe(() => {
+            ${className}.clear();
+        });
     }`;
     }).join('\n');
     
@@ -387,45 +435,19 @@ function connectStoragePorts(app) {
 
 // Generate all browser storage APIs
 export function generateBrowserStorage(config = {}) {
-    // Auto-detect project name for fallback
-    function getProjectName() {
-        const appDir = path.join(process.cwd(), 'app');
-        if (!fs.existsSync(appDir)) return null;
-        
-        const projects = fs.readdirSync(appDir).filter(name => {
-            const fullPath = path.join(appDir, name);
-            const modelsPath = path.join(fullPath, 'models');
-            
-            return fs.statSync(fullPath).isDirectory() && 
-                   fs.existsSync(modelsPath);
-        });
-        
-        return projects[0];
-    }
-
-    const PROJECT_NAME = config.projectName || getProjectName();
-    const storageModelsPath = config.inputBasePath ? 
-        path.resolve(config.inputBasePath, 'storage') :
-        path.join(process.cwd(), 'src/models/storage');
-    const outputPath = config.jsOutputPath ? 
-        path.resolve(config.jsOutputPath) :
-        path.join(process.cwd(), 'packages/hamlet-server/generated');
-    const elmOutputPath = config.elmOutputPath ? 
-        path.resolve(config.elmOutputPath) :
-        path.join(process.cwd(), 'app/generated');
+    // Use shared path discovery
+    const paths = getGenerationPaths(config);
     
-    if (!fs.existsSync(storageModelsPath)) {
-        console.log('📁 No src/models/storage directory found, skipping browser storage generation');
+    // Check if storage models exist
+    if (!modelsExist('storage', paths)) {
+        console.log(`📁 No storage models directory found at ${paths.storageModelsDir}, skipping browser storage generation`);
         return;
     }
     
-    // Ensure output directories exist
-    if (!fs.existsSync(outputPath)) {
-        fs.mkdirSync(outputPath, { recursive: true });
-    }
-    if (!fs.existsSync(elmOutputPath)) {
-        fs.mkdirSync(elmOutputPath, { recursive: true });
-    }
+    const storageModelsPath = getModelsFullPath('storage', paths);
+    // Browser storage JS should go with client code, not server
+    const outputPath = ensureOutputDir(paths.elmOutputPath);
+    const elmOutputPath = ensureOutputDir(paths.elmOutputPath);
     
     const allModels = [];
     
@@ -480,6 +502,9 @@ ${allModels.map(m => `    ${m.name}Storage`).join(',\n')},
 -- ⚠️  Changes will be overwritten during next generation
 
 port module Generated.StoragePorts exposing (..)
+
+import Json.Encode
+import Json.Decode
 
 ${allPorts}
 `;

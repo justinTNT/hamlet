@@ -204,11 +204,13 @@ describe('Browser Storage Generation', () => {
             connectStoragePorts(mockApp);
 
             expect(mockApp.ports.saveGuestSession.subscribe).toHaveBeenCalledWith(
-                GuestSessionStorage.save
+                expect.any(Function)
             );
-            expect(mockApp.ports.loadGuestSession.subscribe).toHaveBeenCalled();
+            expect(mockApp.ports.loadGuestSession.subscribe).toHaveBeenCalledWith(
+                expect.any(Function)
+            );
             expect(mockApp.ports.clearGuestSession.subscribe).toHaveBeenCalledWith(
-                GuestSessionStorage.clear
+                expect.any(Function)
             );
         });
 

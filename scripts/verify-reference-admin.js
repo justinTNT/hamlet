@@ -8,6 +8,11 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const rootDir = path.join(__dirname, '..');
 
 console.log('🧪 Hamlet Admin UI Generation Verification Test');
 console.log('===============================================');
@@ -65,8 +70,8 @@ function expect(actual, message) {
 test('Admin UI generation completes successfully', () => {
     console.log('\n👑 Testing admin UI generation...');
     try {
-        const output = execSync('node .buildamp/generate-all.js admin', { stdio: 'pipe', encoding: 'utf8' });
-        const success = output.includes('Admin UI Generation') && output.includes('Generated Resources.elm');
+        const output = execSync('npx hamlet gen', { stdio: 'pipe', encoding: 'utf8' });
+        const success = output.includes('Admin UI Generation') && output.includes('app/horatio/admin/src/Generated/Resources.elm');
         return expect(success, 'Admin UI generation ran without errors').toBe(true);
     } catch (error) {
         console.log('Generation error:', error.message);
@@ -78,9 +83,9 @@ test('Admin UI generation completes successfully', () => {
 test('Generated admin files exist', () => {
     console.log('\n📁 Testing generated admin files...');
     const files = [
-        'app/horatio/admin/src/Generated/Resources.elm',
-        'app/horatio/admin/package.json',
-        'app/horatio/admin/src/Main.elm'
+        path.join(rootDir, 'app/horatio/admin/src/Generated/Resources.elm'),
+        path.join(rootDir, 'app/horatio/admin/package.json'),
+        path.join(rootDir, 'app/horatio/admin/src/Main.elm')
     ];
     
     let allExist = true;
@@ -96,7 +101,7 @@ test('Generated admin files exist', () => {
 test('Generated Resources.elm has expected structure', () => {
     console.log('\n🔍 Testing generated Resources.elm content...');
     
-    const resourcesPath = 'app/horatio/admin/src/Generated/Resources.elm';
+    const resourcesPath = path.join(rootDir, 'app/horatio/admin/src/Generated/Resources.elm');
     if (!fs.existsSync(resourcesPath)) {
         return expect(false, 'Resources.elm exists').toBe(true);
     }
@@ -182,11 +187,12 @@ test('Proper field filtering (exclude JSONB, infrastructure fields)', () => {
 test('Admin UI builds without errors', () => {
     console.log('\n🏗️  Testing admin UI build...');
     try {
-        const output = execSync('cd app/horatio/admin && npm run build', { stdio: 'pipe', encoding: 'utf8' });
+        const adminDir = path.join(rootDir, 'app/horatio/admin');
+        const output = execSync(`cd ${adminDir} && npm run build`, { stdio: 'pipe', encoding: 'utf8' });
         const success = output.includes('Success!') && output.includes('built in');
         
         // Also check that dist files were created
-        const distExists = fs.existsSync('app/horatio/admin/dist/index.html');
+        const distExists = fs.existsSync(path.join(adminDir, 'dist/index.html'));
         
         return expect(success && distExists, 'Admin UI builds successfully and creates dist files').toBe(true);
     } catch (error) {
@@ -199,19 +205,20 @@ test('Admin UI builds without errors', () => {
 test('Admin generation integrates with main generation script', () => {
     console.log('\n🔗 Testing integration with main generation...');
     
-    const generateAllPath = '.buildamp/generate-all.js';
-    if (!fs.existsSync(generateAllPath)) {
-        return expect(false, 'Main generation script exists').toBe(true);
+    // Check the new hamlet-cli generation orchestrator
+    const orchestratorPath = path.join(__dirname, '../packages/hamlet-cli/lib/generation-orchestrator.js');
+    if (!fs.existsSync(orchestratorPath)) {
+        return expect(false, 'Generation orchestrator exists').toBe(true);
     }
     
-    const generateAllContent = fs.readFileSync(generateAllPath, 'utf-8');
+    const orchestratorContent = fs.readFileSync(orchestratorPath, 'utf-8');
     
     let allValid = true;
     
     // Check that admin generation is imported and called
-    allValid &= expect(generateAllContent, 'Imports admin generation function').toContain('generateAdminUi');
-    allValid &= expect(generateAllContent, 'Calls admin generation in pipeline').toContain('await generateAdminUi()');
-    allValid &= expect(generateAllContent, 'Has admin phase documentation').toContain('Admin UI Generation');
+    allValid &= expect(orchestratorContent, 'Imports admin generation function').toContain('generateAdminUi');
+    allValid &= expect(orchestratorContent, 'Calls admin generation in pipeline').toContain('await generators.generateAdminUi()');
+    allValid &= expect(orchestratorContent, 'Has admin phase documentation').toContain('Admin UI Generation');
     
     return allValid;
 });

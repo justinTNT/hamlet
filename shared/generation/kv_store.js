@@ -7,6 +7,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { getGenerationPaths, modelsExist, getModelsFullPath, ensureOutputDir } from './shared-paths.js';
 
 // Parse Rust struct definitions for KV models
 function parseRustStructs(content, filename) {
@@ -201,47 +202,21 @@ export async function getTenantKeys(host, kvClient) {
 export function generateKvStore(config = {}) {
     console.log('🏗️ Generating KV store functions...');
     
-    // Auto-detect project name if not provided
-    const getProjectName = () => {
-        const appDir = path.join(process.cwd(), 'app');
-        if (!fs.existsSync(appDir)) return null;
-        
-        const projects = fs.readdirSync(appDir).filter(name => {
-            const fullPath = path.join(appDir, name);
-            const modelsPath = path.join(fullPath, 'models');
-            
-            return fs.statSync(fullPath).isDirectory() && 
-                   fs.existsSync(modelsPath);
-        });
-        
-        return projects[0]; // Use first valid project found
-    };
+    // Get paths using shared utilities
+    const paths = getGenerationPaths(config);
     
-    const PROJECT_NAME = config.projectName || getProjectName();
-    
-    // Use config paths or defaults
-    const MODELS_DIR = config.inputBasePath 
-        ? path.join(process.cwd(), config.inputBasePath, 'kv')
-        : PROJECT_NAME 
-        ? path.join(process.cwd(), `app/${PROJECT_NAME}/models/kv`) 
-        : null;
-        
-    const OUTPUT_FILE = config.jsOutputPath 
-        ? path.join(process.cwd(), config.jsOutputPath, 'kv-store.js')
-        : PROJECT_NAME
-        ? path.join(process.cwd(), 'packages/hamlet-server/generated/kv-store.js')  // monorepo default
-        : path.join(process.cwd(), 'generated/kv-store.js');  // simple default
-    
-    if (!fs.existsSync(MODELS_DIR)) {
+    // Check if KV models exist
+    if (!modelsExist('kv', paths)) {
         console.log('📁 No KV models directory found, skipping KV store generation');
         return { models: 0, functions: 0 };
     }
     
+    // Get the models directory and output file paths
+    const MODELS_DIR = getModelsFullPath('kv', paths);
+    const OUTPUT_FILE = path.join(process.cwd(), paths.jsOutputPath, 'kv-store.js');
+    
     // Ensure output directory exists
-    const outputDir = path.dirname(OUTPUT_FILE);
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-    }
+    ensureOutputDir(paths.jsOutputPath);
     
     const allStructs = [];
     
