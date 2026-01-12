@@ -44,8 +44,11 @@ async function importGenerators() {
 async function buildWasm() {
     try {
         console.log('🔨 Building WASM package...');
+        // Build from monorepo root where Cargo.toml is located
+        const monorepoRoot = path.resolve(__dirname, '../../..');
         execSync('wasm-pack build --target web --out-dir pkg-web', {
-            stdio: 'inherit'
+            stdio: 'inherit',
+            cwd: monorepoRoot
         });
         return {
             success: true,

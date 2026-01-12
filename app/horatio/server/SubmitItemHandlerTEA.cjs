@@ -2851,11 +2851,8 @@ var $elm$json$Json$Decode$string = _Json_decodeString;
 var $author$project$Api$Handlers$SubmitItemHandlerTEA$HandleRequest = function (a) {
 	return {$: 'HandleRequest', a: a};
 };
-var $elm$json$Json$Decode$list = _Json_decodeList;
-var $elm$json$Json$Decode$map = _Json_map1;
-var $elm$json$Json$Decode$null = _Json_decodeNull;
-var $elm$json$Json$Decode$oneOf = _Json_oneOf;
 var $elm$json$Json$Decode$succeed = _Json_succeed;
+var $elm$json$Json$Decode$value = _Json_decodeValue;
 var $author$project$Api$Handlers$SubmitItemHandlerTEA$handleRequest = _Platform_incomingPort(
 	'handleRequest',
 	A2(
@@ -2863,106 +2860,53 @@ var $author$project$Api$Handlers$SubmitItemHandlerTEA$handleRequest = _Platform_
 		function (request) {
 			return A2(
 				$elm$json$Json$Decode$andThen,
-				function (id) {
+				function (globalState) {
 					return A2(
 						$elm$json$Json$Decode$andThen,
-						function (context) {
-							return $elm$json$Json$Decode$succeed(
-								{context: context, id: id, request: request});
-						},
-						A2(
-							$elm$json$Json$Decode$field,
-							'context',
-							A2(
-								$elm$json$Json$Decode$andThen,
-								function (userId) {
-									return A2(
-										$elm$json$Json$Decode$andThen,
-										function (sessionId) {
-											return A2(
-												$elm$json$Json$Decode$andThen,
-												function (host) {
-													return $elm$json$Json$Decode$succeed(
-														{host: host, sessionId: sessionId, userId: userId});
-												},
-												A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
-										},
-										A2(
-											$elm$json$Json$Decode$field,
-											'sessionId',
-											$elm$json$Json$Decode$oneOf(
-												_List_fromArray(
-													[
-														$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
-														A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$json$Json$Decode$string)
-													]))));
-								},
-								A2(
-									$elm$json$Json$Decode$field,
-									'userId',
-									$elm$json$Json$Decode$oneOf(
-										_List_fromArray(
-											[
-												$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
-												A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$json$Json$Decode$string)
-											]))))));
-				},
-				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string));
-		},
-		A2(
-			$elm$json$Json$Decode$field,
-			'request',
-			A2(
-				$elm$json$Json$Decode$andThen,
-				function (title) {
-					return A2(
-						$elm$json$Json$Decode$andThen,
-						function (tags) {
+						function (globalConfig) {
 							return A2(
 								$elm$json$Json$Decode$andThen,
-								function (ownerComment) {
-									return A2(
-										$elm$json$Json$Decode$andThen,
-										function (link) {
-											return A2(
-												$elm$json$Json$Decode$andThen,
-												function (image) {
-													return A2(
-														$elm$json$Json$Decode$andThen,
-														function (host) {
-															return A2(
-																$elm$json$Json$Decode$andThen,
-																function (extract) {
-																	return $elm$json$Json$Decode$succeed(
-																		{extract: extract, host: host, image: image, link: link, ownerComment: ownerComment, tags: tags, title: title});
-																},
-																A2($elm$json$Json$Decode$field, 'extract', $elm$json$Json$Decode$string));
-														},
-														A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
-												},
-												A2($elm$json$Json$Decode$field, 'image', $elm$json$Json$Decode$string));
-										},
-										A2($elm$json$Json$Decode$field, 'link', $elm$json$Json$Decode$string));
+								function (context) {
+									return $elm$json$Json$Decode$succeed(
+										{context: context, globalConfig: globalConfig, globalState: globalState, request: request});
 								},
-								A2($elm$json$Json$Decode$field, 'ownerComment', $elm$json$Json$Decode$string));
+								A2($elm$json$Json$Decode$field, 'context', $elm$json$Json$Decode$value));
 						},
-						A2(
-							$elm$json$Json$Decode$field,
-							'tags',
-							$elm$json$Json$Decode$list($elm$json$Json$Decode$string)));
+						A2($elm$json$Json$Decode$field, 'globalConfig', $elm$json$Json$Decode$value));
 				},
-				A2($elm$json$Json$Decode$field, 'title', $elm$json$Json$Decode$string)))));
+				A2($elm$json$Json$Decode$field, 'globalState', $elm$json$Json$Decode$value));
+		},
+		A2($elm$json$Json$Decode$field, 'request', $elm$json$Json$Decode$value)));
 var $author$project$Api$Handlers$SubmitItemHandlerTEA$subscriptions = function (_v0) {
 	return $author$project$Api$Handlers$SubmitItemHandlerTEA$handleRequest($author$project$Api$Handlers$SubmitItemHandlerTEA$HandleRequest);
 };
-var $author$project$Api$Handlers$SubmitItemHandlerTEA$Complete = function (a) {
-	return {$: 'Complete', a: a};
-};
-var $author$project$Api$Handlers$SubmitItemHandlerTEA$Processing = {$: 'Processing'};
 var $elm$core$Basics$identity = function (x) {
 	return x;
 };
 var $author$project$Api$Handlers$SubmitItemHandlerTEA$complete = _Platform_outgoingPort('complete', $elm$core$Basics$identity);
+var $elm$json$Json$Encode$object = function (pairs) {
+	return _Json_wrap(
+		A3(
+			$elm$core$List$foldl,
+			F2(
+				function (_v0, obj) {
+					var k = _v0.a;
+					var v = _v0.b;
+					return A3(_Json_addField, k, v, obj);
+				}),
+			_Json_emptyObject(_Utils_Tuple0),
+			pairs));
+};
+var $elm$json$Json$Encode$string = _Json_wrap;
+var $author$project$Api$Handlers$SubmitItemHandlerTEA$encodeError = function (error) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'error',
+				$elm$json$Json$Encode$string(error))
+			]));
+};
 var $elm$json$Json$Encode$int = _Json_wrap;
 var $elm$core$Basics$composeL = F3(
 	function (g, f, x) {
@@ -2980,20 +2924,6 @@ var $elm$core$Maybe$map = F2(
 		}
 	});
 var $elm$json$Json$Encode$null = _Json_encodeNull;
-var $elm$json$Json$Encode$object = function (pairs) {
-	return _Json_wrap(
-		A3(
-			$elm$core$List$foldl,
-			F2(
-				function (_v0, obj) {
-					var k = _v0.a;
-					var v = _v0.b;
-					return A3(_Json_addField, k, v, obj);
-				}),
-			_Json_emptyObject(_Utils_Tuple0),
-			pairs));
-};
-var $elm$json$Json$Encode$string = _Json_wrap;
 var $elm$core$Maybe$withDefault = F2(
 	function (_default, maybe) {
 		if (maybe.$ === 'Just') {
@@ -3086,6 +3016,147 @@ var $author$project$Api$Backend$submitItemResEncoder = function (struct) {
 };
 var $author$project$Api$Handlers$SubmitItemHandlerTEA$encodeSubmitItemRes = function (response) {
 	return $author$project$Api$Backend$submitItemResEncoder(response);
+};
+var $author$project$Api$Handlers$SubmitItemHandlerTEA$Complete = function (a) {
+	return {$: 'Complete', a: a};
+};
+var $author$project$Api$Handlers$SubmitItemHandlerTEA$Failed = function (a) {
+	return {$: 'Failed', a: a};
+};
+var $author$project$Api$Handlers$SubmitItemHandlerTEA$Processing = {$: 'Processing'};
+var $author$project$Api$Handlers$SubmitItemHandlerTEA$Context = F3(
+	function (host, userId, sessionId) {
+		return {host: host, sessionId: sessionId, userId: userId};
+	});
+var $elm$json$Json$Decode$map3 = _Json_map3;
+var $elm$json$Json$Decode$map = _Json_map1;
+var $elm$json$Json$Decode$oneOf = _Json_oneOf;
+var $elm$json$Json$Decode$maybe = function (decoder) {
+	return $elm$json$Json$Decode$oneOf(
+		_List_fromArray(
+			[
+				A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, decoder),
+				$elm$json$Json$Decode$succeed($elm$core$Maybe$Nothing)
+			]));
+};
+var $author$project$Api$Handlers$SubmitItemHandlerTEA$contextDecoder = A4(
+	$elm$json$Json$Decode$map3,
+	$author$project$Api$Handlers$SubmitItemHandlerTEA$Context,
+	A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string),
+	$elm$json$Json$Decode$maybe(
+		A2($elm$json$Json$Decode$field, 'userId', $elm$json$Json$Decode$string)),
+	$elm$json$Json$Decode$maybe(
+		A2($elm$json$Json$Decode$field, 'sessionId', $elm$json$Json$Decode$string)));
+var $elm$json$Json$Decode$decodeValue = _Json_run;
+var $elm$core$Result$map2 = F3(
+	function (func, ra, rb) {
+		if (ra.$ === 'Err') {
+			var x = ra.a;
+			return $elm$core$Result$Err(x);
+		} else {
+			var a = ra.a;
+			if (rb.$ === 'Err') {
+				var x = rb.a;
+				return $elm$core$Result$Err(x);
+			} else {
+				var b = rb.a;
+				return $elm$core$Result$Ok(
+					A2(func, a, b));
+			}
+		}
+	});
+var $elm$core$Result$mapError = F2(
+	function (f, result) {
+		if (result.$ === 'Ok') {
+			var v = result.a;
+			return $elm$core$Result$Ok(v);
+		} else {
+			var e = result.a;
+			return $elm$core$Result$Err(
+				f(e));
+		}
+	});
+var $elm$core$Tuple$pair = F2(
+	function (a, b) {
+		return _Utils_Tuple2(a, b);
+	});
+var $author$project$Api$Backend$SubmitItemReq = F7(
+	function (host, title, link, image, extract, ownerComment, tags) {
+		return {extract: extract, host: host, image: image, link: link, ownerComment: ownerComment, tags: tags, title: title};
+	});
+var $elm$json$Json$Decode$list = _Json_decodeList;
+var $author$project$Api$Backend$submitItemReqDecoder = A2(
+	$elm$json$Json$Decode$andThen,
+	function (x) {
+		return A2(
+			$elm$json$Json$Decode$map,
+			x,
+			A2(
+				$elm$json$Json$Decode$field,
+				'tags',
+				$elm$json$Json$Decode$list($elm$json$Json$Decode$string)));
+	},
+	A2(
+		$elm$json$Json$Decode$andThen,
+		function (x) {
+			return A2(
+				$elm$json$Json$Decode$map,
+				x,
+				A2($elm$json$Json$Decode$field, 'owner_comment', $elm$json$Json$Decode$string));
+		},
+		A2(
+			$elm$json$Json$Decode$andThen,
+			function (x) {
+				return A2(
+					$elm$json$Json$Decode$map,
+					x,
+					A2($elm$json$Json$Decode$field, 'extract', $elm$json$Json$Decode$string));
+			},
+			A2(
+				$elm$json$Json$Decode$andThen,
+				function (x) {
+					return A2(
+						$elm$json$Json$Decode$map,
+						x,
+						A2($elm$json$Json$Decode$field, 'image', $elm$json$Json$Decode$string));
+				},
+				A2(
+					$elm$json$Json$Decode$andThen,
+					function (x) {
+						return A2(
+							$elm$json$Json$Decode$map,
+							x,
+							A2($elm$json$Json$Decode$field, 'link', $elm$json$Json$Decode$string));
+					},
+					A2(
+						$elm$json$Json$Decode$andThen,
+						function (x) {
+							return A2(
+								$elm$json$Json$Decode$map,
+								x,
+								A2($elm$json$Json$Decode$field, 'title', $elm$json$Json$Decode$string));
+						},
+						A2(
+							$elm$json$Json$Decode$andThen,
+							function (x) {
+								return A2(
+									$elm$json$Json$Decode$map,
+									x,
+									A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
+							},
+							$elm$json$Json$Decode$succeed($author$project$Api$Backend$SubmitItemReq))))))));
+var $author$project$Api$Handlers$SubmitItemHandlerTEA$decodeRequest = function (bundle) {
+	return A3(
+		$elm$core$Result$map2,
+		$elm$core$Tuple$pair,
+		A2(
+			$elm$core$Result$mapError,
+			$elm$json$Json$Decode$errorToString,
+			A2($elm$json$Json$Decode$decodeValue, $author$project$Api$Backend$submitItemReqDecoder, bundle.request)),
+		A2(
+			$elm$core$Result$mapError,
+			$elm$json$Json$Decode$errorToString,
+			A2($elm$json$Json$Decode$decodeValue, $author$project$Api$Handlers$SubmitItemHandlerTEA$contextDecoder, bundle.context)));
 };
 var $author$project$Api$Handlers$SubmitItemHandlerTEA$ProcessingComplete = function (a) {
 	return {$: 'ProcessingComplete', a: a};
@@ -3243,8 +3314,8 @@ var $author$project$Api$Handlers$SubmitItemHandlerTEA$processRequest = function 
 	var placeholderResponse = _Debug_todo(
 		'Api.Handlers.SubmitItemHandlerTEA',
 		{
-			start: {line: 158, column: 31},
-			end: {line: 158, column: 41}
+			start: {line: 164, column: 31},
+			end: {line: 164, column: 41}
 		})('Implement SubmitItem handler');
 	return A2(
 		$elm$core$Task$perform,
@@ -3257,15 +3328,30 @@ var $author$project$Api$Handlers$SubmitItemHandlerTEA$update = F2(
 	function (msg, model) {
 		if (msg.$ === 'HandleRequest') {
 			var bundle = msg.a;
-			return _Utils_Tuple2(
-				_Utils_update(
-					model,
-					{
-						context: $elm$core$Maybe$Just(bundle.context),
-						request: $elm$core$Maybe$Just(bundle.request),
-						stage: $author$project$Api$Handlers$SubmitItemHandlerTEA$Processing
-					}),
-				$author$project$Api$Handlers$SubmitItemHandlerTEA$processRequest(bundle.request));
+			var _v1 = $author$project$Api$Handlers$SubmitItemHandlerTEA$decodeRequest(bundle);
+			if (_v1.$ === 'Ok') {
+				var _v2 = _v1.a;
+				var req = _v2.a;
+				var ctx = _v2.b;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							context: $elm$core$Maybe$Just(ctx),
+							request: $elm$core$Maybe$Just(req),
+							stage: $author$project$Api$Handlers$SubmitItemHandlerTEA$Processing
+						}),
+					$author$project$Api$Handlers$SubmitItemHandlerTEA$processRequest(req));
+			} else {
+				var error = _v1.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							stage: $author$project$Api$Handlers$SubmitItemHandlerTEA$Failed(error)
+						}),
+					$elm$core$Platform$Cmd$none);
+			}
 		} else {
 			var result = msg.a;
 			return _Utils_Tuple2(
@@ -3278,9 +3364,42 @@ var $author$project$Api$Handlers$SubmitItemHandlerTEA$update = F2(
 					$author$project$Api$Handlers$SubmitItemHandlerTEA$encodeSubmitItemRes(result)));
 		}
 	});
+var $author$project$Api$Handlers$SubmitItemHandlerTEA$updateWithResponse = F2(
+	function (msg, model) {
+		var _v0 = A2($author$project$Api$Handlers$SubmitItemHandlerTEA$update, msg, model);
+		var newModel = _v0.a;
+		var cmd = _v0.b;
+		var _v1 = newModel.stage;
+		switch (_v1.$) {
+			case 'Complete':
+				var response = _v1.a;
+				return _Utils_Tuple2(
+					newModel,
+					$elm$core$Platform$Cmd$batch(
+						_List_fromArray(
+							[
+								$author$project$Api$Handlers$SubmitItemHandlerTEA$complete(
+								$author$project$Api$Handlers$SubmitItemHandlerTEA$encodeSubmitItemRes(response)),
+								cmd
+							])));
+			case 'Failed':
+				var error = _v1.a;
+				return _Utils_Tuple2(
+					newModel,
+					$elm$core$Platform$Cmd$batch(
+						_List_fromArray(
+							[
+								$author$project$Api$Handlers$SubmitItemHandlerTEA$complete(
+								$author$project$Api$Handlers$SubmitItemHandlerTEA$encodeError(error)),
+								cmd
+							])));
+			default:
+				return _Utils_Tuple2(newModel, cmd);
+		}
+	});
 var $elm$core$Platform$worker = _Platform_worker;
 var $author$project$Api$Handlers$SubmitItemHandlerTEA$main = $elm$core$Platform$worker(
-	{init: $author$project$Api$Handlers$SubmitItemHandlerTEA$init, subscriptions: $author$project$Api$Handlers$SubmitItemHandlerTEA$subscriptions, update: $author$project$Api$Handlers$SubmitItemHandlerTEA$update});
+	{init: $author$project$Api$Handlers$SubmitItemHandlerTEA$init, subscriptions: $author$project$Api$Handlers$SubmitItemHandlerTEA$subscriptions, update: $author$project$Api$Handlers$SubmitItemHandlerTEA$updateWithResponse});
 _Platform_export({'Api':{'Handlers':{'SubmitItemHandlerTEA':{'init':$author$project$Api$Handlers$SubmitItemHandlerTEA$main(
 	A2(
 		$elm$json$Json$Decode$andThen,

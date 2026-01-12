@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 
 // Custom configuration for Horatio
 const config = {
-    port: 3000,
+    port: process.env.PORT || 3000,
     application: 'horatio',
     poolSize: 5,
     features: {

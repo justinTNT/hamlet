@@ -70,9 +70,10 @@ type Msg
 
 
 type alias RequestBundle =
-    { id : String
-    , context : Context
-    , request : GetTagsReq
+    { request : Encode.Value
+    , context : Encode.Value
+    , globalConfig : Encode.Value
+    , globalState : Encode.Value
     }
 
 
@@ -98,14 +99,19 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         HandleRequest bundle ->
-            -- Start the business logic pipeline
-            ( { model 
-              | stage = Processing
-              , request = Just bundle.request
-              , context = Just bundle.context
-              }
-            , processRequest bundle.request
-            )
+            case decodeRequest bundle of
+                Ok ( req, ctx ) ->
+                    -- Start the business logic pipeline
+                    ( { model 
+                      | stage = Processing
+                      , request = Just req
+                      , context = Just ctx
+                      }
+                    , processRequest req
+                    )
+                
+                Err error ->
+                    ( { model | stage = Failed error }, Cmd.none )
         
         ProcessingComplete result ->
             ( { model | stage = Complete result }
@@ -163,6 +169,23 @@ processRequest request =
     ) (Task.succeed ())
 
 
+-- DECODING
+
+decodeRequest : RequestBundle -> Result String ( GetTagsReq, Context )
+decodeRequest bundle =
+    Result.map2 Tuple.pair
+        (Decode.decodeValue Api.Backend.getTagsReqDecoder bundle.request |> Result.mapError Decode.errorToString)
+        (Decode.decodeValue contextDecoder bundle.context |> Result.mapError Decode.errorToString)
+
+
+contextDecoder : Decode.Decoder Context
+contextDecoder =
+    Decode.map3 Context
+        (Decode.field "host" Decode.string)
+        (Decode.maybe (Decode.field "userId" Decode.string))
+        (Decode.maybe (Decode.field "sessionId" Decode.string))
+
+
 -- ENCODING
 
 encodeGetTagsRes : GetTagsRes -> Encode.Value
@@ -189,9 +212,35 @@ main : Program Flags Model Msg
 main =
     Platform.worker
         { init = init
-        , update = update
+        , update = updateWithResponse
         , subscriptions = subscriptions
         }
+
+
+updateWithResponse : Msg -> Model -> ( Model, Cmd Msg )
+updateWithResponse msg model =
+    let
+        ( newModel, cmd ) = update msg model
+    in
+    case newModel.stage of
+        Complete response ->
+            ( newModel
+            , Cmd.batch
+                [ complete (encodeGetTagsRes response)
+                , cmd
+                ]
+            )
+
+        Failed error ->
+            ( newModel
+            , Cmd.batch
+                [ complete (encodeError error)
+                , cmd
+                ]
+            )
+
+        _ ->
+            ( newModel, cmd )
 
 
 subscriptions : Model -> Sub Msg

@@ -2,8 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import { MiddlewareLoader } from './middleware-loader.js';
-import { verifyContractIntegrity } from 'hamlet-contracts';
+import { verifyContractIntegrity } from 'buildamp-contracts';
 import path from 'path';
+import fs from 'fs';
 
 /**
  * Core Hamlet Server
@@ -55,12 +56,31 @@ export class HamletServer {
 
         // Verify Contract Integrity on startup (warn only by default)
         try {
-            const projectRoot = process.cwd();
-            await verifyContractIntegrity(
-                path.join(projectRoot, 'app/horatio/models'), // TODO: Make configurable
-                path.join(projectRoot, 'app/horatio/web/src/.hamlet-gen/contracts.json'), // TODO: Make configurable
-                { enabled: !process.env.SKIP_CONTRACT_CHECK }
-            );
+            // Find project root by looking for package.json with workspaces
+            let projectRoot = process.cwd();
+            let found = false;
+            for (let i = 0; i < 5; i++) {
+                const packagePath = path.join(projectRoot, 'package.json');
+                if (fs.existsSync(packagePath)) {
+                    const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+                    if (pkg.workspaces) {
+                        found = true;
+                        break;
+                    }
+                }
+                projectRoot = path.dirname(projectRoot);
+            }
+            
+            if (!found) {
+                console.warn('⚠️  Could not find project root, skipping contract check');
+            } else {
+                const appName = this.config.application || 'horatio';
+                await verifyContractIntegrity(
+                    path.join(projectRoot, 'app', appName, 'models'),
+                    path.join(projectRoot, 'app', appName, 'web/src/.hamlet-gen/contracts.json'),
+                    { enabled: !process.env.SKIP_CONTRACT_CHECK }
+                );
+            }
         } catch (error) {
             console.error('Contract check failed:', error);
             // Don't crash, let verifyContractIntegrity handle logging/exit based on its config

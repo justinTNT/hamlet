@@ -1,3 +1,5 @@
+#![cfg(feature = "wasm-tests")]
+
 // End-to-end test for auto-discovery system without mod.rs files
 // This test verifies that the entire BuildAmp pipeline works with naked structs
 

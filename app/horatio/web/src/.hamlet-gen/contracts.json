@@ -1,29 +1,28 @@
 {
   "version": "1.0",
-  "hash": {
-    "signature": "8813c49e31cd2121c839dcf1304855e2d5a8e2cd5a298e2fcb38c17ee1ae28cc",
-    "files": {
-      "api/comment.rs": "77f1ea0388bd00d338d2be41b68691ae32e07e9858959c79934d1add1eab7cf9",
-      "api/feed.rs": "1ab2df630a3712763580acf13ef5e9fedef1ae927c1721d535bbcfbfca65f814",
-      "api/tags.rs": "aa50a7f697efc82ceef5cc5cb38e70b3d85f63b56e2e331f0faae0263a56a68f",
-      "db/guest.rs": "c4c299143efc7ac8fb6c7b8f544b7449ff3e33f70b31dc5dc4288a8f0ed9909f",
-      "db/item_comment.rs": "3a646a82febdb3c2438fcca5ece8f79e5eda1a5da693678557fc32798b72ae1f",
-      "db/item_tag.rs": "abeec8a95b893274ee22f595d233ad308b95953ab6e3ca8feb7de095af0721e8",
-      "db/microblog_item.rs": "05cac7af11e3f2c202c2b1aaaba062b3ec92680ae1e602d8be938a9e376f4c07",
-      "db/tag.rs": "78a281bee77d93981b553bb60ebb90128ba51364c8a01c24fac1251e9a19707f",
-      "events/process_video.rs": "2d2fc71549174d32f5e565184208c7cbbe9056a5ccba12d1f9facf1da412374d",
-      "events/send_welcome_email.rs": "426198f28de3b60986eb41f702285e5bee79180982e51c81c34db17a6d0d974b",
-      "kv/test_cache.rs": "d6e176d0c9840496ec1e0f3b406169f74ba84b8d3a9e4aaeab8da7ca5beeb0a5",
-      "kv/user_session.rs": "6f21701b6b4cefa1cc29cb42bfe6918f7bb43db4a6a1ed92e12db19c9ffac77e",
-      "sse/comment_deleted_event.rs": "e29b0637f7b32edcb0ed3b689de142038278bd2a3cbc061c64cf36474e4c6342",
-      "sse/new_comment_event.rs": "e5217038640d5d72283e5d42e87510364c27aa58feac165aab20c2bf9f4137bd",
-      "sse/new_post_event.rs": "3cb1fe4c9194418ab3b5244b971d0bcaf2b0333de8b0a1f0f503495c94a51831",
-      "sse/post_deleted_event.rs": "fac2053969db6991882463ca9efbf336abe211daf7cab69dcaab98a0f15d180b",
-      "sse/typing_indicator_event.rs": "07502cde1e9036952e32cc7258baa0f351f04f35fb1037d51cbb0178ba937b93",
-      "sse/user_presence_event.rs": "b64b13584706b59a355ea5c15a8d7deccc00f211ee2cd3422e987f6016f76c0f",
-      "storage/guest_session.rs": "bd06731b12cfdee2454422fa61d327bbe1ed0c0e86488d363de7ec909e6e3387"
-    }
+  "modelHash": "79ed474f48598665d040a4d741c25820befa5b37364bc22de83ee065b420d710",
+  "files": {
+    "api/comment.rs": "9e4ed12f272569c5d4591d3cdd58dedfe66b4771ec0283ee42868819910f75b1",
+    "api/feed.rs": "b9eb46aba1850eb336042f2364670149ddd4b2c875936c6efe6bb6988b56c576",
+    "api/item.rs": "85ab462b1f5044d21ad12575cb6d7f08e2c6f89e58cbe0f28982c2cbce4b4095",
+    "api/tags.rs": "c06dc23f68fa2fa00892a3b17691b9efa1b341d93f0f39fd2f0bb36d4cdd847f",
+    "db/guest.rs": "c4c299143efc7ac8fb6c7b8f544b7449ff3e33f70b31dc5dc4288a8f0ed9909f",
+    "db/item_comment.rs": "3a646a82febdb3c2438fcca5ece8f79e5eda1a5da693678557fc32798b72ae1f",
+    "db/item_tag.rs": "abeec8a95b893274ee22f595d233ad308b95953ab6e3ca8feb7de095af0721e8",
+    "db/microblog_item.rs": "05cac7af11e3f2c202c2b1aaaba062b3ec92680ae1e602d8be938a9e376f4c07",
+    "db/tag.rs": "78a281bee77d93981b553bb60ebb90128ba51364c8a01c24fac1251e9a19707f",
+    "events/process_video.rs": "2d2fc71549174d32f5e565184208c7cbbe9056a5ccba12d1f9facf1da412374d",
+    "events/send_welcome_email.rs": "426198f28de3b60986eb41f702285e5bee79180982e51c81c34db17a6d0d974b",
+    "kv/test_cache.rs": "d6e176d0c9840496ec1e0f3b406169f74ba84b8d3a9e4aaeab8da7ca5beeb0a5",
+    "kv/user_session.rs": "6f21701b6b4cefa1cc29cb42bfe6918f7bb43db4a6a1ed92e12db19c9ffac77e",
+    "sse/comment_deleted_event.rs": "e29b0637f7b32edcb0ed3b689de142038278bd2a3cbc061c64cf36474e4c6342",
+    "sse/new_comment_event.rs": "e5217038640d5d72283e5d42e87510364c27aa58feac165aab20c2bf9f4137bd",
+    "sse/new_post_event.rs": "3cb1fe4c9194418ab3b5244b971d0bcaf2b0333de8b0a1f0f503495c94a51831",
+    "sse/post_deleted_event.rs": "fac2053969db6991882463ca9efbf336abe211daf7cab69dcaab98a0f15d180b",
+    "sse/typing_indicator_event.rs": "07502cde1e9036952e32cc7258baa0f351f04f35fb1037d51cbb0178ba937b93",
+    "sse/user_presence_event.rs": "b64b13584706b59a355ea5c15a8d7deccc00f211ee2cd3422e987f6016f76c0f",
+    "storage/guest_session.rs": "bd06731b12cfdee2454422fa61d327bbe1ed0c0e86488d363de7ec909e6e3387"
   },
-  "timestamp": "2026-01-08T11:30:51.045Z",
+  "generatedAt": "2026-01-12T05:25:34.824Z",
   "modelsDir": "app/horatio/models"
 }

@@ -1,3 +1,5 @@
+#![cfg(feature = "wasm-tests")]
+
 use serde_json;
 
 // Import our SSE event types - auto-discovered by BuildAmp

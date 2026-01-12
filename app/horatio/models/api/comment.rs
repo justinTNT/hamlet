@@ -1,6 +1,7 @@
 use buildamp_macro::buildamp;
 
 // Server context for SubmitComment - belongs in API, not DB  
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema)]
 pub struct SubmitCommentData {
     pub fresh_guest_id: String,
     pub fresh_comment_id: String,
@@ -17,6 +18,7 @@ pub struct SubmitCommentReq {
     pub author_name: Option<String>,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema)]
 pub struct CommentItem {
     pub id: String,
     pub item_id: String,
@@ -27,6 +29,10 @@ pub struct CommentItem {
     pub timestamp: u64,
 }
 
+// Type alias for consistency - ItemComment is used in MicroblogItem
+pub type ItemComment = CommentItem;
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema)]
 pub struct SubmitCommentRes {
     pub comment: CommentItem,
 }

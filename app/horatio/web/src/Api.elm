@@ -41,3 +41,10 @@ submitComment req =
     , body = submitCommentReqEncoder req
     , decoder = submitCommentResDecoder
     }
+
+getItem : GetItemReq -> Request GetItemRes
+getItem req =
+    { endpoint = "GetItem"
+    , body = getItemReqEncoder req
+    , decoder = getItemResDecoder
+    }

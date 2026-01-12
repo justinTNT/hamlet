@@ -2,6 +2,10 @@
 
 ## Critical Rules
 
+### agent executes, user runs
+the agent's job is to plan and execute coding: not to start and kill servers.
+ask the user if you want a server killed or started.
+
 ### Generated Files - NEVER MODIFY
 - **NEVER** modify any generated files
 - Generated files are marked with comments like "Generated from..." or "Auto-generated"

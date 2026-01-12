@@ -161,6 +161,54 @@ server.app.post('/api/SubmitItem', async (req, res) => {
 });
 
 /**
+ * Auto-generated route for GetItemReq
+ * Path: GetItem
+ * Generated from: item.rs
+ */
+server.app.post('/api/GetItem', async (req, res) => {
+    const host = req.tenant?.host || 'localhost';
+    
+    try {
+        // Extract request data
+        let requestData = req.body;
+        
+        // Field validation
+
+        
+        // Ensure context exists
+        if (!req.context) {
+            req.context = { host };
+        }
+        
+        // Context injection
+        requestData = {
+            ...requestData,
+        host: req.context.host
+        
+        };
+        
+        // Call Elm business logic
+        const elmService = server.getService('elm');
+        if (!elmService) {
+            throw new Error('Elm service not available');
+        }
+        
+        const result = await elmService.callHandler('GetItem', requestData, {
+            host,
+            user_id: req.context?.user_id || null,
+            is_extension: req.context?.is_extension || false,
+            tenant: host
+        });
+        
+        res.json(result);
+        
+    } catch (error) {
+        console.error(`Error handling GetItem:`, error);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+/**
  * Auto-generated route for GetTagsReq
  * Path: GetTags
  * Generated from: tags.rs
@@ -208,5 +256,5 @@ server.app.post('/api/GetTags', async (req, res) => {
     }
 });
     
-    console.log(`✅ Registered ${4} auto-generated API routes`);
+    console.log(`✅ Registered ${5} auto-generated API routes`);
 }

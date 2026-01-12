@@ -1,4 +1,5 @@
 use buildamp_macro::buildamp;
+use super::comment::ItemComment;
 
 #[buildamp(path = "GetFeed")]
 pub struct GetFeedReq {
@@ -6,23 +7,38 @@ pub struct GetFeedReq {
     pub host: String,
 }
 
+// Simplified item for feed view - no comments, tags, or link
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema)]
 pub struct FeedItem {
     pub id: String,
     pub title: String,
-    pub link: Option<String>,
     pub image: Option<String>,
     pub extract: Option<String>,
-    pub owner_comment: String,
-    pub tags: Vec<String>,
+    pub owner_comment: String,     // The owner's comment on the item
     pub timestamp: u64,
-    pub view_count: i32,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema)]
 pub struct GetFeedRes {
     pub items: Vec<FeedItem>,
 }
 
+// Full item with all details - used by GetItem and SubmitItem
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema)]
+pub struct MicroblogItem {
+    pub id: String,
+    pub title: String,
+    pub link: String,
+    pub image: String,
+    pub extract: String,
+    pub owner_comment: String,
+    pub tags: Vec<String>,
+    pub comments: Vec<ItemComment>,
+    pub timestamp: u64,
+}
+
 // Server context for SubmitItem - belongs in API, not DB
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema)]
 pub struct SubmitItemData {
     pub fresh_tag_ids: Vec<String>,
 }
@@ -39,6 +55,7 @@ pub struct SubmitItemReq {
     pub tags: Vec<String>,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, elm_rs::Elm, elm_rs::ElmEncode, elm_rs::ElmDecode, utoipa::ToSchema)]
 pub struct SubmitItemRes {
-    pub item: FeedItem,
+    pub item: MicroblogItem,  // Returns full item after creation
 }

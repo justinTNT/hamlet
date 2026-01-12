@@ -44,8 +44,8 @@ export async function gen(projectPaths) {
     console.log(chalk.gray('Running full generation pipeline...'));
     
     // Run all generation phases
+    // Note: genElm already includes WASM generation via generation-orchestrator.js
     await genElm(projectPaths);
-    await genWasm(projectPaths);
 }
 
 /**
@@ -78,13 +78,14 @@ export async function genWasm(projectPaths) {
         throw new Error('wasm-pack not found. Please install it: https://rustwasm.github.io/wasm-pack/installer/');
     }
     
-    // Build WASM
+    // Build WASM from the Rust project root
+    const monorepoRoot = path.resolve(path.dirname(projectPaths.frameworkDir), '..');
     await runCommand('wasm-pack', [
         'build',
         '--target', 'web',
         '--out-dir', 'pkg-web'
     ], {
-        cwd: process.cwd()
+        cwd: monorepoRoot
     });
     
     console.log(chalk.green('  ✓ WASM code generated'));

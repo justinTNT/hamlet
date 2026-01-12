@@ -8,7 +8,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { discoverProjectPaths } from 'hamlet-core';
+import { discoverProjectPaths } from 'buildamp-core';
 
 /**
  * Get project paths with defaults for generation

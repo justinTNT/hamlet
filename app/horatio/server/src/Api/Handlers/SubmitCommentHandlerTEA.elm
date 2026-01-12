@@ -10,7 +10,7 @@ Handles comment submission by creating new comment records in the database.
 
 -}
 
-import Api.Backend exposing (SubmitCommentRes, ItemComment)
+import Api.Backend exposing (SubmitCommentReq, SubmitCommentRes, ItemComment)
 import Generated.Database as DB
 import Generated.Events as Events
 import Generated.Services as Services
@@ -28,34 +28,20 @@ type alias Model =
     , context : Maybe Context
     , globalConfig : GlobalConfig
     , globalState : GlobalState
-    -- TODO: Add domain-specific state fields here
     }
 
 
 type Stage
     = Idle
     | Processing
-    -- TODO: Add specific stages for your business logic, e.g.:
-    -- | LoadingData
-    -- | ValidatingInput  
-    -- | SavingResults
     | Complete SubmitCommentRes
     | Failed String
 
 
 type alias Context =
     { host : String
-    , sessionId : Maybe String
-    }
-
-
--- Local request type that matches JavaScript field names (snake_case)
-type alias SubmitCommentReq =
-    { host : String
-    , item_id : String
-    , parent_id : Maybe String
-    , text : String
-    , author_name : Maybe String
+    , userId : Maybe String
+    , isExtension : Bool
     }
 
 
@@ -69,14 +55,14 @@ type alias GlobalState = DB.GlobalState  -- Mutable handler state
 
 type Msg
     = HandleRequest RequestBundle
-    | ProcessingComplete SubmitCommentRes
     | CommentCreated DB.DbResponse
 
 
 type alias RequestBundle =
-    { id : String
-    , context : Context
-    , request : SubmitCommentReq
+    { request : Encode.Value
+    , context : Encode.Value
+    , globalConfig : Encode.Value
+    , globalState : Encode.Value
     }
 
 
@@ -102,25 +88,24 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         HandleRequest bundle ->
-            -- Start the business logic pipeline
-            let
-                _ = Debug.log "🐛 SubmitComment: Received request" bundle.request
+            case decodeRequest bundle of
+                Ok ( req, ctx ) ->
+                    let
+                        _ = Debug.log "🐛 SubmitComment: Received request" req
+                        
+                        updatedModel = 
+                            { model 
+                            | stage = Processing
+                            , request = Just req
+                            , context = Just ctx
+                            }
+                    in
+                    ( updatedModel
+                    , processRequest req updatedModel
+                    )
                 
-                updatedModel = 
-                    { model 
-                    | stage = Processing
-                    , request = Just bundle.request
-                    , context = Just bundle.context
-                    }
-            in
-            ( updatedModel
-            , processRequest bundle.request updatedModel
-            )
-        
-        ProcessingComplete result ->
-            ( { model | stage = Complete result }
-            , complete (encodeSubmitCommentRes result)
-            )
+                Err error ->
+                    ( { model | stage = Failed error }, Cmd.none )
         
         CommentCreated dbResponse ->
             let
@@ -130,41 +115,52 @@ update msg model =
                 -- Database operation succeeded, extract real data from response
                 case dbResponse.data of
                     Just returnedData ->
-                        let
-                            -- Extract the auto-generated ID from database response
-                            -- For now, create response with request data and a placeholder ID
-                            -- TODO: Parse actual ID from returnedData JSON
-                            apiComment = 
-                                { id = "generated_id_from_db" -- Will be real UUID from database
-                                , itemId = model.request |> Maybe.map .item_id |> Maybe.withDefault ""
-                                , guestId = model.request |> Maybe.andThen .author_name |> Maybe.withDefault "guest_anonymous"
-                                , parentId = model.request |> Maybe.andThen .parent_id
-                                , authorName = model.request |> Maybe.andThen .author_name |> Maybe.withDefault "Anonymous"
-                                , text = model.request |> Maybe.map .text |> Maybe.withDefault ""
-                                , timestamp = model.globalConfig.serverNow
-                                }
-                    
-                            response = { comment = apiComment }
-                        in
-                        ( { model | stage = Complete response }
-                        , complete (encodeSubmitCommentRes response)
-                        )
+                        -- Decode the returned comment data
+                        case Decode.decodeValue (Decode.field "id" Decode.string) returnedData of
+                            Ok generatedId ->
+                                let
+                                    apiComment = 
+                                        { id = generatedId
+                                        , itemId = model.request |> Maybe.map .itemId |> Maybe.withDefault ""
+                                        , guestId = model.request |> Maybe.andThen .authorName |> Maybe.withDefault "guest_anonymous"
+                                        , parentId = model.request |> Maybe.andThen .parentId
+                                        , authorName = model.request |> Maybe.andThen .authorName |> Maybe.withDefault "Anonymous"
+                                        , text = model.request |> Maybe.map .text |> Maybe.withDefault ""
+                                        , timestamp = model.globalConfig.serverNow
+                                        }
+                        
+                                    response = { comment = apiComment }
+                                in
+                                ( { model | stage = Complete response }, Cmd.none )
+                            
+                            Err _ ->
+                                -- Fallback if we can't decode the ID
+                                let
+                                    apiComment = 
+                                        { id = "comment_" ++ String.fromInt model.globalConfig.serverNow
+                                        , itemId = model.request |> Maybe.map .itemId |> Maybe.withDefault ""
+                                        , guestId = model.request |> Maybe.andThen .authorName |> Maybe.withDefault "guest_anonymous"
+                                        , parentId = model.request |> Maybe.andThen .parentId
+                                        , authorName = model.request |> Maybe.andThen .authorName |> Maybe.withDefault "Anonymous"
+                                        , text = model.request |> Maybe.map .text |> Maybe.withDefault ""
+                                        , timestamp = model.globalConfig.serverNow
+                                        }
+                        
+                                    response = { comment = apiComment }
+                                in
+                                ( { model | stage = Complete response }, Cmd.none )
                     
                     Nothing ->
                         let
                             _ = Debug.log "🐛 SubmitComment: No data returned from database" ()
                         in
-                        ( { model | stage = Failed "No data returned from database" }
-                        , complete (encodeError "No data returned from database")
-                        )
+                        ( { model | stage = Failed "No data returned from database" }, Cmd.none )
             else
                 let
                     error = Maybe.withDefault "Database operation failed" dbResponse.error
                     _ = Debug.log "🐛 SubmitComment: DB Error" error
                 in
-                ( { model | stage = Failed error }
-                , complete (encodeError error)
-                )
+                ( { model | stage = Failed error }, Cmd.none )
 
 
 -- BUSINESS LOGIC
@@ -188,13 +184,13 @@ processRequest request model =
         -- Note: id and host fields will be automatically generated/injected
         insertData = 
             Encode.object
-                [ ("item_id", Encode.string request.item_id)
-                , ("guest_id", Encode.string (Maybe.withDefault "guest_anonymous" request.author_name))
-                , ("author_name", Encode.string (Maybe.withDefault "Anonymous" request.author_name))
+                [ ("item_id", Encode.string request.itemId)
+                , ("guest_id", Encode.string (Maybe.withDefault "guest_anonymous" request.authorName))
+                , ("author_name", Encode.string (Maybe.withDefault "Anonymous" request.authorName))
                 , ("text", Encode.string request.text)
                 , ("created_at", Encode.int currentTimestamp)
                 , ("parent_id", 
-                    case request.parent_id of
+                    case request.parentId of
                         Just pid -> Encode.string pid
                         Nothing -> Encode.null)
                 ]
@@ -202,12 +198,29 @@ processRequest request model =
         -- Create database request with auto-generated ID
         dbRequest = 
             { id = "create_comment_" ++ String.fromInt currentTimestamp
-            , table = "item_comments"
+            , table = "item_comment"
             , data = insertData
             }
     in
     -- Insert comment into database using raw dbCreate port
     DB.dbCreate dbRequest
+
+
+-- DECODING
+
+decodeRequest : RequestBundle -> Result String ( SubmitCommentReq, Context )
+decodeRequest bundle =
+    Result.map2 Tuple.pair
+        (Decode.decodeValue Api.Backend.submitCommentReqDecoder bundle.request |> Result.mapError Decode.errorToString)
+        (Decode.decodeValue contextDecoder bundle.context |> Result.mapError Decode.errorToString)
+
+
+contextDecoder : Decode.Decoder Context
+contextDecoder =
+    Decode.map3 Context
+        (Decode.field "host" Decode.string)
+        (Decode.maybe (Decode.field "userId" Decode.string))
+        (Decode.field "isExtension" Decode.bool)
 
 
 -- ENCODING
@@ -236,9 +249,35 @@ main : Program Flags Model Msg
 main =
     Platform.worker
         { init = init
-        , update = update
+        , update = updateWithResponse
         , subscriptions = subscriptions
         }
+
+
+updateWithResponse : Msg -> Model -> ( Model, Cmd Msg )
+updateWithResponse msg model =
+    let
+        ( newModel, cmd ) = update msg model
+    in
+    case newModel.stage of
+        Complete response ->
+            ( newModel
+            , Cmd.batch
+                [ complete (encodeSubmitCommentRes response)
+                , cmd
+                ]
+            )
+
+        Failed error ->
+            ( newModel
+            , Cmd.batch
+                [ complete (encodeError error)
+                , cmd
+                ]
+            )
+
+        _ ->
+            ( newModel, cmd )
 
 
 subscriptions : Model -> Sub Msg

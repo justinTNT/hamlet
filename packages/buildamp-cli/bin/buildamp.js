@@ -45,11 +45,12 @@ program
             await gen(projectPaths);
             
             // Update contracts
-            const hash = await calculateContractHash(projectPaths.modelsDir);
+            const { signature, files } = await calculateContractHash(projectPaths.modelsDir);
             const contracts = {
                 version: '1.0',
-                hash,
-                timestamp: new Date().toISOString(),
+                modelHash: signature,
+                files,
+                generatedAt: new Date().toISOString(),
                 modelsDir: projectPaths.modelsDir
             };
             
@@ -126,11 +127,12 @@ program
                 await gen(projectPaths);
                 
                 // Update contracts
-                const hash = await calculateContractHash(projectPaths.modelsDir);
+                const { signature, files } = await calculateContractHash(projectPaths.modelsDir);
                 const contracts = {
                     version: '1.0',
-                    hash,
-                    timestamp: new Date().toISOString(),
+                    modelHash: signature,
+                    files,
+                    generatedAt: new Date().toISOString(),
                     modelsDir: projectPaths.modelsDir
                 };
                 

@@ -12,14 +12,15 @@ import { spawn } from 'child_process';
 
 describe('TEA Handler State Corruption', () => {
     let serverProcess;
-    const serverUrl = 'http://localhost:3000';
+    const testPort = 3001;  // Unique port for state corruption test
+    const serverUrl = `http://localhost:${testPort}`;
     
     beforeAll(async () => {
-        // Start the server
-        serverProcess = spawn('npm', ['start'], {
+        // Start the server with custom port
+        serverProcess = spawn('node', ['server.js'], {
             cwd: '/Users/jtnt/Play/hamlet/app/horatio/server',
-            stdio: 'inherit',
-            shell: true
+            env: { ...process.env, PORT: testPort },
+            stdio: 'inherit'
         });
         
         // Wait for server to start
@@ -28,7 +29,9 @@ describe('TEA Handler State Corruption', () => {
     
     afterAll(async () => {
         if (serverProcess) {
-            serverProcess.kill();
+            serverProcess.kill('SIGTERM');
+            // Give it time to shut down gracefully
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
     });
 
@@ -49,8 +52,9 @@ describe('TEA Handler State Corruption', () => {
         if (firstResponse.body.items.length > 0) {
             const firstItem = firstResponse.body.items[0];
             expect(firstItem).toHaveProperty('title');
-            expect(firstItem).toHaveProperty('link');
+            expect(firstItem).toHaveProperty('image');
             expect(firstItem).toHaveProperty('extract');
+            expect(firstItem).toHaveProperty('owner_comment');
             
             // Should NOT have tag-only structure (id, name, created_at)
             expect(firstItem).not.toMatchObject({
@@ -78,8 +82,9 @@ describe('TEA Handler State Corruption', () => {
             
             // Should have microblog_item structure
             expect(secondItem).toHaveProperty('title');
-            expect(secondItem).toHaveProperty('link');
+            expect(secondItem).toHaveProperty('image');
             expect(secondItem).toHaveProperty('extract');
+            expect(secondItem).toHaveProperty('owner_comment');
             
             // Should NOT have tag structure (this will fail when bug is present)
             expect(secondItem).not.toMatchObject({

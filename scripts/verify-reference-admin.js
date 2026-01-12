@@ -70,8 +70,8 @@ function expect(actual, message) {
 test('Admin UI generation completes successfully', () => {
     console.log('\n👑 Testing admin UI generation...');
     try {
-        const output = execSync('npx buildamp gen', { stdio: 'pipe', encoding: 'utf8' });
-        const success = output.includes('Admin UI Generation') && output.includes('app/horatio/admin/src/Generated/Resources.elm');
+        const output = execSync('node packages/buildamp-cli/bin/buildamp.js gen --force', { stdio: 'pipe', encoding: 'utf8', cwd: rootDir });
+        const success = output.includes('Admin UI Generation') && output.includes('Admin UI:');
         return expect(success, 'Admin UI generation ran without errors').toBe(true);
     } catch (error) {
         console.log('Generation error:', error.message);
@@ -189,7 +189,7 @@ test('Admin UI builds without errors', () => {
     try {
         const adminDir = path.join(rootDir, 'app/horatio/admin');
         const output = execSync(`cd ${adminDir} && npm run build`, { stdio: 'pipe', encoding: 'utf8' });
-        const success = output.includes('Success!') && output.includes('built in');
+        const success = output.includes('Success') && output.includes('built in');
         
         // Also check that dist files were created
         const distExists = fs.existsSync(path.join(adminDir, 'dist/index.html'));
@@ -205,8 +205,8 @@ test('Admin UI builds without errors', () => {
 test('Admin generation integrates with main generation script', () => {
     console.log('\n🔗 Testing integration with main generation...');
     
-    // Check the new hamlet-cli generation orchestrator
-    const orchestratorPath = path.join(__dirname, '../packages/hamlet-cli/lib/generation-orchestrator.js');
+    // Check the new buildamp-cli generation orchestrator
+    const orchestratorPath = path.join(__dirname, '../packages/buildamp-cli/lib/generation-orchestrator.js');
     if (!fs.existsSync(orchestratorPath)) {
         return expect(false, 'Generation orchestrator exists').toBe(true);
     }

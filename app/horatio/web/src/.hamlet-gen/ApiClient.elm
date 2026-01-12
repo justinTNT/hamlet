@@ -8,6 +8,7 @@ module Generated.ApiClient exposing
     ( submitcomment, SubmitCommentReq, encodeSubmitCommentReq
     , getfeed, GetFeedReq, encodeGetFeedReq
     , submititem, SubmitItemReq, encodeSubmitItemReq
+    , getitem, GetItemReq, encodeGetItemReq
     , gettags, GetTagsReq, encodeGetTagsReq
     )
 
@@ -41,6 +42,12 @@ type alias SubmitItemReq =
     extract : String
     owner_comment : String
     tags : List String
+}
+
+type alias GetItemReq =
+{
+    host : String
+    id : String
 }
 
 type alias GetTagsReq =
@@ -79,6 +86,13 @@ encodeSubmitItemReq submititemreq =
         ( "tags", (Json.Encode.list Json.Encode.string) submititemreq.tags )
         ]
 
+encodeGetItemReq : GetItemReq -> Json.Encode.Value
+encodeGetItemReq getitemreq =
+    Json.Encode.object
+        [         ( "host", Json.Encode.string getitemreq.host )
+        ( "id", Json.Encode.string getitemreq.id )
+        ]
+
 encodeGetTagsReq : GetTagsReq -> Json.Encode.Value
 encodeGetTagsReq gettagsreq =
     Json.Encode.object
@@ -115,6 +129,16 @@ submititem request toMsg =
     Http.post
         { url = "/api/SubmitItem"
         , body = Http.jsonBody (encodeSubmitItemReq request)
+        , expect = Http.expectJson toMsg Json.Decode.value
+        }
+
+{-| Call GetItem API endpoint
+-}
+getitem : GetItemReq -> (Result Http.Error Json.Decode.Value -> msg) -> Cmd msg
+getitem request toMsg =
+    Http.post
+        { url = "/api/GetItem"
+        , body = Http.jsonBody (encodeGetItemReq request)
         , expect = Http.expectJson toMsg Json.Decode.value
         }
 

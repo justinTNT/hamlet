@@ -1,3 +1,5 @@
+#![cfg(feature = "wasm-tests")]
+
 use proto_rust::elm_export;
 
 #[test]

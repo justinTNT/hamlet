@@ -10,13 +10,14 @@ import { spawn } from 'child_process';
 
 describe('TEA Handler Pool Performance', () => {
     let serverProcess;
-    const serverUrl = 'http://localhost:3000';
+    const testPort = 3003;  // Unique port for performance test
+    const serverUrl = `http://localhost:${testPort}`;
     
     beforeAll(async () => {
-        serverProcess = spawn('npm', ['start'], {
+        serverProcess = spawn('node', ['server.js'], {
             cwd: '/Users/jtnt/Play/hamlet/app/horatio/server',
-            stdio: 'inherit',
-            shell: true
+            env: { ...process.env, PORT: testPort },
+            stdio: 'inherit'
         });
         
         await new Promise(resolve => setTimeout(resolve, 3000));
@@ -24,7 +25,9 @@ describe('TEA Handler Pool Performance', () => {
     
     afterAll(async () => {
         if (serverProcess) {
-            serverProcess.kill();
+            serverProcess.kill('SIGTERM');
+            // Give it time to shut down gracefully
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
     });
 

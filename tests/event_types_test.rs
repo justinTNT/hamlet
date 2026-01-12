@@ -1,3 +1,5 @@
+#![cfg(feature = "wasm-tests")]
+
 // Test for event framework types and validation
 use proto_rust::*;
 use proto_rust::events_send_welcome_email::SendWelcomeEmail;

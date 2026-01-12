@@ -5,4 +5,4 @@ edition = "2021"
 
 [dependencies]
 elm_rs = "0.2"
-proto-rust = { path = "../proto-rust" }
+proto-rust = { path = "../.." }

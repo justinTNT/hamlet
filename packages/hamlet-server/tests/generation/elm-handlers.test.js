@@ -28,7 +28,12 @@ describe('Elm TEA Handlers Generation Tests', () => {
         const sharedDir = path.join(testOutputDir, 'app', 'horatio', 'server', 'generated', 'Generated');
         fs.mkdirSync(sharedDir, { recursive: true });
         
-        // Create mock Database.elm
+        // Create mock Database.elm at the expected location
+        const backendElmDir = path.join(testOutputDir, 'src', 'generated', 'Generated');
+        fs.mkdirSync(backendElmDir, { recursive: true });
+        fs.writeFileSync(path.join(backendElmDir, 'Database.elm'), 'module Generated.Database exposing (..)');
+        
+        // Also create in the project location
         fs.writeFileSync(path.join(sharedDir, 'Database.elm'), 'module Generated.Database exposing (..)');
     });
 
@@ -71,7 +76,8 @@ pub struct SubmitCommentRes {
                 const config = {
                     inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
-                    projectName: 'horatio'
+                    projectName: 'horatio',
+                    backendElmPath: path.join(testOutputDir, 'src', 'generated')
                 };
                 const result = await generateElmHandlers(config);
                 
@@ -116,7 +122,8 @@ pub struct SubmitItemReq {
                 const config = {
                     inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
-                    projectName: 'horatio'
+                    projectName: 'horatio',
+                    backendElmPath: path.join(testOutputDir, 'src', 'generated')
                 };
                 const result = await generateElmHandlers(config);
                 
@@ -157,7 +164,8 @@ pub struct ComplexEndpointReq {
                 const config = {
                     inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
-                    projectName: 'horatio'
+                    projectName: 'horatio',
+                    backendElmPath: path.join(testOutputDir, 'src', 'generated')
                 };
                 const result = await generateElmHandlers(config);
                 
@@ -194,7 +202,8 @@ pub struct TestEndpointReq {
                 const config = {
                     inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
-                    projectName: 'horatio'
+                    projectName: 'horatio',
+                    backendElmPath: path.join(testOutputDir, 'src', 'generated')
                 };
                 await generateElmHandlers(config);
                 
@@ -248,7 +257,8 @@ pub struct ImportTestReq {
                 const config = {
                     inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
-                    projectName: 'horatio'
+                    projectName: 'horatio',
+                    backendElmPath: path.join(testOutputDir, 'src', 'generated')
                 };
                 await generateElmHandlers(config);
                 
@@ -296,7 +306,8 @@ pub struct PortTestReq {
                 const config = {
                     inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
-                    projectName: 'horatio'
+                    projectName: 'horatio',
+                    backendElmPath: path.join(testOutputDir, 'src', 'generated')
                 };
                 await generateElmHandlers(config);
                 
@@ -342,7 +353,8 @@ pub struct TimestampTestReq {
                 const config = {
                     inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
-                    projectName: 'horatio'
+                    projectName: 'horatio',
+                    backendElmPath: path.join(testOutputDir, 'src', 'generated')
                 };
                 await generateElmHandlers(config);
                 
@@ -400,7 +412,8 @@ pub struct OutdatedReq {
                 const config = {
                     inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
-                    projectName: 'horatio'
+                    projectName: 'horatio',
+                    backendElmPath: path.join(testOutputDir, 'src', 'generated')
                 };
                 const result = await generateElmHandlers(config);
                 
@@ -454,7 +467,8 @@ pub struct CurrentReq {
                 const config = {
                     inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
-                    projectName: 'horatio'
+                    projectName: 'horatio',
+                    backendElmPath: path.join(testOutputDir, 'src', 'generated')
                 };
                 const result = await generateElmHandlers(config);
                 
@@ -502,7 +516,8 @@ pub struct TimingReq {
                 const config = {
                     inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
-                    projectName: 'horatio'
+                    projectName: 'horatio',
+                    backendElmPath: path.join(testOutputDir, 'src', 'generated')
                 };
                 const result = await generateElmHandlers(config);
                 
@@ -539,7 +554,8 @@ pub struct CompileTest2Req { pub host: String, }
                 const config = {
                     inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
-                    projectName: 'horatio'
+                    projectName: 'horatio',
+                    backendElmPath: path.join(testOutputDir, 'src', 'generated')
                 };
                 await generateElmHandlers(config);
                 
@@ -585,7 +601,8 @@ pub struct ServiceTestReq { pub host: String, }
                 const config = {
                     inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
-                    projectName: 'horatio'
+                    projectName: 'horatio',
+                    backendElmPath: path.join(testOutputDir, 'src', 'generated')
                 };
                 await generateElmHandlers(config);
                 
@@ -627,7 +644,8 @@ pub struct SkipTestReq { pub host: String, }
                 const config = {
                     inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
-                    projectName: 'horatio'
+                    projectName: 'horatio',
+                    backendElmPath: path.join(testOutputDir, 'src', 'generated')
                 };
                 await generateElmHandlers(config);
                 
@@ -657,7 +675,8 @@ pub struct SkipTestReq { pub host: String, }
                 const config = {
                     inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
-                    projectName: 'horatio'
+                    projectName: 'horatio',
+                    backendElmPath: path.join(testOutputDir, 'src', 'generated')
                 };
                 const result = await generateElmHandlers(config);
                 
@@ -684,7 +703,8 @@ pub struct SkipTestReq { pub host: String, }
                 const config = {
                     inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
-                    projectName: 'horatio'
+                    projectName: 'horatio',
+                    backendElmPath: path.join(testOutputDir, 'src', 'generated')
                 };
                 const result = await generateElmHandlers(config);
                 
@@ -718,7 +738,8 @@ pub struct PermTestReq { pub host: String, }
                 const config = {
                     inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
-                    projectName: 'horatio'
+                    projectName: 'horatio',
+                    backendElmPath: path.join(testOutputDir, 'src', 'generated')
                 };
                 const result = await generateElmHandlers(config);
                 
@@ -758,7 +779,8 @@ pub struct Handler${i}Req { pub host: String, pub data${i}: String, }
                 const config = {
                     inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
-                    projectName: 'horatio'
+                    projectName: 'horatio',
+                    backendElmPath: path.join(testOutputDir, 'src', 'generated')
                 };
                 const result = await generateElmHandlers(config);
                 const duration = Date.now() - start;
@@ -790,7 +812,8 @@ pub struct CacheTestReq { pub host: String, }
                 const config = {
                     inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     handlersPath: path.join(testOutputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers'),
-                    projectName: 'horatio'
+                    projectName: 'horatio',
+                    backendElmPath: path.join(testOutputDir, 'src', 'generated')
                 };
                 const result1 = await generateElmHandlers(config);
                 const duration1 = Date.now() - start1;

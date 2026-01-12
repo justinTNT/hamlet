@@ -259,7 +259,7 @@ describe('Hamlet Code Generation Tests', () => {
         });
 
         test('Elm port file has correct structure', () => {
-            expect(elmContent).toContain('port module Generated.StoragePorts exposing (..)');
+            expect(elmContent).toContain('port module StoragePorts exposing (..)');
             expect(elmContent).toContain('port saveGuestSession');
             expect(elmContent).toContain('port loadGuestSession');
             expect(elmContent).toContain('port clearGuestSession');

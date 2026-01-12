@@ -635,12 +635,14 @@ export default async function createElmService(server) {
                     // Send request to Elm in TEA format
                     if (elmApp.ports && elmApp.ports.handleRequest) {
                         const requestBundle = {
-                            id: requestId,
+                            request: requestData,
                             context: {
                                 host: context.host || 'localhost',
-                                sessionId: context.session_id || null
+                                userId: context.user_id || null,
+                                isExtension: context.is_extension || false
                             },
-                            request: requestData
+                            globalConfig: {}, // TODO: Add actual global config
+                            globalState: {}   // TODO: Add actual global state
                         };
 
                         // Context is already stored in requestContext (request-scoped)

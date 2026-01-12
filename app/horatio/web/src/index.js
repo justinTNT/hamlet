@@ -1,17 +1,17 @@
-import init, { encode_request, decode_response } from 'proto-rust';
+// import init, { encode_request, decode_response } from 'proto-rust';
 import { Elm } from './Main.elm';
 
 console.log("Horatio Client v1.0.0 - Ports Debug");
 
 async function run() {
-    // Initialize WASM module
-    try {
-        await init();
-        console.log("WASM module initialized successfully.");
-    } catch (e) {
-        console.error("Failed to initialize WASM module:", e);
-        return;
-    }
+    // Skip WASM initialization for now
+    // try {
+    //     await init();
+    //     console.log("WASM module initialized successfully.");
+    // } catch (e) {
+    //     console.error("Failed to initialize WASM module:", e);
+    //     return;
+    // }
 
     console.log("About to initialize Elm app...");
 
@@ -85,9 +85,9 @@ async function run() {
                     return;
                 }
 
-                // Use WASM to encode the request body (for POC, it's a pass-through)
-                console.log("Encoding request via WASM...");
-                const encodedBody = encode_request(endpoint, JSON.stringify(body));
+                // Skip WASM encoding for now - just pass through JSON
+                console.log("Encoding request (WASM bypassed)...");
+                const encodedBody = JSON.stringify(body);
                 console.log("Encoded request:", encodedBody);
 
                 // ** REAL NETWORK CALL **
@@ -108,9 +108,9 @@ async function run() {
                     .then((wireResponse) => {
                         console.log('Received response from server:', wireResponse);
 
-                        // Use WASM to decode the wire response
-                        const normalizedBody = decode_response(endpoint, wireResponse);
-                        console.log('Decoded response via WASM:', normalizedBody);
+                        // Skip WASM decoding for now - response is already JSON
+                        const normalizedBody = wireResponse;
+                        console.log('Decoded response (WASM bypassed):', normalizedBody);
 
                         app.ports.rpcResponse.send({
                             endpoint,

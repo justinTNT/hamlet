@@ -2851,10 +2851,8 @@ var $elm$json$Json$Decode$string = _Json_decodeString;
 var $author$project$Api$Handlers$GetTagsHandlerTEA$HandleRequest = function (a) {
 	return {$: 'HandleRequest', a: a};
 };
-var $elm$json$Json$Decode$map = _Json_map1;
-var $elm$json$Json$Decode$null = _Json_decodeNull;
-var $elm$json$Json$Decode$oneOf = _Json_oneOf;
 var $elm$json$Json$Decode$succeed = _Json_succeed;
+var $elm$json$Json$Decode$value = _Json_decodeValue;
 var $author$project$Api$Handlers$GetTagsHandlerTEA$handleRequest = _Platform_incomingPort(
 	'handleRequest',
 	A2(
@@ -2862,82 +2860,30 @@ var $author$project$Api$Handlers$GetTagsHandlerTEA$handleRequest = _Platform_inc
 		function (request) {
 			return A2(
 				$elm$json$Json$Decode$andThen,
-				function (id) {
+				function (globalState) {
 					return A2(
 						$elm$json$Json$Decode$andThen,
-						function (context) {
-							return $elm$json$Json$Decode$succeed(
-								{context: context, id: id, request: request});
-						},
-						A2(
-							$elm$json$Json$Decode$field,
-							'context',
-							A2(
+						function (globalConfig) {
+							return A2(
 								$elm$json$Json$Decode$andThen,
-								function (userId) {
-									return A2(
-										$elm$json$Json$Decode$andThen,
-										function (sessionId) {
-											return A2(
-												$elm$json$Json$Decode$andThen,
-												function (host) {
-													return $elm$json$Json$Decode$succeed(
-														{host: host, sessionId: sessionId, userId: userId});
-												},
-												A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
-										},
-										A2(
-											$elm$json$Json$Decode$field,
-											'sessionId',
-											$elm$json$Json$Decode$oneOf(
-												_List_fromArray(
-													[
-														$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
-														A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$json$Json$Decode$string)
-													]))));
+								function (context) {
+									return $elm$json$Json$Decode$succeed(
+										{context: context, globalConfig: globalConfig, globalState: globalState, request: request});
 								},
-								A2(
-									$elm$json$Json$Decode$field,
-									'userId',
-									$elm$json$Json$Decode$oneOf(
-										_List_fromArray(
-											[
-												$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
-												A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$json$Json$Decode$string)
-											]))))));
+								A2($elm$json$Json$Decode$field, 'context', $elm$json$Json$Decode$value));
+						},
+						A2($elm$json$Json$Decode$field, 'globalConfig', $elm$json$Json$Decode$value));
 				},
-				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string));
+				A2($elm$json$Json$Decode$field, 'globalState', $elm$json$Json$Decode$value));
 		},
-		A2(
-			$elm$json$Json$Decode$field,
-			'request',
-			A2(
-				$elm$json$Json$Decode$andThen,
-				function (host) {
-					return $elm$json$Json$Decode$succeed(
-						{host: host});
-				},
-				A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string)))));
+		A2($elm$json$Json$Decode$field, 'request', $elm$json$Json$Decode$value)));
 var $author$project$Api$Handlers$GetTagsHandlerTEA$subscriptions = function (_v0) {
 	return $author$project$Api$Handlers$GetTagsHandlerTEA$handleRequest($author$project$Api$Handlers$GetTagsHandlerTEA$HandleRequest);
 };
-var $author$project$Api$Handlers$GetTagsHandlerTEA$Complete = function (a) {
-	return {$: 'Complete', a: a};
-};
-var $author$project$Api$Handlers$GetTagsHandlerTEA$Processing = {$: 'Processing'};
 var $elm$core$Basics$identity = function (x) {
 	return x;
 };
 var $author$project$Api$Handlers$GetTagsHandlerTEA$complete = _Platform_outgoingPort('complete', $elm$core$Basics$identity);
-var $elm$json$Json$Encode$list = F2(
-	function (func, entries) {
-		return _Json_wrap(
-			A3(
-				$elm$core$List$foldl,
-				_Json_addEntry(func),
-				_Json_emptyArray(_Utils_Tuple0),
-				entries));
-	});
 var $elm$json$Json$Encode$object = function (pairs) {
 	return _Json_wrap(
 		A3(
@@ -2952,6 +2898,24 @@ var $elm$json$Json$Encode$object = function (pairs) {
 			pairs));
 };
 var $elm$json$Json$Encode$string = _Json_wrap;
+var $author$project$Api$Handlers$GetTagsHandlerTEA$encodeError = function (error) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'error',
+				$elm$json$Json$Encode$string(error))
+			]));
+};
+var $elm$json$Json$Encode$list = F2(
+	function (func, entries) {
+		return _Json_wrap(
+			A3(
+				$elm$core$List$foldl,
+				_Json_addEntry(func),
+				_Json_emptyArray(_Utils_Tuple0),
+				entries));
+	});
 var $author$project$Api$Backend$getTagsResEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
@@ -2963,6 +2927,94 @@ var $author$project$Api$Backend$getTagsResEncoder = function (struct) {
 };
 var $author$project$Api$Handlers$GetTagsHandlerTEA$encodeGetTagsRes = function (response) {
 	return $author$project$Api$Backend$getTagsResEncoder(response);
+};
+var $author$project$Api$Handlers$GetTagsHandlerTEA$Complete = function (a) {
+	return {$: 'Complete', a: a};
+};
+var $author$project$Api$Handlers$GetTagsHandlerTEA$Failed = function (a) {
+	return {$: 'Failed', a: a};
+};
+var $author$project$Api$Handlers$GetTagsHandlerTEA$Processing = {$: 'Processing'};
+var $author$project$Api$Handlers$GetTagsHandlerTEA$Context = F3(
+	function (host, userId, sessionId) {
+		return {host: host, sessionId: sessionId, userId: userId};
+	});
+var $elm$json$Json$Decode$map3 = _Json_map3;
+var $elm$json$Json$Decode$map = _Json_map1;
+var $elm$json$Json$Decode$oneOf = _Json_oneOf;
+var $elm$json$Json$Decode$maybe = function (decoder) {
+	return $elm$json$Json$Decode$oneOf(
+		_List_fromArray(
+			[
+				A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, decoder),
+				$elm$json$Json$Decode$succeed($elm$core$Maybe$Nothing)
+			]));
+};
+var $author$project$Api$Handlers$GetTagsHandlerTEA$contextDecoder = A4(
+	$elm$json$Json$Decode$map3,
+	$author$project$Api$Handlers$GetTagsHandlerTEA$Context,
+	A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string),
+	$elm$json$Json$Decode$maybe(
+		A2($elm$json$Json$Decode$field, 'userId', $elm$json$Json$Decode$string)),
+	$elm$json$Json$Decode$maybe(
+		A2($elm$json$Json$Decode$field, 'sessionId', $elm$json$Json$Decode$string)));
+var $elm$json$Json$Decode$decodeValue = _Json_run;
+var $author$project$Api$Backend$GetTagsReq = function (host) {
+	return {host: host};
+};
+var $author$project$Api$Backend$getTagsReqDecoder = A2(
+	$elm$json$Json$Decode$andThen,
+	function (x) {
+		return A2(
+			$elm$json$Json$Decode$map,
+			x,
+			A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
+	},
+	$elm$json$Json$Decode$succeed($author$project$Api$Backend$GetTagsReq));
+var $elm$core$Result$map2 = F3(
+	function (func, ra, rb) {
+		if (ra.$ === 'Err') {
+			var x = ra.a;
+			return $elm$core$Result$Err(x);
+		} else {
+			var a = ra.a;
+			if (rb.$ === 'Err') {
+				var x = rb.a;
+				return $elm$core$Result$Err(x);
+			} else {
+				var b = rb.a;
+				return $elm$core$Result$Ok(
+					A2(func, a, b));
+			}
+		}
+	});
+var $elm$core$Result$mapError = F2(
+	function (f, result) {
+		if (result.$ === 'Ok') {
+			var v = result.a;
+			return $elm$core$Result$Ok(v);
+		} else {
+			var e = result.a;
+			return $elm$core$Result$Err(
+				f(e));
+		}
+	});
+var $elm$core$Tuple$pair = F2(
+	function (a, b) {
+		return _Utils_Tuple2(a, b);
+	});
+var $author$project$Api$Handlers$GetTagsHandlerTEA$decodeRequest = function (bundle) {
+	return A3(
+		$elm$core$Result$map2,
+		$elm$core$Tuple$pair,
+		A2(
+			$elm$core$Result$mapError,
+			$elm$json$Json$Decode$errorToString,
+			A2($elm$json$Json$Decode$decodeValue, $author$project$Api$Backend$getTagsReqDecoder, bundle.request)),
+		A2(
+			$elm$core$Result$mapError,
+			$elm$json$Json$Decode$errorToString,
+			A2($elm$json$Json$Decode$decodeValue, $author$project$Api$Handlers$GetTagsHandlerTEA$contextDecoder, bundle.context)));
 };
 var $author$project$Api$Handlers$GetTagsHandlerTEA$ProcessingComplete = function (a) {
 	return {$: 'ProcessingComplete', a: a};
@@ -3120,8 +3172,8 @@ var $author$project$Api$Handlers$GetTagsHandlerTEA$processRequest = function (re
 	var placeholderResponse = _Debug_todo(
 		'Api.Handlers.GetTagsHandlerTEA',
 		{
-			start: {line: 158, column: 31},
-			end: {line: 158, column: 41}
+			start: {line: 164, column: 31},
+			end: {line: 164, column: 41}
 		})('Implement GetTags handler');
 	return A2(
 		$elm$core$Task$perform,
@@ -3134,15 +3186,30 @@ var $author$project$Api$Handlers$GetTagsHandlerTEA$update = F2(
 	function (msg, model) {
 		if (msg.$ === 'HandleRequest') {
 			var bundle = msg.a;
-			return _Utils_Tuple2(
-				_Utils_update(
-					model,
-					{
-						context: $elm$core$Maybe$Just(bundle.context),
-						request: $elm$core$Maybe$Just(bundle.request),
-						stage: $author$project$Api$Handlers$GetTagsHandlerTEA$Processing
-					}),
-				$author$project$Api$Handlers$GetTagsHandlerTEA$processRequest(bundle.request));
+			var _v1 = $author$project$Api$Handlers$GetTagsHandlerTEA$decodeRequest(bundle);
+			if (_v1.$ === 'Ok') {
+				var _v2 = _v1.a;
+				var req = _v2.a;
+				var ctx = _v2.b;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							context: $elm$core$Maybe$Just(ctx),
+							request: $elm$core$Maybe$Just(req),
+							stage: $author$project$Api$Handlers$GetTagsHandlerTEA$Processing
+						}),
+					$author$project$Api$Handlers$GetTagsHandlerTEA$processRequest(req));
+			} else {
+				var error = _v1.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							stage: $author$project$Api$Handlers$GetTagsHandlerTEA$Failed(error)
+						}),
+					$elm$core$Platform$Cmd$none);
+			}
 		} else {
 			var result = msg.a;
 			return _Utils_Tuple2(
@@ -3155,9 +3222,42 @@ var $author$project$Api$Handlers$GetTagsHandlerTEA$update = F2(
 					$author$project$Api$Handlers$GetTagsHandlerTEA$encodeGetTagsRes(result)));
 		}
 	});
+var $author$project$Api$Handlers$GetTagsHandlerTEA$updateWithResponse = F2(
+	function (msg, model) {
+		var _v0 = A2($author$project$Api$Handlers$GetTagsHandlerTEA$update, msg, model);
+		var newModel = _v0.a;
+		var cmd = _v0.b;
+		var _v1 = newModel.stage;
+		switch (_v1.$) {
+			case 'Complete':
+				var response = _v1.a;
+				return _Utils_Tuple2(
+					newModel,
+					$elm$core$Platform$Cmd$batch(
+						_List_fromArray(
+							[
+								$author$project$Api$Handlers$GetTagsHandlerTEA$complete(
+								$author$project$Api$Handlers$GetTagsHandlerTEA$encodeGetTagsRes(response)),
+								cmd
+							])));
+			case 'Failed':
+				var error = _v1.a;
+				return _Utils_Tuple2(
+					newModel,
+					$elm$core$Platform$Cmd$batch(
+						_List_fromArray(
+							[
+								$author$project$Api$Handlers$GetTagsHandlerTEA$complete(
+								$author$project$Api$Handlers$GetTagsHandlerTEA$encodeError(error)),
+								cmd
+							])));
+			default:
+				return _Utils_Tuple2(newModel, cmd);
+		}
+	});
 var $elm$core$Platform$worker = _Platform_worker;
 var $author$project$Api$Handlers$GetTagsHandlerTEA$main = $elm$core$Platform$worker(
-	{init: $author$project$Api$Handlers$GetTagsHandlerTEA$init, subscriptions: $author$project$Api$Handlers$GetTagsHandlerTEA$subscriptions, update: $author$project$Api$Handlers$GetTagsHandlerTEA$update});
+	{init: $author$project$Api$Handlers$GetTagsHandlerTEA$init, subscriptions: $author$project$Api$Handlers$GetTagsHandlerTEA$subscriptions, update: $author$project$Api$Handlers$GetTagsHandlerTEA$updateWithResponse});
 _Platform_export({'Api':{'Handlers':{'GetTagsHandlerTEA':{'init':$author$project$Api$Handlers$GetTagsHandlerTEA$main(
 	A2(
 		$elm$json$Json$Decode$andThen,

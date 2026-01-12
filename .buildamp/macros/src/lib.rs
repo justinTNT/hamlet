@@ -631,9 +631,13 @@ pub fn derive_buildamp_context(input: TokenStream) -> TokenStream {
 
 /// Auto-detect app models directory
 fn auto_detect_app_models_dir() -> String {
+    // Get the manifest directory (where Cargo.toml is located)
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
+    let base_path = std::path::Path::new(&manifest_dir);
     
     // Look for app/*/models directories
-    if let Ok(app_dir) = std::fs::read_dir("app") {
+    let app_path = base_path.join("app");
+    if let Ok(app_dir) = std::fs::read_dir(&app_path) {
         for app_entry in app_dir.flatten() {
             if app_entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
                 let models_path = app_entry.path().join("models");
@@ -645,12 +649,15 @@ fn auto_detect_app_models_dir() -> String {
     }
     
     // Fallback to src/models for compatibility
-    "src/models".to_string()
+    base_path.join("src/models").to_string_lossy().to_string()
 }
 
-/// Extract actual struct names from API file content (e.g., "GetFeedReq", "GetFeedRes")  
-fn extract_api_struct_names(file_path: &str) -> Result<Vec<String>, std::io::Error> {
-    let content = std::fs::read_to_string(file_path)?;
+/// Extract actual struct names from API file content with module info
+fn extract_api_struct_names(file_path: &str, module_name: &str) -> Result<Vec<(String, String)>, std::io::Error> {
+    // Use absolute path
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
+    let absolute_path = std::path::Path::new(&manifest_dir).join(file_path);
+    let content = std::fs::read_to_string(&absolute_path)?;
     let mut struct_names = Vec::new();
     
     for line in content.lines() {
@@ -669,21 +676,21 @@ fn extract_api_struct_names(file_path: &str) -> Result<Vec<String>, std::io::Err
         }
     }
     
-    // Extract base names (e.g., "GetFeedReq" -> "GetFeed")
-    let mut base_names = Vec::new();
+    // Extract base names with module info (e.g., ("feed", "GetFeed"))
+    let mut base_names_with_module = Vec::new();
     for name in struct_names {
         if let Some(base) = name.strip_suffix("Req").or_else(|| name.strip_suffix("Res")) {
-            if !base_names.contains(&base.to_string()) {
-                base_names.push(base.to_string());
+            if !base_names_with_module.iter().any(|(_, b)| b == base) {
+                base_names_with_module.push((module_name.to_string(), base.to_string()));
             }
         }
     }
     
-    Ok(base_names)
+    Ok(base_names_with_module)
 }
 
 /// Generate WASM functions based on discovered API models
-fn generate_wasm_functions(api_models: &[String]) -> proc_macro2::TokenStream {
+fn generate_wasm_functions(api_models: &[(String, String)]) -> proc_macro2::TokenStream {
     if api_models.is_empty() {
         return quote! {
             // No API models found - generating placeholder WASM functions
@@ -704,20 +711,22 @@ fn generate_wasm_functions(api_models: &[String]) -> proc_macro2::TokenStream {
         };
     }
     
-    // Generate dispatcher pairs
-    let dispatcher_pairs: Vec<_> = api_models.iter().map(|model| {
-        let req_ident = syn::Ident::new(&format!("{}Req", model), proc_macro2::Span::call_site());
-        let res_ident = syn::Ident::new(&format!("{}Res", model), proc_macro2::Span::call_site());
-        quote! { (#req_ident, #res_ident) }
+    // Generate dispatcher pairs with correct module paths
+    let dispatcher_pairs: Vec<_> = api_models.iter().map(|(module, base_name)| {
+        let module_ident = syn::Ident::new(module, proc_macro2::Span::call_site());
+        let req_ident = syn::Ident::new(&format!("{}Req", base_name), proc_macro2::Span::call_site());
+        let res_ident = syn::Ident::new(&format!("{}Res", base_name), proc_macro2::Span::call_site());
+        quote! { (crate::models::api::#module_ident::#req_ident, crate::models::api::#module_ident::#res_ident) }
     }).collect();
     
     // Generate decode response cases
-    let decode_cases: Vec<_> = api_models.iter().map(|model| {
-        let endpoint = model.clone();
-        let res_type = syn::Ident::new(&format!("{}Res", model), proc_macro2::Span::call_site());
+    let decode_cases: Vec<_> = api_models.iter().map(|(module, base_name)| {
+        let module_ident = syn::Ident::new(module, proc_macro2::Span::call_site());
+        let endpoint = base_name.clone();
+        let res_type = syn::Ident::new(&format!("{}Res", base_name), proc_macro2::Span::call_site());
         quote! {
             if endpoint == #endpoint {
-                if let Ok(_) = serde_json::from_str::<#res_type>(&wire) {
+                if let Ok(_) = serde_json::from_str::<crate::models::api::#module_ident::#res_type>(&wire) {
                     return wire;
                 }
             }
@@ -728,7 +737,7 @@ fn generate_wasm_functions(api_models: &[String]) -> proc_macro2::TokenStream {
         #[wasm_bindgen]
         pub fn dispatcher(endpoint: String, wire: String, context_json: String) -> String {
             use buildamp_macro::generate_dispatcher;
-            let context: Context = serde_json::from_str(&context_json).unwrap_or_default();
+            let context: crate::framework::common::Context = serde_json::from_str(&context_json).unwrap_or_default();
             generate_dispatcher!(#(#dispatcher_pairs),*)
         }
 
@@ -755,16 +764,18 @@ pub fn buildamp_auto_discover_models(_input: TokenStream) -> TokenStream {
     let models_path = auto_detect_app_models_dir();
     
     let mut module_declarations = Vec::new();
-    let mut module_exports = Vec::new();
     let mut wasm_functions = quote! {}; // Default empty
+    let mut entries_list = Vec::new();
+    let mut infrastructure_module = quote! {}; // Separate infrastructure module
     
     // Recursively scan the models directory
     if let Ok(entries) = scan_models_dir(&models_path) {
+        entries_list = entries;
         // Detect required infrastructure based on model types
         let mut detected_types = std::collections::HashSet::new();
         let mut has_events = false;
         
-        for entry in &entries {
+        for entry in &entries_list {
             detected_types.insert(entry.model_type);
             if entry.model_type == ModelType::Events {
                 has_events = true;
@@ -773,7 +784,7 @@ pub fn buildamp_auto_discover_models(_input: TokenStream) -> TokenStream {
         
         // Generate infrastructure functions if events models detected
         if has_events {
-            module_declarations.push(quote! {
+            infrastructure_module = quote! {
                 // Auto-generated infrastructure functions when events models detected
                 pub mod buildamp_infrastructure {
                     use super::*;
@@ -792,9 +803,9 @@ pub fn buildamp_auto_discover_models(_input: TokenStream) -> TokenStream {
                     /// Indicates events infrastructure is required
                     pub const REQUIRES_EVENTS_INFRASTRUCTURE: bool = true;
                 }
-            });
+            };
         } else {
-            module_declarations.push(quote! {
+            infrastructure_module = quote! {
                 // No infrastructure required - no events models detected
                 pub mod buildamp_infrastructure {
                     pub const REQUIRES_EVENTS_INFRASTRUCTURE: bool = false;
@@ -802,76 +813,111 @@ pub fn buildamp_auto_discover_models(_input: TokenStream) -> TokenStream {
                     pub fn get_events_infrastructure_sql() -> &'static str {
                         "-- No events infrastructure required"
                     }
+                    
+                    pub fn get_infrastructure_manifest() -> std::collections::HashMap<String, serde_json::Value> {
+                        std::collections::HashMap::new()
+                    }
                 }
-            });
+            };
         }
         
         // Collect API models for WASM function generation
         let mut api_models = Vec::new();
         
-        for entry in &entries {
+        for entry in &entries_list {
             if entry.is_api {
-                // Extract actual struct names from file content
-                if let Ok(struct_names) = extract_api_struct_names(&entry.file_path) {
+                // Extract actual struct names from file content with module info
+                if let Ok(struct_names) = extract_api_struct_names(&entry.file_path, &entry.module_name) {
                     api_models.extend(struct_names);
                 }
             }
         }
         
-        for entry in entries {
+        for entry in &entries_list {
             let module_name = syn::Ident::new(&entry.module_name, proc_macro2::Span::call_site());
             let file_path = entry.file_path.clone();
             
-            // Read and enhance the source file at compile time
-            let enhanced_module = match entry.model_type {
-                ModelType::Database => {
-                    // Generate enhanced database module with auto-applied decorations
-                    generate_enhanced_db_module(&module_name, &file_path)
-                },
-                ModelType::Api => {
-                    // Generate enhanced API module with auto-applied decorations  
-                    generate_enhanced_api_module(&module_name, &file_path)
-                },
-                ModelType::Storage => {
-                    // Generate enhanced storage module with auto-applied decorations
-                    generate_enhanced_storage_module(&module_name, &file_path)
-                },
-                ModelType::Sse => {
-                    // Generate enhanced SSE module with auto-applied decorations
-                    generate_enhanced_sse_module(&module_name, &file_path)
-                },
-                ModelType::Events => {
-                    // Generate enhanced events module with auto-applied decorations
-                    generate_enhanced_events_module(&module_name, &file_path)
-                },
-                _ => {
-                    quote! {
-                        #[path = #file_path]
-                        pub mod #module_name;
-                    }
-                }
+            // Use simple path-based include for all modules
+            let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
+            let absolute_path = std::path::Path::new(&manifest_dir).join(&file_path);
+            let absolute_path_str = absolute_path.to_string_lossy();
+            
+            let enhanced_module = quote! {
+                #[path = #absolute_path_str]
+                pub mod #module_name;
             };
             
             module_declarations.push(enhanced_module);
             
-            // If it's an API file, add to exports and collect for WASM generation
-            if entry.is_api {
-                module_exports.push(quote! {
-                    pub use #module_name::*;
-                });
-            }
+            // Note: We handle exports differently now
         }
         
         // Generate WASM functions based on discovered API models
         wasm_functions = generate_wasm_functions(&api_models);
     }
     
+    // Group modules by type
+    let mut api_modules = Vec::new();
+    let mut db_modules = Vec::new();
+    let mut storage_modules = Vec::new();
+    let mut events_modules = Vec::new();
+    let mut sse_modules = Vec::new();
+    
+    for (decl, entry) in module_declarations.iter().zip(entries_list.iter()) {
+        match entry.model_type {
+            ModelType::Api => api_modules.push(decl),
+            ModelType::Database => db_modules.push(decl),
+            ModelType::Storage => storage_modules.push(decl),
+            ModelType::Events => events_modules.push(decl),
+            ModelType::Sse => sse_modules.push(decl),
+            _ => {}
+        }
+    }
+    
+    // Generate all API module paths for re-exports
+    let api_exports: Vec<_> = api_modules.iter().enumerate().map(|(i, _)| {
+        if let Some(entry) = entries_list.iter().filter(|e| e.model_type == ModelType::Api).nth(i) {
+            let module_name = syn::Ident::new(&entry.module_name, proc_macro2::Span::call_site());
+            quote! { pub use api::#module_name::*; }
+        } else {
+            quote! {}
+        }
+    }).collect();
+
     TokenStream::from(quote! {
-        // Enhanced module declarations with auto-applied decorations
-        #(#module_declarations)*
+        // Infrastructure module at top level
+        #infrastructure_module
         
-        // Re-exports
-        #(#module_exports)*
+        // Auto-generated module structure
+        pub mod api {
+            use crate::*;
+            #(#api_modules)*
+            
+            // API types will be re-exported at the models level
+        }
+        
+        pub mod db {
+            use crate::*;
+            #(#db_modules)*
+        }
+        
+        pub mod storage {
+            use crate::*;
+            #(#storage_modules)*
+        }
+        
+        pub mod events {
+            use crate::*;
+            #(#events_modules)*
+        }
+        
+        pub mod sse {
+            use crate::*;
+            #(#sse_modules)*
+        }
+        
+        // Re-exports from api module for convenience
+        pub use api::*;
         
         // Auto-generated WASM functions based on discovered API models
         #wasm_functions
@@ -919,18 +965,11 @@ fn scan_directory(
         if path.is_file() {
             if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
                 if file_name.ends_with(".rs") && file_name != "mod.rs" {
-                    let module_name = if prefix.is_empty() {
-                        file_name.trim_end_matches(".rs").to_string()
-                    } else {
-                        format!("{}_{}", prefix, file_name.trim_end_matches(".rs"))
-                    };
+                    // Don't prefix module names - use clean names
+                    let module_name = file_name.trim_end_matches(".rs").to_string();
                     
-                    // Make path relative to project root (since it will be used from src/lib.rs)
-                    let file_path = if path.starts_with("app/") {
-                        format!("../{}", path.to_string_lossy())
-                    } else {
-                        path.to_string_lossy().to_string()
-                    };
+                    // Path is already relative from the project root
+                    let file_path = path.to_string_lossy().to_string();
                     
                     // Determine model type based on directory structure
                     let model_type = if prefix.contains("api") {
@@ -979,15 +1018,20 @@ fn generate_enhanced_db_module(module_name: &syn::Ident, file_path: &str) -> pro
         Ok(enhanced_content) => {
             quote! {
                 pub mod #module_name {
-                    use super::*;
+                    use crate::*;
                     #enhanced_content
                 }
             }
         },
         Err(_) => {
             // Fallback to simple include if enhancement fails
+            // Use CARGO_MANIFEST_DIR to create absolute path
+            // Use absolute path
+            let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
+            let absolute_path = std::path::Path::new(&manifest_dir).join(file_path);
+            let absolute_path_str = absolute_path.to_string_lossy();
             quote! {
-                #[path = #file_path]
+                #[path = #absolute_path_str]
                 pub mod #module_name;
             }
         }
@@ -999,14 +1043,18 @@ fn generate_enhanced_api_module(module_name: &syn::Ident, file_path: &str) -> pr
         Ok(enhanced_content) => {
             quote! {
                 pub mod #module_name {
-                    use super::*;
+                    use crate::*;
                     #enhanced_content
                 }
             }
         },
         Err(_) => {
+            // Fallback to simple include if enhancement fails
+            let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
+            let absolute_path = std::path::Path::new(&manifest_dir).join(file_path);
+            let absolute_path_str = absolute_path.to_string_lossy();
             quote! {
-                #[path = #file_path]
+                #[path = #absolute_path_str]
                 pub mod #module_name;
             }
         }
@@ -1018,7 +1066,7 @@ fn generate_enhanced_storage_module(module_name: &syn::Ident, file_path: &str) -
         Ok(enhanced_content) => {
             quote! {
                 pub mod #module_name {
-                    use super::*;
+                    use crate::*;
                     #enhanced_content
                 }
             }
@@ -1037,7 +1085,7 @@ fn generate_enhanced_sse_module(module_name: &syn::Ident, file_path: &str) -> pr
         Ok(enhanced_content) => {
             quote! {
                 pub mod #module_name {
-                    use super::*;
+                    use crate::*;
                     #enhanced_content
                 }
             }
@@ -1056,7 +1104,7 @@ fn generate_enhanced_events_module(module_name: &syn::Ident, file_path: &str) ->
         Ok(enhanced_content) => {
             quote! {
                 pub mod #module_name {
-                    use super::*;
+                    use crate::*;
                     #enhanced_content
                 }
             }
@@ -1252,11 +1300,9 @@ fn has_existing_derives_enum(item_enum: &syn::ItemEnum) -> bool {
 }
 
 fn read_and_enhance_structs(file_path: &str, strategy: &dyn DecorationStrategy) -> Result<proc_macro2::TokenStream, Box<dyn std::error::Error>> {
-    let full_path = if file_path.starts_with("src/") {
-        file_path.to_string()
-    } else {
-        format!("src/{}", file_path)
-    };
+    // Use CARGO_MANIFEST_DIR to resolve the path
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
+    let full_path = std::path::Path::new(&manifest_dir).join(file_path);
     let content = fs::read_to_string(&full_path)?;
     let ast = syn::parse_file(&content)?;
     

@@ -12,9 +12,13 @@ pub mod framework {
     pub mod core;
 }
 
+
 // Auto-discover all models - no manual declarations needed!
-use buildamp_macro::buildamp_auto_discover_models;
-buildamp_auto_discover_models!("src/models");
+pub mod models {
+    use super::*;
+    use buildamp_macro::buildamp_auto_discover_models;
+    buildamp_auto_discover_models!();
+}
 
 pub mod elm_export;
 pub use buildamp_macro::{BuildAmpEndpoint, BuildAmpElm, BuildAmpContext};
@@ -34,16 +38,21 @@ pub fn dispatcher(endpoint: String, wire: String, context_json: String) -> Strin
     use buildamp_macro::generate_dispatcher;
     // Deserialize context or use default if empty/error
     let context: Context = serde_json::from_str(&context_json).unwrap_or_default();
+    
+    // Example: The dispatcher macro will handle routing based on your API models
     generate_dispatcher!(
-        (IncrementReq, IncrementRes)
+        (models::api::HelloReq, models::api::HelloRes)
+        // Add more API endpoints here as you define them
     )
 }
 
 #[wasm_bindgen]
 pub fn get_openapi_spec() -> String {
     use buildamp_macro::generate_openapi_spec;
+    // Example: The OpenAPI spec is auto-generated from your API models
     generate_openapi_spec!(
-        (IncrementReq, IncrementRes)
+        (models::api::HelloReq, models::api::HelloRes)
+        // Add more API endpoints here as you define them
     );
     get_openapi_spec()
 }
@@ -192,40 +201,11 @@ pub fn generate_migrations() -> String {
     framework::migration_gen::generate_migration_sql()
 }
 
-#[wasm_bindgen]
-pub fn requires_events_infrastructure() -> bool {
-    buildamp_infrastructure::REQUIRES_EVENTS_INFRASTRUCTURE
-}
+// Infrastructure functions removed - not used in the codebase
 
 #[wasm_bindgen]
-pub fn get_events_infrastructure_sql() -> String {
-    buildamp_infrastructure::get_events_infrastructure_sql().to_string()
-}
-
-#[wasm_bindgen]
-pub fn get_infrastructure_manifest() -> String {
-    if buildamp_infrastructure::REQUIRES_EVENTS_INFRASTRUCTURE {
-        match serde_json::to_string_pretty(&buildamp_infrastructure::get_infrastructure_manifest()) {
-            Ok(json) => json,
-            Err(_) => "{}".to_string(),
-        }
-    } else {
-        serde_json::json!({
-            "status": "no_infrastructure_required",
-            "message": "No events models detected - no infrastructure will be installed"
-        }).to_string()
-    }
-}
-
-#[wasm_bindgen]
-pub fn decode_response(endpoint: String, wire: String) -> String {
-    // Client-side validation could go here
-    if endpoint == "Increment" {
-         if let Ok(_) = serde_json::from_str::<IncrementRes>(&wire) {
-             return wire;
-         }
-    }
-    
-    // Pass through or generic error check
+pub fn decode_response(_endpoint: String, wire: String) -> String {
+    // Client-side validation will be auto-generated when you add API models
+    // For now, just pass through
     wire
 }

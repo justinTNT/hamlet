@@ -109,8 +109,8 @@ echo ""
 # Test Suite 1: Core Rust Framework Tests
 run_test_suite \
     "Core Rust Tests" \
-    "/Users/jtnt/Play/hamlet/src" \
-    "cargo test --color=always" \
+    "/Users/jtnt/Play/hamlet" \
+    "cargo test --package proto-rust --color=always" \
     "Framework core functionality, models, macros (167 tests - CONFIRMED PASSING)"
 
 # Test Suite 2: Horatio Application Tests - SKIPPED (no tests)

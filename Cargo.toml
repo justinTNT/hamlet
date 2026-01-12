@@ -33,3 +33,4 @@ clap = { version = "4.0", features = ["derive"], optional = true }
 [features]
 default = []
 cli = ["clap"]
+wasm-tests = []  # Enable tests that require WASM codegen

@@ -2916,49 +2916,23 @@ var $author$project$Api$Handlers$GetFeedHandlerTEA$handleRequest = _Platform_inc
 		function (request) {
 			return A2(
 				$elm$json$Json$Decode$andThen,
-				function (id) {
+				function (globalState) {
 					return A2(
 						$elm$json$Json$Decode$andThen,
-						function (context) {
-							return $elm$json$Json$Decode$succeed(
-								{context: context, id: id, request: request});
-						},
-						A2(
-							$elm$json$Json$Decode$field,
-							'context',
-							A2(
+						function (globalConfig) {
+							return A2(
 								$elm$json$Json$Decode$andThen,
-								function (sessionId) {
-									return A2(
-										$elm$json$Json$Decode$andThen,
-										function (host) {
-											return $elm$json$Json$Decode$succeed(
-												{host: host, sessionId: sessionId});
-										},
-										A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
+								function (context) {
+									return $elm$json$Json$Decode$succeed(
+										{context: context, globalConfig: globalConfig, globalState: globalState, request: request});
 								},
-								A2(
-									$elm$json$Json$Decode$field,
-									'sessionId',
-									$elm$json$Json$Decode$oneOf(
-										_List_fromArray(
-											[
-												$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
-												A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$json$Json$Decode$string)
-											]))))));
+								A2($elm$json$Json$Decode$field, 'context', $elm$json$Json$Decode$value));
+						},
+						A2($elm$json$Json$Decode$field, 'globalConfig', $elm$json$Json$Decode$value));
 				},
-				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string));
+				A2($elm$json$Json$Decode$field, 'globalState', $elm$json$Json$Decode$value));
 		},
-		A2(
-			$elm$json$Json$Decode$field,
-			'request',
-			A2(
-				$elm$json$Json$Decode$andThen,
-				function (host) {
-					return $elm$json$Json$Decode$succeed(
-						{host: host});
-				},
-				A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string)))));
+		A2($elm$json$Json$Decode$field, 'request', $elm$json$Json$Decode$value)));
 var $author$project$Api$Handlers$GetFeedHandlerTEA$subscriptions = function (model) {
 	return $elm$core$Platform$Sub$batch(
 		_List_fromArray(
@@ -3195,6 +3169,84 @@ var $author$project$Api$Handlers$GetFeedHandlerTEA$decodeItems = function (data)
 			'Failed to decode items: ' + $elm$json$Json$Decode$errorToString(error));
 	}
 };
+var $author$project$Api$Handlers$GetFeedHandlerTEA$Context = F3(
+	function (host, userId, sessionId) {
+		return {host: host, sessionId: sessionId, userId: userId};
+	});
+var $elm$json$Json$Decode$map3 = _Json_map3;
+var $elm$json$Json$Decode$maybe = function (decoder) {
+	return $elm$json$Json$Decode$oneOf(
+		_List_fromArray(
+			[
+				A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, decoder),
+				$elm$json$Json$Decode$succeed($elm$core$Maybe$Nothing)
+			]));
+};
+var $author$project$Api$Handlers$GetFeedHandlerTEA$contextDecoder = A4(
+	$elm$json$Json$Decode$map3,
+	$author$project$Api$Handlers$GetFeedHandlerTEA$Context,
+	A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string),
+	$elm$json$Json$Decode$maybe(
+		A2($elm$json$Json$Decode$field, 'userId', $elm$json$Json$Decode$string)),
+	$elm$json$Json$Decode$maybe(
+		A2($elm$json$Json$Decode$field, 'sessionId', $elm$json$Json$Decode$string)));
+var $author$project$Api$Backend$GetFeedReq = function (host) {
+	return {host: host};
+};
+var $author$project$Api$Backend$getFeedReqDecoder = A2(
+	$elm$json$Json$Decode$andThen,
+	function (x) {
+		return A2(
+			$elm$json$Json$Decode$map,
+			x,
+			A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
+	},
+	$elm$json$Json$Decode$succeed($author$project$Api$Backend$GetFeedReq));
+var $elm$core$Result$map2 = F3(
+	function (func, ra, rb) {
+		if (ra.$ === 'Err') {
+			var x = ra.a;
+			return $elm$core$Result$Err(x);
+		} else {
+			var a = ra.a;
+			if (rb.$ === 'Err') {
+				var x = rb.a;
+				return $elm$core$Result$Err(x);
+			} else {
+				var b = rb.a;
+				return $elm$core$Result$Ok(
+					A2(func, a, b));
+			}
+		}
+	});
+var $elm$core$Result$mapError = F2(
+	function (f, result) {
+		if (result.$ === 'Ok') {
+			var v = result.a;
+			return $elm$core$Result$Ok(v);
+		} else {
+			var e = result.a;
+			return $elm$core$Result$Err(
+				f(e));
+		}
+	});
+var $elm$core$Tuple$pair = F2(
+	function (a, b) {
+		return _Utils_Tuple2(a, b);
+	});
+var $author$project$Api$Handlers$GetFeedHandlerTEA$decodeRequest = function (bundle) {
+	return A3(
+		$elm$core$Result$map2,
+		$elm$core$Tuple$pair,
+		A2(
+			$elm$core$Result$mapError,
+			$elm$json$Json$Decode$errorToString,
+			A2($elm$json$Json$Decode$decodeValue, $author$project$Api$Backend$getFeedReqDecoder, bundle.request)),
+		A2(
+			$elm$core$Result$mapError,
+			$elm$json$Json$Decode$errorToString,
+			A2($elm$json$Json$Decode$decodeValue, $author$project$Api$Handlers$GetFeedHandlerTEA$contextDecoder, bundle.context)));
+};
 var $elm$json$Json$Encode$object = function (pairs) {
 	return _Json_wrap(
 		A3(
@@ -3218,21 +3270,12 @@ var $author$project$Api$Handlers$GetFeedHandlerTEA$encodeError = function (error
 				$elm$json$Json$Encode$string(error))
 			]));
 };
-var $elm$json$Json$Encode$list = F2(
-	function (func, entries) {
-		return _Json_wrap(
-			A3(
-				$elm$core$List$foldl,
-				_Json_addEntry(func),
-				_Json_emptyArray(_Utils_Tuple0),
-				entries));
-	});
-var $elm$json$Json$Encode$int = _Json_wrap;
 var $elm$core$Basics$composeL = F3(
 	function (g, f, x) {
 		return g(
 			f(x));
 	});
+var $elm$json$Json$Encode$int = _Json_wrap;
 var $elm$core$Maybe$map = F2(
 	function (f, maybe) {
 		if (maybe.$ === 'Just') {
@@ -3253,37 +3296,7 @@ var $elm$core$Maybe$withDefault = F2(
 			return _default;
 		}
 	});
-var $author$project$Api$Backend$itemCommentEncoder = function (struct) {
-	return $elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'id',
-				$elm$json$Json$Encode$string(struct.id)),
-				_Utils_Tuple2(
-				'item_id',
-				$elm$json$Json$Encode$string(struct.itemId)),
-				_Utils_Tuple2(
-				'guest_id',
-				$elm$json$Json$Encode$string(struct.guestId)),
-				_Utils_Tuple2(
-				'parent_id',
-				A2(
-					$elm$core$Basics$composeL,
-					$elm$core$Maybe$withDefault($elm$json$Json$Encode$null),
-					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.parentId)),
-				_Utils_Tuple2(
-				'author_name',
-				$elm$json$Json$Encode$string(struct.authorName)),
-				_Utils_Tuple2(
-				'text',
-				$elm$json$Json$Encode$string(struct.text)),
-				_Utils_Tuple2(
-				'timestamp',
-				$elm$json$Json$Encode$int(struct.timestamp))
-			]));
-};
-var $author$project$Api$Backend$microblogItemEncoder = function (struct) {
+var $author$project$Api$Backend$feedItemEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
@@ -3294,35 +3307,41 @@ var $author$project$Api$Backend$microblogItemEncoder = function (struct) {
 				'title',
 				$elm$json$Json$Encode$string(struct.title)),
 				_Utils_Tuple2(
-				'link',
-				$elm$json$Json$Encode$string(struct.link)),
-				_Utils_Tuple2(
 				'image',
-				$elm$json$Json$Encode$string(struct.image)),
+				A2(
+					$elm$core$Basics$composeL,
+					$elm$core$Maybe$withDefault($elm$json$Json$Encode$null),
+					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.image)),
 				_Utils_Tuple2(
 				'extract',
-				$elm$json$Json$Encode$string(struct.extract)),
+				A2(
+					$elm$core$Basics$composeL,
+					$elm$core$Maybe$withDefault($elm$json$Json$Encode$null),
+					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.extract)),
 				_Utils_Tuple2(
 				'owner_comment',
 				$elm$json$Json$Encode$string(struct.ownerComment)),
-				_Utils_Tuple2(
-				'tags',
-				$elm$json$Json$Encode$list($elm$json$Json$Encode$string)(struct.tags)),
-				_Utils_Tuple2(
-				'comments',
-				$elm$json$Json$Encode$list($author$project$Api$Backend$itemCommentEncoder)(struct.comments)),
 				_Utils_Tuple2(
 				'timestamp',
 				$elm$json$Json$Encode$int(struct.timestamp))
 			]));
 };
+var $elm$json$Json$Encode$list = F2(
+	function (func, entries) {
+		return _Json_wrap(
+			A3(
+				$elm$core$List$foldl,
+				_Json_addEntry(func),
+				_Json_emptyArray(_Utils_Tuple0),
+				entries));
+	});
 var $author$project$Api$Backend$getFeedResEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
 				_Utils_Tuple2(
 				'items',
-				$elm$json$Json$Encode$list($author$project$Api$Backend$microblogItemEncoder)(struct.items))
+				$elm$json$Json$Encode$list($author$project$Api$Backend$feedItemEncoder)(struct.items))
 			]));
 };
 var $author$project$Api$Handlers$GetFeedHandlerTEA$encodeGetFeedRes = function (response) {
@@ -3619,106 +3638,9 @@ var $elm$core$List$map = F2(
 			_List_Nil,
 			xs);
 	});
-var $elm$core$List$filter = F2(
-	function (isGood, list) {
-		return A3(
-			$elm$core$List$foldr,
-			F2(
-				function (x, xs) {
-					return isGood(x) ? A2($elm$core$List$cons, x, xs) : xs;
-				}),
-			_List_Nil,
-			list);
-	});
-var $elm$core$List$any = F2(
-	function (isOkay, list) {
-		any:
-		while (true) {
-			if (!list.b) {
-				return false;
-			} else {
-				var x = list.a;
-				var xs = list.b;
-				if (isOkay(x)) {
-					return true;
-				} else {
-					var $temp$isOkay = isOkay,
-						$temp$list = xs;
-					isOkay = $temp$isOkay;
-					list = $temp$list;
-					continue any;
-				}
-			}
-		}
-	});
-var $elm$core$List$member = F2(
-	function (x, xs) {
-		return A2(
-			$elm$core$List$any,
-			function (a) {
-				return _Utils_eq(a, x);
-			},
-			xs);
-	});
-var $author$project$Api$Handlers$GetFeedHandlerTEA$transformDbCommentToApi = function (dbComment) {
-	return {authorName: dbComment.authorName, guestId: dbComment.guestId, id: dbComment.id, itemId: dbComment.itemId, parentId: dbComment.parentId, text: dbComment.text, timestamp: dbComment.createdAt};
-};
 var $author$project$Api$Handlers$GetFeedHandlerTEA$transformDbItemToApiWithRelations = F4(
 	function (allTags, itemTags, comments, dbItem) {
-		var itemTagIds = A2(
-			$elm$core$List$map,
-			function ($) {
-				return $.tagId;
-			},
-			A2(
-				$elm$core$List$filter,
-				function (itemTag) {
-					return _Utils_eq(itemTag.itemId, dbItem.id);
-				},
-				itemTags));
-		var itemTagNames = A2(
-			$elm$core$List$map,
-			function ($) {
-				return $.name;
-			},
-			A2(
-				$elm$core$List$filter,
-				function (tag) {
-					return A2($elm$core$List$member, tag.id, itemTagIds);
-				},
-				allTags));
-		var itemComments = A2(
-			$elm$core$List$map,
-			$author$project$Api$Handlers$GetFeedHandlerTEA$transformDbCommentToApi,
-			A2(
-				$elm$core$List$filter,
-				function (comment) {
-					return _Utils_eq(comment.itemId, dbItem.id);
-				},
-				comments));
-		var _v0 = A2($elm$core$Debug$log, '🔗 Item ID', dbItem.id);
-		var _v1 = A2($elm$core$Debug$log, '🔗 Item tag IDs for this item', itemTagIds);
-		var _v2 = A2(
-			$elm$core$Debug$log,
-			'🔗 All available tags',
-			A2(
-				$elm$core$List$map,
-				function (tag) {
-					return {id: tag.id, name: tag.name};
-				},
-				allTags));
-		var _v3 = A2($elm$core$Debug$log, '🔗 Final tag names', itemTagNames);
-		return {
-			comments: itemComments,
-			extract: A2($elm$core$Maybe$withDefault, '', dbItem.data.extract),
-			id: dbItem.id,
-			image: A2($elm$core$Maybe$withDefault, '', dbItem.data.image),
-			link: A2($elm$core$Maybe$withDefault, '', dbItem.data.link),
-			ownerComment: dbItem.data.ownerComment,
-			tags: itemTagNames,
-			timestamp: dbItem.createdAt,
-			title: dbItem.data.title
-		};
+		return {extract: dbItem.data.extract, id: dbItem.id, image: dbItem.data.image, ownerComment: dbItem.data.ownerComment, timestamp: dbItem.createdAt, title: dbItem.data.title};
 	});
 var $author$project$Api$Handlers$GetFeedHandlerTEA$transformToApiWithRelations = F4(
 	function (items, allTags, itemTags, comments) {
@@ -3732,37 +3654,52 @@ var $author$project$Api$Handlers$GetFeedHandlerTEA$update = F2(
 		switch (msg.$) {
 			case 'HandleRequest':
 				var bundle = msg.a;
-				return _Utils_Tuple2(
-					_Utils_update(
-						model,
-						{
-							allTags: _List_Nil,
-							context: $elm$core$Maybe$Just(bundle.context),
-							itemTags: _List_Nil,
-							loadedComments: _List_Nil,
-							loadedItems: _List_Nil,
-							request: $elm$core$Maybe$Just(bundle.request),
-							stage: $author$project$Api$Handlers$GetFeedHandlerTEA$LoadingAllTags
-						}),
-					$author$project$Api$Handlers$GetFeedHandlerTEA$loadAllTags);
+				var _v1 = $author$project$Api$Handlers$GetFeedHandlerTEA$decodeRequest(bundle);
+				if (_v1.$ === 'Ok') {
+					var _v2 = _v1.a;
+					var req = _v2.a;
+					var ctx = _v2.b;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								allTags: _List_Nil,
+								context: $elm$core$Maybe$Just(ctx),
+								itemTags: _List_Nil,
+								loadedComments: _List_Nil,
+								loadedItems: _List_Nil,
+								request: $elm$core$Maybe$Just(req),
+								stage: $author$project$Api$Handlers$GetFeedHandlerTEA$LoadingAllTags
+							}),
+						$author$project$Api$Handlers$GetFeedHandlerTEA$loadAllTags);
+				} else {
+					var error = _v1.a;
+					return _Utils_Tuple2(
+						_Utils_update(
+							model,
+							{
+								stage: $author$project$Api$Handlers$GetFeedHandlerTEA$Failed(error)
+							}),
+						$elm$core$Platform$Cmd$none);
+				}
 			case 'AllTagsLoaded':
 				var result = msg.a;
 				if (_Utils_eq(model.stage, $author$project$Api$Handlers$GetFeedHandlerTEA$LoadingAllTags)) {
-					var _v1 = $author$project$Api$Handlers$GetFeedHandlerTEA$handleDbResponse(result);
-					if (_v1.$ === 'Ok') {
-						var data = _v1.a;
-						var _v2 = A2($elm$core$Debug$log, '🏷️  Raw tags data ;)', data);
-						var _v3 = $author$project$Api$Handlers$GetFeedHandlerTEA$decodeAllTags(data);
-						if (_v3.$ === 'Ok') {
-							var tags = _v3.a;
-							var _v4 = A2($elm$core$Debug$log, '🏷️  Decoded tags ;)', tags);
+					var _v3 = $author$project$Api$Handlers$GetFeedHandlerTEA$handleDbResponse(result);
+					if (_v3.$ === 'Ok') {
+						var data = _v3.a;
+						var _v4 = A2($elm$core$Debug$log, '🏷️  Raw tags data ;)', data);
+						var _v5 = $author$project$Api$Handlers$GetFeedHandlerTEA$decodeAllTags(data);
+						if (_v5.$ === 'Ok') {
+							var tags = _v5.a;
+							var _v6 = A2($elm$core$Debug$log, '🏷️  Decoded tags ;)', tags);
 							return _Utils_Tuple2(
 								_Utils_update(
 									model,
 									{allTags: tags, stage: $author$project$Api$Handlers$GetFeedHandlerTEA$LoadingItems}),
 								$author$project$Api$Handlers$GetFeedHandlerTEA$loadMicroblogItems);
 						} else {
-							var error = _v3.a;
+							var error = _v5.a;
 							return _Utils_Tuple2(
 								_Utils_update(
 									model,
@@ -3773,7 +3710,7 @@ var $author$project$Api$Handlers$GetFeedHandlerTEA$update = F2(
 									$author$project$Api$Handlers$GetFeedHandlerTEA$encodeError(error)));
 						}
 					} else {
-						var error = _v1.a;
+						var error = _v3.a;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
@@ -3789,28 +3726,28 @@ var $author$project$Api$Handlers$GetFeedHandlerTEA$update = F2(
 			case 'ItemsLoaded':
 				var result = msg.a;
 				if (_Utils_eq(model.stage, $author$project$Api$Handlers$GetFeedHandlerTEA$LoadingItems)) {
-					var _v5 = $author$project$Api$Handlers$GetFeedHandlerTEA$handleDbResponse(result);
-					if (_v5.$ === 'Ok') {
-						var data = _v5.a;
-						var _v6 = A2($elm$core$Debug$log, '📄 Raw items data', data);
-						var _v7 = $author$project$Api$Handlers$GetFeedHandlerTEA$decodeItems(data);
-						if (_v7.$ === 'Ok') {
-							var items = _v7.a;
+					var _v7 = $author$project$Api$Handlers$GetFeedHandlerTEA$handleDbResponse(result);
+					if (_v7.$ === 'Ok') {
+						var data = _v7.a;
+						var _v8 = A2($elm$core$Debug$log, '📄 Raw items data', data);
+						var _v9 = $author$project$Api$Handlers$GetFeedHandlerTEA$decodeItems(data);
+						if (_v9.$ === 'Ok') {
+							var items = _v9.a;
 							var itemIds = A2(
 								$elm$core$List$map,
 								function ($) {
 									return $.id;
 								},
 								items);
-							var _v8 = A2($elm$core$Debug$log, '📄 Decoded items', items);
-							var _v9 = A2($elm$core$Debug$log, '📄 Item IDs', itemIds);
+							var _v10 = A2($elm$core$Debug$log, '📄 Decoded items', items);
+							var _v11 = A2($elm$core$Debug$log, '📄 Item IDs', itemIds);
 							return _Utils_Tuple2(
 								_Utils_update(
 									model,
 									{loadedItems: items, stage: $author$project$Api$Handlers$GetFeedHandlerTEA$LoadingItemTags}),
 								$author$project$Api$Handlers$GetFeedHandlerTEA$loadItemTagsForItems(itemIds));
 						} else {
-							var error = _v7.a;
+							var error = _v9.a;
 							return _Utils_Tuple2(
 								_Utils_update(
 									model,
@@ -3821,7 +3758,7 @@ var $author$project$Api$Handlers$GetFeedHandlerTEA$update = F2(
 									$author$project$Api$Handlers$GetFeedHandlerTEA$encodeError(error)));
 						}
 					} else {
-						var error = _v5.a;
+						var error = _v7.a;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
@@ -3837,27 +3774,27 @@ var $author$project$Api$Handlers$GetFeedHandlerTEA$update = F2(
 			case 'ItemTagsLoaded':
 				var result = msg.a;
 				if (_Utils_eq(model.stage, $author$project$Api$Handlers$GetFeedHandlerTEA$LoadingItemTags)) {
-					var _v10 = $author$project$Api$Handlers$GetFeedHandlerTEA$handleDbResponse(result);
-					if (_v10.$ === 'Ok') {
-						var data = _v10.a;
-						var _v11 = A2($elm$core$Debug$log, '🔗 Raw item-tags data', data);
-						var _v12 = $author$project$Api$Handlers$GetFeedHandlerTEA$decodeItemTags(data);
-						if (_v12.$ === 'Ok') {
-							var itemTagsList = _v12.a;
+					var _v12 = $author$project$Api$Handlers$GetFeedHandlerTEA$handleDbResponse(result);
+					if (_v12.$ === 'Ok') {
+						var data = _v12.a;
+						var _v13 = A2($elm$core$Debug$log, '🔗 Raw item-tags data', data);
+						var _v14 = $author$project$Api$Handlers$GetFeedHandlerTEA$decodeItemTags(data);
+						if (_v14.$ === 'Ok') {
+							var itemTagsList = _v14.a;
 							var itemIds = A2(
 								$elm$core$List$map,
 								function ($) {
 									return $.id;
 								},
 								model.loadedItems);
-							var _v13 = A2($elm$core$Debug$log, '🔗 Decoded item-tags', itemTagsList);
+							var _v15 = A2($elm$core$Debug$log, '🔗 Decoded item-tags', itemTagsList);
 							return _Utils_Tuple2(
 								_Utils_update(
 									model,
 									{itemTags: itemTagsList, stage: $author$project$Api$Handlers$GetFeedHandlerTEA$LoadingComments}),
 								$author$project$Api$Handlers$GetFeedHandlerTEA$loadCommentsForItems(itemIds));
 						} else {
-							var error = _v12.a;
+							var error = _v14.a;
 							return _Utils_Tuple2(
 								_Utils_update(
 									model,
@@ -3868,7 +3805,7 @@ var $author$project$Api$Handlers$GetFeedHandlerTEA$update = F2(
 									$author$project$Api$Handlers$GetFeedHandlerTEA$encodeError(error)));
 						}
 					} else {
-						var error = _v10.a;
+						var error = _v12.a;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
@@ -3884,12 +3821,12 @@ var $author$project$Api$Handlers$GetFeedHandlerTEA$update = F2(
 			default:
 				var result = msg.a;
 				if (_Utils_eq(model.stage, $author$project$Api$Handlers$GetFeedHandlerTEA$LoadingComments)) {
-					var _v14 = $author$project$Api$Handlers$GetFeedHandlerTEA$handleDbResponse(result);
-					if (_v14.$ === 'Ok') {
-						var data = _v14.a;
-						var _v15 = $author$project$Api$Handlers$GetFeedHandlerTEA$decodeComments(data);
-						if (_v15.$ === 'Ok') {
-							var comments = _v15.a;
+					var _v16 = $author$project$Api$Handlers$GetFeedHandlerTEA$handleDbResponse(result);
+					if (_v16.$ === 'Ok') {
+						var data = _v16.a;
+						var _v17 = $author$project$Api$Handlers$GetFeedHandlerTEA$decodeComments(data);
+						if (_v17.$ === 'Ok') {
+							var comments = _v17.a;
 							var feedItems = A4($author$project$Api$Handlers$GetFeedHandlerTEA$transformToApiWithRelations, model.loadedItems, model.allTags, model.itemTags, comments);
 							return _Utils_Tuple2(
 								_Utils_update(
@@ -3902,7 +3839,7 @@ var $author$project$Api$Handlers$GetFeedHandlerTEA$update = F2(
 									$author$project$Api$Handlers$GetFeedHandlerTEA$encodeGetFeedRes(
 										{items: feedItems})));
 						} else {
-							var error = _v15.a;
+							var error = _v17.a;
 							return _Utils_Tuple2(
 								_Utils_update(
 									model,
@@ -3913,7 +3850,7 @@ var $author$project$Api$Handlers$GetFeedHandlerTEA$update = F2(
 									$author$project$Api$Handlers$GetFeedHandlerTEA$encodeError(error)));
 						}
 					} else {
-						var error = _v14.a;
+						var error = _v16.a;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,

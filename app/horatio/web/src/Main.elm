@@ -4,12 +4,16 @@ import Api
 import Api.Http
 import Api.Schema
 import Browser
+import Browser.Navigation as Nav
 import Html exposing (Html, button, div, h1, h2, h3, h4, p, a, img, text, section, input, textarea, label, span, br)
 import Html.Attributes exposing (src, href, style, class, value, placeholder)
-import Html.Events exposing (onClick, onInput)
+import Html.Events exposing (onClick, onInput, onMouseEnter, onMouseLeave)
 import Http
 import Random
 import Storage
+import Url
+import Dict exposing (Dict)
+import Task
 
 port log : String -> Cmd msg
 
@@ -20,24 +24,63 @@ type alias Model =
     , replyingTo : Maybe { itemId : String, parentId : Maybe String }
     , newComment : String
     , guestSession : Maybe GuestSession
+    , route : Route
+    , navKey : Nav.Key
+    , hoveredItem : Maybe String
+    , itemDetails : Dict String ItemState
     }
+
+type ItemState
+    = ItemLoading
+    | ItemLoaded Api.Schema.MicroblogItem
+    | ItemFailed String
+
+type Route
+    = Feed
+    | Item String  -- Item ID
 
 type alias GuestSession = Storage.GuestSession
 
 type FeedState
     = Loading
-    | LoadedFeed (List Api.Schema.MicroblogItem)
+    | LoadedFeed (List Api.Schema.FeedItem)
     | Errored String
 
-init : ( Model, Cmd Msg )
-init =
+init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init _ url key =
+    let
+        route = parseUrl url
+    in
+    let
+        initialCmd = case route of
+            Feed ->
+                getFeed
+            Item itemId ->
+                Task.perform (always (LoadItem itemId)) (Task.succeed ())
+    in
     ( { feed = Loading
       , replyingTo = Nothing
       , newComment = ""
       , guestSession = Nothing
+      , route = route
+      , navKey = key
+      , hoveredItem = Nothing
+      , itemDetails = Dict.empty
       }
-    , Cmd.batch [ getFeed, Storage.loadGuestSession () ]
+    , Cmd.batch [ initialCmd, Storage.loadGuestSession () ]
     )
+
+parseUrl : Url.Url -> Route
+parseUrl url =
+    case url.path of
+        "/" ->
+            Feed
+            
+        path ->
+            if String.startsWith "/item/" path then
+                Item (String.dropLeft 6 path)
+            else
+                Feed
 
 -- GUEST SESSION MANAGEMENT
 
@@ -102,6 +145,11 @@ type Msg
     | CancelReply
     | GuestSessionCreated GuestSession
     | GuestSessionLoaded (Maybe GuestSession)
+    | LinkClicked Browser.UrlRequest
+    | UrlChanged Url.Url
+    | SetHoverState (Maybe String)
+    | LoadItem String
+    | GotItem String (Result Http.Error Api.Schema.GetItemRes)
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -151,6 +199,47 @@ update msg model =
 
         CancelReply ->
             ( { model | replyingTo = Nothing, newComment = "" }, Cmd.none )
+            
+        LinkClicked urlRequest ->
+            case urlRequest of
+                Browser.Internal url ->
+                    ( model, Nav.pushUrl model.navKey (Url.toString url) )
+                
+                Browser.External href ->
+                    ( model, Nav.load href )
+        
+        UrlChanged url ->
+            let
+                newRoute = parseUrl url
+                loadCmd = case newRoute of
+                    Item itemId ->
+                        if Dict.member itemId model.itemDetails then
+                            Cmd.none
+                        else
+                            Task.perform (always (LoadItem itemId)) (Task.succeed ())
+                    _ ->
+                        Cmd.none
+            in
+            ( { model | route = newRoute }, loadCmd )
+            
+        SetHoverState itemId ->
+            ( { model | hoveredItem = itemId }, Cmd.none )
+            
+        LoadItem itemId ->
+            ( { model | itemDetails = Dict.insert itemId ItemLoading model.itemDetails }
+            , Api.getItem { host = "localhost", id = itemId }
+                |> Api.Http.send (GotItem itemId)
+            )
+            
+        GotItem itemId (Ok res) ->
+            ( { model | itemDetails = Dict.insert itemId (ItemLoaded res.item) model.itemDetails }
+            , Cmd.none
+            )
+            
+        GotItem itemId (Err _) ->
+            ( { model | itemDetails = Dict.insert itemId (ItemFailed "Could not load item details") model.itemDetails }
+            , Cmd.none
+            )
 
 httpErrorToString : Http.Error -> String
 httpErrorToString err =
@@ -163,26 +252,39 @@ httpErrorToString err =
 
 -- VIEW
 
-view : Model -> Html Msg
+view : Model -> Browser.Document Msg
 view model =
-    div [ style "font-family" "sans-serif", style "max-width" "800px", style "margin" "0 auto", style "padding" "20px" ]
-        [ h1 [] [ text "Horatio Reader" ]
-        , div [ style "margin-bottom" "20px", style "display" "flex", style "justify-content" "space-between", style "align-items" "center" ]
-            [ button [ onClick PerformSubmitItem ] [ text "Test: Submit Item" ]
-            , span [ style "font-size" "0.9em", style "color" "#666" ]
-                [ text ("Signed in as: " ++ (Maybe.map .display_name model.guestSession |> Maybe.withDefault "Loading...")) ]
+    { title = "Horatio Reader"
+    , body = 
+        [ div [ style "font-family" "sans-serif", style "max-width" "800px", style "margin" "0 auto", style "padding" "20px" ]
+            [ h1 [] [ a [ href "/", style "text-decoration" "none", style "color" "black" ] [ text "Horatio Reader" ] ]
+            , div [ style "margin-bottom" "20px", style "display" "flex", style "justify-content" "space-between", style "align-items" "center" ]
+                [ button [ onClick PerformSubmitItem ] [ text "Test: Submit Item" ]
+                , span [ style "font-size" "0.9em", style "color" "#666" ]
+                    [ text ("Signed in as: " ++ (Maybe.map .display_name model.guestSession |> Maybe.withDefault "Loading...")) ]
+                ]
+            , viewContent model
             ]
-        , viewContent model
         ]
+    }
 
 viewContent : Model -> Html Msg
 viewContent model =
+    case model.route of
+        Feed ->
+            viewFeed model
+            
+        Item itemId ->
+            viewSingleItem model itemId
+
+viewFeed : Model -> Html Msg
+viewFeed model =
     case model.feed of
         Loading ->
             div [] [ text "Loading Feed..." ]
 
         LoadedFeed items ->
-            div [] (List.map (viewItem model) items)
+            div [] (List.map (viewFeedItem model) items)
 
         Errored errorMsg ->
             div [ style "color" "red" ]
@@ -190,21 +292,96 @@ viewContent model =
                 , div [] [ text errorMsg ]
                 ]
 
-viewItem : Model -> Api.Schema.MicroblogItem -> Html Msg
-viewItem model item =
-    section [ style "border" "1px solid #ddd", style "padding" "15px", style "margin-bottom" "15px", style "border-radius" "8px" ]
+viewSingleItem : Model -> String -> Html Msg
+viewSingleItem model itemId =
+    case Dict.get itemId model.itemDetails of
+        Just ItemLoading ->
+            div [] [ text "Loading item details..." ]
+            
+        Just (ItemLoaded item) ->
+            viewItemDetail model item
+            
+        Just (ItemFailed error) ->
+            div [ style "color" "red" ] [ text error ]
+            
+        Nothing ->
+            div [] [ text "Loading item details..." ]
+
+viewFeedItem : Model -> Api.Schema.FeedItem -> Html Msg
+viewFeedItem model item =
+    let
+        isHovered = model.hoveredItem == Just item.id
+        backgroundColor = if isHovered then "#f5f5f5" else "white"
+    in
+    a 
+        [ href ("/item/" ++ item.id)
+        , style "display" "block"
+        , style "text-decoration" "none"
+        , style "color" "inherit"
+        ]
+        [ section 
+            [ style "border" "1px solid #ddd"
+            , style "padding" "15px"
+            , style "margin-bottom" "15px"
+            , style "border-radius" "8px"
+            , style "cursor" "pointer"
+            , style "transition" "background-color 0.2s"
+            , style "background-color" backgroundColor
+            , onMouseEnter (SetHoverState (Just item.id))
+            , onMouseLeave (SetHoverState Nothing)
+            ]
+            [ div [ style "overflow" "hidden" ]
+                [ case item.image of
+                    Just imageUrl ->
+                        img 
+                            [ src imageUrl
+                            , style "float" "left"
+                            , style "width" "25%"
+                            , style "margin-right" "15px"
+                            , style "margin-bottom" "10px"
+                            ] []
+                    Nothing ->
+                        text ""
+                , h2 [ style "margin-top" "0" ] [ text item.title ]
+                , case item.extract of
+                    Just extractText ->
+                        p [ style "color" "#333" ] [ text extractText ]
+                    Nothing ->
+                        text ""
+                ]
+            , div 
+                [ style "background" "#f0f0f0"
+                , style "padding" "10px"
+                , style "border-radius" "5px"
+                , style "margin-top" "10px"
+                , style "clear" "both"
+                ]
+                [ text item.ownerComment ]
+            ]
+        ]
+
+countUserComments : List Api.Schema.ItemComment -> String
+countUserComments comments =
+    let
+        userComments = List.filter (\c -> c.authorName /= "Guest") comments
+    in
+    String.fromInt (List.length userComments)
+
+viewItemDetail : Model -> Api.Schema.MicroblogItem -> Html Msg
+viewItemDetail model item =
+    section [ style "border" "1px solid #ddd", style "padding" "20px", style "border-radius" "8px" ]
         [ h2 [] [ text item.title ]
-        , a [ href item.link, style "color" "blue" ] [ text item.link ]
-        , div [ style "margin" "10px 0" ] 
+        , a [ href item.link, style "color" "blue", style "text-decoration" "underline" ] [ text item.link ]
+        , div [ style "margin" "15px 0" ] 
             [ img [ src item.image, style "max-width" "100%", style "height" "auto" ] [] ]
         , p [] [ text item.extract ]
-        , div [ style "margin-bottom" "10px" ]
+        , div [ style "margin-bottom" "15px" ]
             (List.map viewTag item.tags)
-        , div [ style "background" "#f9f9f9", style "padding" "10px", style "font-style" "italic" ]
+        , div [ style "background" "#f9f9f9", style "padding" "15px", style "font-style" "italic", style "border-radius" "5px" ]
             [ text ("Owner: " ++ item.ownerComment) ]
         
         -- Comments Section
-        , div [ style "margin-top" "20px", style "border-top" "1px solid #eee", style "padding-top" "10px" ]
+        , div [ style "margin-top" "30px", style "border-top" "2px solid #eee", style "padding-top" "20px" ]
             [ h3 [] [ text "Comments" ]
             , div [] (List.map (viewComment model item.id item.comments) (filterRootComments item.comments))
             , viewReplyButton model item.id Nothing
@@ -282,11 +459,13 @@ viewTag tag =
 
 main : Program () Model Msg
 main =
-    Browser.element
-        { init = \_ -> init
+    Browser.application
+        { init = init
         , view = view
         , update = update
         , subscriptions = subscriptions
+        , onUrlChange = UrlChanged
+        , onUrlRequest = LinkClicked
         }
 
 

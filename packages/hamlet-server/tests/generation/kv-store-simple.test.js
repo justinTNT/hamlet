@@ -295,8 +295,20 @@ describe('KV Store Generation - Basic Tests', () => {
         expect(deserialized).toEqual(testData);
 
         // Test error cases
+        // Mock console.error to avoid confusing output during test runs
+        const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+        
         expect(deserializeFromRedis(null)).toBeNull();
         expect(deserializeFromRedis('invalid json')).toBeNull();
         expect(deserializeFromRedis('')).toBeNull();
+        
+        // Verify error was logged for invalid JSON
+        expect(consoleSpy).toHaveBeenCalledWith(
+            'JSON deserialization error:',
+            expect.any(SyntaxError)
+        );
+        
+        // Restore console.error
+        consoleSpy.mockRestore();
     });
 });

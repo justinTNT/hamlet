@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
-import { calculateContractHash, isContractDirty } from 'hamlet-contracts';
-import { getContractsPath } from 'hamlet-core';
+import { calculateContractHash, isContractDirty } from 'buildamp-contracts';
+import { getContractsPath } from 'buildamp-core';
 import { gen, genElm, genWasm } from './gen.js';
 
 /**
@@ -76,11 +76,12 @@ export async function watch(projectPaths) {
                 await gen(projectPaths);
                 
                 // Update contracts
-                const hash = await calculateContractHash(projectPaths.modelsDir);
+                const { signature, files } = await calculateContractHash(projectPaths.modelsDir);
                 const contracts = {
                     version: '1.0',
-                    hash,
-                    timestamp: new Date().toISOString(),
+                    modelHash: signature,
+                    files,
+                    generatedAt: new Date().toISOString(),
                     modelsDir: projectPaths.modelsDir
                 };
                 

@@ -1,5 +1,8 @@
 use elm_rs::{Elm, ElmEncode, ElmDecode};
-use proto_rust::*;
+use proto_rust::models::api::feed::*;
+use proto_rust::models::api::comment::*;
+use proto_rust::models::api::tags::*;
+use proto_rust::models::api::item::*;
 use std::io::Write;
 
 fn main() {
@@ -7,42 +10,46 @@ fn main() {
     let mut target = vec![];
     elm_rs::export!("Api.Schema", &mut target, {
         encoders: [
+            // Feed types
             MicroblogItem,
-            Guest,
-            ItemComment,
-            GetFeedReq,
+            FeedItem,
             GetFeedRes,
-            SubmitItemReq,
             SubmitItemRes,
-            SubmitCommentReq,
+            
+            // Comment types
+            ItemComment,
             SubmitCommentRes,
-            ApiError,
+            
+            // Tag types
+            GetTagsRes,
+            
+            // Item types
+            GetItemRes,
         ],
         decoders: [
+            // Feed types
             MicroblogItem,
-            Guest,
-            ItemComment,
-            GetFeedReq,
+            FeedItem,
             GetFeedRes,
-            SubmitItemReq,
             SubmitItemRes,
-            SubmitCommentReq,
+            
+            // Comment types
+            ItemComment,
             SubmitCommentRes,
-            ApiError,
+            
+            // Tag types
+            GetTagsRes,
+            
+            // Item types
+            GetItemRes,
         ],
     })
     .unwrap();
 
     let schema_content = String::from_utf8(target).unwrap();
-    let mut file = std::fs::File::create("../frontend/src/Api/Schema.elm").unwrap();
+    let mut file = std::fs::File::create("../../app/horatio/server/src/Api/Backend.elm").unwrap();
     file.write_all(schema_content.as_bytes()).unwrap();
-    println!("Successfully generated frontend/src/Api/Schema.elm");
-
-    // 2. Generate Api.elm (Request Objects)
-    let api_content = generate_api_module();
-    let mut api_file = std::fs::File::create("../frontend/src/Api.elm").unwrap();
-    api_file.write_all(api_content.as_bytes()).unwrap();
-    println!("Successfully generated frontend/src/Api.elm");
+    println!("Successfully generated app/horatio/server/src/Api/Backend.elm");
 }
 
 fn generate_api_module() -> String {

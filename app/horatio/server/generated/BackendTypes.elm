@@ -6,6 +6,7 @@ type BackendAction
     | SubmitComment (SubmitCommentReqBundle)
     | GetFeed (GetFeedReqBundle)
     | SubmitItem (SubmitItemReqBundle)
+    | GetItem (GetItemReqBundle)
     | GetTags (GetTagsReqBundle)
 
 -- Bundle types:
@@ -22,6 +23,11 @@ type alias GetFeedReqBundle =
 type alias SubmitItemReqBundle =
     { context : StandardServerContext
     , input : SubmitItemReq
+    }
+
+type alias GetItemReqBundle =
+    { context : StandardServerContext
+    , input : GetItemReq
     }
 
 type alias GetTagsReqBundle =
@@ -51,6 +57,13 @@ submititemReqBundleEncoder struct =
         , ( "input", (submititemReqEncoder) struct.input )
         ]
 
+getitemReqBundleEncoder : GetItemReqBundle -> Json.Encode.Value
+getitemReqBundleEncoder struct =
+    Json.Encode.object
+        [ ( "context", (standardServerContextEncoder) struct.context )
+        , ( "input", (getitemReqEncoder) struct.input )
+        ]
+
 gettagsReqBundleEncoder : GetTagsReqBundle -> Json.Encode.Value
 gettagsReqBundleEncoder struct =
     Json.Encode.object
@@ -77,6 +90,12 @@ submititemReqBundleDecoder =
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "context" (standardServerContextDecoder)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "input" (submititemReqDecoder)))
 
+getitemReqBundleDecoder : Json.Decode.Decoder GetItemReqBundle
+getitemReqBundleDecoder =
+    Json.Decode.succeed GetItemReqBundle
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "context" (standardServerContextDecoder)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "input" (getitemReqDecoder)))
+
 gettagsReqBundleDecoder : Json.Decode.Decoder GetTagsReqBundle
 gettagsReqBundleDecoder =
     Json.Decode.succeed GetTagsReqBundle
@@ -92,6 +111,8 @@ backendActionEncoder enum =
             Json.Encode.object [ ( "GetFeed", getfeedReqBundleEncoder inner ) ]
         SubmitItem inner ->
             Json.Encode.object [ ( "SubmitItem", submititemReqBundleEncoder inner ) ]
+        GetItem inner ->
+            Json.Encode.object [ ( "GetItem", getitemReqBundleEncoder inner ) ]
         GetTags inner ->
             Json.Encode.object [ ( "GetTags", gettagsReqBundleEncoder inner ) ]
 
@@ -102,5 +123,6 @@ backendActionDecoder =
         , Json.Decode.map SubmitComment (Json.Decode.field "SubmitComment" (submitcommentReqBundleDecoder))
         , Json.Decode.map GetFeed (Json.Decode.field "GetFeed" (getfeedReqBundleDecoder))
         , Json.Decode.map SubmitItem (Json.Decode.field "SubmitItem" (submititemReqBundleDecoder))
+        , Json.Decode.map GetItem (Json.Decode.field "GetItem" (getitemReqBundleDecoder))
         , Json.Decode.map GetTags (Json.Decode.field "GetTags" (gettagsReqBundleDecoder))
         ]

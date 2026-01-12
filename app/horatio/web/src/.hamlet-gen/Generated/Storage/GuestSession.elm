@@ -22,7 +22,7 @@ module Generated.Storage.GuestSession exposing
 
 import Json.Decode
 import Json.Encode
-import Generated.StoragePorts
+import StoragePorts
 
 
 -- TYPES
@@ -64,19 +64,19 @@ decodeGuestSession =
 -}
 save : GuestSession -> Cmd msg
 save guestsession = 
-    Generated.StoragePorts.saveGuestSession (encodeGuestSession guestsession)
+    StoragePorts.saveGuestSession (encodeGuestSession guestsession)
 
 {-| Load GuestSession from localStorage  
 -}
 load : Cmd msg
 load = 
-    Generated.StoragePorts.loadGuestSession ()
+    StoragePorts.loadGuestSession ()
 
 {-| Clear GuestSession from localStorage
 -}
 clear : Cmd msg
 clear = 
-    Generated.StoragePorts.clearGuestSession ()
+    StoragePorts.clearGuestSession ()
 
 {-| Check if GuestSession exists (you'll need to implement this via load + subscription)
 -}
@@ -96,7 +96,7 @@ update updateFn =
 -}
 onLoad : (Maybe GuestSession -> msg) -> Sub msg
 onLoad toMsg = 
-    Generated.StoragePorts.guestsessionLoaded (\value ->
+    StoragePorts.guestsessionLoaded (\value ->
         case Json.Decode.decodeValue (Json.Decode.nullable decodeGuestSession) value of
             Ok maybeData -> toMsg maybeData
             Err _ -> toMsg Nothing
@@ -106,7 +106,7 @@ onLoad toMsg =
 -}
 onChange : (Maybe GuestSession -> msg) -> Sub msg
 onChange toMsg = 
-    Generated.StoragePorts.guestsessionChanged (\value ->
+    StoragePorts.guestsessionChanged (\value ->
         case Json.Decode.decodeValue (Json.Decode.nullable decodeGuestSession) value of
             Ok maybeData -> toMsg maybeData
             Err _ -> toMsg Nothing

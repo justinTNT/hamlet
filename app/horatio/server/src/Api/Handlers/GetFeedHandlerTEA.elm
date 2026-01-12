@@ -49,6 +49,7 @@ type Stage
 
 type alias Context =
     { host : String
+    , userId : Maybe String
     , sessionId : Maybe String
     }
 
@@ -70,9 +71,10 @@ type Msg
 
 
 type alias RequestBundle =
-    { id : String
-    , context : Context
-    , request : GetFeedReq
+    { request : Encode.Value
+    , context : Encode.Value
+    , globalConfig : Encode.Value
+    , globalState : Encode.Value
     }
 
 
@@ -102,17 +104,22 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         HandleRequest bundle ->
-            ( { model 
-              | stage = LoadingAllTags
-              , request = Just bundle.request
-              , context = Just bundle.context
-              , loadedItems = []
-              , allTags = []
-              , itemTags = []
-              , loadedComments = []
-              }
-            , loadAllTags
-            )
+            case decodeRequest bundle of
+                Ok ( req, ctx ) ->
+                    ( { model 
+                      | stage = LoadingAllTags
+                      , request = Just req
+                      , context = Just ctx
+                      , loadedItems = []
+                      , allTags = []
+                      , itemTags = []
+                      , loadedComments = []
+                      }
+                    , loadAllTags
+                    )
+                
+                Err error ->
+                    ( { model | stage = Failed error }, Cmd.none )
         
         AllTagsLoaded result ->
             if model.stage == LoadingAllTags then
@@ -311,60 +318,21 @@ decodeComments data =
 
 {-| Transform items with their related data to API format
 -}
-transformToApiWithRelations : List DB.MicroblogItemDb -> List DB.TagDb -> List DB.ItemTagDb -> List DB.ItemCommentDb -> List Api.Backend.MicroblogItem
+transformToApiWithRelations : List DB.MicroblogItemDb -> List DB.TagDb -> List DB.ItemTagDb -> List DB.ItemCommentDb -> List Api.Backend.FeedItem
 transformToApiWithRelations items allTags itemTags comments =
     List.map (transformDbItemToApiWithRelations allTags itemTags comments) items
 
 
-{-| Transform a single item with its related data
+{-| Transform a single item with its related data to FeedItem format
 -}  
-transformDbItemToApiWithRelations : List DB.TagDb -> List DB.ItemTagDb -> List DB.ItemCommentDb -> DB.MicroblogItemDb -> Api.Backend.MicroblogItem
+transformDbItemToApiWithRelations : List DB.TagDb -> List DB.ItemTagDb -> List DB.ItemCommentDb -> DB.MicroblogItemDb -> Api.Backend.FeedItem
 transformDbItemToApiWithRelations allTags itemTags comments dbItem =
-    let
-        _ = Debug.log "🔗 Item ID" dbItem.id
-        
-        -- Get tag IDs for this item
-        itemTagIds = itemTags 
-                    |> List.filter (\itemTag -> itemTag.itemId == dbItem.id)
-                    |> List.map .tagId
-        
-        _ = Debug.log "🔗 Item tag IDs for this item" itemTagIds
-        _ = Debug.log "🔗 All available tags" (List.map (\tag -> {id = tag.id, name = tag.name}) allTags)
-        
-        -- Get tag names by looking up tag IDs in the allTags list
-        itemTagNames = allTags
-                      |> List.filter (\tag -> List.member tag.id itemTagIds)
-                      |> List.map .name
-        
-        _ = Debug.log "🔗 Final tag names" itemTagNames
-        
-        itemComments = comments
-                      |> List.filter (\comment -> comment.itemId == dbItem.id)
-                      |> List.map transformDbCommentToApi
-    in
     { id = dbItem.id
     , title = dbItem.data.title
-    , link = dbItem.data.link |> Maybe.withDefault ""
-    , image = dbItem.data.image |> Maybe.withDefault ""
-    , extract = dbItem.data.extract |> Maybe.withDefault ""
+    , image = dbItem.data.image
+    , extract = dbItem.data.extract
     , ownerComment = dbItem.data.ownerComment
-    , tags = itemTagNames
-    , comments = itemComments
     , timestamp = dbItem.createdAt
-    }
-
-
-{-| Transform database comment to API comment format
--}
-transformDbCommentToApi : DB.ItemCommentDb -> Api.Backend.ItemComment
-transformDbCommentToApi dbComment =
-    { id = dbComment.id
-    , itemId = dbComment.itemId
-    , guestId = dbComment.guestId
-    , parentId = dbComment.parentId
-    , authorName = dbComment.authorName
-    , text = dbComment.text
-    , timestamp = dbComment.createdAt
     }
 
 
@@ -401,6 +369,23 @@ andMap : Decode.Decoder a -> Decode.Decoder (a -> b) -> Decode.Decoder b
 andMap = Decode.map2 (|>)
 
 
+-- DECODING
+
+decodeRequest : RequestBundle -> Result String ( GetFeedReq, Context )
+decodeRequest bundle =
+    Result.map2 Tuple.pair
+        (Decode.decodeValue Api.Backend.getFeedReqDecoder bundle.request |> Result.mapError Decode.errorToString)
+        (Decode.decodeValue contextDecoder bundle.context |> Result.mapError Decode.errorToString)
+
+
+contextDecoder : Decode.Decoder Context
+contextDecoder =
+    Decode.map3 Context
+        (Decode.field "host" Decode.string)
+        (Decode.maybe (Decode.field "userId" Decode.string))
+        (Decode.maybe (Decode.field "sessionId" Decode.string))
+
+
 -- ENCODING
 
 encodeGetFeedRes : GetFeedRes -> Encode.Value
@@ -430,6 +415,8 @@ main =
         , update = update
         , subscriptions = subscriptions
         }
+
+
 
 
 subscriptions : Model -> Sub Msg

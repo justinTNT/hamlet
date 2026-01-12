@@ -79,7 +79,7 @@ export async function generateElmHandlers(config = {}) {
             // Check if required shared modules exist before generating new handlers
             const databaseModulePath = config.backendElmPath ? 
                 `${config.backendElmPath}/Generated/Database.elm` :
-                (PROJECT_NAME ? `app/${PROJECT_NAME}/server/generated/Generated/Database.elm` : 'generated/Generated/Database.elm');
+                (PROJECT_NAME ? `app/${PROJECT_NAME}/server/src/generated/Generated/Database.elm` : 'generated/Generated/Database.elm');
             if (!fs.existsSync(databaseModulePath)) {
                 console.log(`   ⚠️  Skipping ${endpoint.name}HandlerTEA.elm (Database.elm not found - run shared module generation first)`);
                 skippedCount++;
@@ -218,9 +218,10 @@ type Msg
 
 
 type alias RequestBundle =
-    { id : String
-    , context : Context
-    , request : ${requestType}
+    { request : Encode.Value
+    , context : Encode.Value
+    , globalConfig : Encode.Value
+    , globalState : Encode.Value
     }
 
 
@@ -246,14 +247,19 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         HandleRequest bundle ->
-            -- Start the business logic pipeline
-            ( { model 
-              | stage = Processing
-              , request = Just bundle.request
-              , context = Just bundle.context
-              }
-            , processRequest bundle.request
-            )
+            case decodeRequest bundle of
+                Ok ( req, ctx ) ->
+                    -- Start the business logic pipeline
+                    ( { model 
+                      | stage = Processing
+                      , request = Just req
+                      , context = Just ctx
+                      }
+                    , processRequest req
+                    )
+                
+                Err error ->
+                    ( { model | stage = Failed error }, Cmd.none )
         
         ProcessingComplete result ->
             ( { model | stage = Complete result }
@@ -311,6 +317,23 @@ processRequest request =
     ) (Task.succeed ())
 
 
+-- DECODING
+
+decodeRequest : RequestBundle -> Result String ( ${requestType}, Context )
+decodeRequest bundle =
+    Result.map2 Tuple.pair
+        (Decode.decodeValue Api.Backend.${requestType.charAt(0).toLowerCase() + requestType.slice(1)}Decoder bundle.request |> Result.mapError Decode.errorToString)
+        (Decode.decodeValue contextDecoder bundle.context |> Result.mapError Decode.errorToString)
+
+
+contextDecoder : Decode.Decoder Context
+contextDecoder =
+    Decode.map3 Context
+        (Decode.field "host" Decode.string)
+        (Decode.maybe (Decode.field "userId" Decode.string))
+        (Decode.maybe (Decode.field "sessionId" Decode.string))
+
+
 -- ENCODING
 
 encode${responseType} : ${responseType} -> Encode.Value
@@ -337,9 +360,35 @@ main : Program Flags Model Msg
 main =
     Platform.worker
         { init = init
-        , update = update
+        , update = updateWithResponse
         , subscriptions = subscriptions
         }
+
+
+updateWithResponse : Msg -> Model -> ( Model, Cmd Msg )
+updateWithResponse msg model =
+    let
+        ( newModel, cmd ) = update msg model
+    in
+    case newModel.stage of
+        Complete response ->
+            ( newModel
+            , Cmd.batch
+                [ complete (encode${responseType} response)
+                , cmd
+                ]
+            )
+
+        Failed error ->
+            ( newModel
+            , Cmd.batch
+                [ complete (encodeError error)
+                , cmd
+                ]
+            )
+
+        _ ->
+            ( newModel, cmd )
 
 
 subscriptions : Model -> Sub Msg
@@ -362,7 +411,7 @@ function shouldRegenerateHandler(handlerFilePath, config = {}, PROJECT_NAME = nu
         if (importsDatabase) {
             const databaseModulePath = config.backendElmPath ? 
                 `${config.backendElmPath}/Generated/Database.elm` :
-                (PROJECT_NAME ? `app/${PROJECT_NAME}/server/generated/Generated/Database.elm` : 'generated/Generated/Database.elm');
+                (PROJECT_NAME ? `app/${PROJECT_NAME}/server/src/generated/Generated/Database.elm` : 'generated/Generated/Database.elm');
             
             if (fs.existsSync(databaseModulePath)) {
                 const databaseStat = fs.statSync(databaseModulePath);
@@ -469,9 +518,10 @@ done
 echo "✅ All handlers compiled successfully!"
 `;
     
-    const scriptPath = config.backendElmPath ? 
-        `${config.backendElmPath.replace('/generated', '')}/compile-handlers.sh` :
-        (PROJECT_NAME ? `app/${PROJECT_NAME}/server/compile-handlers.sh` : 'compile-handlers.sh');
+    // Always put compile script in app/{project}/server/ directory
+    const scriptPath = PROJECT_NAME ? 
+        `app/${PROJECT_NAME}/server/compile-handlers.sh` : 
+        'compile-handlers.sh';
     fs.writeFileSync(scriptPath, compileScript);
     fs.chmodSync(scriptPath, '755'); // Make executable
     
