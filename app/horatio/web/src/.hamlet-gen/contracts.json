@@ -1,10 +1,11 @@
 {
   "version": "1.0",
-  "modelHash": "79ed474f48598665d040a4d741c25820befa5b37364bc22de83ee065b420d710",
+  "modelHash": "89ce54bd48adde3150010de768cc8a53fa7891bf4d1ba8b0570fb27e22a904be",
   "files": {
     "api/comment.rs": "9e4ed12f272569c5d4591d3cdd58dedfe66b4771ec0283ee42868819910f75b1",
-    "api/feed.rs": "b9eb46aba1850eb336042f2364670149ddd4b2c875936c6efe6bb6988b56c576",
+    "api/feed.rs": "19d6298b70e8ea27344643c3c39921a932c0890c5e89ccf18bd3eb0fafbd9292",
     "api/item.rs": "85ab462b1f5044d21ad12575cb6d7f08e2c6f89e58cbe0f28982c2cbce4b4095",
+    "api/items_by_tag.rs": "783edfb7ed8fed07f69d1bc283e98658f7ff131b6d40eefaf1068b71753cd322",
     "api/tags.rs": "c06dc23f68fa2fa00892a3b17691b9efa1b341d93f0f39fd2f0bb36d4cdd847f",
     "db/guest.rs": "c4c299143efc7ac8fb6c7b8f544b7449ff3e33f70b31dc5dc4288a8f0ed9909f",
     "db/item_comment.rs": "3a646a82febdb3c2438fcca5ece8f79e5eda1a5da693678557fc32798b72ae1f",
@@ -23,6 +24,6 @@
     "sse/user_presence_event.rs": "b64b13584706b59a355ea5c15a8d7deccc00f211ee2cd3422e987f6016f76c0f",
     "storage/guest_session.rs": "bd06731b12cfdee2454422fa61d327bbe1ed0c0e86488d363de7ec909e6e3387"
   },
-  "generatedAt": "2026-01-12T05:25:34.824Z",
+  "generatedAt": "2026-01-12T09:09:58.169Z",
   "modelsDir": "app/horatio/models"
 }

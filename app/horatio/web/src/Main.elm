@@ -27,8 +27,15 @@ type alias Model =
     , route : Route
     , navKey : Nav.Key
     , hoveredItem : Maybe String
+    , hoveredTag : Maybe String
     , itemDetails : Dict String ItemState
+    , tagItems : Dict String TagItemsState
     }
+
+type TagItemsState
+    = TagItemsLoading
+    | TagItemsLoaded (List Api.Schema.FeedItem)
+    | TagItemsFailed String
 
 type ItemState
     = ItemLoading
@@ -38,6 +45,7 @@ type ItemState
 type Route
     = Feed
     | Item String  -- Item ID
+    | Tag String   -- Tag name
 
 type alias GuestSession = Storage.GuestSession
 
@@ -57,6 +65,8 @@ init _ url key =
                 getFeed
             Item itemId ->
                 Task.perform (always (LoadItem itemId)) (Task.succeed ())
+            Tag tagName ->
+                Task.perform (always (LoadTagItems tagName)) (Task.succeed ())
     in
     ( { feed = Loading
       , replyingTo = Nothing
@@ -65,7 +75,9 @@ init _ url key =
       , route = route
       , navKey = key
       , hoveredItem = Nothing
+      , hoveredTag = Nothing
       , itemDetails = Dict.empty
+      , tagItems = Dict.empty
       }
     , Cmd.batch [ initialCmd, Storage.loadGuestSession () ]
     )
@@ -75,10 +87,12 @@ parseUrl url =
     case url.path of
         "/" ->
             Feed
-            
+
         path ->
             if String.startsWith "/item/" path then
                 Item (String.dropLeft 6 path)
+            else if String.startsWith "/tag/" path then
+                Tag (String.dropLeft 5 path |> Url.percentDecode |> Maybe.withDefault "")
             else
                 Feed
 
@@ -148,8 +162,11 @@ type Msg
     | LinkClicked Browser.UrlRequest
     | UrlChanged Url.Url
     | SetHoverState (Maybe String)
+    | SetTagHoverState (Maybe String)
     | LoadItem String
     | GotItem String (Result Http.Error Api.Schema.GetItemRes)
+    | LoadTagItems String
+    | GotTagItems String (Result Http.Error Api.Schema.GetItemsByTagRes)
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -217,14 +234,22 @@ update msg model =
                             Cmd.none
                         else
                             Task.perform (always (LoadItem itemId)) (Task.succeed ())
-                    _ ->
+                    Tag tagName ->
+                        if Dict.member tagName model.tagItems then
+                            Cmd.none
+                        else
+                            Task.perform (always (LoadTagItems tagName)) (Task.succeed ())
+                    Feed ->
                         Cmd.none
             in
             ( { model | route = newRoute }, loadCmd )
             
         SetHoverState itemId ->
             ( { model | hoveredItem = itemId }, Cmd.none )
-            
+
+        SetTagHoverState tagName ->
+            ( { model | hoveredTag = tagName }, Cmd.none )
+
         LoadItem itemId ->
             ( { model | itemDetails = Dict.insert itemId ItemLoading model.itemDetails }
             , Api.getItem { host = "localhost", id = itemId }
@@ -238,6 +263,22 @@ update msg model =
             
         GotItem itemId (Err _) ->
             ( { model | itemDetails = Dict.insert itemId (ItemFailed "Could not load item details") model.itemDetails }
+            , Cmd.none
+            )
+
+        LoadTagItems tagName ->
+            ( { model | tagItems = Dict.insert tagName TagItemsLoading model.tagItems }
+            , Api.getItemsByTag { host = "localhost", tag = tagName }
+                |> Api.Http.send (GotTagItems tagName)
+            )
+
+        GotTagItems tagName (Ok res) ->
+            ( { model | tagItems = Dict.insert tagName (TagItemsLoaded res.items) model.tagItems }
+            , Cmd.none
+            )
+
+        GotTagItems tagName (Err _) ->
+            ( { model | tagItems = Dict.insert tagName (TagItemsFailed "Could not load items for this tag") model.tagItems }
             , Cmd.none
             )
 
@@ -273,9 +314,44 @@ viewContent model =
     case model.route of
         Feed ->
             viewFeed model
-            
+
         Item itemId ->
             viewSingleItem model itemId
+
+        Tag tagName ->
+            viewTagPage model tagName
+
+viewTagPage : Model -> String -> Html Msg
+viewTagPage model tagName =
+    div []
+        [ h2 [ style "margin-bottom" "20px" ]
+            [ text "Items tagged: "
+            , span
+                [ style "background" (tagColor tagName)
+                , style "color" "white"
+                , style "padding" "4px 12px"
+                , style "border-radius" "16px"
+                , style "font-size" "0.9em"
+                ]
+                [ text tagName ]
+            ]
+        , case Dict.get tagName model.tagItems of
+            Just TagItemsLoading ->
+                div [] [ text "Loading items..." ]
+
+            Just (TagItemsLoaded items) ->
+                if List.isEmpty items then
+                    div [ style "color" "#666" ] [ text "No items found with this tag." ]
+                else
+                    div [] (List.map (viewFeedItem model) items)
+
+            Just (TagItemsFailed error) ->
+                div [ style "color" "red" ] [ text error ]
+
+            Nothing ->
+                div [] [ text "Loading items..." ]
+        ]
+
 
 viewFeed : Model -> Html Msg
 viewFeed model =
@@ -360,7 +436,7 @@ viewFeedItem model item =
             ]
         ]
 
-countUserComments : List Api.Schema.ItemComment -> String
+countUserComments : List Api.Schema.CommentItem -> String
 countUserComments comments =
     let
         userComments = List.filter (\c -> c.authorName /= "Guest") comments
@@ -376,7 +452,7 @@ viewItemDetail model item =
             [ img [ src item.image, style "max-width" "100%", style "height" "auto" ] [] ]
         , p [] [ text item.extract ]
         , div [ style "margin-bottom" "15px" ]
-            (List.map viewTag item.tags)
+            (List.map (viewTag model) item.tags)
         , div [ style "background" "#f9f9f9", style "padding" "15px", style "font-style" "italic", style "border-radius" "5px" ]
             [ text ("Owner: " ++ item.ownerComment) ]
         
@@ -388,11 +464,11 @@ viewItemDetail model item =
             ]
         ]
 
-filterRootComments : List Api.Schema.ItemComment -> List Api.Schema.ItemComment
+filterRootComments : List Api.Schema.CommentItem -> List Api.Schema.CommentItem
 filterRootComments comments =
     List.filter (\c -> c.parentId == Nothing) comments
 
-viewComment : Model -> String -> List Api.Schema.ItemComment -> Api.Schema.ItemComment -> Html Msg
+viewComment : Model -> String -> List Api.Schema.CommentItem -> Api.Schema.CommentItem -> Html Msg
 viewComment model itemId allComments comment =
     div [ style "margin-left" "20px", style "margin-top" "10px", style "border-left" "2px solid #eee", style "padding-left" "10px" ]
         [ div [ style "font-weight" "bold", style "font-size" "0.9em" ] [ text comment.authorName ]
@@ -403,7 +479,7 @@ viewComment model itemId allComments comment =
         , div [] (List.map (viewComment model itemId allComments) (filterChildComments comment.id allComments))
         ]
 
-filterChildComments : String -> List Api.Schema.ItemComment -> List Api.Schema.ItemComment
+filterChildComments : String -> List Api.Schema.CommentItem -> List Api.Schema.CommentItem
 filterChildComments parentId allComments =
     List.filter (\c -> c.parentId == Just parentId) allComments
 
@@ -442,18 +518,70 @@ viewReplyButton model itemId parentId =
                 button [ onClick (SetReplyTo itemId parentId), style "font-size" "0.8em", style "color" "gray", style "background" "none", style "border" "none", style "cursor" "pointer", style "text-decoration" "underline" ] [ text action ]
                 ]
 
-viewTag : String -> Html Msg
-viewTag tag =
-    div 
-        [ style "display" "inline-block"
-        , style "background-color" "#e0e0e0"
-        , style "color" "#333"
-        , style "padding" "2px 8px"
-        , style "border-radius" "12px"
+viewTag : Model -> String -> Html Msg
+viewTag model tag =
+    let
+        isHovered = model.hoveredTag == Just tag
+        baseColor = tagColor tag
+        backgroundColor = if isHovered then darkenColor baseColor else baseColor
+    in
+    a
+        [ href ("/tag/" ++ Url.percentEncode tag)
+        , style "display" "inline-block"
+        , style "background-color" backgroundColor
+        , style "color" "white"
+        , style "padding" "4px 12px"
+        , style "border-radius" "16px"
         , style "font-size" "0.85em"
-        , style "margin-right" "5px"
-        ] 
+        , style "margin-right" "8px"
+        , style "margin-bottom" "6px"
+        , style "text-decoration" "none"
+        , style "transition" "background-color 0.2s, transform 0.1s"
+        , style "transform" (if isHovered then "scale(1.05)" else "scale(1)")
+        , onMouseEnter (SetTagHoverState (Just tag))
+        , onMouseLeave (SetTagHoverState Nothing)
+        ]
         [ text tag ]
+
+
+{-| Generate a consistent color for a tag based on its name
+-}
+tagColor : String -> String
+tagColor tag =
+    let
+        -- Simple hash function to get a number from the string
+        hash = String.foldl (\c acc -> Char.toCode c + acc * 31) 0 tag
+        -- Pick from a nice palette of colors
+        colors =
+            [ "#e74c3c"  -- red
+            , "#3498db"  -- blue
+            , "#2ecc71"  -- green
+            , "#9b59b6"  -- purple
+            , "#f39c12"  -- orange
+            , "#1abc9c"  -- teal
+            , "#e91e63"  -- pink
+            , "#00bcd4"  -- cyan
+            ]
+        index = modBy (List.length colors) hash
+    in
+    List.drop index colors |> List.head |> Maybe.withDefault "#666"
+
+
+{-| Darken a hex color for hover effect
+-}
+darkenColor : String -> String
+darkenColor color =
+    -- Simple approach: use predefined darker versions
+    case color of
+        "#e74c3c" -> "#c0392b"
+        "#3498db" -> "#2980b9"
+        "#2ecc71" -> "#27ae60"
+        "#9b59b6" -> "#8e44ad"
+        "#f39c12" -> "#d68910"
+        "#1abc9c" -> "#16a085"
+        "#e91e63" -> "#c2185b"
+        "#00bcd4" -> "#0097a7"
+        _ -> "#555"
 
 -- MAIN
 

@@ -2838,30 +2838,27 @@ var $elm$core$Result$isOk = function (result) {
 var $elm$json$Json$Decode$andThen = _Json_andThen;
 var $elm$json$Json$Decode$bool = _Json_decodeBool;
 var $elm$json$Json$Decode$field = _Json_decodeField;
-var $author$project$Api$Handlers$GetItemHandlerTEA$Idle = {$: 'Idle'};
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$Idle = {$: 'Idle'};
 var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
-var $author$project$Api$Handlers$GetItemHandlerTEA$init = function (flags) {
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$init = function (flags) {
 	return _Utils_Tuple2(
-		{allTags: _List_Nil, context: $elm$core$Maybe$Nothing, globalConfig: flags.globalConfig, globalState: flags.globalState, itemTags: _List_Nil, loadedComments: _List_Nil, loadedItem: $elm$core$Maybe$Nothing, request: $elm$core$Maybe$Nothing, stage: $author$project$Api$Handlers$GetItemHandlerTEA$Idle},
+		{allTags: _List_Nil, context: $elm$core$Maybe$Nothing, globalConfig: flags.globalConfig, globalState: flags.globalState, itemTags: _List_Nil, loadedItems: _List_Nil, request: $elm$core$Maybe$Nothing, stage: $author$project$Api$Handlers$GetItemsByTagHandlerTEA$Idle},
 		$elm$core$Platform$Cmd$none);
 };
 var $elm$json$Json$Decode$int = _Json_decodeInt;
 var $elm$json$Json$Decode$string = _Json_decodeString;
-var $author$project$Api$Handlers$GetItemHandlerTEA$AllTagsLoaded = function (a) {
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$AllTagsLoaded = function (a) {
 	return {$: 'AllTagsLoaded', a: a};
 };
-var $author$project$Api$Handlers$GetItemHandlerTEA$CommentsLoaded = function (a) {
-	return {$: 'CommentsLoaded', a: a};
-};
-var $author$project$Api$Handlers$GetItemHandlerTEA$HandleRequest = function (a) {
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$HandleRequest = function (a) {
 	return {$: 'HandleRequest', a: a};
 };
-var $author$project$Api$Handlers$GetItemHandlerTEA$ItemLoaded = function (a) {
-	return {$: 'ItemLoaded', a: a};
-};
-var $author$project$Api$Handlers$GetItemHandlerTEA$ItemTagsLoaded = function (a) {
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$ItemTagsLoaded = function (a) {
 	return {$: 'ItemTagsLoaded', a: a};
+};
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$ItemsLoaded = function (a) {
+	return {$: 'ItemsLoaded', a: a};
 };
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$json$Json$Decode$map = _Json_map1;
@@ -2909,7 +2906,7 @@ var $author$project$Generated$Database$dbResult = _Platform_incomingPort(
 				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string));
 		},
 		A2($elm$json$Json$Decode$field, 'success', $elm$json$Json$Decode$bool)));
-var $author$project$Api$Handlers$GetItemHandlerTEA$handleRequest = _Platform_incomingPort(
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$handleRequest = _Platform_incomingPort(
 	'handleRequest',
 	A2(
 		$elm$json$Json$Decode$andThen,
@@ -2933,31 +2930,29 @@ var $author$project$Api$Handlers$GetItemHandlerTEA$handleRequest = _Platform_inc
 				A2($elm$json$Json$Decode$field, 'globalState', $elm$json$Json$Decode$value));
 		},
 		A2($elm$json$Json$Decode$field, 'request', $elm$json$Json$Decode$value)));
-var $author$project$Api$Handlers$GetItemHandlerTEA$subscriptions = function (model) {
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$subscriptions = function (_v0) {
 	return $elm$core$Platform$Sub$batch(
 		_List_fromArray(
 			[
-				$author$project$Api$Handlers$GetItemHandlerTEA$handleRequest($author$project$Api$Handlers$GetItemHandlerTEA$HandleRequest),
-				$author$project$Generated$Database$dbResult($author$project$Api$Handlers$GetItemHandlerTEA$ItemLoaded),
-				$author$project$Generated$Database$dbResult($author$project$Api$Handlers$GetItemHandlerTEA$AllTagsLoaded),
-				$author$project$Generated$Database$dbResult($author$project$Api$Handlers$GetItemHandlerTEA$ItemTagsLoaded),
-				$author$project$Generated$Database$dbResult($author$project$Api$Handlers$GetItemHandlerTEA$CommentsLoaded)
+				$author$project$Api$Handlers$GetItemsByTagHandlerTEA$handleRequest($author$project$Api$Handlers$GetItemsByTagHandlerTEA$HandleRequest),
+				$author$project$Generated$Database$dbResult($author$project$Api$Handlers$GetItemsByTagHandlerTEA$AllTagsLoaded),
+				$author$project$Generated$Database$dbResult($author$project$Api$Handlers$GetItemsByTagHandlerTEA$ItemsLoaded),
+				$author$project$Generated$Database$dbResult($author$project$Api$Handlers$GetItemsByTagHandlerTEA$ItemTagsLoaded)
 			]));
 };
-var $author$project$Api$Handlers$GetItemHandlerTEA$Complete = function (a) {
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$Complete = function (a) {
 	return {$: 'Complete', a: a};
 };
-var $author$project$Api$Handlers$GetItemHandlerTEA$Failed = function (a) {
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$Failed = function (a) {
 	return {$: 'Failed', a: a};
 };
-var $author$project$Api$Handlers$GetItemHandlerTEA$LoadingAllTags = {$: 'LoadingAllTags'};
-var $author$project$Api$Handlers$GetItemHandlerTEA$LoadingComments = {$: 'LoadingComments'};
-var $author$project$Api$Handlers$GetItemHandlerTEA$LoadingItem = {$: 'LoadingItem'};
-var $author$project$Api$Handlers$GetItemHandlerTEA$LoadingItemTags = {$: 'LoadingItemTags'};
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$LoadingAllTags = {$: 'LoadingAllTags'};
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$LoadingItemTags = {$: 'LoadingItemTags'};
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$LoadingItems = {$: 'LoadingItems'};
 var $elm$core$Basics$identity = function (x) {
 	return x;
 };
-var $author$project$Api$Handlers$GetItemHandlerTEA$complete = _Platform_outgoingPort('complete', $elm$core$Basics$identity);
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$complete = _Platform_outgoingPort('complete', $elm$core$Basics$identity);
 var $elm$json$Json$Decode$decodeValue = _Json_run;
 var $elm$json$Json$Decode$list = _Json_decodeList;
 var $author$project$Generated$Database$TagDb = F3(
@@ -2984,7 +2979,7 @@ var $author$project$Generated$Database$tagDbDecoder = A3(
 			'id',
 			$elm$json$Json$Decode$string,
 			$elm$json$Json$Decode$succeed($author$project$Generated$Database$TagDb))));
-var $author$project$Api$Handlers$GetItemHandlerTEA$decodeAllTags = function (data) {
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$decodeAllTags = function (data) {
 	var _v0 = A2(
 		$elm$json$Json$Decode$decodeValue,
 		$elm$json$Json$Decode$list($author$project$Generated$Database$tagDbDecoder),
@@ -2996,78 +2991,6 @@ var $author$project$Api$Handlers$GetItemHandlerTEA$decodeAllTags = function (dat
 		var error = _v0.a;
 		return $elm$core$Result$Err(
 			'Failed to decode tags: ' + $elm$json$Json$Decode$errorToString(error));
-	}
-};
-var $author$project$Generated$Database$ItemCommentDb = F7(
-	function (id, itemId, guestId, parentId, authorName, text, createdAt) {
-		return {authorName: authorName, createdAt: createdAt, guestId: guestId, id: id, itemId: itemId, parentId: parentId, text: text};
-	});
-var $elm$json$Json$Decode$nullable = function (decoder) {
-	return $elm$json$Json$Decode$oneOf(
-		_List_fromArray(
-			[
-				$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
-				A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, decoder)
-			]));
-};
-var $elm$json$Json$Decode$fail = _Json_fail;
-var $elm$core$String$toInt = _String_toInt;
-var $author$project$Generated$Database$stringToInt = function (str) {
-	var _v0 = $elm$core$String$toInt(str);
-	if (_v0.$ === 'Just') {
-		var _int = _v0.a;
-		return $elm$json$Json$Decode$succeed(_int);
-	} else {
-		return $elm$json$Json$Decode$fail('Could not parse timestamp: ' + str);
-	}
-};
-var $author$project$Generated$Database$timestampDecoder = $elm$json$Json$Decode$oneOf(
-	_List_fromArray(
-		[
-			$elm$json$Json$Decode$int,
-			A2($elm$json$Json$Decode$andThen, $author$project$Generated$Database$stringToInt, $elm$json$Json$Decode$string)
-		]));
-var $author$project$Generated$Database$itemcommentDbDecoder = A3(
-	$author$project$Generated$Database$decodeField,
-	'created_at',
-	$author$project$Generated$Database$timestampDecoder,
-	A3(
-		$author$project$Generated$Database$decodeField,
-		'text',
-		$elm$json$Json$Decode$string,
-		A3(
-			$author$project$Generated$Database$decodeField,
-			'author_name',
-			$elm$json$Json$Decode$string,
-			A3(
-				$author$project$Generated$Database$decodeField,
-				'parent_id',
-				$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
-				A3(
-					$author$project$Generated$Database$decodeField,
-					'guest_id',
-					$elm$json$Json$Decode$string,
-					A3(
-						$author$project$Generated$Database$decodeField,
-						'item_id',
-						$elm$json$Json$Decode$string,
-						A3(
-							$author$project$Generated$Database$decodeField,
-							'id',
-							$elm$json$Json$Decode$string,
-							$elm$json$Json$Decode$succeed($author$project$Generated$Database$ItemCommentDb))))))));
-var $author$project$Api$Handlers$GetItemHandlerTEA$decodeComments = function (data) {
-	var _v0 = A2(
-		$elm$json$Json$Decode$decodeValue,
-		$elm$json$Json$Decode$list($author$project$Generated$Database$itemcommentDbDecoder),
-		data);
-	if (_v0.$ === 'Ok') {
-		var comments = _v0.a;
-		return $elm$core$Result$Ok(comments);
-	} else {
-		var error = _v0.a;
-		return $elm$core$Result$Err(
-			'Failed to decode comments: ' + $elm$json$Json$Decode$errorToString(error));
 	}
 };
 var $author$project$Generated$Database$ItemTagDb = F2(
@@ -3083,7 +3006,7 @@ var $author$project$Generated$Database$itemtagDbDecoder = A3(
 		'item_id',
 		$elm$json$Json$Decode$string,
 		$elm$json$Json$Decode$succeed($author$project$Generated$Database$ItemTagDb)));
-var $author$project$Api$Handlers$GetItemHandlerTEA$decodeItemTags = function (data) {
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$decodeItemTags = function (data) {
 	var _v0 = A2(
 		$elm$json$Json$Decode$decodeValue,
 		$elm$json$Json$Decode$list($author$project$Generated$Database$itemtagDbDecoder),
@@ -3097,7 +3020,89 @@ var $author$project$Api$Handlers$GetItemHandlerTEA$decodeItemTags = function (da
 			'Failed to decode item tags: ' + $elm$json$Json$Decode$errorToString(error));
 	}
 };
-var $author$project$Api$Handlers$GetItemHandlerTEA$Context = F3(
+var $author$project$Generated$Database$MicroblogItemDb = F4(
+	function (id, data, createdAt, viewCount) {
+		return {createdAt: createdAt, data: data, id: id, viewCount: viewCount};
+	});
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$andMap = $elm$json$Json$Decode$map2($elm$core$Basics$apR);
+var $author$project$Generated$Database$MicroblogItemDataDb = F5(
+	function (title, link, image, extract, ownerComment) {
+		return {extract: extract, image: image, link: link, ownerComment: ownerComment, title: title};
+	});
+var $elm$json$Json$Decode$nullable = function (decoder) {
+	return $elm$json$Json$Decode$oneOf(
+		_List_fromArray(
+			[
+				$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
+				A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, decoder)
+			]));
+};
+var $author$project$Generated$Database$microblogitemdataDbDecoder = A3(
+	$author$project$Generated$Database$decodeField,
+	'owner_comment',
+	$elm$json$Json$Decode$string,
+	A3(
+		$author$project$Generated$Database$decodeField,
+		'extract',
+		$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
+		A3(
+			$author$project$Generated$Database$decodeField,
+			'image',
+			$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
+			A3(
+				$author$project$Generated$Database$decodeField,
+				'link',
+				$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
+				A3(
+					$author$project$Generated$Database$decodeField,
+					'title',
+					$elm$json$Json$Decode$string,
+					$elm$json$Json$Decode$succeed($author$project$Generated$Database$MicroblogItemDataDb))))));
+var $elm$json$Json$Decode$fail = _Json_fail;
+var $elm$core$String$toInt = _String_toInt;
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$stringToInt = function (str) {
+	var _v0 = $elm$core$String$toInt(str);
+	if (_v0.$ === 'Just') {
+		var _int = _v0.a;
+		return $elm$json$Json$Decode$succeed(_int);
+	} else {
+		return $elm$json$Json$Decode$fail('Could not parse timestamp: ' + str);
+	}
+};
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$timestampDecoder = $elm$json$Json$Decode$oneOf(
+	_List_fromArray(
+		[
+			$elm$json$Json$Decode$int,
+			A2($elm$json$Json$Decode$andThen, $author$project$Api$Handlers$GetItemsByTagHandlerTEA$stringToInt, $elm$json$Json$Decode$string)
+		]));
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$microblogItemDbDecoder = A2(
+	$author$project$Api$Handlers$GetItemsByTagHandlerTEA$andMap,
+	A2($elm$json$Json$Decode$field, 'view_count', $elm$json$Json$Decode$int),
+	A2(
+		$author$project$Api$Handlers$GetItemsByTagHandlerTEA$andMap,
+		A2($elm$json$Json$Decode$field, 'created_at', $author$project$Api$Handlers$GetItemsByTagHandlerTEA$timestampDecoder),
+		A2(
+			$author$project$Api$Handlers$GetItemsByTagHandlerTEA$andMap,
+			A2($elm$json$Json$Decode$field, 'data', $author$project$Generated$Database$microblogitemdataDbDecoder),
+			A2(
+				$author$project$Api$Handlers$GetItemsByTagHandlerTEA$andMap,
+				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string),
+				$elm$json$Json$Decode$succeed($author$project$Generated$Database$MicroblogItemDb)))));
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$decodeItems = function (data) {
+	var _v0 = A2(
+		$elm$json$Json$Decode$decodeValue,
+		$elm$json$Json$Decode$list($author$project$Api$Handlers$GetItemsByTagHandlerTEA$microblogItemDbDecoder),
+		data);
+	if (_v0.$ === 'Ok') {
+		var items = _v0.a;
+		return $elm$core$Result$Ok(items);
+	} else {
+		var error = _v0.a;
+		return $elm$core$Result$Err(
+			'Failed to decode items: ' + $elm$json$Json$Decode$errorToString(error));
+	}
+};
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$Context = F3(
 	function (host, userId, sessionId) {
 		return {host: host, sessionId: sessionId, userId: userId};
 	});
@@ -3110,25 +3115,25 @@ var $elm$json$Json$Decode$maybe = function (decoder) {
 				$elm$json$Json$Decode$succeed($elm$core$Maybe$Nothing)
 			]));
 };
-var $author$project$Api$Handlers$GetItemHandlerTEA$contextDecoder = A4(
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$contextDecoder = A4(
 	$elm$json$Json$Decode$map3,
-	$author$project$Api$Handlers$GetItemHandlerTEA$Context,
+	$author$project$Api$Handlers$GetItemsByTagHandlerTEA$Context,
 	A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string),
 	$elm$json$Json$Decode$maybe(
 		A2($elm$json$Json$Decode$field, 'userId', $elm$json$Json$Decode$string)),
 	$elm$json$Json$Decode$maybe(
 		A2($elm$json$Json$Decode$field, 'sessionId', $elm$json$Json$Decode$string)));
-var $author$project$Api$Backend$GetItemReq = F2(
-	function (host, id) {
-		return {host: host, id: id};
+var $author$project$Api$Backend$GetItemsByTagReq = F2(
+	function (host, tag) {
+		return {host: host, tag: tag};
 	});
-var $author$project$Api$Backend$getItemReqDecoder = A2(
+var $author$project$Api$Backend$getItemsByTagReqDecoder = A2(
 	$elm$json$Json$Decode$andThen,
 	function (x) {
 		return A2(
 			$elm$json$Json$Decode$map,
 			x,
-			A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string));
+			A2($elm$json$Json$Decode$field, 'tag', $elm$json$Json$Decode$string));
 	},
 	A2(
 		$elm$json$Json$Decode$andThen,
@@ -3138,7 +3143,7 @@ var $author$project$Api$Backend$getItemReqDecoder = A2(
 				x,
 				A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
 		},
-		$elm$json$Json$Decode$succeed($author$project$Api$Backend$GetItemReq)));
+		$elm$json$Json$Decode$succeed($author$project$Api$Backend$GetItemsByTagReq)));
 var $elm$core$Result$map2 = F3(
 	function (func, ra, rb) {
 		if (ra.$ === 'Err') {
@@ -3171,106 +3176,18 @@ var $elm$core$Tuple$pair = F2(
 	function (a, b) {
 		return _Utils_Tuple2(a, b);
 	});
-var $author$project$Api$Handlers$GetItemHandlerTEA$decodeRequest = function (bundle) {
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$decodeRequest = function (bundle) {
 	return A3(
 		$elm$core$Result$map2,
 		$elm$core$Tuple$pair,
 		A2(
 			$elm$core$Result$mapError,
 			$elm$json$Json$Decode$errorToString,
-			A2($elm$json$Json$Decode$decodeValue, $author$project$Api$Backend$getItemReqDecoder, bundle.request)),
+			A2($elm$json$Json$Decode$decodeValue, $author$project$Api$Backend$getItemsByTagReqDecoder, bundle.request)),
 		A2(
 			$elm$core$Result$mapError,
 			$elm$json$Json$Decode$errorToString,
-			A2($elm$json$Json$Decode$decodeValue, $author$project$Api$Handlers$GetItemHandlerTEA$contextDecoder, bundle.context)));
-};
-var $elm$core$List$head = function (list) {
-	if (list.b) {
-		var x = list.a;
-		var xs = list.b;
-		return $elm$core$Maybe$Just(x);
-	} else {
-		return $elm$core$Maybe$Nothing;
-	}
-};
-var $author$project$Generated$Database$MicroblogItemDb = F4(
-	function (id, data, createdAt, viewCount) {
-		return {createdAt: createdAt, data: data, id: id, viewCount: viewCount};
-	});
-var $author$project$Api$Handlers$GetItemHandlerTEA$andMap = $elm$json$Json$Decode$map2($elm$core$Basics$apR);
-var $author$project$Generated$Database$MicroblogItemDataDb = F5(
-	function (title, link, image, extract, ownerComment) {
-		return {extract: extract, image: image, link: link, ownerComment: ownerComment, title: title};
-	});
-var $author$project$Generated$Database$microblogitemdataDbDecoder = A3(
-	$author$project$Generated$Database$decodeField,
-	'owner_comment',
-	$elm$json$Json$Decode$string,
-	A3(
-		$author$project$Generated$Database$decodeField,
-		'extract',
-		$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
-		A3(
-			$author$project$Generated$Database$decodeField,
-			'image',
-			$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
-			A3(
-				$author$project$Generated$Database$decodeField,
-				'link',
-				$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
-				A3(
-					$author$project$Generated$Database$decodeField,
-					'title',
-					$elm$json$Json$Decode$string,
-					$elm$json$Json$Decode$succeed($author$project$Generated$Database$MicroblogItemDataDb))))));
-var $author$project$Api$Handlers$GetItemHandlerTEA$stringToInt = function (str) {
-	var _v0 = $elm$core$String$toInt(str);
-	if (_v0.$ === 'Just') {
-		var _int = _v0.a;
-		return $elm$json$Json$Decode$succeed(_int);
-	} else {
-		return $elm$json$Json$Decode$fail('Could not parse timestamp: ' + str);
-	}
-};
-var $author$project$Api$Handlers$GetItemHandlerTEA$timestampDecoder = $elm$json$Json$Decode$oneOf(
-	_List_fromArray(
-		[
-			$elm$json$Json$Decode$int,
-			A2($elm$json$Json$Decode$andThen, $author$project$Api$Handlers$GetItemHandlerTEA$stringToInt, $elm$json$Json$Decode$string)
-		]));
-var $author$project$Api$Handlers$GetItemHandlerTEA$microblogItemDbDecoder = A2(
-	$author$project$Api$Handlers$GetItemHandlerTEA$andMap,
-	A2($elm$json$Json$Decode$field, 'view_count', $elm$json$Json$Decode$int),
-	A2(
-		$author$project$Api$Handlers$GetItemHandlerTEA$andMap,
-		A2($elm$json$Json$Decode$field, 'created_at', $author$project$Api$Handlers$GetItemHandlerTEA$timestampDecoder),
-		A2(
-			$author$project$Api$Handlers$GetItemHandlerTEA$andMap,
-			A2($elm$json$Json$Decode$field, 'data', $author$project$Generated$Database$microblogitemdataDbDecoder),
-			A2(
-				$author$project$Api$Handlers$GetItemHandlerTEA$andMap,
-				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string),
-				$elm$json$Json$Decode$succeed($author$project$Generated$Database$MicroblogItemDb)))));
-var $author$project$Api$Handlers$GetItemHandlerTEA$decodeSingleItem = function (data) {
-	var _v0 = A2(
-		$elm$json$Json$Decode$decodeValue,
-		$elm$json$Json$Decode$list($author$project$Api$Handlers$GetItemHandlerTEA$microblogItemDbDecoder),
-		data);
-	if (_v0.$ === 'Ok') {
-		var items = _v0.a;
-		var _v1 = $elm$core$List$head(items);
-		if (_v1.$ === 'Just') {
-			var item = _v1.a;
-			return $elm$core$Result$Ok(
-				$elm$core$Maybe$Just(item));
-		} else {
-			return $elm$core$Result$Ok($elm$core$Maybe$Nothing);
-		}
-	} else {
-		var error = _v0.a;
-		return $elm$core$Result$Err(
-			'Failed to decode item: ' + $elm$json$Json$Decode$errorToString(error));
-	}
+			A2($elm$json$Json$Decode$decodeValue, $author$project$Api$Handlers$GetItemsByTagHandlerTEA$contextDecoder, bundle.context)));
 };
 var $elm$json$Json$Encode$object = function (pairs) {
 	return _Json_wrap(
@@ -3286,7 +3203,7 @@ var $elm$json$Json$Encode$object = function (pairs) {
 			pairs));
 };
 var $elm$json$Json$Encode$string = _Json_wrap;
-var $author$project$Api$Handlers$GetItemHandlerTEA$encodeError = function (error) {
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$encodeError = function (error) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
@@ -3321,7 +3238,7 @@ var $elm$core$Maybe$withDefault = F2(
 			return _default;
 		}
 	});
-var $author$project$Api$Backend$commentItemEncoder = function (struct) {
+var $author$project$Api$Backend$feedItemEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
@@ -3329,23 +3246,23 @@ var $author$project$Api$Backend$commentItemEncoder = function (struct) {
 				'id',
 				$elm$json$Json$Encode$string(struct.id)),
 				_Utils_Tuple2(
-				'item_id',
-				$elm$json$Json$Encode$string(struct.itemId)),
+				'title',
+				$elm$json$Json$Encode$string(struct.title)),
 				_Utils_Tuple2(
-				'guest_id',
-				$elm$json$Json$Encode$string(struct.guestId)),
-				_Utils_Tuple2(
-				'parent_id',
+				'image',
 				A2(
 					$elm$core$Basics$composeL,
 					$elm$core$Maybe$withDefault($elm$json$Json$Encode$null),
-					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.parentId)),
+					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.image)),
 				_Utils_Tuple2(
-				'author_name',
-				$elm$json$Json$Encode$string(struct.authorName)),
+				'extract',
+				A2(
+					$elm$core$Basics$composeL,
+					$elm$core$Maybe$withDefault($elm$json$Json$Encode$null),
+					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.extract)),
 				_Utils_Tuple2(
-				'text',
-				$elm$json$Json$Encode$string(struct.text)),
+				'owner_comment',
+				$elm$json$Json$Encode$string(struct.ownerComment)),
 				_Utils_Tuple2(
 				'timestamp',
 				$elm$json$Json$Encode$int(struct.timestamp))
@@ -3360,52 +3277,184 @@ var $elm$json$Json$Encode$list = F2(
 				_Json_emptyArray(_Utils_Tuple0),
 				entries));
 	});
-var $author$project$Api$Backend$microblogItemEncoder = function (struct) {
+var $author$project$Api$Backend$getItemsByTagResEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
 				_Utils_Tuple2(
-				'id',
-				$elm$json$Json$Encode$string(struct.id)),
+				'tag',
+				$elm$json$Json$Encode$string(struct.tag)),
 				_Utils_Tuple2(
-				'title',
-				$elm$json$Json$Encode$string(struct.title)),
-				_Utils_Tuple2(
-				'link',
-				$elm$json$Json$Encode$string(struct.link)),
-				_Utils_Tuple2(
-				'image',
-				$elm$json$Json$Encode$string(struct.image)),
-				_Utils_Tuple2(
-				'extract',
-				$elm$json$Json$Encode$string(struct.extract)),
-				_Utils_Tuple2(
-				'owner_comment',
-				$elm$json$Json$Encode$string(struct.ownerComment)),
-				_Utils_Tuple2(
-				'tags',
-				$elm$json$Json$Encode$list($elm$json$Json$Encode$string)(struct.tags)),
-				_Utils_Tuple2(
-				'comments',
-				$elm$json$Json$Encode$list($author$project$Api$Backend$commentItemEncoder)(struct.comments)),
-				_Utils_Tuple2(
-				'timestamp',
-				$elm$json$Json$Encode$int(struct.timestamp))
+				'items',
+				$elm$json$Json$Encode$list($author$project$Api$Backend$feedItemEncoder)(struct.items))
 			]));
 };
-var $author$project$Api$Backend$getItemResEncoder = function (struct) {
-	return $elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'item',
-				$author$project$Api$Backend$microblogItemEncoder(struct.item))
-			]));
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$encodeGetItemsByTagRes = function (response) {
+	return $author$project$Api$Backend$getItemsByTagResEncoder(response);
 };
-var $author$project$Api$Handlers$GetItemHandlerTEA$encodeGetItemRes = function (response) {
-	return $author$project$Api$Backend$getItemResEncoder(response);
+var $elm$core$List$foldrHelper = F4(
+	function (fn, acc, ctr, ls) {
+		if (!ls.b) {
+			return acc;
+		} else {
+			var a = ls.a;
+			var r1 = ls.b;
+			if (!r1.b) {
+				return A2(fn, a, acc);
+			} else {
+				var b = r1.a;
+				var r2 = r1.b;
+				if (!r2.b) {
+					return A2(
+						fn,
+						a,
+						A2(fn, b, acc));
+				} else {
+					var c = r2.a;
+					var r3 = r2.b;
+					if (!r3.b) {
+						return A2(
+							fn,
+							a,
+							A2(
+								fn,
+								b,
+								A2(fn, c, acc)));
+					} else {
+						var d = r3.a;
+						var r4 = r3.b;
+						var res = (ctr > 500) ? A3(
+							$elm$core$List$foldl,
+							fn,
+							acc,
+							$elm$core$List$reverse(r4)) : A4($elm$core$List$foldrHelper, fn, acc, ctr + 1, r4);
+						return A2(
+							fn,
+							a,
+							A2(
+								fn,
+								b,
+								A2(
+									fn,
+									c,
+									A2(fn, d, res))));
+					}
+				}
+			}
+		}
+	});
+var $elm$core$List$foldr = F3(
+	function (fn, acc, ls) {
+		return A4($elm$core$List$foldrHelper, fn, acc, 0, ls);
+	});
+var $elm$core$List$filter = F2(
+	function (isGood, list) {
+		return A3(
+			$elm$core$List$foldr,
+			F2(
+				function (x, xs) {
+					return isGood(x) ? A2($elm$core$List$cons, x, xs) : xs;
+				}),
+			_List_Nil,
+			list);
+	});
+var $elm$core$List$head = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return $elm$core$Maybe$Just(x);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
 };
-var $author$project$Api$Handlers$GetItemHandlerTEA$handleDbResponse = function (response) {
+var $elm$core$List$map = F2(
+	function (f, xs) {
+		return A3(
+			$elm$core$List$foldr,
+			F2(
+				function (x, acc) {
+					return A2(
+						$elm$core$List$cons,
+						f(x),
+						acc);
+				}),
+			_List_Nil,
+			xs);
+	});
+var $elm$core$List$any = F2(
+	function (isOkay, list) {
+		any:
+		while (true) {
+			if (!list.b) {
+				return false;
+			} else {
+				var x = list.a;
+				var xs = list.b;
+				if (isOkay(x)) {
+					return true;
+				} else {
+					var $temp$isOkay = isOkay,
+						$temp$list = xs;
+					isOkay = $temp$isOkay;
+					list = $temp$list;
+					continue any;
+				}
+			}
+		}
+	});
+var $elm$core$List$member = F2(
+	function (x, xs) {
+		return A2(
+			$elm$core$List$any,
+			function (a) {
+				return _Utils_eq(a, x);
+			},
+			xs);
+	});
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$transformToFeedItem = function (dbItem) {
+	return {extract: dbItem.data.extract, id: dbItem.id, image: dbItem.data.image, ownerComment: dbItem.data.ownerComment, timestamp: dbItem.createdAt, title: dbItem.data.title};
+};
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$filterItemsByTag = F4(
+	function (tagName, items, allTags, itemTags) {
+		var maybeTagId = A2(
+			$elm$core$Maybe$map,
+			function ($) {
+				return $.id;
+			},
+			$elm$core$List$head(
+				A2(
+					$elm$core$List$filter,
+					function (t) {
+						return _Utils_eq(t.name, tagName);
+					},
+					allTags)));
+		if (maybeTagId.$ === 'Just') {
+			var tagId = maybeTagId.a;
+			var itemIdsWithTag = A2(
+				$elm$core$List$map,
+				function ($) {
+					return $.itemId;
+				},
+				A2(
+					$elm$core$List$filter,
+					function (it) {
+						return _Utils_eq(it.tagId, tagId);
+					},
+					itemTags));
+			return A2(
+				$elm$core$List$map,
+				$author$project$Api$Handlers$GetItemsByTagHandlerTEA$transformToFeedItem,
+				A2(
+					$elm$core$List$filter,
+					function (item) {
+						return A2($elm$core$List$member, item.id, itemIdsWithTag);
+					},
+					items));
+		} else {
+			return _List_Nil;
+		}
+	});
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$handleDbResponse = function (response) {
 	if (response.success) {
 		var _v0 = response.data;
 		if (_v0.$ === 'Just') {
@@ -3572,54 +3621,7 @@ var $author$project$Generated$Database$findTags = function (query) {
 		});
 };
 var $author$project$Generated$Database$queryAll = {filter: _List_Nil, paginate: $elm$core$Maybe$Nothing, sort: _List_Nil};
-var $author$project$Api$Handlers$GetItemHandlerTEA$loadAllTags = $author$project$Generated$Database$findTags($author$project$Generated$Database$queryAll);
-var $author$project$Generated$Database$findItemComments = function (query) {
-	var requestId = 'find_item_comment_' + $elm$core$String$fromInt(
-		$elm$core$Basics$abs(
-			$author$project$Generated$Database$hashString(
-				$author$project$Generated$Database$toString(query))));
-	return $author$project$Generated$Database$dbFind(
-		{
-			id: requestId,
-			query: $author$project$Generated$Database$encodeQuery(query),
-			table: 'item_comment'
-		});
-};
-var $author$project$Api$Handlers$GetItemHandlerTEA$loadCommentsForItem = function (itemId) {
-	return $author$project$Generated$Database$findItemComments($author$project$Generated$Database$queryAll);
-};
-var $author$project$Generated$Database$ById = function (a) {
-	return {$: 'ById', a: a};
-};
-var $author$project$Generated$Database$byId = F2(
-	function (id, query) {
-		return _Utils_update(
-			query,
-			{
-				filter: _Utils_ap(
-					query.filter,
-					_List_fromArray(
-						[
-							$author$project$Generated$Database$ById(id)
-						]))
-			});
-	});
-var $author$project$Generated$Database$findMicroblogItems = function (query) {
-	var requestId = 'find_microblog_item_' + $elm$core$String$fromInt(
-		$elm$core$Basics$abs(
-			$author$project$Generated$Database$hashString(
-				$author$project$Generated$Database$toString(query))));
-	return $author$project$Generated$Database$dbFind(
-		{
-			id: requestId,
-			query: $author$project$Generated$Database$encodeQuery(query),
-			table: 'microblog_item'
-		});
-};
-var $author$project$Api$Handlers$GetItemHandlerTEA$loadItemById = function (itemId) {
-	return $author$project$Generated$Database$findMicroblogItems(
-		A2($author$project$Generated$Database$byId, itemId, $author$project$Generated$Database$queryAll));
-};
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$loadAllTags = $author$project$Generated$Database$findTags($author$project$Generated$Database$queryAll);
 var $author$project$Generated$Database$findItemTags = function (query) {
 	var requestId = 'find_item_tag_' + $elm$core$String$fromInt(
 		$elm$core$Basics$abs(
@@ -3632,174 +3634,36 @@ var $author$project$Generated$Database$findItemTags = function (query) {
 			table: 'item_tag'
 		});
 };
-var $author$project$Api$Handlers$GetItemHandlerTEA$loadItemTagsForItem = function (itemId) {
-	return $author$project$Generated$Database$findItemTags($author$project$Generated$Database$queryAll);
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$loadItemTags = $author$project$Generated$Database$findItemTags($author$project$Generated$Database$queryAll);
+var $author$project$Generated$Database$findMicroblogItems = function (query) {
+	var requestId = 'find_microblog_item_' + $elm$core$String$fromInt(
+		$elm$core$Basics$abs(
+			$author$project$Generated$Database$hashString(
+				$author$project$Generated$Database$toString(query))));
+	return $author$project$Generated$Database$dbFind(
+		{
+			id: requestId,
+			query: $author$project$Generated$Database$encodeQuery(query),
+			table: 'microblog_item'
+		});
 };
-var $elm$core$List$foldrHelper = F4(
-	function (fn, acc, ctr, ls) {
-		if (!ls.b) {
-			return acc;
-		} else {
-			var a = ls.a;
-			var r1 = ls.b;
-			if (!r1.b) {
-				return A2(fn, a, acc);
-			} else {
-				var b = r1.a;
-				var r2 = r1.b;
-				if (!r2.b) {
-					return A2(
-						fn,
-						a,
-						A2(fn, b, acc));
-				} else {
-					var c = r2.a;
-					var r3 = r2.b;
-					if (!r3.b) {
-						return A2(
-							fn,
-							a,
-							A2(
-								fn,
-								b,
-								A2(fn, c, acc)));
-					} else {
-						var d = r3.a;
-						var r4 = r3.b;
-						var res = (ctr > 500) ? A3(
-							$elm$core$List$foldl,
-							fn,
-							acc,
-							$elm$core$List$reverse(r4)) : A4($elm$core$List$foldrHelper, fn, acc, ctr + 1, r4);
-						return A2(
-							fn,
-							a,
-							A2(
-								fn,
-								b,
-								A2(
-									fn,
-									c,
-									A2(fn, d, res))));
-					}
-				}
-			}
-		}
-	});
-var $elm$core$List$foldr = F3(
-	function (fn, acc, ls) {
-		return A4($elm$core$List$foldrHelper, fn, acc, 0, ls);
-	});
-var $elm$core$List$filter = F2(
-	function (isGood, list) {
-		return A3(
-			$elm$core$List$foldr,
-			F2(
-				function (x, xs) {
-					return isGood(x) ? A2($elm$core$List$cons, x, xs) : xs;
-				}),
-			_List_Nil,
-			list);
-	});
-var $elm$core$List$map = F2(
-	function (f, xs) {
-		return A3(
-			$elm$core$List$foldr,
-			F2(
-				function (x, acc) {
-					return A2(
-						$elm$core$List$cons,
-						f(x),
-						acc);
-				}),
-			_List_Nil,
-			xs);
-	});
-var $elm$core$List$any = F2(
-	function (isOkay, list) {
-		any:
-		while (true) {
-			if (!list.b) {
-				return false;
-			} else {
-				var x = list.a;
-				var xs = list.b;
-				if (isOkay(x)) {
-					return true;
-				} else {
-					var $temp$isOkay = isOkay,
-						$temp$list = xs;
-					isOkay = $temp$isOkay;
-					list = $temp$list;
-					continue any;
-				}
-			}
-		}
-	});
-var $elm$core$List$member = F2(
-	function (x, xs) {
-		return A2(
-			$elm$core$List$any,
-			function (a) {
-				return _Utils_eq(a, x);
-			},
-			xs);
-	});
-var $author$project$Api$Handlers$GetItemHandlerTEA$transformCommentToApi = function (dbComment) {
-	return {authorName: dbComment.authorName, guestId: dbComment.guestId, id: dbComment.id, itemId: dbComment.itemId, parentId: dbComment.parentId, text: dbComment.text, timestamp: dbComment.createdAt};
+var $author$project$Generated$Database$CreatedAtDesc = {$: 'CreatedAtDesc'};
+var $author$project$Generated$Database$sortByCreatedAt = function (query) {
+	return _Utils_update(
+		query,
+		{
+			sort: _List_fromArray(
+				[$author$project$Generated$Database$CreatedAtDesc])
+		});
 };
-var $author$project$Api$Handlers$GetItemHandlerTEA$transformToMicroblogItem = F4(
-	function (dbItem, allTags, itemTags, comments) {
-		var thisItemTags = A2(
-			$elm$core$List$filter,
-			function (it) {
-				return _Utils_eq(it.itemId, dbItem.id);
-			},
-			itemTags);
-		var tagIds = A2(
-			$elm$core$List$map,
-			function ($) {
-				return $.tagId;
-			},
-			thisItemTags);
-		var itemTagNames = A2(
-			$elm$core$List$map,
-			function ($) {
-				return $.name;
-			},
-			A2(
-				$elm$core$List$filter,
-				function (tag) {
-					return A2($elm$core$List$member, tag.id, tagIds);
-				},
-				allTags));
-		var itemComments = A2(
-			$elm$core$List$map,
-			$author$project$Api$Handlers$GetItemHandlerTEA$transformCommentToApi,
-			A2(
-				$elm$core$List$filter,
-				function (comment) {
-					return _Utils_eq(comment.itemId, dbItem.id);
-				},
-				comments));
-		return {
-			comments: itemComments,
-			extract: A2($elm$core$Maybe$withDefault, '', dbItem.data.extract),
-			id: dbItem.id,
-			image: A2($elm$core$Maybe$withDefault, '', dbItem.data.image),
-			link: A2($elm$core$Maybe$withDefault, '', dbItem.data.link),
-			ownerComment: dbItem.data.ownerComment,
-			tags: itemTagNames,
-			timestamp: dbItem.createdAt,
-			title: dbItem.data.title
-		};
-	});
-var $author$project$Api$Handlers$GetItemHandlerTEA$update = F2(
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$loadMicroblogItems = $author$project$Generated$Database$findMicroblogItems(
+	$author$project$Generated$Database$sortByCreatedAt($author$project$Generated$Database$queryAll));
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$update = F2(
 	function (msg, model) {
 		switch (msg.$) {
 			case 'HandleRequest':
 				var bundle = msg.a;
-				var _v1 = $author$project$Api$Handlers$GetItemHandlerTEA$decodeRequest(bundle);
+				var _v1 = $author$project$Api$Handlers$GetItemsByTagHandlerTEA$decodeRequest(bundle);
 				if (_v1.$ === 'Ok') {
 					var _v2 = _v1.a;
 					var req = _v2.a;
@@ -3811,61 +3675,45 @@ var $author$project$Api$Handlers$GetItemHandlerTEA$update = F2(
 								allTags: _List_Nil,
 								context: $elm$core$Maybe$Just(ctx),
 								itemTags: _List_Nil,
-								loadedComments: _List_Nil,
-								loadedItem: $elm$core$Maybe$Nothing,
+								loadedItems: _List_Nil,
 								request: $elm$core$Maybe$Just(req),
-								stage: $author$project$Api$Handlers$GetItemHandlerTEA$LoadingItem
+								stage: $author$project$Api$Handlers$GetItemsByTagHandlerTEA$LoadingAllTags
 							}),
-						$author$project$Api$Handlers$GetItemHandlerTEA$loadItemById(req.id));
+						$author$project$Api$Handlers$GetItemsByTagHandlerTEA$loadAllTags);
 				} else {
 					var error = _v1.a;
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
 							{
-								stage: $author$project$Api$Handlers$GetItemHandlerTEA$Failed(error)
+								stage: $author$project$Api$Handlers$GetItemsByTagHandlerTEA$Failed(error)
 							}),
 						$elm$core$Platform$Cmd$none);
 				}
-			case 'ItemLoaded':
+			case 'AllTagsLoaded':
 				var result = msg.a;
-				if (_Utils_eq(model.stage, $author$project$Api$Handlers$GetItemHandlerTEA$LoadingItem)) {
-					var _v3 = $author$project$Api$Handlers$GetItemHandlerTEA$handleDbResponse(result);
+				if (_Utils_eq(model.stage, $author$project$Api$Handlers$GetItemsByTagHandlerTEA$LoadingAllTags)) {
+					var _v3 = $author$project$Api$Handlers$GetItemsByTagHandlerTEA$handleDbResponse(result);
 					if (_v3.$ === 'Ok') {
 						var data = _v3.a;
-						var _v4 = $author$project$Api$Handlers$GetItemHandlerTEA$decodeSingleItem(data);
+						var _v4 = $author$project$Api$Handlers$GetItemsByTagHandlerTEA$decodeAllTags(data);
 						if (_v4.$ === 'Ok') {
-							if (_v4.a.$ === 'Just') {
-								var item = _v4.a.a;
-								return _Utils_Tuple2(
-									_Utils_update(
-										model,
-										{
-											loadedItem: $elm$core$Maybe$Just(item),
-											stage: $author$project$Api$Handlers$GetItemHandlerTEA$LoadingAllTags
-										}),
-									$author$project$Api$Handlers$GetItemHandlerTEA$loadAllTags);
-							} else {
-								var _v5 = _v4.a;
-								return _Utils_Tuple2(
-									_Utils_update(
-										model,
-										{
-											stage: $author$project$Api$Handlers$GetItemHandlerTEA$Failed('Item not found')
-										}),
-									$author$project$Api$Handlers$GetItemHandlerTEA$complete(
-										$author$project$Api$Handlers$GetItemHandlerTEA$encodeError('Item not found')));
-							}
+							var tags = _v4.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{allTags: tags, stage: $author$project$Api$Handlers$GetItemsByTagHandlerTEA$LoadingItems}),
+								$author$project$Api$Handlers$GetItemsByTagHandlerTEA$loadMicroblogItems);
 						} else {
 							var error = _v4.a;
 							return _Utils_Tuple2(
 								_Utils_update(
 									model,
 									{
-										stage: $author$project$Api$Handlers$GetItemHandlerTEA$Failed(error)
+										stage: $author$project$Api$Handlers$GetItemsByTagHandlerTEA$Failed(error)
 									}),
-								$author$project$Api$Handlers$GetItemHandlerTEA$complete(
-									$author$project$Api$Handlers$GetItemHandlerTEA$encodeError(error)));
+								$author$project$Api$Handlers$GetItemsByTagHandlerTEA$complete(
+									$author$project$Api$Handlers$GetItemsByTagHandlerTEA$encodeError(error)));
 						}
 					} else {
 						var error = _v3.a;
@@ -3873,172 +3721,106 @@ var $author$project$Api$Handlers$GetItemHandlerTEA$update = F2(
 							_Utils_update(
 								model,
 								{
-									stage: $author$project$Api$Handlers$GetItemHandlerTEA$Failed(error)
+									stage: $author$project$Api$Handlers$GetItemsByTagHandlerTEA$Failed(error)
 								}),
-							$author$project$Api$Handlers$GetItemHandlerTEA$complete(
-								$author$project$Api$Handlers$GetItemHandlerTEA$encodeError(error)));
+							$author$project$Api$Handlers$GetItemsByTagHandlerTEA$complete(
+								$author$project$Api$Handlers$GetItemsByTagHandlerTEA$encodeError(error)));
 					}
 				} else {
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				}
-			case 'AllTagsLoaded':
+			case 'ItemsLoaded':
 				var result = msg.a;
-				if (_Utils_eq(model.stage, $author$project$Api$Handlers$GetItemHandlerTEA$LoadingAllTags)) {
-					var _v6 = $author$project$Api$Handlers$GetItemHandlerTEA$handleDbResponse(result);
-					if (_v6.$ === 'Ok') {
-						var data = _v6.a;
-						var _v7 = $author$project$Api$Handlers$GetItemHandlerTEA$decodeAllTags(data);
-						if (_v7.$ === 'Ok') {
-							var tags = _v7.a;
-							var _v8 = model.loadedItem;
-							if (_v8.$ === 'Just') {
-								var item = _v8.a;
-								return _Utils_Tuple2(
-									_Utils_update(
-										model,
-										{allTags: tags, stage: $author$project$Api$Handlers$GetItemHandlerTEA$LoadingItemTags}),
-									$author$project$Api$Handlers$GetItemHandlerTEA$loadItemTagsForItem(item.id));
-							} else {
-								return _Utils_Tuple2(
-									_Utils_update(
-										model,
-										{
-											stage: $author$project$Api$Handlers$GetItemHandlerTEA$Failed('No item loaded')
-										}),
-									$author$project$Api$Handlers$GetItemHandlerTEA$complete(
-										$author$project$Api$Handlers$GetItemHandlerTEA$encodeError('No item loaded')));
-							}
+				if (_Utils_eq(model.stage, $author$project$Api$Handlers$GetItemsByTagHandlerTEA$LoadingItems)) {
+					var _v5 = $author$project$Api$Handlers$GetItemsByTagHandlerTEA$handleDbResponse(result);
+					if (_v5.$ === 'Ok') {
+						var data = _v5.a;
+						var _v6 = $author$project$Api$Handlers$GetItemsByTagHandlerTEA$decodeItems(data);
+						if (_v6.$ === 'Ok') {
+							var items = _v6.a;
+							return _Utils_Tuple2(
+								_Utils_update(
+									model,
+									{loadedItems: items, stage: $author$project$Api$Handlers$GetItemsByTagHandlerTEA$LoadingItemTags}),
+								$author$project$Api$Handlers$GetItemsByTagHandlerTEA$loadItemTags);
 						} else {
-							var error = _v7.a;
+							var error = _v6.a;
 							return _Utils_Tuple2(
 								_Utils_update(
 									model,
 									{
-										stage: $author$project$Api$Handlers$GetItemHandlerTEA$Failed(error)
+										stage: $author$project$Api$Handlers$GetItemsByTagHandlerTEA$Failed(error)
 									}),
-								$author$project$Api$Handlers$GetItemHandlerTEA$complete(
-									$author$project$Api$Handlers$GetItemHandlerTEA$encodeError(error)));
+								$author$project$Api$Handlers$GetItemsByTagHandlerTEA$complete(
+									$author$project$Api$Handlers$GetItemsByTagHandlerTEA$encodeError(error)));
 						}
 					} else {
-						var error = _v6.a;
+						var error = _v5.a;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
 								{
-									stage: $author$project$Api$Handlers$GetItemHandlerTEA$Failed(error)
+									stage: $author$project$Api$Handlers$GetItemsByTagHandlerTEA$Failed(error)
 								}),
-							$author$project$Api$Handlers$GetItemHandlerTEA$complete(
-								$author$project$Api$Handlers$GetItemHandlerTEA$encodeError(error)));
-					}
-				} else {
-					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
-				}
-			case 'ItemTagsLoaded':
-				var result = msg.a;
-				if (_Utils_eq(model.stage, $author$project$Api$Handlers$GetItemHandlerTEA$LoadingItemTags)) {
-					var _v9 = $author$project$Api$Handlers$GetItemHandlerTEA$handleDbResponse(result);
-					if (_v9.$ === 'Ok') {
-						var data = _v9.a;
-						var _v10 = $author$project$Api$Handlers$GetItemHandlerTEA$decodeItemTags(data);
-						if (_v10.$ === 'Ok') {
-							var itemTagsList = _v10.a;
-							var _v11 = model.loadedItem;
-							if (_v11.$ === 'Just') {
-								var item = _v11.a;
-								return _Utils_Tuple2(
-									_Utils_update(
-										model,
-										{itemTags: itemTagsList, stage: $author$project$Api$Handlers$GetItemHandlerTEA$LoadingComments}),
-									$author$project$Api$Handlers$GetItemHandlerTEA$loadCommentsForItem(item.id));
-							} else {
-								return _Utils_Tuple2(
-									_Utils_update(
-										model,
-										{
-											stage: $author$project$Api$Handlers$GetItemHandlerTEA$Failed('No item loaded')
-										}),
-									$author$project$Api$Handlers$GetItemHandlerTEA$complete(
-										$author$project$Api$Handlers$GetItemHandlerTEA$encodeError('No item loaded')));
-							}
-						} else {
-							var error = _v10.a;
-							return _Utils_Tuple2(
-								_Utils_update(
-									model,
-									{
-										stage: $author$project$Api$Handlers$GetItemHandlerTEA$Failed(error)
-									}),
-								$author$project$Api$Handlers$GetItemHandlerTEA$complete(
-									$author$project$Api$Handlers$GetItemHandlerTEA$encodeError(error)));
-						}
-					} else {
-						var error = _v9.a;
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{
-									stage: $author$project$Api$Handlers$GetItemHandlerTEA$Failed(error)
-								}),
-							$author$project$Api$Handlers$GetItemHandlerTEA$complete(
-								$author$project$Api$Handlers$GetItemHandlerTEA$encodeError(error)));
+							$author$project$Api$Handlers$GetItemsByTagHandlerTEA$complete(
+								$author$project$Api$Handlers$GetItemsByTagHandlerTEA$encodeError(error)));
 					}
 				} else {
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				}
 			default:
 				var result = msg.a;
-				if (_Utils_eq(model.stage, $author$project$Api$Handlers$GetItemHandlerTEA$LoadingComments)) {
-					var _v12 = $author$project$Api$Handlers$GetItemHandlerTEA$handleDbResponse(result);
-					if (_v12.$ === 'Ok') {
-						var data = _v12.a;
-						var _v13 = $author$project$Api$Handlers$GetItemHandlerTEA$decodeComments(data);
-						if (_v13.$ === 'Ok') {
-							var comments = _v13.a;
-							var _v14 = model.loadedItem;
-							if (_v14.$ === 'Just') {
-								var item = _v14.a;
-								var microblogItem = A4($author$project$Api$Handlers$GetItemHandlerTEA$transformToMicroblogItem, item, model.allTags, model.itemTags, comments);
+				if (_Utils_eq(model.stage, $author$project$Api$Handlers$GetItemsByTagHandlerTEA$LoadingItemTags)) {
+					var _v7 = $author$project$Api$Handlers$GetItemsByTagHandlerTEA$handleDbResponse(result);
+					if (_v7.$ === 'Ok') {
+						var data = _v7.a;
+						var _v8 = $author$project$Api$Handlers$GetItemsByTagHandlerTEA$decodeItemTags(data);
+						if (_v8.$ === 'Ok') {
+							var itemTagsList = _v8.a;
+							var _v9 = model.request;
+							if (_v9.$ === 'Just') {
+								var req = _v9.a;
+								var filteredItems = A4($author$project$Api$Handlers$GetItemsByTagHandlerTEA$filterItemsByTag, req.tag, model.loadedItems, model.allTags, itemTagsList);
+								var response = {items: filteredItems, tag: req.tag};
 								return _Utils_Tuple2(
 									_Utils_update(
 										model,
 										{
-											stage: $author$project$Api$Handlers$GetItemHandlerTEA$Complete(
-												{item: microblogItem})
+											stage: $author$project$Api$Handlers$GetItemsByTagHandlerTEA$Complete(response)
 										}),
-									$author$project$Api$Handlers$GetItemHandlerTEA$complete(
-										$author$project$Api$Handlers$GetItemHandlerTEA$encodeGetItemRes(
-											{item: microblogItem})));
+									$author$project$Api$Handlers$GetItemsByTagHandlerTEA$complete(
+										$author$project$Api$Handlers$GetItemsByTagHandlerTEA$encodeGetItemsByTagRes(response)));
 							} else {
 								return _Utils_Tuple2(
 									_Utils_update(
 										model,
 										{
-											stage: $author$project$Api$Handlers$GetItemHandlerTEA$Failed('No item loaded')
+											stage: $author$project$Api$Handlers$GetItemsByTagHandlerTEA$Failed('No request found')
 										}),
-									$author$project$Api$Handlers$GetItemHandlerTEA$complete(
-										$author$project$Api$Handlers$GetItemHandlerTEA$encodeError('No item loaded')));
+									$author$project$Api$Handlers$GetItemsByTagHandlerTEA$complete(
+										$author$project$Api$Handlers$GetItemsByTagHandlerTEA$encodeError('No request found')));
 							}
 						} else {
-							var error = _v13.a;
+							var error = _v8.a;
 							return _Utils_Tuple2(
 								_Utils_update(
 									model,
 									{
-										stage: $author$project$Api$Handlers$GetItemHandlerTEA$Failed(error)
+										stage: $author$project$Api$Handlers$GetItemsByTagHandlerTEA$Failed(error)
 									}),
-								$author$project$Api$Handlers$GetItemHandlerTEA$complete(
-									$author$project$Api$Handlers$GetItemHandlerTEA$encodeError(error)));
+								$author$project$Api$Handlers$GetItemsByTagHandlerTEA$complete(
+									$author$project$Api$Handlers$GetItemsByTagHandlerTEA$encodeError(error)));
 						}
 					} else {
-						var error = _v12.a;
+						var error = _v7.a;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
 								{
-									stage: $author$project$Api$Handlers$GetItemHandlerTEA$Failed(error)
+									stage: $author$project$Api$Handlers$GetItemsByTagHandlerTEA$Failed(error)
 								}),
-							$author$project$Api$Handlers$GetItemHandlerTEA$complete(
-								$author$project$Api$Handlers$GetItemHandlerTEA$encodeError(error)));
+							$author$project$Api$Handlers$GetItemsByTagHandlerTEA$complete(
+								$author$project$Api$Handlers$GetItemsByTagHandlerTEA$encodeError(error)));
 					}
 				} else {
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
@@ -4046,9 +3828,9 @@ var $author$project$Api$Handlers$GetItemHandlerTEA$update = F2(
 		}
 	});
 var $elm$core$Platform$worker = _Platform_worker;
-var $author$project$Api$Handlers$GetItemHandlerTEA$main = $elm$core$Platform$worker(
-	{init: $author$project$Api$Handlers$GetItemHandlerTEA$init, subscriptions: $author$project$Api$Handlers$GetItemHandlerTEA$subscriptions, update: $author$project$Api$Handlers$GetItemHandlerTEA$update});
-_Platform_export({'Api':{'Handlers':{'GetItemHandlerTEA':{'init':$author$project$Api$Handlers$GetItemHandlerTEA$main(
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$main = $elm$core$Platform$worker(
+	{init: $author$project$Api$Handlers$GetItemsByTagHandlerTEA$init, subscriptions: $author$project$Api$Handlers$GetItemsByTagHandlerTEA$subscriptions, update: $author$project$Api$Handlers$GetItemsByTagHandlerTEA$update});
+_Platform_export({'Api':{'Handlers':{'GetItemsByTagHandlerTEA':{'init':$author$project$Api$Handlers$GetItemsByTagHandlerTEA$main(
 	A2(
 		$elm$json$Json$Decode$andThen,
 		function (globalState) {

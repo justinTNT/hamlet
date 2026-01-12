@@ -2907,12 +2907,12 @@ var $author$project$Api$Handlers$SubmitItemHandlerTEA$encodeError = function (er
 				$elm$json$Json$Encode$string(error))
 			]));
 };
-var $elm$json$Json$Encode$int = _Json_wrap;
 var $elm$core$Basics$composeL = F3(
 	function (g, f, x) {
 		return g(
 			f(x));
 	});
+var $elm$json$Json$Encode$int = _Json_wrap;
 var $elm$core$Maybe$map = F2(
 	function (f, maybe) {
 		if (maybe.$ === 'Just') {
@@ -2933,7 +2933,7 @@ var $elm$core$Maybe$withDefault = F2(
 			return _default;
 		}
 	});
-var $author$project$Api$Backend$itemCommentEncoder = function (struct) {
+var $author$project$Api$Backend$commentItemEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
@@ -2999,7 +2999,7 @@ var $author$project$Api$Backend$microblogItemEncoder = function (struct) {
 				$elm$json$Json$Encode$list($elm$json$Json$Encode$string)(struct.tags)),
 				_Utils_Tuple2(
 				'comments',
-				$elm$json$Json$Encode$list($author$project$Api$Backend$itemCommentEncoder)(struct.comments)),
+				$elm$json$Json$Encode$list($author$project$Api$Backend$commentItemEncoder)(struct.comments)),
 				_Utils_Tuple2(
 				'timestamp',
 				$elm$json$Json$Encode$int(struct.timestamp))

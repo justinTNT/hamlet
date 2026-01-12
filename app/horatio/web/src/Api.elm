@@ -48,3 +48,10 @@ getItem req =
     , body = getItemReqEncoder req
     , decoder = getItemResDecoder
     }
+
+getItemsByTag : GetItemsByTagReq -> Request GetItemsByTagRes
+getItemsByTag req =
+    { endpoint = "GetItemsByTag"
+    , body = getItemsByTagReqEncoder req
+    , decoder = getItemsByTagResDecoder
+    }

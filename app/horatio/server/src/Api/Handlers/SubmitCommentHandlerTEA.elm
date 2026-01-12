@@ -10,7 +10,7 @@ Handles comment submission by creating new comment records in the database.
 
 -}
 
-import Api.Backend exposing (SubmitCommentReq, SubmitCommentRes, ItemComment)
+import Api.Backend exposing (SubmitCommentReq, SubmitCommentRes, CommentItem)
 import Generated.Database as DB
 import Generated.Events as Events
 import Generated.Services as Services

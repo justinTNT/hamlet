@@ -19,6 +19,7 @@
     "vite-plugin-elm": "^3.0.1"
   },
   "dependencies": {
+    "@rollup/rollup-darwin-arm64": "^4.55.1",
     "proto-rust": "file:../../pkg-web"
   }
 }

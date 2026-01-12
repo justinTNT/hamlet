@@ -2985,7 +2985,7 @@ var $elm$core$Maybe$withDefault = F2(
 			return _default;
 		}
 	});
-var $author$project$Api$Backend$itemCommentEncoder = function (struct) {
+var $author$project$Api$Backend$commentItemEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
@@ -3021,7 +3021,7 @@ var $author$project$Api$Backend$submitCommentResEncoder = function (struct) {
 			[
 				_Utils_Tuple2(
 				'comment',
-				$author$project$Api$Backend$itemCommentEncoder(struct.comment))
+				$author$project$Api$Backend$commentItemEncoder(struct.comment))
 			]));
 };
 var $author$project$Api$Handlers$SubmitCommentHandlerTEA$encodeSubmitCommentRes = function (response) {

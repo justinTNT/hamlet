@@ -9,6 +9,7 @@ module Generated.ApiClient exposing
     , getfeed, GetFeedReq, encodeGetFeedReq
     , submititem, SubmitItemReq, encodeSubmitItemReq
     , getitem, GetItemReq, encodeGetItemReq
+    , getitemsbytag, GetItemsByTagReq, encodeGetItemsByTagReq
     , gettags, GetTagsReq, encodeGetTagsReq
     )
 
@@ -48,6 +49,12 @@ type alias GetItemReq =
 {
     host : String
     id : String
+}
+
+type alias GetItemsByTagReq =
+{
+    host : String
+    tag : String
 }
 
 type alias GetTagsReq =
@@ -91,6 +98,13 @@ encodeGetItemReq getitemreq =
     Json.Encode.object
         [         ( "host", Json.Encode.string getitemreq.host )
         ( "id", Json.Encode.string getitemreq.id )
+        ]
+
+encodeGetItemsByTagReq : GetItemsByTagReq -> Json.Encode.Value
+encodeGetItemsByTagReq getitemsbytagreq =
+    Json.Encode.object
+        [         ( "host", Json.Encode.string getitemsbytagreq.host )
+        ( "tag", Json.Encode.string getitemsbytagreq.tag )
         ]
 
 encodeGetTagsReq : GetTagsReq -> Json.Encode.Value
@@ -139,6 +153,16 @@ getitem request toMsg =
     Http.post
         { url = "/api/GetItem"
         , body = Http.jsonBody (encodeGetItemReq request)
+        , expect = Http.expectJson toMsg Json.Decode.value
+        }
+
+{-| Call GetItemsByTag API endpoint
+-}
+getitemsbytag : GetItemsByTagReq -> (Result Http.Error Json.Decode.Value -> msg) -> Cmd msg
+getitemsbytag request toMsg =
+    Http.post
+        { url = "/api/GetItemsByTag"
+        , body = Http.jsonBody (encodeGetItemsByTagReq request)
         , expect = Http.expectJson toMsg Json.Decode.value
         }
 

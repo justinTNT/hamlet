@@ -359,7 +359,7 @@ transformToMicroblogItem dbItem allTags itemTags comments =
 
 {-| Transform a database comment to API format
 -}
-transformCommentToApi : DB.ItemCommentDb -> Api.Backend.ItemComment
+transformCommentToApi : DB.ItemCommentDb -> Api.Backend.CommentItem
 transformCommentToApi dbComment =
     { id = dbComment.id
     , itemId = dbComment.itemId

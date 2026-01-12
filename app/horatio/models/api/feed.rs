@@ -1,5 +1,5 @@
 use buildamp_macro::buildamp;
-use super::comment::ItemComment;
+use super::comment::CommentItem;
 
 #[buildamp(path = "GetFeed")]
 pub struct GetFeedReq {
@@ -33,7 +33,7 @@ pub struct MicroblogItem {
     pub extract: String,
     pub owner_comment: String,
     pub tags: Vec<String>,
-    pub comments: Vec<ItemComment>,
+    pub comments: Vec<CommentItem>,
     pub timestamp: u64,
 }
 

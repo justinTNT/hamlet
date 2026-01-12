@@ -30,5 +30,8 @@
     },
     "hamlet": {
         "defaultApp": "horatio"
+    },
+    "dependencies": {
+        "@rollup/rollup-darwin-x64": "^4.55.1"
     }
 }
