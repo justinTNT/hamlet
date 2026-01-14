@@ -324,27 +324,23 @@ transformToApiWithRelations items allTags itemTags comments =
 
 
 {-| Transform a single item with its related data to FeedItem format
--}  
+-}
 transformDbItemToApiWithRelations : List DB.TagDb -> List DB.ItemTagDb -> List DB.ItemCommentDb -> DB.MicroblogItemDb -> Api.Backend.FeedItem
 transformDbItemToApiWithRelations allTags itemTags comments dbItem =
     { id = dbItem.id
-    , title = dbItem.data.title
-    , image = dbItem.data.image
-    , extract = dbItem.data.extract
-    , ownerComment = dbItem.data.ownerComment
+    , title = dbItem.title
+    , image = dbItem.image
+    , extract = dbItem.extract
+    , ownerComment = dbItem.ownerComment
     , timestamp = dbItem.createdAt
     }
 
 
-{-| Custom decoder for MicroblogItemDb that handles bigint timestamps as strings
+{-| Use generated decoder for MicroblogItemDb (handles flat structure and timestamps)
 -}
 microblogItemDbDecoder : Decode.Decoder DB.MicroblogItemDb
 microblogItemDbDecoder =
-    Decode.succeed DB.MicroblogItemDb
-        |> andMap (Decode.field "id" Decode.string)
-        |> andMap (Decode.field "data" DB.microblogitemdataDbDecoder)
-        |> andMap (Decode.field "created_at" timestampDecoder)
-        |> andMap (Decode.field "view_count" Decode.int)
+    DB.microblogitemDbDecoder
 
 
 {-| Decoder that handles timestamps as either strings (from BIGINT) or ints

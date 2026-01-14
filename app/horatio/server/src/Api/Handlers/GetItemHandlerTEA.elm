@@ -346,11 +346,11 @@ transformToMicroblogItem dbItem allTags itemTags comments =
                 |> List.map transformCommentToApi
     in
     { id = dbItem.id
-    , title = dbItem.data.title
-    , link = dbItem.data.link |> Maybe.withDefault ""
-    , image = dbItem.data.image |> Maybe.withDefault ""
-    , extract = dbItem.data.extract |> Maybe.withDefault ""
-    , ownerComment = dbItem.data.ownerComment
+    , title = dbItem.title
+    , link = dbItem.link |> Maybe.withDefault ""
+    , image = dbItem.image |> Maybe.withDefault ""
+    , extract = dbItem.extract |> Maybe.withDefault ""
+    , ownerComment = dbItem.ownerComment
     , tags = itemTagNames
     , comments = itemComments
     , timestamp = dbItem.createdAt
@@ -371,15 +371,11 @@ transformCommentToApi dbComment =
     }
 
 
-{-| Custom decoder for MicroblogItemDb that handles bigint timestamps as strings
+{-| Use generated decoder for MicroblogItemDb (handles flat structure and timestamps)
 -}
 microblogItemDbDecoder : Decode.Decoder DB.MicroblogItemDb
 microblogItemDbDecoder =
-    Decode.succeed DB.MicroblogItemDb
-        |> andMap (Decode.field "id" Decode.string)
-        |> andMap (Decode.field "data" DB.microblogitemdataDbDecoder)
-        |> andMap (Decode.field "created_at" timestampDecoder)
-        |> andMap (Decode.field "view_count" Decode.int)
+    DB.microblogitemDbDecoder
 
 
 {-| Decoder that handles timestamps as either strings (from BIGINT) or ints

@@ -1,0 +1,12 @@
+{
+    "name": "hamlet-extension",
+    "version": "0.1.0",
+    "type": "module",
+    "main": "index.js",
+    "exports": {
+        ".": "./index.js",
+        "./background": "./background.js",
+        "./popup": "./popup.js",
+        "./popup.html": "./popup.html"
+    }
+}

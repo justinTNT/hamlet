@@ -240,7 +240,9 @@ update msg model =
                         else
                             Task.perform (always (LoadTagItems tagName)) (Task.succeed ())
                     Feed ->
-                        Cmd.none
+                        case model.feed of
+                            LoadedFeed _ -> Cmd.none  -- Already have data
+                            _ -> getFeed              -- Loading or Errored, fetch it
             in
             ( { model | route = newRoute }, loadCmd )
             

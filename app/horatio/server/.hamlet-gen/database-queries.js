@@ -207,8 +207,8 @@ async function deleteItemTag(id, host) {
  */
 async function insertMicroblogItem(microblogitem, host) {
     const result = await pool.query(
-        'INSERT INTO microblog_item (data, created_at, view_count, host) VALUES ($2, $3, $4, $1) RETURNING *',
-        [host, microblogitem.data, microblogitem.created_at, microblogitem.view_count]
+        'INSERT INTO microblog_item (title, link, image, extract, owner_comment, created_at, view_count, host) VALUES ($2, $3, $4, $5, $6, $7, $8, $1) RETURNING *',
+        [host, microblogitem.title, microblogitem.link, microblogitem.image, microblogitem.extract, microblogitem.owner_comment, microblogitem.created_at, microblogitem.view_count]
     );
     return result.rows[0];
 }
@@ -258,69 +258,6 @@ async function updateMicroblogItem(id, updates, host) {
 async function deleteMicroblogItem(id, host) {
     const result = await pool.query(
         'DELETE FROM microblog_item WHERE id = $1 AND host = $2 RETURNING id',
-        [id, host]
-    );
-    return result.rows.length > 0;
-}
-
-// Auto-generated database functions for MicroblogItemData
-
-/**
- * Insert MicroblogItemData with automatic tenant isolation
- */
-async function insertMicroblogItemData(microblogitemdata, host) {
-    const result = await pool.query(
-        'INSERT INTO microblog_item_data (title, link, image, extract, owner_comment, host) VALUES ($2, $3, $4, $5, $6, $1) RETURNING *',
-        [host, microblogitemdata.title, microblogitemdata.link, microblogitemdata.image, microblogitemdata.extract, microblogitemdata.owner_comment]
-    );
-    return result.rows[0];
-}
-
-/**
- * Get all MicroblogItemDatas for a tenant
- */
-async function getMicroblogItemDatasByHost(host) {
-    const result = await pool.query(
-        'SELECT * FROM microblog_item_data WHERE host = $1 ORDER BY created_at DESC',
-        [host]
-    );
-    return result.rows;
-}
-
-/**
- * Get MicroblogItemData by ID with tenant isolation
- */
-async function getMicroblogItemDataById(id, host) {
-    const result = await pool.query(
-        'SELECT * FROM microblog_item_data WHERE id = $1 AND host = $2',
-        [id, host]
-    );
-    return result.rows[0] || null;
-}
-
-/**
- * Update MicroblogItemData with tenant isolation
- */
-async function updateMicroblogItemData(id, updates, host) {
-    const updateFields = Object.keys(updates).filter(key => key !== 'id' && key !== 'host');
-    const setClause = updateFields.map((field, i) => field + ' = $' + (i + 3)).join(', ');
-    const values = updateFields.map(field => updates[field]);
-    
-    if (setClause === '') {
-        return getMicroblogItemDataById(id, host);
-    }
-    
-    const sql = 'UPDATE microblog_item_data SET ' + setClause + ', updated_at = NOW() WHERE id = $1 AND host = $2 RETURNING *';
-    const result = await pool.query(sql, [id, host, ...values]);
-    return result.rows[0] || null;
-}
-
-/**
- * Delete MicroblogItemData with tenant isolation
- */
-async function deleteMicroblogItemData(id, host) {
-    const result = await pool.query(
-        'DELETE FROM microblog_item_data WHERE id = $1 AND host = $2 RETURNING id',
         [id, host]
     );
     return result.rows.length > 0;
@@ -411,11 +348,6 @@ async function deleteTag(id, host) {
         getMicroblogItemById,
         updateMicroblogItem,
         deleteMicroblogItem,
-        insertMicroblogItemData,
-        getMicroblogItemDatasByHost,
-        getMicroblogItemDataById,
-        updateMicroblogItemData,
-        deleteMicroblogItemData,
         insertTag,
         getTagsByHost,
         getTagById,

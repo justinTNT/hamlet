@@ -235,10 +235,10 @@ filterItemsByTag tagName items allTags itemTags =
 transformToFeedItem : DB.MicroblogItemDb -> FeedItem
 transformToFeedItem dbItem =
     { id = dbItem.id
-    , title = dbItem.data.title
-    , image = dbItem.data.image
-    , extract = dbItem.data.extract
-    , ownerComment = dbItem.data.ownerComment
+    , title = dbItem.title
+    , image = dbItem.image
+    , extract = dbItem.extract
+    , ownerComment = dbItem.ownerComment
     , timestamp = dbItem.createdAt
     }
 
@@ -274,15 +274,11 @@ decodeItemTags data =
         Err error -> Err ("Failed to decode item tags: " ++ Decode.errorToString error)
 
 
-{-| Custom decoder for MicroblogItemDb that handles bigint timestamps as strings
+{-| Use generated decoder for MicroblogItemDb (handles flat structure and timestamps)
 -}
 microblogItemDbDecoder : Decode.Decoder DB.MicroblogItemDb
 microblogItemDbDecoder =
-    Decode.succeed DB.MicroblogItemDb
-        |> andMap (Decode.field "id" Decode.string)
-        |> andMap (Decode.field "data" DB.microblogitemdataDbDecoder)
-        |> andMap (Decode.field "created_at" timestampDecoder)
-        |> andMap (Decode.field "view_count" Decode.int)
+    DB.microblogitemDbDecoder
 
 
 timestampDecoder : Decode.Decoder Int

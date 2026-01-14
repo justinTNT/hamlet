@@ -1,4 +1,11 @@
-// import { Elm } from './Popup.elm';
+/**
+ * Hamlet Extension Popup Bootstrap
+ *
+ * Extracts page data from the active tab and initializes the Elm popup.
+ * Expects window.Elm.Popup to be available (from compiled elm.js).
+ * This is framework code - do not modify unless updating hamlet-extension.
+ */
+
 const Elm = window.Elm;
 
 console.log("Popup script loaded. Window.Elm:", window.Elm);
@@ -24,7 +31,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             const selection = window.getSelection().toString();
             const images = Array.from(document.images)
                 .map(img => img.src)
-                .filter(src => src.startsWith('http')); // Basic filter
+                .filter(src => src.startsWith('http'));
             return { selection, images };
         }
     }, (results) => {
@@ -60,16 +67,21 @@ function initElm(flags) {
 }
 
 function setupPorts(app) {
-
-
     app.ports.outbound.subscribe(function (msg) {
-        console.log("Popup sending message:", msg);
-        chrome.runtime.sendMessage(msg, function (response) {
+        // Message format: { apiUrl: string, payload: { endpoint, body, correlationId } }
+        const { apiUrl, payload } = msg;
+        const request = {
+            ...payload,
+            apiUrl: apiUrl
+        };
+
+        console.log("Popup sending message:", request);
+        chrome.runtime.sendMessage(request, function (response) {
             console.log("Popup received response:", response);
             if (chrome.runtime.lastError) {
                 console.error("Runtime error:", chrome.runtime.lastError);
                 app.ports.inbound.send({
-                    correlationId: msg.correlationId,
+                    correlationId: payload.correlationId,
                     body: null,
                     error: chrome.runtime.lastError.message
                 });

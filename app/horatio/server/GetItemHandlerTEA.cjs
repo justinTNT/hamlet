@@ -3193,64 +3193,44 @@ var $elm$core$List$head = function (list) {
 		return $elm$core$Maybe$Nothing;
 	}
 };
-var $author$project$Generated$Database$MicroblogItemDb = F4(
-	function (id, data, createdAt, viewCount) {
-		return {createdAt: createdAt, data: data, id: id, viewCount: viewCount};
+var $author$project$Generated$Database$MicroblogItemDb = F8(
+	function (id, title, link, image, extract, ownerComment, createdAt, viewCount) {
+		return {createdAt: createdAt, extract: extract, id: id, image: image, link: link, ownerComment: ownerComment, title: title, viewCount: viewCount};
 	});
-var $author$project$Api$Handlers$GetItemHandlerTEA$andMap = $elm$json$Json$Decode$map2($elm$core$Basics$apR);
-var $author$project$Generated$Database$MicroblogItemDataDb = F5(
-	function (title, link, image, extract, ownerComment) {
-		return {extract: extract, image: image, link: link, ownerComment: ownerComment, title: title};
-	});
-var $author$project$Generated$Database$microblogitemdataDbDecoder = A3(
+var $author$project$Generated$Database$microblogitemDbDecoder = A3(
 	$author$project$Generated$Database$decodeField,
-	'owner_comment',
-	$elm$json$Json$Decode$string,
+	'view_count',
+	$elm$json$Json$Decode$int,
 	A3(
 		$author$project$Generated$Database$decodeField,
-		'extract',
-		$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
+		'created_at',
+		$author$project$Generated$Database$timestampDecoder,
 		A3(
 			$author$project$Generated$Database$decodeField,
-			'image',
-			$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
+			'owner_comment',
+			$elm$json$Json$Decode$string,
 			A3(
 				$author$project$Generated$Database$decodeField,
-				'link',
+				'extract',
 				$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
 				A3(
 					$author$project$Generated$Database$decodeField,
-					'title',
-					$elm$json$Json$Decode$string,
-					$elm$json$Json$Decode$succeed($author$project$Generated$Database$MicroblogItemDataDb))))));
-var $author$project$Api$Handlers$GetItemHandlerTEA$stringToInt = function (str) {
-	var _v0 = $elm$core$String$toInt(str);
-	if (_v0.$ === 'Just') {
-		var _int = _v0.a;
-		return $elm$json$Json$Decode$succeed(_int);
-	} else {
-		return $elm$json$Json$Decode$fail('Could not parse timestamp: ' + str);
-	}
-};
-var $author$project$Api$Handlers$GetItemHandlerTEA$timestampDecoder = $elm$json$Json$Decode$oneOf(
-	_List_fromArray(
-		[
-			$elm$json$Json$Decode$int,
-			A2($elm$json$Json$Decode$andThen, $author$project$Api$Handlers$GetItemHandlerTEA$stringToInt, $elm$json$Json$Decode$string)
-		]));
-var $author$project$Api$Handlers$GetItemHandlerTEA$microblogItemDbDecoder = A2(
-	$author$project$Api$Handlers$GetItemHandlerTEA$andMap,
-	A2($elm$json$Json$Decode$field, 'view_count', $elm$json$Json$Decode$int),
-	A2(
-		$author$project$Api$Handlers$GetItemHandlerTEA$andMap,
-		A2($elm$json$Json$Decode$field, 'created_at', $author$project$Api$Handlers$GetItemHandlerTEA$timestampDecoder),
-		A2(
-			$author$project$Api$Handlers$GetItemHandlerTEA$andMap,
-			A2($elm$json$Json$Decode$field, 'data', $author$project$Generated$Database$microblogitemdataDbDecoder),
-			A2(
-				$author$project$Api$Handlers$GetItemHandlerTEA$andMap,
-				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string),
-				$elm$json$Json$Decode$succeed($author$project$Generated$Database$MicroblogItemDb)))));
+					'image',
+					$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
+					A3(
+						$author$project$Generated$Database$decodeField,
+						'link',
+						$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
+						A3(
+							$author$project$Generated$Database$decodeField,
+							'title',
+							$elm$json$Json$Decode$string,
+							A3(
+								$author$project$Generated$Database$decodeField,
+								'id',
+								$elm$json$Json$Decode$string,
+								$elm$json$Json$Decode$succeed($author$project$Generated$Database$MicroblogItemDb)))))))));
+var $author$project$Api$Handlers$GetItemHandlerTEA$microblogItemDbDecoder = $author$project$Generated$Database$microblogitemDbDecoder;
 var $author$project$Api$Handlers$GetItemHandlerTEA$decodeSingleItem = function (data) {
 	var _v0 = A2(
 		$elm$json$Json$Decode$decodeValue,
@@ -3784,14 +3764,14 @@ var $author$project$Api$Handlers$GetItemHandlerTEA$transformToMicroblogItem = F4
 				comments));
 		return {
 			comments: itemComments,
-			extract: A2($elm$core$Maybe$withDefault, '', dbItem.data.extract),
+			extract: A2($elm$core$Maybe$withDefault, '', dbItem.extract),
 			id: dbItem.id,
-			image: A2($elm$core$Maybe$withDefault, '', dbItem.data.image),
-			link: A2($elm$core$Maybe$withDefault, '', dbItem.data.link),
-			ownerComment: dbItem.data.ownerComment,
+			image: A2($elm$core$Maybe$withDefault, '', dbItem.image),
+			link: A2($elm$core$Maybe$withDefault, '', dbItem.link),
+			ownerComment: dbItem.ownerComment,
 			tags: itemTagNames,
 			timestamp: dbItem.createdAt,
-			title: dbItem.data.title
+			title: dbItem.title
 		};
 	});
 var $author$project$Api$Handlers$GetItemHandlerTEA$update = F2(

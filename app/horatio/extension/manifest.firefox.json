@@ -5,11 +5,10 @@
     "description": "Curate content for your Horatio Microblog.",
     "permissions": [
         "activeTab",
-        "scripting",
-        "declarativeContent"
+        "scripting"
     ],
     "background": {
-        "service_worker": "src/background.js",
+        "scripts": ["src/background.js"],
         "type": "module"
     },
     "action": {
@@ -17,5 +16,10 @@
     },
     "content_security_policy": {
         "extension_pages": "script-src 'self'; object-src 'self'"
+    },
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "horatio@example.com"
+        }
     }
 }

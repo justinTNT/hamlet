@@ -40,3 +40,11 @@ packages/create-buildamp/template/.buildamp/generate*.js
 packages/create-buildamp/template/.buildamp/macros/src/
 packages/create-buildamp/template/.buildamp/macros/Cargo.toml
 app/horatio/server/src/Api/Handlers/.backups/
+app/horatio/extension/src/elm.js
+
+# Extension boilerplate (copied from hamlet-extension during build)
+app/horatio/extension/src/popup.html
+app/horatio/extension/src/popup.js
+app/horatio/extension/src/background.js
+app/horatio/extension/horatio-extension*.zip
+app/horatio/extension/manifest.json

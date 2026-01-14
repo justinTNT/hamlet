@@ -599,7 +599,11 @@ This corresponds to the Rust MicroblogItem struct with database-specific types
 -}
 type alias MicroblogItemDb =
     {     id : String -- DatabaseId<String> in Rust
-    , data : MicroblogItemDataDb -- JsonBlob<MicroblogItemData> in Rust
+    , title : String -- String in Rust
+    , link : Maybe String -- Option<String> in Rust
+    , image : Maybe String -- Option<String> in Rust
+    , extract : Maybe String -- Option<RichContent> in Rust
+    , ownerComment : String -- RichContent in Rust
     , createdAt : Int -- Timestamp in Rust
     , viewCount : Int -- i32 in Rust
     }
@@ -608,7 +612,8 @@ type alias MicroblogItemDb =
 Only includes fields that can be set during creation
 -}
 type alias MicroblogItemDbCreate =
-    {     data : MicroblogItemDataDb
+    {     title : String
+    , ownerComment : String
     , createdAt : Int
     , viewCount : Int
     }
@@ -617,7 +622,11 @@ type alias MicroblogItemDbCreate =
 All fields optional to support partial updates
 -}
 type alias MicroblogItemDbUpdate = 
-    {     data : Maybe MicroblogItemDataDb
+    {     title : Maybe String
+    , link : Maybe String
+    , image : Maybe String
+    , extract : Maybe String
+    , ownerComment : Maybe String
     , createdAt : Maybe Int
     , viewCount : Maybe Int
     }
@@ -688,7 +697,11 @@ microblogitemDbDecoder : Decode.Decoder MicroblogItemDb
 microblogitemDbDecoder =
     Decode.succeed MicroblogItemDb
         |> decodeField "id" Decode.string
-        |> decodeField "data" microblogitemdataDbDecoder
+        |> decodeField "title" Decode.string
+        |> decodeField "link" (Decode.nullable Decode.string)
+        |> decodeField "image" (Decode.nullable Decode.string)
+        |> decodeField "extract" (Decode.nullable Decode.string)
+        |> decodeField "owner_comment" Decode.string
         |> decodeField "created_at" timestampDecoder
         |> decodeField "view_count" Decode.int
 
@@ -696,7 +709,8 @@ microblogitemDbDecoder =
 encodeMicroblogItemDbCreate : MicroblogItemDbCreate -> Encode.Value
 encodeMicroblogItemDbCreate item =
     Encode.object
-        [ ("data", encodeMicroblogItemDataDb item.data)
+        [ ("title", Encode.string item.title)
+        , ("owner_comment", Encode.string item.ownerComment)
         , ("created_at", Encode.int item.createdAt)
         , ("view_count", Encode.int item.viewCount)
         ]
@@ -705,44 +719,13 @@ encodeMicroblogItemDbCreate item =
 encodeMicroblogItemDbUpdate : MicroblogItemDbUpdate -> Encode.Value
 encodeMicroblogItemDbUpdate item =
     Encode.object
-        [ ("data", encodeMaybe encodeMicroblogItemDataDb item.data)
-        , ("created_at", encodeMaybe Encode.int item.createdAt)
-        , ("view_count", encodeMaybe Encode.int item.viewCount)
-        ]
-
--- MICROBLOGITEMDATA COMPONENT TYPE (Generated from microblog_item.rs)
-
-{-| Database entity for MicroblogItemData
-This corresponds to the Rust MicroblogItemData struct with database-specific types
--}
-type alias MicroblogItemDataDb =
-    {     title : String -- String in Rust
-    , link : Maybe String -- Option<String> in Rust
-    , image : Maybe String -- Option<String> in Rust
-    , extract : Maybe String -- Option<RichContent> in Rust
-    , ownerComment : String -- RichContent in Rust
-    }
-
--- MICROBLOGITEMDATA ENCODERS/DECODERS
-
-microblogitemdataDbDecoder : Decode.Decoder MicroblogItemDataDb
-microblogitemdataDbDecoder =
-    Decode.succeed MicroblogItemDataDb
-        |> decodeField "title" Decode.string
-        |> decodeField "link" (Decode.nullable Decode.string)
-        |> decodeField "image" (Decode.nullable Decode.string)
-        |> decodeField "extract" (Decode.nullable Decode.string)
-        |> decodeField "owner_comment" Decode.string
-
-
-encodeMicroblogItemDataDb : MicroblogItemDataDb -> Encode.Value
-encodeMicroblogItemDataDb item =
-    Encode.object
-        [ ("title", Encode.string item.title)
+        [ ("title", encodeMaybe Encode.string item.title)
         , ("link", encodeMaybe Encode.string item.link)
         , ("image", encodeMaybe Encode.string item.image)
         , ("extract", encodeMaybe Encode.string item.extract)
-        , ("owner_comment", Encode.string item.ownerComment)
+        , ("owner_comment", encodeMaybe Encode.string item.ownerComment)
+        , ("created_at", encodeMaybe Encode.int item.createdAt)
+        , ("view_count", encodeMaybe Encode.int item.viewCount)
         ]
 
 -- TAG TYPES (Generated from tag.rs)

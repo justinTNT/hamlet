@@ -4,15 +4,47 @@ import Api
 import Api.Port
 import Api.Schema
 import Browser
-import Html exposing (Html, button, div, h3, h4, text, input, textarea, img, label)
-import Html.Attributes exposing (placeholder, value, style, src, type_, checked, name)
+import Html exposing (Html, button, div, h3, h4, text, input, textarea, img, label, select, option)
+import Html.Attributes exposing (placeholder, value, style, src, type_, checked, name, selected)
 import Html.Events exposing (onClick, onInput)
 import Json.Encode as Encode
+
 
 -- PORTS
 
 port outbound : Encode.Value -> Cmd msg
 port inbound : (Encode.Value -> msg) -> Sub msg
+
+
+-- HOST CONFIG
+
+type alias HostConfig =
+    { name : String
+    , url : String
+    }
+
+
+defaultHosts : List HostConfig
+defaultHosts =
+    [ { name = "test", url = "http://localhost:3000/api" }
+    ]
+
+
+{-| Extract hostname from URL for the host field in API requests
+-}
+hostFromUrl : String -> String
+hostFromUrl url =
+    -- Extract host from URL like "http://localhost:3000/api" -> "localhost"
+    url
+        |> String.replace "http://" ""
+        |> String.replace "https://" ""
+        |> String.split "/"
+        |> List.head
+        |> Maybe.withDefault "localhost"
+        |> String.split ":"
+        |> List.head
+        |> Maybe.withDefault "localhost"
+
 
 -- MODEL
 
@@ -22,6 +54,7 @@ type alias Flags =
     , selection : String
     , images : List String
     }
+
 
 type alias Model =
     { portModel : Api.Port.Model Msg
@@ -35,19 +68,28 @@ type alias Model =
     , availableTags : List String
     , selectedTags : List String
     , newTagInput : String
+    , hosts : List HostConfig
+    , selectedHost : HostConfig
     }
+
 
 init : Flags -> ( Model, Cmd Msg )
 init flags =
     let
         initialPortModel = Api.Port.init
-        
-        req = Api.getTags { host = "extension" }
+
+        initialHost =
+            List.head defaultHosts
+                |> Maybe.withDefault { name = "localhost", url = "http://localhost:3000/api" }
+
+        host = hostFromUrl initialHost.url
+
+        req = Api.getTags { host = host }
         portMsg = Api.Port.send GotTags req
-        
+
         ( newPortModel, cmd ) =
             Api.Port.update
-                { sendPort = outbound }
+                { sendPort = sendWithUrl initialHost.url }
                 portMsg
                 initialPortModel
     in
@@ -57,14 +99,32 @@ init flags =
       , url = flags.url
       , selection = flags.selection
       , images = flags.images
-      , selectedImage = List.head flags.images -- Default to first image if available
+      , selectedImage = List.head flags.images
       , comment = ""
       , availableTags = []
       , selectedTags = []
       , newTagInput = ""
+      , hosts = defaultHosts
+      , selectedHost = initialHost
       }
     , cmd
     )
+
+
+{-| Wrap the outbound port to include the target URL
+-}
+sendWithUrl : String -> Encode.Value -> Cmd msg
+sendWithUrl targetUrl payload =
+    let
+        -- Add apiUrl to the payload
+        wrapped =
+            Encode.object
+                [ ( "apiUrl", Encode.string targetUrl )
+                , ( "payload", payload )
+                ]
+    in
+    outbound wrapped
+
 
 -- UPDATE
 
@@ -80,6 +140,8 @@ type Msg
     | ToggleTag String
     | NewTagInput String
     | AddNewTag
+    | HostSelected String
+
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -88,11 +150,40 @@ update msg model =
             let
                 ( newPortModel, cmd ) =
                     Api.Port.update
-                        { sendPort = outbound }
+                        { sendPort = sendWithUrl model.selectedHost.url }
                         pMsg
                         model.portModel
             in
             ( { model | portModel = newPortModel }
+            , cmd
+            )
+
+        HostSelected hostName ->
+            let
+                newHost =
+                    model.hosts
+                        |> List.filter (\h -> h.name == hostName)
+                        |> List.head
+                        |> Maybe.withDefault model.selectedHost
+
+                host = hostFromUrl newHost.url
+
+                -- Reload tags for new host
+                req = Api.getTags { host = host }
+                portMsg = Api.Port.send GotTags req
+
+                ( newPortModel, cmd ) =
+                    Api.Port.update
+                        { sendPort = sendWithUrl newHost.url }
+                        portMsg
+                        model.portModel
+            in
+            ( { model
+              | selectedHost = newHost
+              , portModel = newPortModel
+              , availableTags = []
+              , selectedTags = []
+              }
             , cmd
             )
 
@@ -109,9 +200,11 @@ update msg model =
                 ( { model | status = "Error: Comment cannot be empty" }, Cmd.none )
             else
                 let
-                    req = 
+                    host = hostFromUrl model.selectedHost.url
+
+                    req =
                         Api.submitItem
-                            { host = "extension"
+                            { host = host
                             , title = model.title
                             , link = model.url
                             , image = Maybe.withDefault "" model.selectedImage
@@ -119,20 +212,19 @@ update msg model =
                             , ownerComment = model.comment
                             , tags = model.selectedTags
                             }
-                    
+
                     portMsg = Api.Port.send GotSubmitRes req
-                    
-                    -- We manually trigger the port update logic
+
                     ( newPortModel, cmd ) =
                         Api.Port.update
-                            { sendPort = outbound }
+                            { sendPort = sendWithUrl model.selectedHost.url }
                             portMsg
                             model.portModel
                 in
                 ( { model | portModel = newPortModel, status = "Submitting..." }
                 , cmd
                 )
-        
+
         TitleChanged val ->
             ( { model | title = val }, Cmd.none )
 
@@ -144,7 +236,7 @@ update msg model =
 
         CommentChanged val ->
             ( { model | comment = val }, Cmd.none )
-        
+
         GotSubmitRes (Ok _) ->
             ( { model | status = "Success!" }, Cmd.none )
 
@@ -155,7 +247,7 @@ update msg model =
             ( { model | availableTags = res.tags }, Cmd.none )
 
         GotTags (Err _) ->
-            ( model, Cmd.none ) -- Ignore error for now
+            ( model, Cmd.none )
 
         ToggleTag tag ->
             let
@@ -178,13 +270,12 @@ update msg model =
                 ( model, Cmd.none )
             else
                 let
-                    newSelected = 
-                        if List.member tag model.selectedTags then 
-                            model.selectedTags 
-                        else 
+                    newSelected =
+                        if List.member tag model.selectedTags then
+                            model.selectedTags
+                        else
                             tag :: model.selectedTags
-                    
-                    -- Add to available tags if not present
+
                     newAvailable =
                         if List.member tag model.availableTags then
                             model.availableTags
@@ -193,16 +284,28 @@ update msg model =
                 in
                 ( { model | selectedTags = newSelected, availableTags = newAvailable, newTagInput = "" }, Cmd.none )
 
+
 -- VIEW
 
 view : Model -> Html Msg
 view model =
     div [ style "width" "100%", style "padding" "15px", style "font-family" "sans-serif" ]
         [ h3 [] [ text "Horatio Writer" ]
-        
+
+        -- Host Selector
+        , div [ style "margin-bottom" "10px" ]
+            [ label [ style "display" "block", style "font-weight" "bold" ] [ text "Post to" ]
+            , select
+                [ onInput HostSelected
+                , style "width" "100%"
+                , style "padding" "5px"
+                ]
+                (List.map (viewHostOption model.selectedHost) model.hosts)
+            ]
+
         , div [ style "margin-bottom" "10px" ]
             [ label [ style "display" "block", style "font-weight" "bold" ] [ text "Title" ]
-            , input 
+            , input
                 [ value model.title
                 , onInput TitleChanged
                 , style "width" "100%"
@@ -212,13 +315,13 @@ view model =
 
         , div [ style "margin-bottom" "10px" ]
             [ label [ style "display" "block", style "font-weight" "bold" ] [ text "URL" ]
-            , div [ style "padding" "5px", style "background" "#f0f0f0", style "word-break" "break-all", style "font-size" "0.9em" ] 
+            , div [ style "padding" "5px", style "background" "#f0f0f0", style "word-break" "break-all", style "font-size" "0.9em" ]
                 [ text model.url ]
             ]
 
         , div [ style "margin-bottom" "10px" ]
             [ label [ style "display" "block", style "font-weight" "bold" ] [ text "Selection (Extract)" ]
-            , textarea 
+            , textarea
                 [ value model.selection
                 , onInput SelectionChanged
                 , style "width" "100%"
@@ -229,7 +332,7 @@ view model =
 
         , div [ style "margin-bottom" "10px" ]
             [ label [ style "display" "block", style "font-weight" "bold" ] [ text "Comment" ]
-            , textarea 
+            , textarea
                 [ value model.comment
                 , onInput CommentChanged
                 , placeholder "Add your thoughts..."
@@ -241,28 +344,25 @@ view model =
 
         , div [ style "margin-bottom" "10px" ]
             [ label [ style "display" "block", style "font-weight" "bold" ] [ text "Tags" ]
-            
-            -- Selected Tags (Chips)
+
             , div [ style "display" "flex", style "flex-wrap" "wrap", style "gap" "5px", style "margin-bottom" "5px" ]
                 (List.map (viewTagChip model.selectedTags) model.selectedTags)
 
-            -- Add New Tag
             , div [ style "display" "flex", style "gap" "5px", style "margin-bottom" "5px" ]
-                [ input 
+                [ input
                     [ value model.newTagInput
                     , onInput NewTagInput
                     , placeholder "New tag..."
                     , style "flex-grow" "1"
                     , style "padding" "5px"
                     ] []
-                , button 
+                , button
                     [ onClick AddNewTag
                     , style "padding" "5px 10px"
                     , style "cursor" "pointer"
                     ] [ text "Add" ]
                 ]
 
-            -- Available Tags (Dropdown/List)
             , if List.isEmpty model.availableTags then
                 text ""
               else
@@ -279,7 +379,7 @@ view model =
                     (List.map (viewImage model.selectedImage) model.images)
                 ]
 
-        , button 
+        , button
             [ onClick SubmitItem
             , style "width" "100%"
             , style "padding" "10px"
@@ -289,10 +389,20 @@ view model =
             , style "cursor" "pointer"
             , style "font-size" "16px"
             ] [ text "Submit" ]
-            
-        , div [ style "margin-top" "10px", style "color" (if String.startsWith "Error" model.status then "red" else "green") ] 
+
+        , div [ style "margin-top" "10px", style "color" (if String.startsWith "Error" model.status then "red" else "green") ]
             [ text model.status ]
         ]
+
+
+viewHostOption : HostConfig -> HostConfig -> Html Msg
+viewHostOption selectedHost host =
+    option
+        [ value host.name
+        , selected (host.name == selectedHost.name)
+        ]
+        [ text host.name ]
+
 
 viewImage : Maybe String -> String -> Html Msg
 viewImage selectedImage imageUrl =
@@ -300,7 +410,7 @@ viewImage selectedImage imageUrl =
         isSelected = selectedImage == Just imageUrl
         borderStyle = if isSelected then "3px solid #007bff" else "1px solid #ddd"
     in
-    img 
+    img
         [ src imageUrl
         , onClick (ImageSelected imageUrl)
         , style "height" "80px"
@@ -308,9 +418,10 @@ viewImage selectedImage imageUrl =
         , style "border" borderStyle
         ] []
 
+
 viewTagChip : List String -> String -> Html Msg
 viewTagChip _ tag =
-    div 
+    div
         [ onClick (ToggleTag tag)
         , style "background-color" "#007bff"
         , style "color" "white"
@@ -320,14 +431,15 @@ viewTagChip _ tag =
         , style "cursor" "pointer"
         , style "display" "flex"
         , style "align-items" "center"
-        ] 
-        [ text tag
-        , text " ×" 
         ]
+        [ text tag
+        , text " ×"
+        ]
+
 
 viewAvailableTag : List String -> String -> Html Msg
 viewAvailableTag _ tag =
-    div 
+    div
         [ onClick (ToggleTag tag)
         , style "background-color" "#e0e0e0"
         , style "color" "#333"
@@ -335,8 +447,9 @@ viewAvailableTag _ tag =
         , style "border-radius" "12px"
         , style "font-size" "0.85em"
         , style "cursor" "pointer"
-        ] 
+        ]
         [ text tag ]
+
 
 -- MAIN
 

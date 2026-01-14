@@ -953,6 +953,7 @@ function rustTypeToElmType(rustType, knownModels = []) {
         'Timestamp': 'Int',      // Timestamp becomes Int (Unix timestamp)
         'DefaultComment': 'String', // DefaultComment becomes String
         'Uuid': 'String',        // Uuid becomes String
+        'RichContent': 'String', // RichContent is stored as TEXT in database
         // Model references - assume they exist as Db types
         'ItemComment': 'ItemCommentDb',
         'Guest': 'GuestDb', 

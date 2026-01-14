@@ -1,27 +1,20 @@
 {
   "../../../../../../../@crx/manifest": {
-    "file": "assets/crx-manifest.js-CymQ4UEK.js",
+    "file": "assets/crx-manifest.js-DrBeFyRP.js",
     "name": "crx-manifest.js",
     "src": "../../../../../../../@crx/manifest",
     "isEntry": true
   },
   "src/background.js": {
-    "file": "assets/background.js-B6vSo1WK.js",
+    "file": "assets/background.js-YKf8aA9V.js",
     "name": "background.js",
     "src": "src/background.js",
-    "isEntry": true,
-    "assets": [
-      "assets/proto_rust_bg-BaopduL-.wasm"
-    ]
+    "isEntry": true
   },
   "src/popup.html": {
-    "file": "assets/popup.html-BCBO84Qi.js",
+    "file": "assets/popup.html-DuG1-KJ1.js",
     "name": "popup.html",
     "src": "src/popup.html",
     "isEntry": true
-  },
-  "src/proto-rust/proto_rust_bg.wasm": {
-    "file": "assets/proto_rust_bg-BaopduL-.wasm",
-    "src": "src/proto-rust/proto_rust_bg.wasm"
   }
 }

@@ -4,16 +4,13 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "build": "elm make src/Popup.elm --output src/elm.js --optimize && vite build",
+        "build": "./build.sh chrome",
+        "build:chrome": "./build.sh chrome",
+        "build:firefox": "./build.sh firefox",
         "preview": "vite preview"
     },
     "devDependencies": {
         "@crxjs/vite-plugin": "^2.0.0-beta.28",
-        "node-stdlib-browser": "^1.3.1",
-        "vite": "^5.0.0",
-        "vite-plugin-buildamp": "file:../../packages/vite-plugin-buildamp"
-    },
-    "dependencies": {
-        "proto-rust": "file:../../pkg-web"
+        "vite": "^5.0.0"
     }
 }

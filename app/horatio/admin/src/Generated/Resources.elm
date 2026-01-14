@@ -192,7 +192,37 @@ getFieldsForItemTag =
 -}
 getFieldsForMicroblogItem : List FormField
 getFieldsForMicroblogItem =
-    [       { name = "view_count"
+    [       { name = "title"
+      , value = ""
+      , fieldType = TextInput
+      , required = True
+      }
+    , 
+      { name = "link"
+      , value = ""
+      , fieldType = TextInput
+      , required = False
+      }
+    , 
+      { name = "image"
+      , value = ""
+      , fieldType = TextInput
+      , required = False
+      }
+    , 
+      { name = "extract"
+      , value = ""
+      , fieldType = TextInput
+      , required = False
+      }
+    , 
+      { name = "owner_comment"
+      , value = ""
+      , fieldType = TextInput
+      , required = True
+      }
+    , 
+      { name = "view_count"
       , value = ""
       , fieldType = NumberInput
       , required = True
@@ -487,6 +517,11 @@ viewMicroblogItemTable items onEdit onDelete =
         [ thead []
             [ tr []
                 [ th [] [ text "Id" ]
+                , th [] [ text "Title" ]
+                , th [] [ text "Link" ]
+                , th [] [ text "Image" ]
+                , th [] [ text "Extract" ]
+                , th [] [ text "Owner Comment" ]
                 , th [] [ text "Created At" ]
                 , th [] [ text "View Count" ]
                 , th [] [ text "Actions" ]
@@ -500,6 +535,11 @@ viewMicroblogItemRow : (String -> msg) -> (String -> msg) -> Encode.Value -> Htm
 viewMicroblogItemRow onEdit onDelete item =
     tr []
         [ td [] [ text (getStringField "id" item) ]
+        , td [] [ text (getStringField "title" item) ]
+        , td [] [ text (getStringField "link" item) ]
+        , td [] [ text (getStringField "image" item) ]
+        , td [] [ text (getStringField "extract" item) ]
+        , td [] [ text (getStringField "owner_comment" item) ]
         , td [] [ text (getStringField "created_at" item) ]
         , td [] [ text (getStringField "view_count" item) ]
         , td []

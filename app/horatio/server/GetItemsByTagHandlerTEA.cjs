@@ -3020,14 +3020,9 @@ var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$decodeItemTags = functi
 			'Failed to decode item tags: ' + $elm$json$Json$Decode$errorToString(error));
 	}
 };
-var $author$project$Generated$Database$MicroblogItemDb = F4(
-	function (id, data, createdAt, viewCount) {
-		return {createdAt: createdAt, data: data, id: id, viewCount: viewCount};
-	});
-var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$andMap = $elm$json$Json$Decode$map2($elm$core$Basics$apR);
-var $author$project$Generated$Database$MicroblogItemDataDb = F5(
-	function (title, link, image, extract, ownerComment) {
-		return {extract: extract, image: image, link: link, ownerComment: ownerComment, title: title};
+var $author$project$Generated$Database$MicroblogItemDb = F8(
+	function (id, title, link, image, extract, ownerComment, createdAt, viewCount) {
+		return {createdAt: createdAt, extract: extract, id: id, image: image, link: link, ownerComment: ownerComment, title: title, viewCount: viewCount};
 	});
 var $elm$json$Json$Decode$nullable = function (decoder) {
 	return $elm$json$Json$Decode$oneOf(
@@ -3037,30 +3032,9 @@ var $elm$json$Json$Decode$nullable = function (decoder) {
 				A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, decoder)
 			]));
 };
-var $author$project$Generated$Database$microblogitemdataDbDecoder = A3(
-	$author$project$Generated$Database$decodeField,
-	'owner_comment',
-	$elm$json$Json$Decode$string,
-	A3(
-		$author$project$Generated$Database$decodeField,
-		'extract',
-		$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
-		A3(
-			$author$project$Generated$Database$decodeField,
-			'image',
-			$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
-			A3(
-				$author$project$Generated$Database$decodeField,
-				'link',
-				$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
-				A3(
-					$author$project$Generated$Database$decodeField,
-					'title',
-					$elm$json$Json$Decode$string,
-					$elm$json$Json$Decode$succeed($author$project$Generated$Database$MicroblogItemDataDb))))));
 var $elm$json$Json$Decode$fail = _Json_fail;
 var $elm$core$String$toInt = _String_toInt;
-var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$stringToInt = function (str) {
+var $author$project$Generated$Database$stringToInt = function (str) {
 	var _v0 = $elm$core$String$toInt(str);
 	if (_v0.$ === 'Just') {
 		var _int = _v0.a;
@@ -3069,25 +3043,46 @@ var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$stringToInt = function 
 		return $elm$json$Json$Decode$fail('Could not parse timestamp: ' + str);
 	}
 };
-var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$timestampDecoder = $elm$json$Json$Decode$oneOf(
+var $author$project$Generated$Database$timestampDecoder = $elm$json$Json$Decode$oneOf(
 	_List_fromArray(
 		[
 			$elm$json$Json$Decode$int,
-			A2($elm$json$Json$Decode$andThen, $author$project$Api$Handlers$GetItemsByTagHandlerTEA$stringToInt, $elm$json$Json$Decode$string)
+			A2($elm$json$Json$Decode$andThen, $author$project$Generated$Database$stringToInt, $elm$json$Json$Decode$string)
 		]));
-var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$microblogItemDbDecoder = A2(
-	$author$project$Api$Handlers$GetItemsByTagHandlerTEA$andMap,
-	A2($elm$json$Json$Decode$field, 'view_count', $elm$json$Json$Decode$int),
-	A2(
-		$author$project$Api$Handlers$GetItemsByTagHandlerTEA$andMap,
-		A2($elm$json$Json$Decode$field, 'created_at', $author$project$Api$Handlers$GetItemsByTagHandlerTEA$timestampDecoder),
-		A2(
-			$author$project$Api$Handlers$GetItemsByTagHandlerTEA$andMap,
-			A2($elm$json$Json$Decode$field, 'data', $author$project$Generated$Database$microblogitemdataDbDecoder),
-			A2(
-				$author$project$Api$Handlers$GetItemsByTagHandlerTEA$andMap,
-				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string),
-				$elm$json$Json$Decode$succeed($author$project$Generated$Database$MicroblogItemDb)))));
+var $author$project$Generated$Database$microblogitemDbDecoder = A3(
+	$author$project$Generated$Database$decodeField,
+	'view_count',
+	$elm$json$Json$Decode$int,
+	A3(
+		$author$project$Generated$Database$decodeField,
+		'created_at',
+		$author$project$Generated$Database$timestampDecoder,
+		A3(
+			$author$project$Generated$Database$decodeField,
+			'owner_comment',
+			$elm$json$Json$Decode$string,
+			A3(
+				$author$project$Generated$Database$decodeField,
+				'extract',
+				$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
+				A3(
+					$author$project$Generated$Database$decodeField,
+					'image',
+					$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
+					A3(
+						$author$project$Generated$Database$decodeField,
+						'link',
+						$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
+						A3(
+							$author$project$Generated$Database$decodeField,
+							'title',
+							$elm$json$Json$Decode$string,
+							A3(
+								$author$project$Generated$Database$decodeField,
+								'id',
+								$elm$json$Json$Decode$string,
+								$elm$json$Json$Decode$succeed($author$project$Generated$Database$MicroblogItemDb)))))))));
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$microblogItemDbDecoder = $author$project$Generated$Database$microblogitemDbDecoder;
 var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$decodeItems = function (data) {
 	var _v0 = A2(
 		$elm$json$Json$Decode$decodeValue,
@@ -3412,7 +3407,7 @@ var $elm$core$List$member = F2(
 			xs);
 	});
 var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$transformToFeedItem = function (dbItem) {
-	return {extract: dbItem.data.extract, id: dbItem.id, image: dbItem.data.image, ownerComment: dbItem.data.ownerComment, timestamp: dbItem.createdAt, title: dbItem.data.title};
+	return {extract: dbItem.extract, id: dbItem.id, image: dbItem.image, ownerComment: dbItem.ownerComment, timestamp: dbItem.createdAt, title: dbItem.title};
 };
 var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$filterItemsByTag = F4(
 	function (tagName, items, allTags, itemTags) {
