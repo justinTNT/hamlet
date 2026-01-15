@@ -177,9 +177,10 @@ describe('Admin Middleware', () => {
                 .get('/admin/api/UnknownResource')
                 .set('Authorization', 'Bearer test-token')
                 .set('Host', 'test.com');
-            
+
             expect(response.status).toBe(404);
-            expect(response.body.error).toContain('Unknown resource \'UnknownResource\'');
+            // Generic admin-api uses snakeToPascal and checks if db method exists
+            expect(response.body.error).toContain('not found or not listable');
         });
 
         test('uses tenant isolation', async () => {

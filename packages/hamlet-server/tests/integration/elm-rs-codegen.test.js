@@ -46,8 +46,8 @@ describe('Hamlet Elm-RS Codec Generation (tested via Horatio)', () => {
         expect(backendContent).toContain('parent_id'); // In JSON
         expect(backendContent).toContain('parentId');   // In Elm type
 
-        // Verify Option<T> handling
-        expect(backendContent).toContain('Maybe String');
+        // Verify Option<T> handling - elm-rs generates Maybe (Type) with parens
+        expect(backendContent).toMatch(/Maybe \(?String\)?/);
         expect(backendContent).toContain('Maybe.withDefault Json.Encode.null');
     });
 

@@ -37,6 +37,7 @@ export function getGenerationPaths(config = {}) {
                 case 'kv': return paths.kvModelsDir;
                 case 'sse': return paths.sseModelsDir;
                 case 'events': return paths.eventsModelsDir;
+                case 'config': return paths.configModelsDir;
                 default: return paths.modelsDir;
             }
         }

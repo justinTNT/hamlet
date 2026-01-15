@@ -29,13 +29,21 @@
   },
   "peerDependencies": {
     "pg": "^8.11.3",
-    "proto-rust": "*"
+    "proto-rust": "*",
+    "vite": "^5.0.0",
+    "vite-plugin-elm": "^3.0.0"
   },
   "peerDependenciesMeta": {
     "pg": {
       "optional": true
     },
     "proto-rust": {
+      "optional": true
+    },
+    "vite": {
+      "optional": true
+    },
+    "vite-plugin-elm": {
       "optional": true
     }
   },

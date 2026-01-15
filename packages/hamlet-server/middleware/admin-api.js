@@ -7,6 +7,16 @@
 
 import createAdminAuth from './admin-auth.js';
 
+/**
+ * Convert snake_case resource name to PascalCase method name
+ * e.g., 'item_comment' -> 'ItemComment'
+ */
+function snakeToPascal(str) {
+    return str.split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join('');
+}
+
 export default function createAdminApi(server) {
     console.log('👷 Setting up Admin API...');
 
@@ -30,19 +40,8 @@ export default function createAdminApi(server) {
             const rawHost = req.get('X-Forwarded-Host') || req.get('Host'); 
             const host = rawHost ? rawHost.split(':')[0] : 'localhost';
 
-            // Dynamic method call: getGuestsByHost (map resource names to method names)
-            const resourceToMethodName = {
-                'guest': 'Guest',
-                'item_comment': 'ItemComment', 
-                'item_tag': 'ItemTag',
-                'microblog_item': 'MicroblogItem',
-                'tag': 'Tag'
-            };
-            
-            const methodResource = resourceToMethodName[resource];
-            if (!methodResource) {
-                return res.status(404).json({ error: `Unknown resource '${resource}'` });
-            }
+            // Convert snake_case resource to PascalCase for method dispatch
+            const methodResource = snakeToPascal(resource);
             
             // Try soft delete-aware method first, fallback to original
             let methodName = `find${methodResource}sByHost`;
@@ -77,19 +76,9 @@ export default function createAdminApi(server) {
             const rawHost = req.get('X-Forwarded-Host') || req.get('Host'); 
             const host = rawHost ? rawHost.split(':')[0] : 'localhost';
 
-            const resourceToMethodName = {
-                'guest': 'Guest',
-                'item_comment': 'ItemComment', 
-                'item_tag': 'ItemTag',
-                'microblog_item': 'MicroblogItem',
-                'tag': 'Tag'
-            };
-            
-            const methodResource = resourceToMethodName[resource];
-            if (!methodResource) {
-                return res.status(404).json({ error: `Unknown resource '${resource}'` });
-            }
-            
+            // Convert snake_case resource to PascalCase for method dispatch
+            const methodResource = snakeToPascal(resource);
+
             // Try soft delete-aware method first, fallback to original
             let methodName = `find${methodResource}ById`;
             if (typeof db[methodName] !== 'function') {
@@ -120,18 +109,8 @@ export default function createAdminApi(server) {
         try {
             const resource = req.params.resource;
             
-            const resourceToMethodName = {
-                'guest': 'Guest',
-                'item_comment': 'ItemComment', 
-                'item_tag': 'ItemTag',
-                'microblog_item': 'MicroblogItem',
-                'tag': 'Tag'
-            };
-            
-            const methodResource = resourceToMethodName[resource];
-            if (!methodResource) {
-                return res.status(404).json({ error: `Unknown resource '${resource}'` });
-            }
+            // Convert snake_case resource to PascalCase for method dispatch
+            const methodResource = snakeToPascal(resource);
 
             // Return empty template for new resource
             res.json({ 
@@ -157,19 +136,8 @@ export default function createAdminApi(server) {
             console.log('🔍 Create Debug - host:', host);
             console.log('🔍 Create Debug - data:', data);
 
-            const resourceToMethodName = {
-                'guest': 'Guest',
-                'item_comment': 'ItemComment', 
-                'item_tag': 'ItemTag',
-                'microblog_item': 'MicroblogItem',
-                'tag': 'Tag'
-            };
-            
-            const methodResource = resourceToMethodName[resource];
-            if (!methodResource) {
-                return res.status(404).json({ error: `Unknown resource '${resource}'` });
-            }
-            
+            // Convert snake_case resource to PascalCase for method dispatch
+            const methodResource = snakeToPascal(resource);
             const methodName = `create${methodResource}`;
 
             if (typeof db[methodName] === 'function') {
@@ -202,19 +170,8 @@ export default function createAdminApi(server) {
             console.log('🔍 Update Debug - host:', host);
             console.log('🔍 Update Debug - data:', data);
 
-            const resourceToMethodName = {
-                'guest': 'Guest',
-                'item_comment': 'ItemComment', 
-                'item_tag': 'ItemTag',
-                'microblog_item': 'MicroblogItem',
-                'tag': 'Tag'
-            };
-            
-            const methodResource = resourceToMethodName[resource];
-            if (!methodResource) {
-                return res.status(404).json({ error: `Unknown resource '${resource}'` });
-            }
-            
+            // Convert snake_case resource to PascalCase for method dispatch
+            const methodResource = snakeToPascal(resource);
             const methodName = `update${methodResource}`;
 
             if (typeof db[methodName] === 'function') {
@@ -246,19 +203,9 @@ export default function createAdminApi(server) {
             const rawHost = req.get('X-Forwarded-Host') || req.get('Host'); 
             const host = rawHost ? rawHost.split(':')[0] : 'localhost';
 
-            const resourceToMethodName = {
-                'guest': 'Guest',
-                'item_comment': 'ItemComment', 
-                'item_tag': 'ItemTag',
-                'microblog_item': 'MicroblogItem',
-                'tag': 'Tag'
-            };
-            
-            const methodResource = resourceToMethodName[resource];
-            if (!methodResource) {
-                return res.status(404).json({ error: `Unknown resource '${resource}'` });
-            }
-            
+            // Convert snake_case resource to PascalCase for method dispatch
+            const methodResource = snakeToPascal(resource);
+
             // Use soft delete (kill) method instead of hard delete
             const methodName = `kill${methodResource}`;
 

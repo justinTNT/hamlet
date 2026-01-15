@@ -4,6 +4,7 @@ import Api
 import Api.Http
 import Api.Schema
 import Browser
+import Generated.Config exposing (GlobalConfig)
 import Browser.Navigation as Nav
 import Html exposing (Html, button, div, h1, h2, h3, h4, p, a, img, text, section, input, textarea, label, span, br)
 import Html.Attributes exposing (src, href, style, class, value, placeholder)
@@ -20,7 +21,8 @@ port log : String -> Cmd msg
 -- MODEL
 
 type alias Model =
-    { feed : FeedState
+    { config : GlobalConfig
+    , feed : FeedState
     , replyingTo : Maybe { itemId : String, parentId : Maybe String }
     , newComment : String
     , guestSession : Maybe GuestSession
@@ -54,8 +56,8 @@ type FeedState
     | LoadedFeed (List Api.Schema.FeedItem)
     | Errored String
 
-init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
-init _ url key =
+init : GlobalConfig -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init config url key =
     let
         route = parseUrl url
     in
@@ -68,7 +70,8 @@ init _ url key =
             Tag tagName ->
                 Task.perform (always (LoadTagItems tagName)) (Task.succeed ())
     in
-    ( { feed = Loading
+    ( { config = config
+      , feed = Loading
       , replyingTo = Nothing
       , newComment = ""
       , guestSession = Nothing
@@ -300,7 +303,7 @@ view model =
     { title = "Horatio Reader"
     , body = 
         [ div [ style "font-family" "sans-serif", style "max-width" "800px", style "margin" "0 auto", style "padding" "20px" ]
-            [ h1 [] [ a [ href "/", style "text-decoration" "none", style "color" "black" ] [ text "Horatio Reader" ] ]
+            [ h1 [] [ a [ href "/", style "text-decoration" "none", style "color" "red" ] [ text model.config.siteName ] ]
             , div [ style "margin-bottom" "20px", style "display" "flex", style "justify-content" "space-between", style "align-items" "center" ]
                 [ button [ onClick PerformSubmitItem ] [ text "Test: Submit Item" ]
                 , span [ style "font-size" "0.9em", style "color" "#666" ]
@@ -587,7 +590,7 @@ darkenColor color =
 
 -- MAIN
 
-main : Program () Model Msg
+main : Program GlobalConfig Model Msg
 main =
     Browser.application
         { init = init

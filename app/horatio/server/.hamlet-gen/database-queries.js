@@ -25,7 +25,15 @@ async function insertGuest(guest, host) {
 }
 
 /**
- * Get all Guests for a tenant
+ * Create Guest (alias for insert)
+ */
+async function createGuest(data) {
+    const { host, ...rest } = data;
+    return insertGuest(rest, host);
+}
+
+/**
+ * Get all Guests for a tenant (includes soft-deleted)
  */
 async function getGuestsByHost(host) {
     const result = await pool.query(
@@ -36,11 +44,33 @@ async function getGuestsByHost(host) {
 }
 
 /**
- * Get Guest by ID with tenant isolation
+ * Find all live Guests for a tenant (excludes soft-deleted)
+ */
+async function findGuestsByHost(host) {
+    const result = await pool.query(
+        'SELECT * FROM guest WHERE host = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
+        [host]
+    );
+    return result.rows;
+}
+
+/**
+ * Get Guest by ID with tenant isolation (includes soft-deleted)
  */
 async function getGuestById(id, host) {
     const result = await pool.query(
         'SELECT * FROM guest WHERE id = $1 AND host = $2',
+        [id, host]
+    );
+    return result.rows[0] || null;
+}
+
+/**
+ * Find Guest by ID with tenant isolation (excludes soft-deleted)
+ */
+async function findGuestById(id, host) {
+    const result = await pool.query(
+        'SELECT * FROM guest WHERE id = $1 AND host = $2 AND deleted_at IS NULL',
         [id, host]
     );
     return result.rows[0] || null;
@@ -53,18 +83,29 @@ async function updateGuest(id, updates, host) {
     const updateFields = Object.keys(updates).filter(key => key !== 'id' && key !== 'host');
     const setClause = updateFields.map((field, i) => field + ' = $' + (i + 3)).join(', ');
     const values = updateFields.map(field => updates[field]);
-    
+
     if (setClause === '') {
         return getGuestById(id, host);
     }
-    
+
     const sql = 'UPDATE guest SET ' + setClause + ', updated_at = NOW() WHERE id = $1 AND host = $2 RETURNING *';
     const result = await pool.query(sql, [id, host, ...values]);
     return result.rows[0] || null;
 }
 
 /**
- * Delete Guest with tenant isolation
+ * Soft delete Guest (sets deleted_at timestamp)
+ */
+async function killGuest(id, host) {
+    const result = await pool.query(
+        'UPDATE guest SET deleted_at = NOW() WHERE id = $1 AND host = $2 RETURNING *',
+        [id, host]
+    );
+    return result.rows[0] || null;
+}
+
+/**
+ * Hard delete Guest with tenant isolation
  */
 async function deleteGuest(id, host) {
     const result = await pool.query(
@@ -88,7 +129,15 @@ async function insertItemComment(itemcomment, host) {
 }
 
 /**
- * Get all ItemComments for a tenant
+ * Create ItemComment (alias for insert)
+ */
+async function createItemComment(data) {
+    const { host, ...rest } = data;
+    return insertItemComment(rest, host);
+}
+
+/**
+ * Get all ItemComments for a tenant (includes soft-deleted)
  */
 async function getItemCommentsByHost(host) {
     const result = await pool.query(
@@ -99,11 +148,33 @@ async function getItemCommentsByHost(host) {
 }
 
 /**
- * Get ItemComment by ID with tenant isolation
+ * Find all live ItemComments for a tenant (excludes soft-deleted)
+ */
+async function findItemCommentsByHost(host) {
+    const result = await pool.query(
+        'SELECT * FROM item_comment WHERE host = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
+        [host]
+    );
+    return result.rows;
+}
+
+/**
+ * Get ItemComment by ID with tenant isolation (includes soft-deleted)
  */
 async function getItemCommentById(id, host) {
     const result = await pool.query(
         'SELECT * FROM item_comment WHERE id = $1 AND host = $2',
+        [id, host]
+    );
+    return result.rows[0] || null;
+}
+
+/**
+ * Find ItemComment by ID with tenant isolation (excludes soft-deleted)
+ */
+async function findItemCommentById(id, host) {
+    const result = await pool.query(
+        'SELECT * FROM item_comment WHERE id = $1 AND host = $2 AND deleted_at IS NULL',
         [id, host]
     );
     return result.rows[0] || null;
@@ -116,18 +187,29 @@ async function updateItemComment(id, updates, host) {
     const updateFields = Object.keys(updates).filter(key => key !== 'id' && key !== 'host');
     const setClause = updateFields.map((field, i) => field + ' = $' + (i + 3)).join(', ');
     const values = updateFields.map(field => updates[field]);
-    
+
     if (setClause === '') {
         return getItemCommentById(id, host);
     }
-    
+
     const sql = 'UPDATE item_comment SET ' + setClause + ', updated_at = NOW() WHERE id = $1 AND host = $2 RETURNING *';
     const result = await pool.query(sql, [id, host, ...values]);
     return result.rows[0] || null;
 }
 
 /**
- * Delete ItemComment with tenant isolation
+ * Soft delete ItemComment (sets deleted_at timestamp)
+ */
+async function killItemComment(id, host) {
+    const result = await pool.query(
+        'UPDATE item_comment SET deleted_at = NOW() WHERE id = $1 AND host = $2 RETURNING *',
+        [id, host]
+    );
+    return result.rows[0] || null;
+}
+
+/**
+ * Hard delete ItemComment with tenant isolation
  */
 async function deleteItemComment(id, host) {
     const result = await pool.query(
@@ -151,7 +233,15 @@ async function insertItemTag(itemtag, host) {
 }
 
 /**
- * Get all ItemTags for a tenant
+ * Create ItemTag (alias for insert)
+ */
+async function createItemTag(data) {
+    const { host, ...rest } = data;
+    return insertItemTag(rest, host);
+}
+
+/**
+ * Get all ItemTags for a tenant (includes soft-deleted)
  */
 async function getItemTagsByHost(host) {
     const result = await pool.query(
@@ -162,11 +252,33 @@ async function getItemTagsByHost(host) {
 }
 
 /**
- * Get ItemTag by ID with tenant isolation
+ * Find all live ItemTags for a tenant (excludes soft-deleted)
+ */
+async function findItemTagsByHost(host) {
+    const result = await pool.query(
+        'SELECT * FROM item_tag WHERE host = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
+        [host]
+    );
+    return result.rows;
+}
+
+/**
+ * Get ItemTag by ID with tenant isolation (includes soft-deleted)
  */
 async function getItemTagById(id, host) {
     const result = await pool.query(
         'SELECT * FROM item_tag WHERE id = $1 AND host = $2',
+        [id, host]
+    );
+    return result.rows[0] || null;
+}
+
+/**
+ * Find ItemTag by ID with tenant isolation (excludes soft-deleted)
+ */
+async function findItemTagById(id, host) {
+    const result = await pool.query(
+        'SELECT * FROM item_tag WHERE id = $1 AND host = $2 AND deleted_at IS NULL',
         [id, host]
     );
     return result.rows[0] || null;
@@ -179,18 +291,29 @@ async function updateItemTag(id, updates, host) {
     const updateFields = Object.keys(updates).filter(key => key !== 'id' && key !== 'host');
     const setClause = updateFields.map((field, i) => field + ' = $' + (i + 3)).join(', ');
     const values = updateFields.map(field => updates[field]);
-    
+
     if (setClause === '') {
         return getItemTagById(id, host);
     }
-    
+
     const sql = 'UPDATE item_tag SET ' + setClause + ', updated_at = NOW() WHERE id = $1 AND host = $2 RETURNING *';
     const result = await pool.query(sql, [id, host, ...values]);
     return result.rows[0] || null;
 }
 
 /**
- * Delete ItemTag with tenant isolation
+ * Soft delete ItemTag (sets deleted_at timestamp)
+ */
+async function killItemTag(id, host) {
+    const result = await pool.query(
+        'UPDATE item_tag SET deleted_at = NOW() WHERE id = $1 AND host = $2 RETURNING *',
+        [id, host]
+    );
+    return result.rows[0] || null;
+}
+
+/**
+ * Hard delete ItemTag with tenant isolation
  */
 async function deleteItemTag(id, host) {
     const result = await pool.query(
@@ -214,7 +337,15 @@ async function insertMicroblogItem(microblogitem, host) {
 }
 
 /**
- * Get all MicroblogItems for a tenant
+ * Create MicroblogItem (alias for insert)
+ */
+async function createMicroblogItem(data) {
+    const { host, ...rest } = data;
+    return insertMicroblogItem(rest, host);
+}
+
+/**
+ * Get all MicroblogItems for a tenant (includes soft-deleted)
  */
 async function getMicroblogItemsByHost(host) {
     const result = await pool.query(
@@ -225,11 +356,33 @@ async function getMicroblogItemsByHost(host) {
 }
 
 /**
- * Get MicroblogItem by ID with tenant isolation
+ * Find all live MicroblogItems for a tenant (excludes soft-deleted)
+ */
+async function findMicroblogItemsByHost(host) {
+    const result = await pool.query(
+        'SELECT * FROM microblog_item WHERE host = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
+        [host]
+    );
+    return result.rows;
+}
+
+/**
+ * Get MicroblogItem by ID with tenant isolation (includes soft-deleted)
  */
 async function getMicroblogItemById(id, host) {
     const result = await pool.query(
         'SELECT * FROM microblog_item WHERE id = $1 AND host = $2',
+        [id, host]
+    );
+    return result.rows[0] || null;
+}
+
+/**
+ * Find MicroblogItem by ID with tenant isolation (excludes soft-deleted)
+ */
+async function findMicroblogItemById(id, host) {
+    const result = await pool.query(
+        'SELECT * FROM microblog_item WHERE id = $1 AND host = $2 AND deleted_at IS NULL',
         [id, host]
     );
     return result.rows[0] || null;
@@ -242,18 +395,29 @@ async function updateMicroblogItem(id, updates, host) {
     const updateFields = Object.keys(updates).filter(key => key !== 'id' && key !== 'host');
     const setClause = updateFields.map((field, i) => field + ' = $' + (i + 3)).join(', ');
     const values = updateFields.map(field => updates[field]);
-    
+
     if (setClause === '') {
         return getMicroblogItemById(id, host);
     }
-    
+
     const sql = 'UPDATE microblog_item SET ' + setClause + ', updated_at = NOW() WHERE id = $1 AND host = $2 RETURNING *';
     const result = await pool.query(sql, [id, host, ...values]);
     return result.rows[0] || null;
 }
 
 /**
- * Delete MicroblogItem with tenant isolation
+ * Soft delete MicroblogItem (sets deleted_at timestamp)
+ */
+async function killMicroblogItem(id, host) {
+    const result = await pool.query(
+        'UPDATE microblog_item SET deleted_at = NOW() WHERE id = $1 AND host = $2 RETURNING *',
+        [id, host]
+    );
+    return result.rows[0] || null;
+}
+
+/**
+ * Hard delete MicroblogItem with tenant isolation
  */
 async function deleteMicroblogItem(id, host) {
     const result = await pool.query(
@@ -277,7 +441,15 @@ async function insertTag(tag, host) {
 }
 
 /**
- * Get all Tags for a tenant
+ * Create Tag (alias for insert)
+ */
+async function createTag(data) {
+    const { host, ...rest } = data;
+    return insertTag(rest, host);
+}
+
+/**
+ * Get all Tags for a tenant (includes soft-deleted)
  */
 async function getTagsByHost(host) {
     const result = await pool.query(
@@ -288,11 +460,33 @@ async function getTagsByHost(host) {
 }
 
 /**
- * Get Tag by ID with tenant isolation
+ * Find all live Tags for a tenant (excludes soft-deleted)
+ */
+async function findTagsByHost(host) {
+    const result = await pool.query(
+        'SELECT * FROM tag WHERE host = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
+        [host]
+    );
+    return result.rows;
+}
+
+/**
+ * Get Tag by ID with tenant isolation (includes soft-deleted)
  */
 async function getTagById(id, host) {
     const result = await pool.query(
         'SELECT * FROM tag WHERE id = $1 AND host = $2',
+        [id, host]
+    );
+    return result.rows[0] || null;
+}
+
+/**
+ * Find Tag by ID with tenant isolation (excludes soft-deleted)
+ */
+async function findTagById(id, host) {
+    const result = await pool.query(
+        'SELECT * FROM tag WHERE id = $1 AND host = $2 AND deleted_at IS NULL',
         [id, host]
     );
     return result.rows[0] || null;
@@ -305,18 +499,29 @@ async function updateTag(id, updates, host) {
     const updateFields = Object.keys(updates).filter(key => key !== 'id' && key !== 'host');
     const setClause = updateFields.map((field, i) => field + ' = $' + (i + 3)).join(', ');
     const values = updateFields.map(field => updates[field]);
-    
+
     if (setClause === '') {
         return getTagById(id, host);
     }
-    
+
     const sql = 'UPDATE tag SET ' + setClause + ', updated_at = NOW() WHERE id = $1 AND host = $2 RETURNING *';
     const result = await pool.query(sql, [id, host, ...values]);
     return result.rows[0] || null;
 }
 
 /**
- * Delete Tag with tenant isolation
+ * Soft delete Tag (sets deleted_at timestamp)
+ */
+async function killTag(id, host) {
+    const result = await pool.query(
+        'UPDATE tag SET deleted_at = NOW() WHERE id = $1 AND host = $2 RETURNING *',
+        [id, host]
+    );
+    return result.rows[0] || null;
+}
+
+/**
+ * Hard delete Tag with tenant isolation
  */
 async function deleteTag(id, host) {
     const result = await pool.query(
@@ -329,29 +534,49 @@ async function deleteTag(id, host) {
     // Return all functions bound to the pool
     return {
         insertGuest,
+        createGuest,
         getGuestsByHost,
+        findGuestsByHost,
         getGuestById,
+        findGuestById,
         updateGuest,
+        killGuest,
         deleteGuest,
         insertItemComment,
+        createItemComment,
         getItemCommentsByHost,
+        findItemCommentsByHost,
         getItemCommentById,
+        findItemCommentById,
         updateItemComment,
+        killItemComment,
         deleteItemComment,
         insertItemTag,
+        createItemTag,
         getItemTagsByHost,
+        findItemTagsByHost,
         getItemTagById,
+        findItemTagById,
         updateItemTag,
+        killItemTag,
         deleteItemTag,
         insertMicroblogItem,
+        createMicroblogItem,
         getMicroblogItemsByHost,
+        findMicroblogItemsByHost,
         getMicroblogItemById,
+        findMicroblogItemById,
         updateMicroblogItem,
+        killMicroblogItem,
         deleteMicroblogItem,
         insertTag,
+        createTag,
         getTagsByHost,
+        findTagsByHost,
         getTagById,
+        findTagById,
         updateTag,
+        killTag,
         deleteTag
     };
 }

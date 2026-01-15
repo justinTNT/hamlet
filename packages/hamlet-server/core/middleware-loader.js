@@ -26,6 +26,9 @@ export class MiddlewareLoader {
         // Always load tenant isolation and session cookies
         await this.loadMiddleware('tenant-isolation');
         await this.loadMiddleware('session-cookies');
+
+        // Load host-specific asset directory (depends on tenant isolation)
+        await this.loadMiddleware('host-dir');
         
         // Load optional features
         if (features.hasDatabase) {

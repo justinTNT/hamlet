@@ -39,6 +39,7 @@ export default defineConfig({
       allow: ['../..', '../../../pkg-web', '../../../packages'],
     },
     proxy: {
+      // Only needed when running Vite standalone (not in middleware mode)
       '/api': 'http://localhost:3000',
     },
   },

@@ -28,29 +28,23 @@ run_test_suite() {
     local directory="$2"
     local command="$3"
     local description="$4"
-    
+
     echo ""
     echo -e "${BLUE}🔄 Running: $name${NC}"
     echo "   Directory: $directory"
     echo "   Command: $command"
     echo "   Description: $description"
     echo "   ----------------------------------------"
-    
+
     TESTS_RUN=$((TESTS_RUN + 1))
-    
+
     if [ -d "$directory" ]; then
-        # Save current directory
-        local original_pwd=$(pwd)
-        cd "$directory"
-        
-        # Run command and capture actual exit code
-        set +e  # Temporarily disable exit on error
-        eval "$command"
-        local exit_code=$?
-        set -e  # Re-enable exit on error
-        
-        cd "$original_pwd"
-        
+        # Run command and capture exit code
+        # Pattern: cmd || exit_code=$? captures failure exit codes
+        # while keeping exit_code=0 on success
+        local exit_code=0
+        (cd "$directory" && eval "$command") || exit_code=$?
+
         if [ $exit_code -eq 0 ]; then
             echo -e "${GREEN}✅ $name: PASSED${NC}"
             TESTS_PASSED=$((TESTS_PASSED + 1))
@@ -132,6 +126,7 @@ run_test_suite \
     "Core functionality: Jest tests for core, database, middleware, security"
 
 # Test Suite 4: Create-BuildAmp Tests
+# Tests run sequentially (--test-concurrency=1) to avoid cargo lock conflicts
 run_test_suite \
     "Create-BuildAmp Tests" \
     "/Users/jtnt/Play/hamlet/packages/create-buildamp" \

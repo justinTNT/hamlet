@@ -15,8 +15,13 @@ async function run() {
 
     console.log("About to initialize Elm app...");
 
+    // Read host-specific config from window.GLOBAL_CONFIG (set in host's index.html)
+    const globalConfig = window.GLOBAL_CONFIG;
+    console.log("Using GlobalConfig:", globalConfig);
+
     const app = Elm.Main.init({
         node: document.getElementById('app'),
+        flags: globalConfig
     });
 
     console.log("Elm app created:", !!app);

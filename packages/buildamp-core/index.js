@@ -61,6 +61,7 @@ export function discoverProjectPaths(rootDir = process.cwd()) {
             kvModelsDir: `app/${activeApp}/models/kv`,
             sseModelsDir: `app/${activeApp}/models/sse`,
             eventsModelsDir: `app/${activeApp}/models/events`,
+            configModelsDir: `app/${activeApp}/models/config`,
             
             // Output paths - UPDATED for new architecture
             // Glue (clobberable) - goes in .hamlet-gen
@@ -90,6 +91,7 @@ export function discoverProjectPaths(rootDir = process.cwd()) {
         kvModelsDir: 'src/models/kv',
         sseModelsDir: 'src/models/sse',
         eventsModelsDir: 'src/models/events',
+        configModelsDir: 'src/models/config',
         
         // Output paths - UPDATED for new architecture
         // Glue (clobberable)

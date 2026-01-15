@@ -1,6 +1,7 @@
 import { HamletServer } from '../../../packages/hamlet-server/core/server.js';
 import createAdminApi from '../../../packages/hamlet-server/middleware/admin-api.js';
 import createAdminAuth from '../../../packages/hamlet-server/middleware/admin-auth.js';
+import createDbQueries from './.hamlet-gen/database-queries.js';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -56,6 +57,14 @@ server.app.get('/admin', adminAuth, (req, res) => {
 // The Elm app will handle authentication via API calls
 
 await server.start();
+
+// Extend database service with app-specific generated queries
+const db = server.getService('database');
+if (db) {
+    const dbQueries = createDbQueries(db.pool);
+    db.extend(dbQueries);
+    console.log('✅ Database service extended with Horatio queries');
+}
 
 // Register admin API after server starts (so database service is available)
 console.log('🔧 Registering admin API...');

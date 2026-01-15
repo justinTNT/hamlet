@@ -62,7 +62,10 @@ function generateQueryFunctions(struct) {
 
     const insertSql = `INSERT INTO ${tableName} (${columnNames}, host) VALUES (${columnPlaceholders}, $1) RETURNING *`;
     const selectAllSql = `SELECT * FROM ${tableName} WHERE host = $1 ORDER BY created_at DESC`;
+    const selectAllLiveSql = `SELECT * FROM ${tableName} WHERE host = $1 AND deleted_at IS NULL ORDER BY created_at DESC`;
     const selectByIdSql = `SELECT * FROM ${tableName} WHERE id = $1 AND host = $2`;
+    const selectByIdLiveSql = `SELECT * FROM ${tableName} WHERE id = $1 AND host = $2 AND deleted_at IS NULL`;
+    const softDeleteSql = `UPDATE ${tableName} SET deleted_at = NOW() WHERE id = $1 AND host = $2 RETURNING *`;
     const deleteSql = `DELETE FROM ${tableName} WHERE id = $1 AND host = $2 RETURNING id`;
 
     return `
@@ -80,7 +83,15 @@ async function insert${name}(${name.toLowerCase()}, host) {
 }
 
 /**
- * Get all ${name}s for a tenant
+ * Create ${name} (alias for insert)
+ */
+async function create${name}(data) {
+    const { host, ...rest } = data;
+    return insert${name}(rest, host);
+}
+
+/**
+ * Get all ${name}s for a tenant (includes soft-deleted)
  */
 async function get${name}sByHost(host) {
     const result = await pool.query(
@@ -91,11 +102,33 @@ async function get${name}sByHost(host) {
 }
 
 /**
- * Get ${name} by ID with tenant isolation
+ * Find all live ${name}s for a tenant (excludes soft-deleted)
+ */
+async function find${name}sByHost(host) {
+    const result = await pool.query(
+        '${selectAllLiveSql}',
+        [host]
+    );
+    return result.rows;
+}
+
+/**
+ * Get ${name} by ID with tenant isolation (includes soft-deleted)
  */
 async function get${name}ById(id, host) {
     const result = await pool.query(
         '${selectByIdSql}',
+        [id, host]
+    );
+    return result.rows[0] || null;
+}
+
+/**
+ * Find ${name} by ID with tenant isolation (excludes soft-deleted)
+ */
+async function find${name}ById(id, host) {
+    const result = await pool.query(
+        '${selectByIdLiveSql}',
         [id, host]
     );
     return result.rows[0] || null;
@@ -108,18 +141,29 @@ async function update${name}(id, updates, host) {
     const updateFields = Object.keys(updates).filter(key => key !== 'id' && key !== 'host');
     const setClause = updateFields.map((field, i) => field + ' = $' + (i + 3)).join(', ');
     const values = updateFields.map(field => updates[field]);
-    
+
     if (setClause === '') {
         return get${name}ById(id, host);
     }
-    
+
     const sql = 'UPDATE ${tableName} SET ' + setClause + ', updated_at = NOW() WHERE id = $1 AND host = $2 RETURNING *';
     const result = await pool.query(sql, [id, host, ...values]);
     return result.rows[0] || null;
 }
 
 /**
- * Delete ${name} with tenant isolation
+ * Soft delete ${name} (sets deleted_at timestamp)
+ */
+async function kill${name}(id, host) {
+    const result = await pool.query(
+        '${softDeleteSql}',
+        [id, host]
+    );
+    return result.rows[0] || null;
+}
+
+/**
+ * Hard delete ${name} with tenant isolation
  */
 async function delete${name}(id, host) {
     const result = await pool.query(
@@ -189,9 +233,13 @@ ${allFunctions}
     // Return all functions bound to the pool
     return {
 ${allStructs.map(s => `        insert${s.name},
+        create${s.name},
         get${s.name}sByHost,
+        find${s.name}sByHost,
         get${s.name}ById,
+        find${s.name}ById,
         update${s.name},
+        kill${s.name},
         delete${s.name}`).join(',\n')}
     };
 }
@@ -202,12 +250,12 @@ ${allStructs.map(s => `        insert${s.name},
     fs.writeFileSync(outputFile, outputContent);
 
     console.log(`✅ Generated type-safe database queries: ${outputFile}`);
-    console.log(`📊 Generated ${allStructs.length * 5} query functions (5 per model)`);
+    console.log(`📊 Generated ${allStructs.length * 9} query functions (9 per model)`);
 
     return {
         outputFile,
         models: allStructs,
         structs: allStructs.length,
-        functions: allStructs.length * 5
+        functions: allStructs.length * 9
     };
 }

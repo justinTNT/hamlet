@@ -20,35 +20,52 @@ import { getGenerationPaths, ensureOutputDir } from './shared-paths.js';
  */
 export async function generateElmSharedModules(config = {}) {
     console.log('🔧 Generating shared Elm modules...');
-    
+
     // Use shared path utilities for consistency
     const paths = getGenerationPaths(config);
-    
-    // For elm_shared_modules, we need to write to the server's generated directory
-    // NOT to .hamlet-gen (which is for glue code)
-    // These are owned files that go in the server's src
-    const outputDir = config.backendElmPath ? 
-        `${config.backendElmPath}/Generated` : 
+
+    // Server-only modules go to server's generated directory
+    const serverOutputDir = config.backendElmPath ?
+        `${config.backendElmPath}/Generated` :
         path.join(paths.serverHandlersDir, '../../generated/Generated');
-    
-    // Ensure output directory exists
-    ensureOutputDir(outputDir);
-    
-    const modules = [
+
+    // Config.elm goes to shared location (used by both web and server)
+    const sharedOutputDir = config.sharedElmPath ?
+        `${config.sharedElmPath}/Generated` :
+        path.join(paths.serverHandlersDir, '../../../shared/Generated');
+
+    // Ensure output directories exist
+    ensureOutputDir(serverOutputDir);
+    ensureOutputDir(sharedOutputDir);
+
+    // Server-only modules
+    const serverModules = [
         { name: 'Database.elm', content: generateDatabaseModule(paths, config) },
         { name: 'Events.elm', content: generateEventsModule(paths, config) },
         { name: 'KV.elm', content: generateKvModule(paths, config) },
         { name: 'Services.elm', content: generateServicesModule(config) }
     ];
-    
-    for (const module of modules) {
-        const filePath = path.join(outputDir, module.name);
+
+    // Shared modules (used by both web and server)
+    const sharedModules = [
+        { name: 'Config.elm', content: generateConfigModule(paths, config) }
+    ];
+
+    for (const module of serverModules) {
+        const filePath = path.join(serverOutputDir, module.name);
         fs.writeFileSync(filePath, module.content);
         console.log(`   ✅ Generated ${module.name}`);
     }
-    
-    console.log(`📊 Generated ${modules.length} shared modules`);
-    return modules.map(m => m.name);
+
+    for (const module of sharedModules) {
+        const filePath = path.join(sharedOutputDir, module.name);
+        fs.writeFileSync(filePath, module.content);
+        console.log(`   ✅ Generated ${module.name} (shared)`);
+    }
+
+    const allModules = [...serverModules, ...sharedModules];
+    console.log(`📊 Generated ${allModules.length} shared modules`);
+    return allModules.map(m => m.name);
 }
 
 /**
@@ -764,11 +781,251 @@ hashString str =
 }
 
 /**
+ * Generate Config module with types from Rust config models
+ */
+function generateConfigModule(paths, config = {}) {
+    // Parse actual Rust config models
+    const configModels = parseRustConfigModels(paths, config);
+
+    if (configModels.length === 0) {
+        return `module Generated.Config exposing (..)
+
+{-| Generated configuration types
+No config models found in models/config/
+-}
+
+
+-- No configuration models found
+type alias EmptyConfig = {}
+`;
+    }
+
+    return `module Generated.Config exposing (..)
+
+{-| Generated configuration types for app initialization
+
+These types are generated from Rust models in models/config/*.rs
+They define the shape of configuration data passed to Elm via init flags.
+
+@docs ${configModels.map(m => m.name).join(', ')}
+
+-}
+
+import Json.Decode as Decode
+import Json.Encode as Encode
+
+
+-- CONFIG TYPES (Generated from Rust config models)
+
+${generateConfigModelTypes(configModels)}
+
+
+-- DECODERS
+
+${generateConfigDecoders(configModels)}
+
+
+-- ENCODERS
+
+${generateConfigEncoders(configModels)}
+
+
+-- HELPERS
+
+encodeMaybe : (a -> Encode.Value) -> Maybe a -> Encode.Value
+encodeMaybe encoder maybeValue =
+    case maybeValue of
+        Nothing -> Encode.null
+        Just value -> encoder value
+
+
+-- Helper for pipeline-style decoding
+andMap : Decode.Decoder a -> Decode.Decoder (a -> b) -> Decode.Decoder b
+andMap = Decode.map2 (|>)
+`;
+}
+
+
+/**
+ * Generate Elm type aliases for config models
+ */
+function generateConfigModelTypes(models) {
+    return models.map(model => {
+        const fields = model.fields.map((field, index) => {
+            const elmFieldName = snakeToCamel(field.name);
+            const prefix = index === 0 ? '    ' : '    , ';
+            return `${prefix}${elmFieldName} : ${field.elmType}`;
+        }).join('\n');
+
+        return `{-| ${model.name} configuration type
+Generated from ${model.sourceFile}
+-}
+type alias ${model.name} =
+    { ${fields}
+    }`;
+    }).join('\n\n\n');
+}
+
+
+/**
+ * Generate decoders for config models
+ */
+function generateConfigDecoders(models) {
+    return models.map(model => {
+        const decoderName = model.name.charAt(0).toLowerCase() + model.name.slice(1) + 'Decoder';
+
+        return `${decoderName} : Decode.Decoder ${model.name}
+${decoderName} =
+    Decode.succeed ${model.name}
+${model.fields.map(field => {
+    const decoder = generateConfigFieldDecoder(field, models);
+    return `        |> andMap (Decode.field "${field.name}" ${decoder})`;
+}).join('\n')}`;
+    }).join('\n\n\n');
+}
+
+
+/**
+ * Generate encoders for config models
+ */
+function generateConfigEncoders(models) {
+    return models.map(model => {
+        const encoderName = 'encode' + model.name;
+
+        return `${encoderName} : ${model.name} -> Encode.Value
+${encoderName} config =
+    Encode.object
+        [ ${model.fields.map(field => {
+            const elmFieldName = snakeToCamel(field.name);
+            const encoder = generateConfigFieldEncoder(field, models);
+            return `("${field.name}", ${encoder} config.${elmFieldName})`;
+        }).join('\n        , ')}
+        ]`;
+    }).join('\n\n\n');
+}
+
+
+/**
+ * Generate decoder for a config field
+ */
+function generateConfigFieldDecoder(field, allModels) {
+    // Check if the type references another config model
+    const referencedModel = allModels.find(m => m.name === field.elmType);
+    if (referencedModel) {
+        return field.elmType.charAt(0).toLowerCase() + field.elmType.slice(1) + 'Decoder';
+    }
+
+    if (field.elmType.startsWith('Maybe ')) {
+        const innerType = field.elmType.replace('Maybe ', '');
+        const innerModel = allModels.find(m => m.name === innerType);
+        if (innerModel) {
+            return `(Decode.nullable ${innerType.charAt(0).toLowerCase() + innerType.slice(1)}Decoder)`;
+        }
+        return `(Decode.nullable ${generateBasicDecoder(innerType)})`;
+    } else if (field.elmType.startsWith('List ')) {
+        const innerType = field.elmType.replace(/List \(?([^)]+)\)?/, '$1');
+        const innerModel = allModels.find(m => m.name === innerType);
+        if (innerModel) {
+            return `(Decode.list ${innerType.charAt(0).toLowerCase() + innerType.slice(1)}Decoder)`;
+        }
+        return `(Decode.list ${generateBasicDecoder(innerType)})`;
+    }
+
+    return generateBasicDecoder(field.elmType);
+}
+
+
+/**
+ * Generate encoder for a config field
+ */
+function generateConfigFieldEncoder(field, allModels) {
+    // Check if the type references another config model
+    const referencedModel = allModels.find(m => m.name === field.elmType);
+    if (referencedModel) {
+        return 'encode' + field.elmType;
+    }
+
+    if (field.elmType.startsWith('Maybe ')) {
+        const innerType = field.elmType.replace('Maybe ', '');
+        const innerModel = allModels.find(m => m.name === innerType);
+        if (innerModel) {
+            return `encodeMaybe encode${innerType}`;
+        }
+        return `encodeMaybe ${generateBasicEncoder(innerType)}`;
+    } else if (field.elmType.startsWith('List ')) {
+        const innerType = field.elmType.replace(/List \(?([^)]+)\)?/, '$1');
+        const innerModel = allModels.find(m => m.name === innerType);
+        if (innerModel) {
+            return `Encode.list encode${innerType}`;
+        }
+        return `Encode.list ${generateBasicEncoder(innerType)}`;
+    }
+
+    return generateBasicEncoder(field.elmType);
+}
+
+
+/**
+ * Parse Rust config models from models/config/*.rs files
+ */
+function parseRustConfigModels(paths, config = {}) {
+    const models = [];
+    const configPath = config.inputBasePath ? `${config.inputBasePath}/src/models/config/` :
+                       paths.getModelPath('config');
+
+    console.log('Looking for Config models at:', configPath);
+
+    if (!fs.existsSync(configPath)) {
+        console.warn('Config models directory not found, generating empty Config module');
+        return [];
+    }
+
+    const files = fs.readdirSync(configPath).filter(f => f.endsWith('.rs') && f !== 'mod.rs');
+
+    // First pass: collect all model names
+    const allKnownModels = [];
+    for (const file of files) {
+        const filePath = path.join(configPath, file);
+        const content = fs.readFileSync(filePath, 'utf-8');
+        const modelStructs = parseRustStructs(content, [], file);
+
+        for (const struct of modelStructs) {
+            allKnownModels.push(struct.name);
+        }
+    }
+
+    // Second pass: parse fields with knowledge of all models
+    for (const file of files) {
+        const filePath = path.join(configPath, file);
+        const content = fs.readFileSync(filePath, 'utf-8');
+        const modelStructs = parseRustStructs(content, allKnownModels, file);
+
+        for (const struct of modelStructs) {
+            // Normalize struct name - convert snake_case to PascalCase for Elm compatibility
+            const normalizedName = struct.name.includes('_')
+                ? struct.name.split('_').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('')
+                : struct.name.charAt(0).toUpperCase() + struct.name.slice(1);
+
+            models.push({
+                name: normalizedName,
+                fields: struct.fields,
+                sourceFile: file,
+                isMainModel: struct.isMainModel,
+                isComponent: struct.isComponent
+            });
+        }
+    }
+
+    return models;
+}
+
+
+/**
  * Parse Rust database models from src/models/db/*.rs files
  */
 function parseRustDbModels(paths, config = {}) {
     const models = [];
-    const dbPath = config.inputBasePath ? `${config.inputBasePath}/src/models/db/` : 
+    const dbPath = config.inputBasePath ? `${config.inputBasePath}/src/models/db/` :
                    paths.getModelPath('db');
     
     console.log('Looking for DB models at:', dbPath);
@@ -860,6 +1117,7 @@ function parseRustKvModels(paths, config = {}) {
     
     return models;
 }
+
 
 /**
  * Parse Rust struct definitions from file content
