@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import prompts from 'prompts';
 import { red, green, bold, cyan, yellow } from 'kolorist';
+import { discoverProjectPaths } from '../buildamp-core/index.js';
 
 const cwd = process.cwd();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -374,15 +375,19 @@ async function loadGenerationScripts() {
 // Use main project's generation scripts instead of separate system
 async function generateUsingMainScripts(outputDir) {
     console.log('Using main project generation scripts...');
-    
+
     // Load generation scripts dynamically
     const scripts = await loadGenerationScripts();
-    
+
+    // Get source app from main project
+    const sourcePaths = discoverProjectPaths();
+    const sourceApp = sourcePaths.appName;
+
     // Create proper directory structure matching main project
     const jsOutputDir = path.join(outputDir, 'packages', 'hamlet-server', 'generated');
     const elmOutputDir = path.join(outputDir, 'app', 'generated');
-    const sharedElmOutputDir = path.join(outputDir, 'app', 'horatio', 'server', 'generated');
-    const handlersOutputDir = path.join(outputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers');
+    const sharedElmOutputDir = path.join(outputDir, 'app', sourceApp, 'server', 'generated');
+    const handlersOutputDir = path.join(outputDir, 'app', sourceApp, 'server', 'src', 'Api', 'Handlers');
     
     // Ensure directories exist
     fs.mkdirSync(jsOutputDir, { recursive: true });
@@ -434,39 +439,43 @@ async function generateUsingMainScripts(outputDir) {
 // Copy generated files from standard locations to output directory
 async function copyGeneratedFiles(outputDir) {
     try {
+        // Get source app from main project
+        const sourcePaths = discoverProjectPaths();
+        const sourceApp = sourcePaths.appName;
+
         // Copy JavaScript files
         const jsSourceDir = 'packages/hamlet-server/generated';
         const jsTargetDir = path.join(outputDir, 'packages', 'hamlet-server', 'generated');
         if (fs.existsSync(jsSourceDir)) {
             copyDir(jsSourceDir, jsTargetDir);
         }
-        
+
         // Copy Elm files
         const elmSourceDir = 'app/generated';
         const elmTargetDir = path.join(outputDir, 'app', 'generated');
         if (fs.existsSync(elmSourceDir)) {
             copyDir(elmSourceDir, elmTargetDir);
         }
-        
+
         // Copy shared Elm modules
-        const sharedSourceDir = 'app/horatio/server/generated';
-        const sharedTargetDir = path.join(outputDir, 'app', 'horatio', 'server', 'generated');
+        const sharedSourceDir = `app/${sourceApp}/server/generated`;
+        const sharedTargetDir = path.join(outputDir, 'app', sourceApp, 'server', 'generated');
         if (fs.existsSync(sharedSourceDir)) {
             copyDir(sharedSourceDir, sharedTargetDir);
         }
-        
+
         // Copy handlers
-        const handlersSourceDir = 'app/horatio/server/src/Api/Handlers';
-        const handlersTargetDir = path.join(outputDir, 'app', 'horatio', 'server', 'src', 'Api', 'Handlers');
+        const handlersSourceDir = `app/${sourceApp}/server/src/Api/Handlers`;
+        const handlersTargetDir = path.join(outputDir, 'app', sourceApp, 'server', 'src', 'Api', 'Handlers');
         if (fs.existsSync(handlersSourceDir)) {
             copyDir(handlersSourceDir, handlersTargetDir);
         }
-        
+
         console.log('📁 Copied generated files to output directory');
-        
+
         // Generate Database.elm for tests
         await generateSimpleDatabaseElm(outputDir);
-        
+
     } catch (error) {
         console.warn(`Warning: Could not copy all generated files: ${error.message}`);
     }

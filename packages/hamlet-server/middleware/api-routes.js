@@ -17,7 +17,8 @@ const isDev = process.env.NODE_ENV !== 'production';
 export default async function createAPIRoutes(server) {
     console.log('🛣️ Setting up API routes');
 
-    const webDir = path.join(__dirname, '../../../app/horatio/web');
+    const appName = server.config.application || 'horatio';
+    const webDir = path.join(__dirname, `../../../app/${appName}/web`);
     const distPath = path.join(webDir, 'dist');
 
     let viteServer = null;

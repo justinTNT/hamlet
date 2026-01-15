@@ -37,8 +37,9 @@ function isRootLevelRequest(urlPath) {
 export default function createHostDir(server) {
     console.log('🏠 Setting up host-specific asset directory');
 
+    const appName = server.config.application || 'horatio';
     const publicDir = server.config.publicDir ||
-                      path.join(__dirname, '../../../app/horatio/web/public');
+                      path.join(__dirname, `../../../app/${appName}/web/public`);
     // Host directories live under public/hosts/: public/hosts/{hostname}/
     const hostsDir = path.join(publicDir, 'hosts');
 

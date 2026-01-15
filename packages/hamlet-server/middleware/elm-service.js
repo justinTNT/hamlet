@@ -181,7 +181,8 @@ export default async function createElmService(server) {
 
     // Load compiled Elm handlers
     async function initializeHandlers() {
-        const handlersPath = path.join(__dirname, '../../../app/horatio/server');
+        const appName = server.config.application || 'horatio';
+        const handlersPath = path.join(__dirname, `../../../app/${appName}/server`);
 
         // Auto-discover TEA handler configurations
         const handlerConfigs = [];

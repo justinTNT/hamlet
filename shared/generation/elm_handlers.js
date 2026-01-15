@@ -499,7 +499,7 @@ function generateResponseEncoder(endpoint) {
 function generateCompileScript(endpoints, config = {}, PROJECT_NAME = null) {
     const compileScript = `#!/bin/bash
 # Auto-generated Elm handler compilation script
-# Run this from app/horatio/server/ directory
+# Run this from app/{appName}/server/ directory
 
 set -e
 echo "🔨 Compiling Elm handlers..."

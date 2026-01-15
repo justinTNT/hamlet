@@ -24,6 +24,6 @@
     "sse/user_presence_event.rs": "b64b13584706b59a355ea5c15a8d7deccc00f211ee2cd3422e987f6016f76c0f",
     "storage/guest_session.rs": "bd06731b12cfdee2454422fa61d327bbe1ed0c0e86488d363de7ec909e6e3387"
   },
-  "generatedAt": "2026-01-15T12:51:19.999Z",
+  "generatedAt": "2026-01-15T21:48:24.451Z",
   "modelsDir": "app/horatio/models"
 }

@@ -1,29 +1,32 @@
 /**
  * Admin UI Generator
- * 
+ *
  * Generates an Elm application for managing database resources.
  * "Rust once, UI never"
  */
 
 import fs from 'fs';
 import path from 'path';
+import { discoverProjectPaths } from '../../packages/buildamp-core/index.js';
 
 /**
  * Generate Admin UI resources
  */
 export async function generateAdminUi() {
     console.log('👑 Admin UI Generation:');
-    
+
+    const projectPaths = discoverProjectPaths();
+
     // Parse database models from Rust files
-    const models = await discoverAndParseModels();
-    
+    const models = await discoverAndParseModels(projectPaths);
+
     if (models.length === 0) {
         console.log('⚠️  No database models found to generate admin UI');
         return { message: 'No models found' };
     }
 
     // Determine output path
-    const outputPath = 'app/horatio';
+    const outputPath = `app/${projectPaths.appName}`;
     const adminSrcDir = path.join(outputPath, 'admin/src/Generated');
     
     // Ensure output directory exists
@@ -44,9 +47,9 @@ export async function generateAdminUi() {
 }
 
 // Discover and parse database models from Rust files
-async function discoverAndParseModels() {
+async function discoverAndParseModels(projectPaths) {
     const allModels = [];
-    const modelDirs = ['app/horatio/models/db'];
+    const modelDirs = [projectPaths.dbModelsDir];
     
     // First pass: collect all models and find which are embedded in JsonBlob
     const embeddedInJsonBlob = new Set();

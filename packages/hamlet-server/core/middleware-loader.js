@@ -83,10 +83,11 @@ export class MiddlewareLoader {
         try {
             // Connect event processor to SSE service for session-aware events
             const sseService = this.server.getService('sse');
-            
+
             if (sseService) {
                 // Import the event processor module dynamically
-                const eventProcessor = await import('../../../app/horatio/server/event-processor.js');
+                const appName = this.server.config.application || 'horatio';
+                const eventProcessor = await import(`../../../app/${appName}/server/event-processor.js`);
                 if (eventProcessor.setSSEService) {
                     eventProcessor.setSSEService(sseService);
                     console.log('🔗 Connected event processor to SSE service for session-aware events');
