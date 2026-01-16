@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import { MiddlewareLoader } from './middleware-loader.js';
-import { verifyContractIntegrity } from 'buildamp-contracts';
+import { verifyContractIntegrity } from 'buildamp/core';
 import path from 'path';
 import fs from 'fs';
 

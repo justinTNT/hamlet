@@ -11,6 +11,7 @@ ask the user if you want a server killed or started.
 - Generated files are marked with comments like "Generated from..." or "Auto-generated"
 - If something doesn't work with generated files, fix the generator or build process, not the output
 - Common generated file patterns:
+  - `.hamlet-gen/` directories (clobberable glue code)
   - `Generated/` directories
   - Files with "generated" in path or comments
   - `Storage.elm`, `Database.elm`, API files, etc.
@@ -28,11 +29,32 @@ ask the user if you want a server killed or started.
 
 ## BuildAmp System Architecture
 
+### Package Structure
+- **BuildAmp CLI**: `packages/buildamp/` - standalone code generation tool
+  - `bin/buildamp.js` - CLI entry point
+  - `lib/cli.js` - Command parsing (commander)
+  - `lib/orchestrator.js` - Generation coordination
+  - `lib/generators/` - All 8 generators (db, api, storage, kv, sse, elm, handlers, admin)
+  - `core/` - Path discovery, contracts, Rust parsing utilities
+- **Hamlet Server**: `packages/hamlet-server/` - Runtime framework
+- **Vite Plugin**: `packages/vite-plugin-buildamp/` - Dev server integration
+
+### CLI Commands
+```bash
+buildamp gen              # All targets, all model types
+buildamp gen api          # All targets for API models (api, elm, handlers)
+buildamp gen db           # All targets for DB models (db, elm, admin)
+buildamp gen:wasm api     # Only WASM for API models
+buildamp gen:elm          # Only Elm generation
+buildamp status           # Check generation status vs source models
+```
+
 ### Vite Monorepo Structure
 - **Build Tool**: Vite handles bundling and workspace dependency resolution
 - **Framework Packages**: Single source of truth in `/packages/hamlet-server/`
 - **Template Projects**: Reference framework via workspace dependencies, not duplicated files
-- **Code Generation**: Shared generation scripts in `/shared/generation/` synced to templates
+- **Code Generation**: Generators in `packages/buildamp/lib/generators/`
+  - Legacy re-exports in `shared/generation/` for backward compatibility
 
 ### TEA Handler Pool System
 - Implemented fresh instance pool to fix state corruption bug
@@ -42,9 +64,11 @@ ask the user if you want a server killed or started.
 
 ### Directory Structure
 - Web app: `/app/horatio/web/`
-- Generated files: `/app/generated/` (included in elm.json source-directories)
+- Generated glue: `/app/horatio/web/src/.hamlet-gen/` (Elm) and `/app/horatio/server/.hamlet-gen/` (JS)
+- Shared generated: `/app/horatio/shared/Generated/` (Config.elm shared between web/server)
 - Server handlers: `/app/horatio/server/src/Api/Handlers/`
 - Database migrations: `/app/horatio/server/migrations/`
+- Rust models: `/app/horatio/models/` (db, api, storage, kv, sse, events, config)
 
 ### Comment Submission System
 - Complete implementation with auto-generated UUIDs
@@ -68,6 +92,6 @@ Plan documented in `notes/admin_ui_plan.md` to extend "Rust once, JSON never" to
 
 ## Test Management
 - **Centralized test runner**: `./run_all_tests.sh` handles nvm setup and runs all test suites
-- **Test documentation**: `TEST_INVENTORY.md` documents all 300+ tests across 7 locations
+- **Test suites**: 8 test suites including new BuildAmp package tests
 - **Fixing plan**: `TEST_FIXING_PLAN.md` provides systematic approach to test failures
 - **Core status**: 166 Rust tests always passing; most failures are environment/config issues

@@ -66,8 +66,29 @@ BuildAmp compiles Rust models directly to WASM modules that include:
 - Type information
 
 ```bash
-buildamp gen:wasm app/myproject/models/api
+buildamp gen:wasm api
 # Output: api.wasm (runtime module with JSON support)
+```
+
+### CLI Design
+
+The CLI follows `buildamp gen[:target] [model-dir]` pattern:
+
+- `target` (optional): `wasm`, `elm`, `sql`, `ts` - defaults to all
+- `model-dir` (optional): `api`, `db`, `storage`, `kv`, `sse`, `events`, `config` - defaults to all
+
+```bash
+# Primary usage - generate all targets for a model type
+buildamp gen api          # All targets for api/ models
+buildamp gen db           # All targets for db/ models
+buildamp gen storage      # All targets for storage/ models
+buildamp gen              # All targets for all model types
+
+# Filtered - specific output only
+buildamp gen:wasm api     # Only WASM for api models (most common)
+buildamp gen:wasm         # Only WASM for all model types
+buildamp gen:elm api      # Only Elm types for api models
+buildamp gen:sql db       # Only SQL migrations for db models
 ```
 
 ### Code Generation (Optional)
@@ -77,13 +98,6 @@ For users who want generated types, BuildAmp can also generate from Rust source:
 - **SQL** - Database migrations
 - **TypeScript** - Type definitions
 - Future: **Swift**, **Kotlin**, **GraphQL** schemas
-
-```bash
-  buildamp gen:wasm   # Just WASM (for API-only users)
-  buildamp gen:elm    # WASM + Elm types
-  buildamp gen:sql    # WASM + SQL migrations  
-  buildamp gen        # just WASM (default)
-```
 
 ### Benefits of WASM-First Approach
 - **Type Safety**: WASM validates at runtime, generated code matches source
@@ -109,17 +123,20 @@ The hamlet CLI depends on and orchestrates buildamp, but buildamp has no knowled
 
 #### BuildAmp (Standalone WASM & Code Generator)
 ```bash
-# Generate WASM modules (primary use case)
-buildamp gen:wasm app/myproject/models/api
-buildamp gen:wasm app/myproject/models/db
+# Generate WASM modules (most common use case)
+buildamp gen:wasm api     # WASM for api models
+buildamp gen:wasm db      # WASM for db models
+buildamp gen:wasm         # WASM for all model types
 
-# Generate code from Rust source (optional - also rebuilds wasm)
-buildamp gen:elm app/myproject/models/api
-buildamp gen:sql app/myproject/models/db
-buildamp gen:ts app/myproject/models/api
+# Generate all targets for a model type
+buildamp gen api          # All targets (wasm, elm, js) for api models
+buildamp gen db           # All targets for db models
+buildamp gen              # All targets for all model types
 
-# default to wasm
-buildamp gen
+# Generate specific output only
+buildamp gen:elm api      # Elm types for api models
+buildamp gen:sql db       # SQL migrations for db models
+buildamp gen:ts api       # TypeScript definitions for api models
 ```
 
 #### Hamlet CLI (Framework Orchestrator)
@@ -145,8 +162,8 @@ hamlet watch
 
 BuildAmp - Raw Power
 
-  buildamp gen:wasm app/myproject/models/api
-  buildamp gen:elm app/myproject/models/api
+  buildamp gen:wasm api
+  buildamp gen:elm api
   # Direct, no safety rails, overwrites files
   # "Here's your WASM and generated code"
 
@@ -243,17 +260,17 @@ Future additions (GraphQL, MongoDB) come via PRs to add new modules, not through
 BuildAmp compiles Rust models to WASM modules with JSON support:
 
 ```bash
-buildamp gen:wasm app/myproject/models/api
+buildamp gen:wasm api
 # Output: api.wasm (validates and processes JSON)
 ```
 
-### Code Generation  
+### Code Generation
 BuildAmp generates types directly from Rust source:
 
 ```bash
-buildamp gen:elm app/myproject/models/api     # Elm types & decoders
-buildamp gen:sql app/myproject/models/db      # SQL migrations
-buildamp gen:ts app/myproject/models/api      # TypeScript definitions
+buildamp gen:elm api      # Elm types & decoders for api models
+buildamp gen:sql db       # SQL migrations for db models
+buildamp gen:ts api       # TypeScript definitions for api models
 ```
 
 ## Technical Implementation
@@ -283,13 +300,13 @@ The contract system ensures WASM modules stay synchronized with Rust models:
 ✓ Verifying WASM matches models...
 ✗ Warning: api.wasm built from outdated models
   Changed: models/api/comment.rs
-  Run 'buildamp gen:wasm' to synchronize
+  Run 'buildamp gen:wasm api' to synchronize
 ```
 
 ### Smart Incremental Builds
 The contract system tracks hashes to avoid unnecessary WASM compilation:
 ```bash
-buildamp gen:elm
+buildamp gen:elm api
 # Contract system checks:
 # - WASM hash matches stored hash? ✓
 # - Skip expensive WASM compilation
@@ -303,7 +320,7 @@ buildamp status
 ✓ WASM current (built: 2 hours ago)
 ✗ Elm types outdated - api/user.rs modified
 ✓ SQL migrations current
-→ Run 'buildamp gen:elm' to sync
+→ Run 'buildamp gen:elm api' to sync
 ```
 
 ### Developer Benefits

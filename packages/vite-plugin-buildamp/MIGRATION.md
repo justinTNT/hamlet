@@ -1,26 +1,27 @@
 # Vite Plugin BuildAmp Migration Guide
 
-## Sprint 1 Changes
+## Current State (2026-01)
 
-The Vite plugin has been refactored to become a purely reactive adapter, following the "Vite reacts; Hamlet decides" principle.
+The Vite plugin is now a purely reactive adapter, following the "Vite reacts; Hamlet decides" principle. Code generation is handled by the standalone `buildamp` CLI.
 
-### What Changed
+### Architecture
 
-1. **Removed all orchestration logic** (305 → 56 LOC)
-   - No more Rust file watching
-   - No more WASM build orchestration
-   - No more cargo/wasm-pack execution
+- **BuildAmp CLI** (`packages/buildamp/`): Handles all code generation
+- **Vite Plugin** (`packages/vite-plugin-buildamp/`): Reactive HMR integration only
 
-2. **Simplified to reactive-only behavior**
-   - Watches `.hamlet-gen/contracts.json` for changes
-   - Triggers HMR when contracts update
-   - Sets up import aliases for generated code
+### What the Plugin Does
 
-3. **Extracted orchestration to separate file**
-   - See `orchestration-extracted.js` for removed logic
-   - This will move to `hamlet gen` command in Sprint 2
+1. **Watches `.hamlet-gen/contracts.json`** for changes
+2. **Triggers HMR** when contracts update
+3. **Sets up import aliases** for generated code
 
-### New Usage
+### What the Plugin Does NOT Do
+
+- No Rust file watching (use `buildamp gen` or file watchers)
+- No WASM build orchestration
+- No cargo/wasm-pack execution
+
+### Usage
 
 ```javascript
 // vite.config.js
@@ -37,12 +38,12 @@ export default {
 }
 ```
 
-### HMR Behavior
+### Development Workflow
 
-The plugin now:
-- Only watches `.hamlet-gen/contracts.json`
-- Triggers full page reload when contracts change
-- Does NOT watch Rust files or owned Elm code
+1. **Make changes to Rust models** in `app/{project}/models/`
+2. **Run `buildamp gen`** to regenerate code
+3. **Plugin detects contract changes** and triggers HMR
+4. **Browser reloads** with updated code
 
 ### Import Aliases
 
@@ -50,8 +51,18 @@ The plugin automatically configures:
 - `@hamlet-gen` → `.hamlet-gen/` directory
 - `@generated` → `.hamlet-gen/` directory (alias)
 
-### Migration Steps
+---
 
-1. Update your vite config to use the new simplified options
-2. Use `hamlet gen` (coming in Sprint 2) to regenerate code
-3. The plugin will detect contract changes and reload automatically
+## Historical Notes
+
+### Sprint 1 Changes (Original Migration)
+
+The plugin was refactored from 305 LOC to 56 LOC:
+- Removed all orchestration logic
+- Simplified to reactive-only behavior
+- Extracted orchestration to `buildamp` CLI
+
+This separation enables:
+- Future support for other build tools (Bun, webpack)
+- Consistent behavior across environments
+- Cleaner separation of concerns

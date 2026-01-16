@@ -1,0 +1,10 @@
+/**
+ * BuildAmp - WASM and code generation from Rust models
+ * Main entry point
+ */
+
+export * from './cli.js';
+export * from './orchestrator.js';
+
+// Re-export core utilities for external use
+export * from '../core/index.js';

@@ -5,7 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { discoverProjectPaths, ensureGlueDirs } from 'buildamp-core';
+import { discoverProjectPaths, ensureGlueDirs } from 'buildamp/core';
 
 /**
  * Get standardized generation paths

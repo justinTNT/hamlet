@@ -26,12 +26,9 @@
         "test:generation-dry": "node --experimental-vm-modules node_modules/.bin/jest tests/generation-dry/generation-dry.test.js"
     },
     "devDependencies": {
-        "buildamp-cli": "*"
+        "buildamp": "*"
     },
     "hamlet": {
         "defaultApp": "horatio"
-    },
-    "dependencies": {
-        "@rollup/rollup-darwin-x64": "^4.55.1"
     }
 }

@@ -92,11 +92,12 @@ echo "   • Core Rust tests: 167 framework tests"
 echo "   • Horatio Server tests: TEA handler pools, performance, KV, SSE"
 echo "   • Hamlet Server tests: Jest tests for core, middleware, security"
 echo "   • Create-BuildAmp tests: CLI parsing, codegen, integration"
+echo "   • BuildAmp Package tests: CLI, orchestrator, core utilities, generators"
 echo "   • BuildAmp Integration tests: Code generation integration"
 echo "   • Shared Generation tests: Code generation helpers"
 echo "   • Golden Model Verification: Reference app + admin UI validation"
 echo ""
-echo "   🎯 TOTAL: 7 real test suites (fake tests removed)"
+echo "   🎯 TOTAL: 8 real test suites"
 echo "======================="
 echo ""
 
@@ -132,6 +133,13 @@ run_test_suite \
     "/Users/jtnt/Play/hamlet/packages/create-buildamp" \
     "npm test" \
     "CLI parsing, codegen modes, database/events generation, integration, webhooks"
+
+# Test Suite 4b: BuildAmp Package Tests
+run_test_suite \
+    "BuildAmp Package Tests" \
+    "/Users/jtnt/Play/hamlet/packages/buildamp" \
+    "npm test" \
+    "CLI commands, orchestrator, core utilities, generators"
 
 # Test Suite 5: BuildAmp Integration Tests
 run_test_suite \

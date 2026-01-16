@@ -1,0 +1,261 @@
+/**
+ * Database Query Generation
+ * Generates type-safe database functions from Rust database models
+ * Replaces dangerous SQL string manipulation with pre-generated, validated queries
+ */
+
+import fs from 'fs';
+import path from 'path';
+import { getGenerationPaths, modelsExist, getModelsFullPath, ensureOutputDir } from './shared-paths.js';
+
+// Parse a Rust struct from file content
+function parseRustStruct(content, filename) {
+    const structs = [];
+    const structRegex = /pub struct\s+(\w+)\s*{([^}]+)}/g;
+    let match;
+
+    while ((match = structRegex.exec(content)) !== null) {
+        const [, structName, fieldsContent] = match;
+
+        // Parse fields
+        const fields = [];
+        const fieldRegex = /pub\s+(\w+):\s*([^,\n]+)/g;
+        let fieldMatch;
+
+        while ((fieldMatch = fieldRegex.exec(fieldsContent)) !== null) {
+            const [, fieldName, fieldType] = fieldMatch;
+            fields.push({
+                name: fieldName,
+                type: fieldType.trim(),
+                // Check for special database types
+                isPrimaryKey: fieldType.includes('DatabaseId'),
+                isTimestamp: fieldType.includes('Timestamp'),
+                isOptional: fieldType.includes('Option<')
+            });
+        }
+
+        // Determine table name from struct name (convert CamelCase to snake_case)
+        const tableName = structName
+            .replace(/([A-Z])/g, '_$1')
+            .toLowerCase()
+            .substring(1);
+
+        structs.push({
+            name: structName,
+            tableName,
+            fields,
+            filename
+        });
+    }
+
+    return structs;
+}
+
+// Generate database query functions for a struct
+function generateQueryFunctions(struct) {
+    const { name, tableName, fields } = struct;
+
+    const nonIdFields = fields.filter(f => !f.isPrimaryKey && f.name !== 'host');
+    const columnNames = nonIdFields.map(f => f.name).join(', ');
+    const columnPlaceholders = nonIdFields.map((_, i) => '$' + (i + 2)).join(', '); // $1 is for host
+    const fieldAccess = nonIdFields.map(f => name.toLowerCase() + '.' + f.name).join(', ');
+
+    const insertSql = `INSERT INTO ${tableName} (${columnNames}, host) VALUES (${columnPlaceholders}, $1) RETURNING *`;
+    const selectAllSql = `SELECT * FROM ${tableName} WHERE host = $1 ORDER BY created_at DESC`;
+    const selectAllLiveSql = `SELECT * FROM ${tableName} WHERE host = $1 AND deleted_at IS NULL ORDER BY created_at DESC`;
+    const selectByIdSql = `SELECT * FROM ${tableName} WHERE id = $1 AND host = $2`;
+    const selectByIdLiveSql = `SELECT * FROM ${tableName} WHERE id = $1 AND host = $2 AND deleted_at IS NULL`;
+    const softDeleteSql = `UPDATE ${tableName} SET deleted_at = NOW() WHERE id = $1 AND host = $2 RETURNING *`;
+    const deleteSql = `DELETE FROM ${tableName} WHERE id = $1 AND host = $2 RETURNING id`;
+
+    return `
+// Auto-generated database functions for ${name}
+
+/**
+ * Insert ${name} with automatic tenant isolation
+ */
+async function insert${name}(${name.toLowerCase()}, host) {
+    const result = await pool.query(
+        '${insertSql}',
+        [host, ${fieldAccess}]
+    );
+    return result.rows[0];
+}
+
+/**
+ * Create ${name} (alias for insert)
+ */
+async function create${name}(data) {
+    const { host, ...rest } = data;
+    return insert${name}(rest, host);
+}
+
+/**
+ * Get all ${name}s for a tenant (includes soft-deleted)
+ */
+async function get${name}sByHost(host) {
+    const result = await pool.query(
+        '${selectAllSql}',
+        [host]
+    );
+    return result.rows;
+}
+
+/**
+ * Find all live ${name}s for a tenant (excludes soft-deleted)
+ */
+async function find${name}sByHost(host) {
+    const result = await pool.query(
+        '${selectAllLiveSql}',
+        [host]
+    );
+    return result.rows;
+}
+
+/**
+ * Get ${name} by ID with tenant isolation (includes soft-deleted)
+ */
+async function get${name}ById(id, host) {
+    const result = await pool.query(
+        '${selectByIdSql}',
+        [id, host]
+    );
+    return result.rows[0] || null;
+}
+
+/**
+ * Find ${name} by ID with tenant isolation (excludes soft-deleted)
+ */
+async function find${name}ById(id, host) {
+    const result = await pool.query(
+        '${selectByIdLiveSql}',
+        [id, host]
+    );
+    return result.rows[0] || null;
+}
+
+/**
+ * Update ${name} with tenant isolation
+ */
+async function update${name}(id, updates, host) {
+    const updateFields = Object.keys(updates).filter(key => key !== 'id' && key !== 'host');
+    const setClause = updateFields.map((field, i) => field + ' = $' + (i + 3)).join(', ');
+    const values = updateFields.map(field => updates[field]);
+
+    if (setClause === '') {
+        return get${name}ById(id, host);
+    }
+
+    const sql = 'UPDATE ${tableName} SET ' + setClause + ', updated_at = NOW() WHERE id = $1 AND host = $2 RETURNING *';
+    const result = await pool.query(sql, [id, host, ...values]);
+    return result.rows[0] || null;
+}
+
+/**
+ * Soft delete ${name} (sets deleted_at timestamp)
+ */
+async function kill${name}(id, host) {
+    const result = await pool.query(
+        '${softDeleteSql}',
+        [id, host]
+    );
+    return result.rows[0] || null;
+}
+
+/**
+ * Hard delete ${name} with tenant isolation
+ */
+async function delete${name}(id, host) {
+    const result = await pool.query(
+        '${deleteSql}',
+        [id, host]
+    );
+    return result.rows.length > 0;
+}`.trim();
+}
+
+// Generate all database query functions
+export function generateDatabaseQueries(config = {}) {
+    // Use shared path utilities for consistent path discovery
+    const paths = getGenerationPaths(config);
+    
+    // Debug logging
+    const dbPath = paths.getModelPath('db');
+    const fullDbPath = getModelsFullPath('db', paths);
+    const exists = modelsExist('db', paths);
+    
+    // Check if database models exist
+    if (!exists) {
+        console.log(`📁 No models/db directory found at ${dbPath}, skipping database query generation`);
+        console.log(`   (Full path: ${fullDbPath})`);
+        console.log(`   (CWD: ${process.cwd()})`);
+        return;
+    }
+
+    // Get full path to database models
+    const dbModelsPath = getModelsFullPath('db', paths);
+    
+    // Ensure output directory exists (using jsGlueDir)
+    const outputPath = ensureOutputDir(paths.jsOutputPath);
+
+    const allStructs = [];
+
+    // Read all .rs files in models/db directory
+    const files = fs.readdirSync(dbModelsPath).filter(file => file.endsWith('.rs') && file !== 'mod.rs');
+
+    for (const file of files) {
+        const filePath = path.join(dbModelsPath, file);
+        const content = fs.readFileSync(filePath, 'utf-8');
+        const structs = parseRustStruct(content, file);
+        allStructs.push(...structs);
+    }
+
+    console.log(`🔍 Found ${allStructs.length} database models: ${allStructs.map(s => s.name).join(', ')}`);
+
+    // Generate functions for each struct
+    const allFunctions = allStructs.map(generateQueryFunctions).join('\n\n');
+
+    const outputContent = `/**
+ * Auto-Generated Database Query Functions
+ * Generated from database models
+ * 
+ * ⚠️  DO NOT EDIT THIS FILE MANUALLY
+ * ⚠️  Changes will be overwritten during next generation
+ * 
+ * This file replaces dangerous SQL string manipulation with type-safe,
+ * pre-validated database queries that include automatic tenant isolation.
+ */
+
+// Factory function that takes a pool and returns bound query functions
+export default function createDbQueries(pool) {
+${allFunctions}
+
+    // Return all functions bound to the pool
+    return {
+${allStructs.map(s => `        insert${s.name},
+        create${s.name},
+        get${s.name}sByHost,
+        find${s.name}sByHost,
+        get${s.name}ById,
+        find${s.name}ById,
+        update${s.name},
+        kill${s.name},
+        delete${s.name}`).join(',\n')}
+    };
+}
+`;
+
+    // Write generated file
+    const outputFile = path.join(outputPath, 'database-queries.js');
+    fs.writeFileSync(outputFile, outputContent);
+
+    console.log(`✅ Generated type-safe database queries: ${outputFile}`);
+    console.log(`📊 Generated ${allStructs.length * 9} query functions (9 per model)`);
+
+    return {
+        outputFile,
+        models: allStructs,
+        structs: allStructs.length,
+        functions: allStructs.length * 9
+    };
+}

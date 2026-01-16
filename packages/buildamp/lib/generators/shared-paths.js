@@ -1,32 +1,30 @@
 /**
- * Shared path utilities for generation scripts
- *
- * NOTE: This file is now a re-export from the buildamp package.
- * All implementations have moved to packages/buildamp/lib/generators/shared-paths.js
+ * Shared path utilities for generators
+ * Wraps core/paths.js for backward compatibility
  */
 
 import fs from 'fs';
 import path from 'path';
-import { discoverProjectPaths } from 'buildamp/core';
+import { discoverProjectPaths } from '../../core/paths.js';
 
 /**
  * Get project paths with defaults for generation
- * Uses hamlet-core's path discovery for consistency
+ * Uses core path discovery for consistency
  */
 export function getGenerationPaths(config = {}) {
-    // Use hamlet-core for path discovery
+    // Use core path discovery
     const paths = discoverProjectPaths();
-    
+
     // Use new .hamlet-gen output paths
     const outputPaths = {
         jsOutputPath: config.jsOutputPath || paths.jsGlueDir,
         elmOutputPath: config.elmOutputPath || paths.elmGlueDir,
     };
-    
+
     return {
         ...paths,
         ...outputPaths,
-        
+
         // Helper to get specific model paths
         getModelPath: (modelType) => {
             switch (modelType) {

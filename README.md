@@ -58,6 +58,26 @@ Buildamp gives you surgical precision for your few weird holes. Nothing more, no
 
 ## Development
 
+### Code Generation
+
+Use the BuildAmp CLI to generate code from Rust models:
+
+```bash
+# Generate all targets for all model types
+buildamp gen
+
+# Generate for specific model directory
+buildamp gen api          # API routes, Elm types, handler scaffolds
+buildamp gen db           # Database queries, Elm types, admin UI
+
+# Generate specific target only
+buildamp gen:wasm api     # Only WASM for API models
+buildamp gen:elm          # Only Elm type generation
+
+# Check generation status
+buildamp status
+```
+
 ### Handler Safety Scripts
 
 When working with TEA handlers, use these scripts to prevent losing business logic during regeneration:
@@ -96,6 +116,4 @@ Examples:
 ```
 
 This workflow ensures handler implementations are never lost when regenerating from templates.
-
-**Note:** These safety scripts are temporary. They will be integrated as proper BuildAmp CLI commands in a future release (e.g., `buildamp handlers --backup`, `buildamp handlers --merge`).
 
