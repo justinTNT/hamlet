@@ -7,7 +7,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { getGenerationPaths, modelsExist, getModelsFullPath, ensureOutputDir } from './shared-paths.js';
+import { getGenerationPaths, modelsExist, getModelsFullPath, ensureOutputDir, parseCrossModelReferences, loadDbModelMetadata } from './shared-paths.js';
 
 // Parse Rust struct definitions for KV models
 function parseRustStructs(content, filename) {
@@ -151,10 +151,91 @@ async function updateTtl${name}(key, ttl, host, kvClient) {
 `.trim();
 }
 
+// Generate server-side cache functions for a DB model reference
+// When a KV model file has `use crate::models::db::MicroblogItem`,
+// we generate cache functions: setMicroblogItemCache, getMicroblogItemCache, etc.
+function generateDbCacheFunctions(dbModelName) {
+    const lowerName = dbModelName.charAt(0).toLowerCase() + dbModelName.slice(1);
+
+    return `
+// Auto-generated cache functions for ${dbModelName}
+// Generated because a KV model references db::${dbModelName}
+
 /**
- * Shared KV Store generation function
- * @param {Object} config - Configuration object defining paths and project structure
+ * Cache a ${dbModelName} by its ID (keys by item.id automatically)
+ * @param {Object} item - ${dbModelName} to cache
+ * @param {string} host - Tenant host for isolation
+ * @param {Object} kvClient - KV store client (Redis/etc.)
+ * @param {number} ttl - TTL in seconds (default 3600)
  */
+async function set${dbModelName}Cache(item, host, kvClient, ttl = 3600) {
+    try {
+        const tenantKey = \`\${host}:${lowerName}_cache:\${item.id}\`;
+        const serialized = JSON.stringify(item);
+        await kvClient.setex(tenantKey, ttl, serialized);
+        return true;
+    } catch (error) {
+        console.error(\`Error caching ${dbModelName}:\`, error);
+        return false;
+    }
+}
+
+/**
+ * Load a ${dbModelName} from cache by its DatabaseId
+ * @param {string} id - DatabaseId of the ${dbModelName}
+ * @param {string} host - Tenant host for isolation
+ * @param {Object} kvClient - KV store client (Redis/etc.)
+ * @returns {Object|null} ${dbModelName} or null if not found/expired
+ */
+async function get${dbModelName}Cache(id, host, kvClient) {
+    try {
+        const tenantKey = \`\${host}:${lowerName}_cache:\${id}\`;
+        const data = await kvClient.get(tenantKey);
+        return data ? JSON.parse(data) : null;
+    } catch (error) {
+        console.error(\`Error getting cached ${dbModelName}:\`, error);
+        return null;
+    }
+}
+
+/**
+ * Remove a ${dbModelName} from cache by its DatabaseId
+ * @param {string} id - DatabaseId of the ${dbModelName}
+ * @param {string} host - Tenant host for isolation
+ * @param {Object} kvClient - KV store client (Redis/etc.)
+ */
+async function remove${dbModelName}Cache(id, host, kvClient) {
+    try {
+        const tenantKey = \`\${host}:${lowerName}_cache:\${id}\`;
+        await kvClient.del(tenantKey);
+        return true;
+    } catch (error) {
+        console.error(\`Error removing cached ${dbModelName}:\`, error);
+        return false;
+    }
+}
+
+/**
+ * Clear all cached ${dbModelName} items for a tenant
+ * @param {string} host - Tenant host for isolation
+ * @param {Object} kvClient - KV store client (Redis/etc.)
+ */
+async function clear${dbModelName}Cache(host, kvClient) {
+    try {
+        const pattern = \`\${host}:${lowerName}_cache:*\`;
+        const keys = await kvClient.keys(pattern);
+        if (keys.length > 0) {
+            await kvClient.del(...keys);
+        }
+        return keys.length;
+    } catch (error) {
+        console.error(\`Error clearing ${dbModelName} cache:\`, error);
+        return 0;
+    }
+}
+`.trim();
+}
+
 /**
  * Helper: Clean up expired keys for a tenant
  * @param {string} host - Tenant host
@@ -201,48 +282,65 @@ export async function getTenantKeys(host, kvClient) {
 
 export function generateKvStore(config = {}) {
     console.log('🏗️ Generating KV store functions...');
-    
+
     // Get paths using shared utilities
     const paths = getGenerationPaths(config);
-    
+
     // Check if KV models exist
     if (!modelsExist('kv', paths)) {
         console.log('📁 No KV models directory found, skipping KV store generation');
         return { models: 0, functions: 0 };
     }
-    
+
     // Get the models directory and output file paths
     const MODELS_DIR = getModelsFullPath('kv', paths);
     const OUTPUT_FILE = path.join(process.cwd(), paths.jsOutputPath, 'kv-store.js');
-    
+
     // Ensure output directory exists
     ensureOutputDir(paths.jsOutputPath);
-    
+
     const allStructs = [];
-    
+    const allDbReferences = new Set(); // Track all DB model references for cache primitives
+
     // Find all .rs files in the KV models directory
     const files = fs.readdirSync(MODELS_DIR).filter(file => file.endsWith('.rs') && file !== 'mod.rs');
-    
+
     for (const file of files) {
         const filePath = path.join(MODELS_DIR, file);
         const content = fs.readFileSync(filePath, 'utf-8');
         const structs = parseRustStructs(content, file);
         allStructs.push(...structs);
+
+        // Detect cross-model references (e.g., use crate::models::db::MicroblogItem)
+        const refs = parseCrossModelReferences(content);
+        refs.db.forEach(dbModel => allDbReferences.add(dbModel));
     }
-    
-    if (allStructs.length === 0) {
+
+    if (allStructs.length === 0 && allDbReferences.size === 0) {
         console.log('📁 No KV models found, skipping generation');
         return { models: 0, functions: 0 };
     }
-    
+
     console.log(`🔍 Found ${allStructs.length} KV models: ${allStructs.map(s => s.name).join(', ')}`);
+
+    // Report cross-model references
+    const dbReferencesArray = Array.from(allDbReferences);
+    if (dbReferencesArray.length > 0) {
+        console.log(`🔗 Found cross-model DB references: ${dbReferencesArray.join(', ')}`);
+    }
     
     // Generate functions for each struct
     const kvFunctions = allStructs.map(struct => {
         console.log(`  📦 Generating KV functions for ${struct.name}...`);
         return generateKvFunctions(struct);
     }).join('\n');
-    
+
+    // Generate cache functions for DB model references
+    const dbCacheFunctions = dbReferencesArray.map(dbModelName => {
+        console.log(`  🔗 Generating cache functions for ${dbModelName}...`);
+        return generateDbCacheFunctions(dbModelName);
+    }).join('\n');
+
     // Build function name lists for exports
     const exportedFunctions = [];
     for (const struct of allStructs) {
@@ -254,14 +352,24 @@ export function generateKvStore(config = {}) {
             `updateTtl${struct.name}`
         );
     }
+
+    // Add cache function exports for DB model references
+    for (const dbModelName of dbReferencesArray) {
+        exportedFunctions.push(
+            `set${dbModelName}Cache`,
+            `get${dbModelName}Cache`,
+            `remove${dbModelName}Cache`,
+            `clear${dbModelName}Cache`
+        );
+    }
     
     const outputContent = `/**
  * Auto-Generated KV Store Functions
  * Generated from models in ${MODELS_DIR.replace(process.cwd() + path.sep, '')}
- * 
+ *
  * ⚠️  DO NOT EDIT THIS FILE MANUALLY
  * ⚠️  Changes will be overwritten during next generation
- * 
+ *
  * This file provides type-safe KV store operations (Redis/etc.)
  * with automatic tenant isolation and TTL management.
  */
@@ -269,6 +377,7 @@ export function generateKvStore(config = {}) {
 // Factory function that takes a KV client and returns bound functions
 export default function createKvFunctions(kvClient) {
 ${kvFunctions}
+${dbCacheFunctions}
 
     // Return all functions bound to the KV client
     return {
@@ -323,13 +432,18 @@ export async function getTenantKeys(host, kvClient) {
     
     // Write the generated file
     fs.writeFileSync(OUTPUT_FILE, outputContent);
-    
+
     console.log(`✅ Generated ${allStructs.length} KV store models with ${exportedFunctions.length} functions`);
+    if (dbReferencesArray.length > 0) {
+        console.log(`🔗 Generated ${dbReferencesArray.length * 4} cache functions for DB models`);
+    }
     console.log(`📁 Output: ${OUTPUT_FILE}`);
-    
+
     return {
         models: allStructs.length,
         functions: exportedFunctions.length,
+        cacheModels: dbReferencesArray.length,
+        dbReferences: dbReferencesArray,
         outputFile: OUTPUT_FILE
     };
 }

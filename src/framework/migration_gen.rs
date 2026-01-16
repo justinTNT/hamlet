@@ -1,11 +1,21 @@
 use std::collections::HashMap;
 
 /// Generate SQL CREATE TABLE statements from BuildAmp domain types
+///
+/// DEPRECATED: This function uses hardcoded table definitions.
+/// Prefer using the JavaScript SQL generator which parses Rust models directly:
+///   buildamp gen:sql  (or buildamp gen db)
+///
+/// The JavaScript generator in packages/buildamp/lib/generators/sql.js
+/// automatically parses app/{project}/models/db/*.rs and generates
+/// schema.sql with proper type mappings.
+///
+/// This WASM function is kept for backward compatibility but may be removed.
 pub fn generate_migration_sql() -> String {
     let mut sql_statements = Vec::new();
-    
-    // For now, we'll manually define the mappings
-    // TODO: Use proc macro to auto-discover all #[buildamp_domain] types
+
+    // DEPRECATED: These are hardcoded definitions that can get out of sync.
+    // Use `buildamp gen db` instead which parses the actual Rust model files.
     let tables = get_domain_type_definitions();
     
     for (table_name, fields) in tables {

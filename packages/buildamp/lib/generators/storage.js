@@ -6,7 +6,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { getGenerationPaths, modelsExist, getModelsFullPath, ensureOutputDir } from './shared-paths.js';
+import { getGenerationPaths, modelsExist, getModelsFullPath, ensureOutputDir, parseCrossModelReferences, loadDbModelMetadata } from './shared-paths.js';
 
 // Parse storage models from Rust file content
 function parseStorageModels(content, filename) {
@@ -379,6 +379,184 @@ onChange toMsg =
     )`.trim();
 }
 
+// Generate cache primitives for DB model references
+// When a storage model file has `use crate::models::db::MicroblogItem`,
+// we generate Storage.MicroblogItem module with store/load/remove/clear/onLoaded
+function generateCachePrimitives(dbModelName, dbModelMeta) {
+    const varName = dbModelName.charAt(0).toLowerCase() + dbModelName.slice(1);
+
+    return `port module Generated.Storage.${dbModelName} exposing
+    ( store, load, remove, clear, onLoaded
+    )
+
+{-| Type-safe browser cache for ${dbModelName}
+
+Generated because a storage model references db::${dbModelName}
+Provides simple cache primitives keyed by the item's DatabaseId.
+
+@docs store, load, remove, clear, onLoaded
+
+-}
+
+import Json.Encode as Encode
+import Json.Decode as Decode
+import Generated.Db exposing (${dbModelName}Db, encode${dbModelName}Db, ${varName}DbDecoder)
+
+
+-- CACHE PRIMITIVES
+
+{-| Store a ${dbModelName} in the browser cache
+    Keys by item.id automatically
+-}
+store : ${dbModelName}Db -> Cmd msg
+store item =
+    cacheStore
+        { type_ = "${dbModelName}"
+        , key = item.id
+        , value = encode${dbModelName}Db item
+        }
+
+
+{-| Load a ${dbModelName} from the browser cache by its DatabaseId
+-}
+load : String -> Cmd msg
+load id =
+    cacheLoad
+        { type_ = "${dbModelName}"
+        , key = id
+        }
+
+
+{-| Remove a ${dbModelName} from the browser cache by its DatabaseId
+-}
+remove : String -> Cmd msg
+remove id =
+    cacheRemove
+        { type_ = "${dbModelName}"
+        , key = id
+        }
+
+
+{-| Clear all ${dbModelName} items from the browser cache
+-}
+clear : Cmd msg
+clear =
+    cacheClear { type_ = "${dbModelName}" }
+
+
+{-| Subscribe to cache load results
+-}
+onLoaded : (Maybe ${dbModelName}Db -> msg) -> Sub msg
+onLoaded toMsg =
+    cacheResult (\\result ->
+        if result.type_ == "${dbModelName}" then
+            case result.value of
+                Nothing ->
+                    toMsg Nothing
+
+                Just value ->
+                    case Decode.decodeValue ${varName}DbDecoder value of
+                        Ok item -> toMsg (Just item)
+                        Err _ -> toMsg Nothing
+        else
+            -- Not for us, ignore
+            toMsg Nothing
+    )
+
+
+-- PORTS (internal)
+
+port cacheStore : { type_ : String, key : String, value : Encode.Value } -> Cmd msg
+port cacheLoad : { type_ : String, key : String } -> Cmd msg
+port cacheRemove : { type_ : String, key : String } -> Cmd msg
+port cacheClear : { type_ : String } -> Cmd msg
+port cacheResult : ({ type_ : String, key : String, value : Maybe Encode.Value } -> msg) -> Sub msg
+`;
+}
+
+// Generate JavaScript cache port handlers
+function generateCachePortHandlers(dbModelNames) {
+    if (dbModelNames.length === 0) return '';
+
+    return `
+/**
+ * Cache port handlers for DB model caching
+ * Generated for: ${dbModelNames.join(', ')}
+ */
+function connectCachePorts(app) {
+    if (!app || !app.ports) {
+        console.warn('Elm app or ports not available for cache integration');
+        return;
+    }
+
+    // Generic cache storage using localStorage with type prefix
+    const cachePrefix = 'hamlet_cache_';
+
+    if (app.ports.cacheStore) {
+        app.ports.cacheStore.subscribe(({ type_, key, value }) => {
+            try {
+                const storageKey = cachePrefix + type_ + '_' + key;
+                localStorage.setItem(storageKey, JSON.stringify(value));
+            } catch (error) {
+                console.error('Cache store error:', error);
+            }
+        });
+    }
+
+    if (app.ports.cacheLoad) {
+        app.ports.cacheLoad.subscribe(({ type_, key }) => {
+            try {
+                const storageKey = cachePrefix + type_ + '_' + key;
+                const data = localStorage.getItem(storageKey);
+                const value = data ? JSON.parse(data) : null;
+
+                if (app.ports.cacheResult) {
+                    app.ports.cacheResult.send({ type_: type_, key: key, value: value });
+                }
+            } catch (error) {
+                console.error('Cache load error:', error);
+                if (app.ports.cacheResult) {
+                    app.ports.cacheResult.send({ type_: type_, key: key, value: null });
+                }
+            }
+        });
+    }
+
+    if (app.ports.cacheRemove) {
+        app.ports.cacheRemove.subscribe(({ type_, key }) => {
+            try {
+                const storageKey = cachePrefix + type_ + '_' + key;
+                localStorage.removeItem(storageKey);
+            } catch (error) {
+                console.error('Cache remove error:', error);
+            }
+        });
+    }
+
+    if (app.ports.cacheClear) {
+        app.ports.cacheClear.subscribe(({ type_ }) => {
+            try {
+                const prefix = cachePrefix + type_ + '_';
+                // Find and remove all keys with this prefix
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith(prefix)) {
+                        keysToRemove.push(key);
+                    }
+                }
+                keysToRemove.forEach(key => localStorage.removeItem(key));
+            } catch (error) {
+                console.error('Cache clear error:', error);
+            }
+        });
+    }
+
+    console.log('✅ Cache ports connected for: ${dbModelNames.join(', ')}');
+}
+`;
+}
+
 // Generate port integration JavaScript
 function generatePortIntegration(allModels) {
     const portBindings = allModels.map(model => {
@@ -437,43 +615,57 @@ function connectStoragePorts(app) {
 export function generateBrowserStorage(config = {}) {
     // Use shared path discovery
     const paths = getGenerationPaths(config);
-    
+
     // Check if storage models exist
     if (!modelsExist('storage', paths)) {
         console.log(`📁 No storage models directory found at ${paths.storageModelsDir}, skipping browser storage generation`);
         return;
     }
-    
+
     const storageModelsPath = getModelsFullPath('storage', paths);
     // Browser storage JS should go with client code, not server
     const outputPath = ensureOutputDir(paths.elmOutputPath);
     const elmOutputPath = ensureOutputDir(paths.elmOutputPath);
-    
+
     const allModels = [];
-    
+    const allDbReferences = new Set(); // Track all DB model references for cache primitives
+
     // Read all .rs files in src/models/storage
     const files = fs.readdirSync(storageModelsPath).filter(file => file.endsWith('.rs') && file !== 'mod.rs');
-    
+
     for (const file of files) {
         const filePath = path.join(storageModelsPath, file);
         const content = fs.readFileSync(filePath, 'utf-8');
         const models = parseStorageModels(content, file);
         allModels.push(...models);
+
+        // Detect cross-model references (e.g., use crate::models::db::MicroblogItem)
+        const refs = parseCrossModelReferences(content);
+        refs.db.forEach(dbModel => allDbReferences.add(dbModel));
     }
     
     console.log(`🔍 Found ${allModels.length} storage models: ${allModels.map(m => m.name).join(', ')}`);
-    
+
+    // Load DB model metadata if we have cross-model references
+    const dbReferencesArray = Array.from(allDbReferences);
+    let dbModelMeta = new Map();
+    if (dbReferencesArray.length > 0) {
+        console.log(`🔗 Found cross-model DB references: ${dbReferencesArray.join(', ')}`);
+        dbModelMeta = loadDbModelMetadata(paths);
+    }
+
     // Generate JavaScript storage classes
     const allClasses = allModels.map(generateStorageClass).join('\n\n');
     const portIntegration = generatePortIntegration(allModels);
-    
+    const cachePortHandlers = generateCachePortHandlers(dbReferencesArray);
+
     const jsContent = `/**
  * Auto-Generated Browser Storage APIs
  * Generated from models in src/models/storage/
- * 
+ *
  * ⚠️  DO NOT EDIT THIS FILE MANUALLY
  * ⚠️  Changes will be overwritten during next generation
- * 
+ *
  * ESSENTIAL: This enables direct Elm-to-localStorage communication
  * Core to Hamlet's mission of eliminating manual JavaScript interfaces
  */
@@ -481,11 +673,12 @@ export function generateBrowserStorage(config = {}) {
 ${allClasses}
 
 ${portIntegration}
+${cachePortHandlers}
 
 // Export all storage classes
 export {
 ${allModels.map(m => `    ${m.name}Storage`).join(',\n')},
-    connectStoragePorts
+    connectStoragePorts${dbReferencesArray.length > 0 ? ',\n    connectCachePorts' : ''}
 };
 `;
     
@@ -517,13 +710,34 @@ ${allPorts}
         const helperContent = generateElmHelper(model);
         const helperDir = path.join(elmOutputPath, 'Generated', 'Storage');
         const helperFile = path.join(helperDir, `${model.name}.elm`);
-        
+
         // Ensure directory exists
         if (!fs.existsSync(helperDir)) {
             fs.mkdirSync(helperDir, { recursive: true });
         }
-        
+
         fs.writeFileSync(helperFile, helperContent);
+    }
+
+    // Generate cache primitive modules for DB model references
+    for (const dbModelName of dbReferencesArray) {
+        const modelMeta = dbModelMeta.get(dbModelName);
+        if (!modelMeta) {
+            console.warn(`⚠️  Referenced DB model '${dbModelName}' not found in models/db/`);
+            continue;
+        }
+
+        const cacheContent = generateCachePrimitives(dbModelName, modelMeta);
+        const cacheDir = path.join(elmOutputPath, 'Generated', 'Storage');
+        const cacheFile = path.join(cacheDir, `${dbModelName}Cache.elm`);
+
+        // Ensure directory exists
+        if (!fs.existsSync(cacheDir)) {
+            fs.mkdirSync(cacheDir, { recursive: true });
+        }
+
+        fs.writeFileSync(cacheFile, cacheContent);
+        console.log(`   ✅ Generated cache primitives: ${dbModelName}Cache.elm`);
     }
     
     // Generate clean Storage.elm wrapper
@@ -544,11 +758,16 @@ ${allPorts}
     console.log(`✅ Generated Elm ports: ${elmPortsFile}`);
     console.log(`✅ Generated ${allModels.length} Elm helper modules`);
     console.log(`📊 Generated ${allModels.length * 5} storage functions (5 per model)`);
-    
+    if (dbReferencesArray.length > 0) {
+        console.log(`🔗 Generated ${dbReferencesArray.length} cache primitive modules (5 functions each)`);
+    }
+
     return {
         models: allModels.length,
         classes: allModels.length,
         elmModules: allModels.length,
+        cacheModules: dbReferencesArray.length,
+        dbReferences: dbReferencesArray,
         jsOutputFile,
         elmPortsFile,
         elmOutputFiles: allModels.map(m => path.join(elmOutputPath, `Storage${m.name}.elm`))

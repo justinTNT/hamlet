@@ -44,10 +44,23 @@ ask the user if you want a server killed or started.
 buildamp gen              # All targets, all model types
 buildamp gen api          # All targets for API models (api, elm, handlers)
 buildamp gen db           # All targets for DB models (db, elm, admin)
-buildamp gen:wasm api     # Only WASM for API models
+buildamp gen:wasm         # Build WASM (web target by default)
+buildamp gen:wasm --target node   # Build WASM for Node.js
+buildamp gen:wasm --force # Force rebuild even if up to date
 buildamp gen:elm          # Only Elm generation
 buildamp status           # Check generation status vs source models
 ```
+
+### WASM Generation
+- Uses wasm-pack to compile Rust models to WASM modules
+- Supports targets: `web` (default), `node`, `bundler`
+- Incremental builds via contract system (skips if models unchanged)
+- Output directories: `pkg-web/`, `pkg-node/`, `pkg-bundler/`
+
+### Contract System
+- Tracks model hashes in `contracts.json` for incremental builds
+- WASM builds tracked separately per target (web/node)
+- `buildamp status` shows what needs rebuilding with suggested commands
 
 ### Vite Monorepo Structure
 - **Build Tool**: Vite handles bundling and workspace dependency resolution
@@ -92,6 +105,7 @@ Plan documented in `notes/admin_ui_plan.md` to extend "Rust once, JSON never" to
 
 ## Test Management
 - **Centralized test runner**: `./run_all_tests.sh` handles nvm setup and runs all test suites
-- **Test suites**: 8 test suites including new BuildAmp package tests
+- **Test suites**: 9 test suites including BuildAmp package tests (111 tests)
+- **BuildAmp tests**: `packages/buildamp/tests/` - CLI, orchestrator, contracts, generators, WASM, status
 - **Fixing plan**: `TEST_FIXING_PLAN.md` provides systematic approach to test failures
 - **Core status**: 166 Rust tests always passing; most failures are environment/config issues

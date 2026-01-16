@@ -71,12 +71,32 @@ buildamp gen api          # API routes, Elm types, handler scaffolds
 buildamp gen db           # Database queries, Elm types, admin UI
 
 # Generate specific target only
-buildamp gen:wasm api     # Only WASM for API models
 buildamp gen:elm          # Only Elm type generation
+buildamp gen:db           # Only database queries
 
 # Check generation status
 buildamp status
 ```
+
+### WASM Generation
+
+BuildAmp can compile Rust models to WASM modules:
+
+```bash
+# Build WASM for web (default)
+buildamp gen:wasm
+
+# Build WASM for Node.js
+buildamp gen:wasm --target node
+
+# Force rebuild even if up to date
+buildamp gen:wasm --force
+
+# Check WASM build status
+buildamp status           # Shows web/node WASM status
+```
+
+WASM builds are tracked in `contracts.json` for incremental builds - unchanged models skip recompilation.
 
 ### Handler Safety Scripts
 

@@ -42,41 +42,29 @@ describe('BuildAmp CLI', () => {
     test('gen:elm command exists', () => {
         const elmCommand = program.commands.find(cmd => cmd.name() === 'gen:elm');
         assert.ok(elmCommand, 'gen:elm command should exist');
+        assert.ok(elmCommand.description().includes('Elm'), 'gen:elm should mention Elm in description');
     });
 
-    test('gen:db command exists', () => {
-        const dbCommand = program.commands.find(cmd => cmd.name() === 'gen:db');
-        assert.ok(dbCommand, 'gen:db command should exist');
+    test('gen:js command exists', () => {
+        const jsCommand = program.commands.find(cmd => cmd.name() === 'gen:js');
+        assert.ok(jsCommand, 'gen:js command should exist');
+        assert.ok(jsCommand.description().includes('JavaScript'), 'gen:js should mention JavaScript in description');
     });
 
-    test('gen:api command exists', () => {
-        const apiCommand = program.commands.find(cmd => cmd.name() === 'gen:api');
-        assert.ok(apiCommand, 'gen:api command should exist');
+    test('gen:js command accepts interface argument', () => {
+        const jsCommand = program.commands.find(cmd => cmd.name() === 'gen:js');
+        const args = jsCommand._args;
+        assert.strictEqual(args.length, 1, 'gen:js should have one argument');
+        assert.strictEqual(args[0].name(), 'interface');
+        assert.ok(!args[0].required, 'interface should be optional');
     });
 
-    test('gen:storage command exists', () => {
-        const storageCommand = program.commands.find(cmd => cmd.name() === 'gen:storage');
-        assert.ok(storageCommand, 'gen:storage command should exist');
-    });
-
-    test('gen:kv command exists', () => {
-        const kvCommand = program.commands.find(cmd => cmd.name() === 'gen:kv');
-        assert.ok(kvCommand, 'gen:kv command should exist');
-    });
-
-    test('gen:sse command exists', () => {
-        const sseCommand = program.commands.find(cmd => cmd.name() === 'gen:sse');
-        assert.ok(sseCommand, 'gen:sse command should exist');
-    });
-
-    test('gen:handlers command exists', () => {
-        const handlersCommand = program.commands.find(cmd => cmd.name() === 'gen:handlers');
-        assert.ok(handlersCommand, 'gen:handlers command should exist');
-    });
-
-    test('gen:admin command exists', () => {
-        const adminCommand = program.commands.find(cmd => cmd.name() === 'gen:admin');
-        assert.ok(adminCommand, 'gen:admin command should exist');
+    test('gen:elm command accepts interface argument', () => {
+        const elmCommand = program.commands.find(cmd => cmd.name() === 'gen:elm');
+        const args = elmCommand._args;
+        assert.strictEqual(args.length, 1, 'gen:elm should have one argument');
+        assert.strictEqual(args[0].name(), 'interface');
+        assert.ok(!args[0].required, 'interface should be optional');
     });
 
     test('status command exists', () => {
@@ -85,16 +73,45 @@ describe('BuildAmp CLI', () => {
         assert.ok(statusCommand.description().includes('status'), 'status command should have description');
     });
 
-    test('all target commands accept model-dir argument', () => {
-        const targetCommands = ['gen:wasm', 'gen:elm', 'gen:db', 'gen:api', 'gen:storage', 'gen:kv', 'gen:sse', 'gen:handlers', 'gen:admin'];
+    test('gen:wasm command has --target option', () => {
+        const wasmCommand = program.commands.find(cmd => cmd.name() === 'gen:wasm');
+        const targetOption = wasmCommand.options.find(opt => opt.long === '--target');
+        assert.ok(targetOption, 'gen:wasm should have --target option');
+    });
 
-        for (const cmdName of targetCommands) {
+    test('gen:wasm --target option has correct choices description', () => {
+        const wasmCommand = program.commands.find(cmd => cmd.name() === 'gen:wasm');
+        const targetOption = wasmCommand.options.find(opt => opt.long === '--target');
+        // The description or argChoices should mention web/node/bundler
+        const desc = targetOption.description || '';
+        assert.ok(
+            desc.includes('web') || targetOption.argChoices?.includes('web'),
+            '--target should document web as a valid option'
+        );
+    });
+
+    test('gen:wasm command has --force option', () => {
+        const wasmCommand = program.commands.find(cmd => cmd.name() === 'gen:wasm');
+        const forceOption = wasmCommand.options.find(opt => opt.long === '--force');
+        assert.ok(forceOption, 'gen:wasm should have --force option for skipping cache');
+    });
+
+    test('all target commands accept optional argument', () => {
+        // gen:wasm takes model-dir, gen:js and gen:elm take interface
+        const targetCommands = [
+            { name: 'gen:wasm', argName: 'model-dir' },
+            { name: 'gen:js', argName: 'interface' },
+            { name: 'gen:elm', argName: 'interface' },
+        ];
+
+        for (const { name: cmdName, argName } of targetCommands) {
             const cmd = program.commands.find(c => c.name() === cmdName);
             assert.ok(cmd, `${cmdName} command should exist`);
 
             const args = cmd._args;
             assert.strictEqual(args.length, 1, `${cmdName} should have one argument`);
-            assert.strictEqual(args[0].name(), 'model-dir', `${cmdName} argument should be model-dir`);
+            assert.strictEqual(args[0].name(), argName, `${cmdName} argument should be ${argName}`);
+            assert.ok(!args[0].required, `${cmdName} argument should be optional`);
         }
     });
 });

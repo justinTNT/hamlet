@@ -6,6 +6,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { parseCrossModelReferences } from './shared-paths.js';
 
 // Parse SSE event models from Rust file content
 function parseSSEModels(content, filename) {
@@ -155,11 +156,26 @@ port sseSubscription : { url : String, onEvent : SSEEvent -> msg } -> Sub msg`;
 }
 
 // Generate complete SSE Elm module
-function generateSSEModule(allModels) {
+// @param {Array} allModels - All parsed SSE event models
+// @param {Set} dbReferences - Set of DB model names referenced
+// @param {Set} apiReferences - Set of API model names referenced
+function generateSSEModule(allModels, dbReferences = new Set(), apiReferences = new Set()) {
     const types = allModels.map(generateElmType).join('\n\n\n');
     const decoders = allModels.map(generateElmDecoder).join('\n\n\n');
     const helpers = generateSSEHelpers(allModels);
-    
+
+    // Generate cross-model imports
+    const dbReferencesArray = Array.from(dbReferences);
+    const apiReferencesArray = Array.from(apiReferences);
+
+    let crossModelImports = '';
+    if (dbReferencesArray.length > 0) {
+        crossModelImports += `import Generated.Db exposing (${dbReferencesArray.map(m => m + 'Db').join(', ')})\n`;
+    }
+    if (apiReferencesArray.length > 0) {
+        crossModelImports += `import Generated.ApiClient exposing (${apiReferencesArray.join(', ')})\n`;
+    }
+
     return `module Generated.ServerSentEvents exposing (..)
 
 {-| Auto-Generated Server-Sent Events Types and Decoders
@@ -174,7 +190,7 @@ This module provides type-safe SSE event handling for real-time communication.
 
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline exposing (required, optional, hardcoded)
-
+${crossModelImports}
 
 -- Helper for pipeline decoding
 andMap : Decoder a -> Decoder (a -> b) -> Decoder b
@@ -315,18 +331,33 @@ export function generateSSEEvents(config = {}) {
     }
     
     const allModels = [];
-    
+    const allDbReferences = new Set();
+    const allApiReferences = new Set();
+
     // Read all .rs files in src/models/sse
     const files = fs.readdirSync(sseModelsPath).filter(file => file.endsWith('.rs') && file !== 'mod.rs');
-    
+
     for (const file of files) {
         const filePath = path.join(sseModelsPath, file);
         const content = fs.readFileSync(filePath, 'utf-8');
         const models = parseSSEModels(content, file);
         allModels.push(...models);
+
+        // Detect cross-model references
+        const refs = parseCrossModelReferences(content);
+        refs.db.forEach(dbModel => allDbReferences.add(dbModel));
+        refs.api.forEach(apiModel => allApiReferences.add(apiModel));
     }
-    
+
     console.log(`🔍 Found ${allModels.length} SSE models: ${allModels.map(m => m.name).join(', ')}`);
+
+    // Report cross-model references
+    const dbReferencesArray = Array.from(allDbReferences);
+    const apiReferencesArray = Array.from(allApiReferences);
+    if (dbReferencesArray.length > 0 || apiReferencesArray.length > 0) {
+        const refs = [...dbReferencesArray.map(m => `db::${m}`), ...apiReferencesArray.map(m => `api::${m}`)];
+        console.log(`🔗 Found cross-model references: ${refs.join(', ')}`);
+    }
     
     if (allModels.length === 0) {
         return {
@@ -336,8 +367,8 @@ export function generateSSEEvents(config = {}) {
         };
     }
     
-    // Generate Elm module
-    const elmContent = generateSSEModule(allModels);
+    // Generate Elm module (with cross-model imports)
+    const elmContent = generateSSEModule(allModels, allDbReferences, allApiReferences);
     const elmOutputFile = path.join(elmOutputPath, 'ServerSentEvents.elm');
     fs.writeFileSync(elmOutputFile, elmContent);
     console.log(`   ✅ Generated ServerSentEvents.elm`);

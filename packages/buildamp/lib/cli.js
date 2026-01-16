@@ -30,25 +30,59 @@ program
         }
     });
 
-// Target-specific shortcuts: buildamp gen:wasm [model-dir]
-const targets = ['wasm', 'elm', 'db', 'api', 'storage', 'kv', 'sse', 'handlers', 'admin'];
+// WASM-specific command with additional options
+program
+    .command('gen:wasm [model-dir]')
+    .description('Generate wasm output from Rust models')
+    .option('--target <target>', 'WASM target: web, node, or bundler (default: web)')
+    .option('--force', 'Force rebuild even if up to date')
+    .action(async (modelDir, options) => {
+        try {
+            await generate({
+                modelDir,
+                target: 'wasm',
+                config: {
+                    wasmTarget: options.target || 'web',
+                    force: options.force || false
+                }
+            });
+        } catch (error) {
+            console.error('❌ wasm generation failed:', error.message);
+            process.exit(1);
+        }
+    });
 
-for (const target of targets) {
-    program
-        .command(`gen:${target} [model-dir]`)
-        .description(`Generate ${target} output from Rust models`)
-        .action(async (modelDir) => {
-            try {
-                await generate({
-                    modelDir,
-                    target,
-                });
-            } catch (error) {
-                console.error(`❌ ${target} generation failed:`, error.message);
-                process.exit(1);
-            }
-        });
-}
+// JavaScript-specific command: buildamp gen:js [interface]
+program
+    .command('gen:js [interface]')
+    .description('Generate JavaScript glue code (queries, routes, storage, etc.)')
+    .action(async (modelDir) => {
+        try {
+            await generate({
+                modelDir,
+                target: 'js',
+            });
+        } catch (error) {
+            console.error('❌ JavaScript generation failed:', error.message);
+            process.exit(1);
+        }
+    });
+
+// Elm-specific command: buildamp gen:elm [interface]
+program
+    .command('gen:elm [interface]')
+    .description('Generate Elm types and modules')
+    .action(async (modelDir) => {
+        try {
+            await generate({
+                modelDir,
+                target: 'elm',
+            });
+        } catch (error) {
+            console.error('❌ Elm generation failed:', error.message);
+            process.exit(1);
+        }
+    });
 
 // Status command
 program

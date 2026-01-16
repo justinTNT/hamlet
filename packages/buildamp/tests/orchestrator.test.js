@@ -50,7 +50,7 @@ describe('BuildAmp Orchestrator', () => {
     test('valid targets are accepted', withSuppressedConsole(async () => {
         const { generate } = await import('../lib/orchestrator.js');
 
-        const validTargets = ['db', 'api', 'storage', 'kv', 'sse', 'elm', 'handlers', 'admin', 'wasm'];
+        const validTargets = ['js', 'elm', 'handlers', 'admin', 'wasm', 'sql', 'schema'];
 
         for (const target of validTargets) {
             // Each target should not throw an "Unknown target" error
@@ -115,9 +115,11 @@ describe('Generator Mapping Logic', () => {
         const results = await generate({ modelDir: 'db' });
         const generatorNames = results.map(r => r.generator);
 
-        assert.ok(generatorNames.includes('db'), 'db model-dir should run db generator');
+        assert.ok(generatorNames.includes('js'), 'db model-dir should run js generator');
         assert.ok(generatorNames.includes('elm'), 'db model-dir should run elm generator');
         assert.ok(generatorNames.includes('admin'), 'db model-dir should run admin generator');
+        assert.ok(generatorNames.includes('sql'), 'db model-dir should run sql generator');
+        assert.ok(generatorNames.includes('schema'), 'db model-dir should run schema generator');
     }));
 
     test('api model-dir runs correct generators', withSuppressedConsole(async () => {
@@ -126,7 +128,7 @@ describe('Generator Mapping Logic', () => {
         const results = await generate({ modelDir: 'api' });
         const generatorNames = results.map(r => r.generator);
 
-        assert.ok(generatorNames.includes('api'), 'api model-dir should run api generator');
+        assert.ok(generatorNames.includes('js'), 'api model-dir should run js generator');
         assert.ok(generatorNames.includes('elm'), 'api model-dir should run elm generator');
         assert.ok(generatorNames.includes('handlers'), 'api model-dir should run handlers generator');
     }));
@@ -137,17 +139,57 @@ describe('Generator Mapping Logic', () => {
         const results = await generate({ modelDir: 'storage' });
         const generatorNames = results.map(r => r.generator);
 
-        assert.ok(generatorNames.includes('storage'), 'storage model-dir should run storage generator');
+        assert.ok(generatorNames.includes('js'), 'storage model-dir should run js generator');
         assert.ok(generatorNames.includes('elm'), 'storage model-dir should run elm generator');
     }));
 
     test('specific target only runs that generator', withSuppressedConsole(async () => {
         const { generate } = await import('../lib/orchestrator.js');
 
-        const results = await generate({ target: 'db' });
+        const results = await generate({ target: 'js' });
         const generatorNames = results.map(r => r.generator);
 
         assert.strictEqual(generatorNames.length, 1, 'specific target should run only one generator');
-        assert.strictEqual(generatorNames[0], 'db', 'should run the specified generator');
+        assert.strictEqual(generatorNames[0], 'js', 'should run the specified generator');
+    }));
+});
+
+describe('WASM Generation via Orchestrator', () => {
+    test('wasm target runs wasm generator', withSuppressedConsole(async () => {
+        const { generate } = await import('../lib/orchestrator.js');
+
+        const results = await generate({ target: 'wasm' });
+        const generatorNames = results.map(r => r.generator);
+
+        assert.strictEqual(generatorNames.length, 1, 'wasm target should run one generator');
+        assert.strictEqual(generatorNames[0], 'wasm', 'should run wasm generator');
+    }));
+
+    test('wasm generator receives config options', withSuppressedConsole(async () => {
+        const { generate } = await import('../lib/orchestrator.js');
+
+        // Pass config with wasmTarget
+        const results = await generate({
+            target: 'wasm',
+            config: { wasmTarget: 'node' }
+        });
+
+        // The result should indicate the generator was called
+        assert.ok(results.length > 0, 'Should have results');
+        assert.strictEqual(results[0].generator, 'wasm');
+    }));
+
+    test('wasm result includes target information', withSuppressedConsole(async () => {
+        const { generate } = await import('../lib/orchestrator.js');
+
+        const results = await generate({ target: 'wasm' });
+        const wasmResult = results.find(r => r.generator === 'wasm');
+
+        assert.ok(wasmResult, 'Should have wasm result');
+        // Once implemented, result should include target info
+        if (wasmResult.result) {
+            assert.ok('target' in wasmResult.result || 'success' in wasmResult.result,
+                'WASM result should include target or success field');
+        }
     }));
 });

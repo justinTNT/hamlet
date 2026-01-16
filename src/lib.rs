@@ -138,56 +138,40 @@ fn validate_unique_endpoints(definitions: &[serde_json::Value]) -> Result<(), St
 
 #[wasm_bindgen]
 pub fn validate_manifest() -> String {
-    let mut report = Vec::new();
-    let mut has_errors = false;
+    let mut errors: Vec<String> = Vec::new();
+    let mut contexts: Vec<serde_json::Value> = Vec::new();
+    let mut endpoints: Vec<serde_json::Value> = Vec::new();
 
     // Validate context manifest
     match get_context_manifest_result() {
         Ok(context_json) => {
-            if let Ok(contexts) = serde_json::from_str::<Vec<serde_json::Value>>(&context_json) {
-                report.push(format!("✅ Context Manifest: {} contexts loaded", contexts.len()));
-                for context in &contexts {
-                    if let Some(source) = context.get("source").and_then(|v| v.as_str()) {
-                        if let Some(type_name) = context.get("type").and_then(|v| v.as_str()) {
-                            report.push(format!("   📋 {} -> {}", type_name, source));
-                        }
-                    }
-                }
+            if let Ok(parsed) = serde_json::from_str::<Vec<serde_json::Value>>(&context_json) {
+                contexts = parsed;
             }
         }
         Err(error) => {
-            has_errors = true;
-            report.push(format!("❌ Context Manifest: {}", error));
+            errors.push(format!("Context manifest: {}", error));
         }
     }
 
-    // Validate endpoint manifest  
+    // Validate endpoint manifest
     match get_endpoint_manifest_result() {
         Ok(endpoint_json) => {
-            if let Ok(endpoints) = serde_json::from_str::<Vec<serde_json::Value>>(&endpoint_json) {
-                report.push(format!("✅ Endpoint Manifest: {} endpoints loaded", endpoints.len()));
-                for endpoint in &endpoints {
-                    if let (Some(path), Some(req_type)) = (
-                        endpoint.get("endpoint").and_then(|v| v.as_str()),
-                        endpoint.get("request_type").and_then(|v| v.as_str())
-                    ) {
-                        report.push(format!("   🔌 {} -> {}", path, req_type));
-                    }
-                }
+            if let Ok(parsed) = serde_json::from_str::<Vec<serde_json::Value>>(&endpoint_json) {
+                endpoints = parsed;
             }
         }
         Err(error) => {
-            has_errors = true;
-            report.push(format!("❌ Endpoint Manifest: {}", error));
+            errors.push(format!("Endpoint manifest: {}", error));
         }
     }
 
-    let status = if has_errors { "❌ VALIDATION FAILED" } else { "✅ VALIDATION PASSED" };
-    report.insert(0, format!("[BuildAmp] Manifest Validation"));
-    report.insert(1, format!("Status: {}", status));
-    report.push(String::new());
-
-    report.join("\n")
+    serde_json::json!({
+        "valid": errors.is_empty(),
+        "contexts": contexts,
+        "endpoints": endpoints,
+        "errors": errors
+    }).to_string()
 }
 
 #[wasm_bindgen] 
