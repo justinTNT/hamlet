@@ -30,8 +30,35 @@ export default function createAdminApi(server) {
     // Use the shared admin authentication middleware
     const requireAdmin = createAdminAuth();
 
+    // Schema endpoint - MUST come before generic /:resource routes
+    server.app.get('/admin/api/schema', requireAdmin, async (req, res) => {
+        try {
+            const fs = await import('fs');
+            const path = await import('path');
+
+            // Try common locations for schema.json
+            const possiblePaths = [
+                path.join(process.cwd(), 'server', '.hamlet-gen', 'schema.json'),
+                path.join(process.cwd(), '.hamlet-gen', 'schema.json'),
+                path.join(process.cwd(), 'app', 'horatio', 'server', '.hamlet-gen', 'schema.json')
+            ];
+
+            for (const schemaPath of possiblePaths) {
+                if (fs.existsSync(schemaPath)) {
+                    const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
+                    return res.json(schema);
+                }
+            }
+
+            res.status(404).json({ error: 'schema.json not found' });
+        } catch (error) {
+            console.error('Admin schema error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
     // Generic endpoints
-    
+
     // List all resources
     server.app.get('/admin/api/:resource', requireAdmin, async (req, res) => {
         try {

@@ -37,7 +37,7 @@ pub struct User {
 
         assert.strictEqual(structs.length, 1);
         assert.strictEqual(structs[0].name, 'User');
-        assert.strictEqual(structs[0].tableName, 'users');
+        assert.strictEqual(structs[0].tableName, 'user');
 
         const idField = structs[0].fields.find(f => f.name === 'id');
         assert.ok(idField, 'should have id field');
@@ -128,14 +128,14 @@ pub struct Article {
 });
 
 describe('Table Name Generation', () => {
-    test('converts CamelCase to snake_case with plural', async () => {
+    test('converts CamelCase to snake_case (singular)', async () => {
         const { parseRustStructForTest } = await import('../lib/generators/sql.js');
 
         const testCases = [
-            { struct: 'User', expected: 'users' },
-            { struct: 'BlogPost', expected: 'blog_posts' },
-            { struct: 'ItemComment', expected: 'item_comments' },
-            { struct: 'MicroblogItem', expected: 'microblog_items' },
+            { struct: 'User', expected: 'user' },
+            { struct: 'BlogPost', expected: 'blog_post' },
+            { struct: 'ItemComment', expected: 'item_comment' },
+            { struct: 'MicroblogItem', expected: 'microblog_item' },
         ];
 
         for (const { struct, expected } of testCases) {
@@ -152,7 +152,7 @@ describe('CREATE TABLE Generation', () => {
 
         const struct = {
             name: 'User',
-            tableName: 'users',
+            tableName: 'user',
             filename: 'user.rs',
             fields: [
                 { name: 'id', sqlType: 'TEXT', constraints: ['PRIMARY KEY', "DEFAULT gen_random_uuid()"], isPrimaryKey: true },
@@ -163,13 +163,13 @@ describe('CREATE TABLE Generation', () => {
 
         const result = generateCreateTableForTest(struct, []);
 
-        assert.ok(result.sql.includes('CREATE TABLE users'), 'should have CREATE TABLE');
+        assert.ok(result.sql.includes('CREATE TABLE user'), 'should have CREATE TABLE');
         assert.ok(result.sql.includes('id TEXT PRIMARY KEY'), 'should have primary key');
         assert.ok(result.sql.includes('name TEXT NOT NULL'), 'should have NOT NULL field');
         assert.ok(result.sql.includes('email TEXT'), 'should have optional field');
         assert.ok(result.sql.includes('host TEXT NOT NULL'), 'should add host column');
         assert.ok(result.sql.includes('created_at TIMESTAMP'), 'should add created_at');
-        assert.ok(result.sql.includes('idx_users_host'), 'should create host index');
+        assert.ok(result.sql.includes('idx_user_host'), 'should create host index');
     });
 
     test('does not duplicate standard columns if already present', async () => {
@@ -177,7 +177,7 @@ describe('CREATE TABLE Generation', () => {
 
         const struct = {
             name: 'Event',
-            tableName: 'events',
+            tableName: 'event',
             filename: 'event.rs',
             fields: [
                 { name: 'id', sqlType: 'TEXT', constraints: ['PRIMARY KEY'] },
@@ -200,7 +200,7 @@ describe('Foreign Key Detection', () => {
 
         const struct = {
             name: 'Comment',
-            tableName: 'comments',
+            tableName: 'comment',
             filename: 'comment.rs',
             fields: [
                 { name: 'id', sqlType: 'TEXT', constraints: ['PRIMARY KEY'] },
@@ -223,7 +223,7 @@ describe('Foreign Key Detection', () => {
 
         const struct = {
             name: 'ItemComment',
-            tableName: 'item_comments',
+            tableName: 'item_comment',
             filename: 'item_comment.rs',
             fields: [
                 { name: 'id', sqlType: 'TEXT', constraints: ['PRIMARY KEY'] },
@@ -231,12 +231,12 @@ describe('Foreign Key Detection', () => {
             ]
         };
 
-        // item_id should find microblog_items (ends with _items)
-        const knownTables = ['microblog_items', 'item_comments'];
+        // item_id should find microblog_item (singular)
+        const knownTables = ['microblog_item', 'item_comment'];
         const result = generateCreateTableForTest(struct, knownTables);
 
-        assert.ok(result.sql.includes('FOREIGN KEY (item_id) REFERENCES microblog_items(id)'), 'should find prefixed table');
-        assert.strictEqual(result.foreignKeys[0].referencedTable, 'microblog_items');
+        assert.ok(result.sql.includes('FOREIGN KEY (item_id) REFERENCES microblog_item(id)'), 'should find prefixed table');
+        assert.strictEqual(result.foreignKeys[0].referencedTable, 'microblog_item');
     });
 
     test('warns when referenced table not found', async () => {
@@ -244,7 +244,7 @@ describe('Foreign Key Detection', () => {
 
         const struct = {
             name: 'Orphan',
-            tableName: 'orphans',
+            tableName: 'orphan',
             filename: 'orphan.rs',
             fields: [
                 { name: 'id', sqlType: 'TEXT', constraints: ['PRIMARY KEY'] },
@@ -265,7 +265,7 @@ describe('Foreign Key Detection', () => {
 
         const struct = {
             name: 'Simple',
-            tableName: 'simples',
+            tableName: 'simple',
             filename: 'simple.rs',
             fields: [
                 { name: 'id', sqlType: 'TEXT', constraints: ['PRIMARY KEY'] },
@@ -292,7 +292,7 @@ describe('Full Schema Generation', () => {
 
         const structs = [{
             name: 'Test',
-            tableName: 'tests',
+            tableName: 'test',
             filename: 'test.rs',
             fields: [{ name: 'id', sqlType: 'TEXT', constraints: ['PRIMARY KEY'] }]
         }];
@@ -307,24 +307,24 @@ describe('Full Schema Generation', () => {
         const { generateSchemaForTest } = await import('../lib/generators/sql.js');
 
         const structs = [
-            { name: 'User', tableName: 'users', filename: 'user.rs', fields: [{ name: 'id', sqlType: 'TEXT', constraints: ['PRIMARY KEY'] }] },
-            { name: 'Post', tableName: 'posts', filename: 'post.rs', fields: [{ name: 'id', sqlType: 'TEXT', constraints: ['PRIMARY KEY'] }] },
+            { name: 'User', tableName: 'user', filename: 'user.rs', fields: [{ name: 'id', sqlType: 'TEXT', constraints: ['PRIMARY KEY'] }] },
+            { name: 'Post', tableName: 'post', filename: 'post.rs', fields: [{ name: 'id', sqlType: 'TEXT', constraints: ['PRIMARY KEY'] }] },
         ];
 
         const result = generateSchemaForTest(structs);
 
-        assert.ok(result.schema.includes('CREATE TABLE users'), 'should have users table');
-        assert.ok(result.schema.includes('CREATE TABLE posts'), 'should have posts table');
+        assert.ok(result.schema.includes('CREATE TABLE user'), 'should have user table');
+        assert.ok(result.schema.includes('CREATE TABLE post'), 'should have post table');
     });
 
     test('collects foreign keys across tables', async () => {
         const { generateSchemaForTest } = await import('../lib/generators/sql.js');
 
         const structs = [
-            { name: 'User', tableName: 'users', filename: 'user.rs', fields: [
+            { name: 'User', tableName: 'user', filename: 'user.rs', fields: [
                 { name: 'id', sqlType: 'TEXT', constraints: ['PRIMARY KEY'] }
             ]},
-            { name: 'Post', tableName: 'posts', filename: 'post.rs', fields: [
+            { name: 'Post', tableName: 'post', filename: 'post.rs', fields: [
                 { name: 'id', sqlType: 'TEXT', constraints: ['PRIMARY KEY'] },
                 { name: 'user_id', sqlType: 'TEXT', constraints: ['NOT NULL'] }
             ]},
@@ -333,8 +333,8 @@ describe('Full Schema Generation', () => {
         const result = generateSchemaForTest(structs);
 
         assert.strictEqual(result.foreignKeys.length, 1);
-        assert.strictEqual(result.foreignKeys[0].table, 'posts');
+        assert.strictEqual(result.foreignKeys[0].table, 'post');
         assert.strictEqual(result.foreignKeys[0].column, 'user_id');
-        assert.strictEqual(result.foreignKeys[0].referencedTable, 'users');
+        assert.strictEqual(result.foreignKeys[0].referencedTable, 'user');
     });
 });

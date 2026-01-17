@@ -129,11 +129,11 @@ function parseRustStruct(content, filename) {
             });
         }
 
-        // Convert CamelCase struct name to snake_case table name (pluralized)
+        // Convert CamelCase struct name to snake_case table name (singular, matches db.js)
         const tableName = structName
             .replace(/([A-Z])/g, '_$1')
             .toLowerCase()
-            .substring(1) + 's';
+            .substring(1);
 
         structs.push({
             name: structName,

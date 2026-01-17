@@ -39,10 +39,15 @@ async function run() {
                 }
                 
                 const response = await fetch(url, options);
-                const responseData = await response.json();
-                
+
+                // Handle 204 No Content (DELETE success)
+                let responseData = null;
+                if (response.status !== 204) {
+                    responseData = await response.json();
+                }
+
                 if (!response.ok) {
-                    throw new Error(responseData.error || `HTTP ${response.status}`);
+                    throw new Error(responseData?.error || `HTTP ${response.status}`);
                 }
                 
                 console.log('Admin API response:', responseData);

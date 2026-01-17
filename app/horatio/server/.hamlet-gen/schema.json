@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-01-17T14:18:10.563Z",
+  "generatedAt": "2026-01-17T16:22:39.183Z",
   "tables": {
-    "guests": {
+    "guest": {
       "structName": "Guest",
-      "tableName": "guests",
+      "tableName": "guest",
       "sourceFile": "guest.rs",
       "fields": {
         "id": {
@@ -46,14 +46,14 @@
       "foreignKeys": [],
       "referencedBy": [
         {
-          "table": "item_comments",
+          "table": "item_comment",
           "column": "guest_id"
         }
       ]
     },
-    "item_comments": {
+    "item_comment": {
       "structName": "ItemComment",
-      "tableName": "item_comments",
+      "tableName": "item_comment",
       "sourceFile": "item_comment.rs",
       "fields": {
         "id": {
@@ -111,23 +111,23 @@
         {
           "column": "item_id",
           "references": {
-            "table": "microblog_items",
+            "table": "microblog_item",
             "column": "id"
           }
         },
         {
           "column": "guest_id",
           "references": {
-            "table": "guests",
+            "table": "guest",
             "column": "id"
           }
         }
       ],
       "referencedBy": []
     },
-    "item_tags": {
+    "item_tag": {
       "structName": "ItemTag",
-      "tableName": "item_tags",
+      "tableName": "item_tag",
       "sourceFile": "item_tag.rs",
       "fields": {
         "item_id": {
@@ -150,23 +150,23 @@
         {
           "column": "item_id",
           "references": {
-            "table": "microblog_items",
+            "table": "microblog_item",
             "column": "id"
           }
         },
         {
           "column": "tag_id",
           "references": {
-            "table": "tags",
+            "table": "tag",
             "column": "id"
           }
         }
       ],
       "referencedBy": []
     },
-    "microblog_items": {
+    "microblog_item": {
       "structName": "MicroblogItem",
-      "tableName": "microblog_items",
+      "tableName": "microblog_item",
       "sourceFile": "microblog_item.rs",
       "fields": {
         "id": {
@@ -230,18 +230,18 @@
       "foreignKeys": [],
       "referencedBy": [
         {
-          "table": "item_comments",
+          "table": "item_comment",
           "column": "item_id"
         },
         {
-          "table": "item_tags",
+          "table": "item_tag",
           "column": "item_id"
         }
       ]
     },
-    "tags": {
+    "tag": {
       "structName": "Tag",
-      "tableName": "tags",
+      "tableName": "tag",
       "sourceFile": "tag.rs",
       "fields": {
         "id": {
@@ -270,7 +270,7 @@
       "foreignKeys": [],
       "referencedBy": [
         {
-          "table": "item_tags",
+          "table": "item_tag",
           "column": "tag_id"
         }
       ]
@@ -279,44 +279,44 @@
   "relationships": [
     {
       "from": {
-        "table": "item_comments",
+        "table": "item_comment",
         "column": "item_id"
       },
       "to": {
-        "table": "microblog_items",
+        "table": "microblog_item",
         "column": "id"
       },
       "type": "many-to-one"
     },
     {
       "from": {
-        "table": "item_comments",
+        "table": "item_comment",
         "column": "guest_id"
       },
       "to": {
-        "table": "guests",
+        "table": "guest",
         "column": "id"
       },
       "type": "many-to-one"
     },
     {
       "from": {
-        "table": "item_tags",
+        "table": "item_tag",
         "column": "item_id"
       },
       "to": {
-        "table": "microblog_items",
+        "table": "microblog_item",
         "column": "id"
       },
       "type": "many-to-one"
     },
     {
       "from": {
-        "table": "item_tags",
+        "table": "item_tag",
         "column": "tag_id"
       },
       "to": {
-        "table": "tags",
+        "table": "tag",
         "column": "id"
       },
       "type": "many-to-one"

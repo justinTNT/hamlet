@@ -8,7 +8,7 @@
 --   psql $DATABASE_URL < schema.sql
 
 -- Generated from guest.rs
-CREATE TABLE guests (
+CREATE TABLE guest (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     picture TEXT NOT NULL,
@@ -20,10 +20,10 @@ CREATE TABLE guests (
 );
 
 -- Index for tenant isolation
-CREATE INDEX idx_guests_host ON guests(host);
+CREATE INDEX idx_guest_host ON guest(host);
 
 -- Generated from item_comment.rs
-CREATE TABLE item_comments (
+CREATE TABLE item_comment (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
     item_id TEXT NOT NULL,
     guest_id TEXT NOT NULL,
@@ -34,30 +34,30 @@ CREATE TABLE item_comments (
     host TEXT NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE,
     deleted_at TIMESTAMP WITH TIME ZONE,
-    FOREIGN KEY (item_id) REFERENCES microblog_items(id),
-    FOREIGN KEY (guest_id) REFERENCES guests(id)
+    FOREIGN KEY (item_id) REFERENCES microblog_item(id),
+    FOREIGN KEY (guest_id) REFERENCES guest(id)
 );
 
 -- Index for tenant isolation
-CREATE INDEX idx_item_comments_host ON item_comments(host);
+CREATE INDEX idx_item_comment_host ON item_comment(host);
 
 -- Generated from item_tag.rs
-CREATE TABLE item_tags (
+CREATE TABLE item_tag (
     item_id TEXT NOT NULL,
     tag_id TEXT NOT NULL,
     host TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE,
     deleted_at TIMESTAMP WITH TIME ZONE,
-    FOREIGN KEY (item_id) REFERENCES microblog_items(id),
-    FOREIGN KEY (tag_id) REFERENCES tags(id)
+    FOREIGN KEY (item_id) REFERENCES microblog_item(id),
+    FOREIGN KEY (tag_id) REFERENCES tag(id)
 );
 
 -- Index for tenant isolation
-CREATE INDEX idx_item_tags_host ON item_tags(host);
+CREATE INDEX idx_item_tag_host ON item_tag(host);
 
 -- Generated from microblog_item.rs
-CREATE TABLE microblog_items (
+CREATE TABLE microblog_item (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
     title TEXT NOT NULL,
     link TEXT,
@@ -72,10 +72,10 @@ CREATE TABLE microblog_items (
 );
 
 -- Index for tenant isolation
-CREATE INDEX idx_microblog_items_host ON microblog_items(host);
+CREATE INDEX idx_microblog_item_host ON microblog_item(host);
 
 -- Generated from tag.rs
-CREATE TABLE tags (
+CREATE TABLE tag (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
     host TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -85,4 +85,4 @@ CREATE TABLE tags (
 );
 
 -- Index for tenant isolation
-CREATE INDEX idx_tags_host ON tags(host);
+CREATE INDEX idx_tag_host ON tag(host);

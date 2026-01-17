@@ -1,34 +1,39 @@
 port module Main exposing (main)
 
-{-| Horatio Admin Interface
+{-| Schema-Driven Admin Interface
 
-Auto-generated admin interface for all database models.
-Provides CFUK operations (Create, Find, Update, Kill) for each resource.
+A generic admin shell that reads schema.json at runtime and dynamically
+renders tables and forms. No code generation needed when models change.
 
-Built on the "Rust once, UI never" principle - UI is generated from Rust models.
+"Rust once, UI never" - the UI adapts to schema changes automatically.
 -}
 
 import Browser
 import Browser.Navigation as Nav
+import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
-import Json.Decode as Decode
+import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import Url
-import Url.Parser as Parser exposing (Parser, (</>))
-import Generated.Resources as Resources
+import Url.Parser as Parser exposing ((</>), Parser)
+
 
 
 -- PORTS
 
+
 port adminApiRequest : AdminApiRequest -> Cmd msg
+
+
 port adminApiResponse : (AdminApiResponse -> msg) -> Sub msg
-port setAdminToken : String -> Cmd msg
+
 
 
 -- TYPES
+
 
 type alias AdminApiRequest =
     { method : String
@@ -37,12 +42,14 @@ type alias AdminApiRequest =
     , correlationId : String
     }
 
+
 type alias AdminApiResponse =
     { correlationId : String
     , success : Bool
     , data : Maybe Encode.Value
     , error : Maybe String
     }
+
 
 type alias Flags =
     { adminToken : String
@@ -51,7 +58,58 @@ type alias Flags =
     }
 
 
+
+-- SCHEMA TYPES (decoded from schema.json)
+
+
+type alias Schema =
+    { tables : Dict String TableSchema
+    , relationships : List Relationship
+    }
+
+
+type alias TableSchema =
+    { structName : String
+    , tableName : String
+    , sourceFile : String
+    , fields : Dict String FieldSchema
+    , primaryKey : Maybe String
+    , foreignKeys : List ForeignKey
+    , referencedBy : List Reference
+    }
+
+
+type alias FieldSchema =
+    { rustType : String
+    , sqlType : String
+    , nullable : Bool
+    , isPrimaryKey : Bool
+    , isTimestamp : Bool
+    }
+
+
+type alias ForeignKey =
+    { column : String
+    , references : Reference
+    }
+
+
+type alias Reference =
+    { table : String
+    , column : String
+    }
+
+
+type alias Relationship =
+    { from : Reference
+    , to : Reference
+    , relationType : String
+    }
+
+
+
 -- MODEL
+
 
 type alias Model =
     { key : Nav.Key
@@ -60,126 +118,136 @@ type alias Model =
     , adminToken : String
     , baseUrl : String
     , basePath : String
-    , currentResource : Maybe Resources.Resource
-    , currentResourceId : Maybe String
-    , resources : List Encode.Value
-    , formModel : Maybe Resources.FormModel
+    , schema : Maybe Schema
+    , currentTable : Maybe String
+    , currentRecordId : Maybe String
+    , records : List Encode.Value
+    , formData : Dict String String
     , loading : Bool
     , error : Maybe String
-    , apiCorrelationCounter : Int
+    , correlationCounter : Int
     }
+
 
 type Route
     = Home
-    | ResourceList Resources.Resource
-    | ResourceEdit Resources.Resource String
-    | ResourceCreate Resources.Resource
+    | TableList String
+    | RecordEdit String String
+    | RecordCreate String
     | NotFound
+
 
 
 -- INIT
 
+
 init : Flags -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
     let
-        route = parseRoute url
-        
         model =
             { key = key
             , url = url
-            , route = route
+            , route = Home
             , adminToken = flags.adminToken
             , baseUrl = flags.baseUrl
             , basePath = flags.basePath
-            , currentResource = Nothing
-            , currentResourceId = Nothing
-            , resources = []
-            , formModel = Nothing
-            , loading = False
+            , schema = Nothing
+            , currentTable = Nothing
+            , currentRecordId = Nothing
+            , records = []
+            , formData = Dict.empty
+            , loading = True
             , error = Nothing
-            , apiCorrelationCounter = 0
+            , correlationCounter = 0
             }
     in
-    ( model, loadRouteData model route )
+    ( model, fetchSchema model )
+
+
+fetchSchema : Model -> Cmd Msg
+fetchSchema model =
+    adminApiRequest
+        { method = "GET"
+        , endpoint = "schema"
+        , body = Nothing
+        , correlationId = "schema"
+        }
+
 
 
 -- ROUTING
+
 
 routeParser : Parser (Route -> a) a
 routeParser =
     Parser.oneOf
         [ Parser.map Home Parser.top
-        , Parser.map (\res -> ResourceList res) (Parser.s "resource" </> resourceParser)
-        , Parser.map (\res -> ResourceCreate res) (Parser.s "resource" </> resourceParser </> Parser.s "new")
-        , Parser.map (\res id -> ResourceEdit res id) (Parser.s "resource" </> resourceParser </> Parser.string)
+        , Parser.map TableList (Parser.s "table" </> Parser.string)
+        , Parser.map (\t -> RecordCreate t) (Parser.s "table" </> Parser.string </> Parser.s "new")
+        , Parser.map RecordEdit (Parser.s "table" </> Parser.string </> Parser.string)
         ]
 
-resourceParser : Parser (Resources.Resource -> a) a
-resourceParser =
-    Parser.custom "RESOURCE" Resources.resourceFromString
 
 parseRoute : Url.Url -> Route
 parseRoute url =
     let
-        -- Remove /admin/ui prefix to get the route relative to the app
-        cleanPath = 
+        cleanPath =
             if String.startsWith "/admin/ui" url.path then
-                String.dropLeft 9 url.path  -- Remove "/admin/ui" (9 characters)
+                String.dropLeft 9 url.path
+
             else
                 url.path
-        
-        -- Create a modified URL with the clean path for parsing
-        modifiedUrl = { url | path = cleanPath }
+
+        modifiedUrl =
+            { url | path = cleanPath }
     in
     Maybe.withDefault NotFound (Parser.parse routeParser modifiedUrl)
 
-routeToString : String -> Route -> String
-routeToString basePath route =
+
+routeToPath : String -> Route -> String
+routeToPath basePath route =
     let
-        prefix = if String.endsWith "/" basePath then 
-                   String.dropRight 1 basePath 
-                 else 
-                   basePath
+        prefix =
+            if String.endsWith "/" basePath then
+                String.dropRight 1 basePath
+
+            else
+                basePath
     in
     case route of
-        Home -> prefix ++ "/"
-        ResourceList resource -> prefix ++ "/resource/" ++ Resources.resourceToString resource
-        ResourceEdit resource id -> prefix ++ "/resource/" ++ Resources.resourceToString resource ++ "/" ++ id
-        ResourceCreate resource -> prefix ++ "/resource/" ++ Resources.resourceToString resource ++ "/new"
-        NotFound -> prefix ++ "/not-found"
+        Home ->
+            prefix ++ "/"
 
-loadRouteData : Model -> Route -> Cmd Msg
-loadRouteData model route =
-    case route of
-        ResourceList resource ->
-            loadResourceList model resource
-        
-        ResourceEdit resource id ->
-            loadResourceById model resource id
-        
-        ResourceCreate resource ->
-            Cmd.none
-        
-        _ ->
-            Cmd.none
+        TableList tableName ->
+            prefix ++ "/table/" ++ tableName
+
+        RecordEdit tableName recordId ->
+            prefix ++ "/table/" ++ tableName ++ "/" ++ recordId
+
+        RecordCreate tableName ->
+            prefix ++ "/table/" ++ tableName ++ "/new"
+
+        NotFound ->
+            prefix ++ "/not-found"
+
 
 
 -- UPDATE
 
+
 type Msg
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url.Url
-    | LoadResourceList Resources.Resource
-    | LoadResourceById Resources.Resource String
-    | CreateResource Resources.Resource
-    | EditResource Resources.Resource String
-    | UpdateFormModel Resources.FormModel
+    | ApiResponseReceived AdminApiResponse
+    | NavigateToTable String
+    | NavigateToCreate String
+    | NavigateToEdit String String
+    | UpdateFormField String String
     | SubmitForm
     | CancelForm
-    | DeleteResource Resources.Resource String
-    | AdminApiResponseReceived AdminApiResponse
-    | SetError String
+    | DeleteRecord String String
     | ClearError
+
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -194,369 +262,789 @@ update msg model =
 
         UrlChanged url ->
             let
-                route = parseRoute url
+                route =
+                    parseRoute url
             in
             ( { model | url = url, route = route, error = Nothing }
             , loadRouteData model route
             )
 
-        LoadResourceList resource ->
-            ( { model | loading = True, currentResource = Just resource }
-            , Nav.pushUrl model.key (routeToString model.basePath (ResourceList resource))
+        ApiResponseReceived response ->
+            handleApiResponse model response
+
+        NavigateToTable tableName ->
+            ( { model | loading = True, currentTable = Just tableName }
+            , Nav.pushUrl model.key (routeToPath model.basePath (TableList tableName))
             )
 
-        LoadResourceById resource id ->
-            ( { model | loading = True, currentResource = Just resource }
-            , loadResourceById model resource id
+        NavigateToCreate tableName ->
+            ( { model
+                | currentTable = Just tableName
+                , currentRecordId = Nothing
+                , formData = Dict.empty
+              }
+            , Nav.pushUrl model.key (routeToPath model.basePath (RecordCreate tableName))
             )
 
-        CreateResource resource ->
-            ( { model | currentResource = Just resource, currentResourceId = Nothing, formModel = Just (Resources.initFormModel resource) }
-            , Nav.pushUrl model.key (routeToString model.basePath (ResourceCreate resource))
+        NavigateToEdit tableName recordId ->
+            ( { model
+                | loading = True
+                , currentTable = Just tableName
+                , currentRecordId = Just recordId
+              }
+            , Nav.pushUrl model.key (routeToPath model.basePath (RecordEdit tableName recordId))
             )
 
-        EditResource resource id ->
-            ( { model | loading = True, currentResource = Just resource, currentResourceId = Just id }
-            , Nav.pushUrl model.key (routeToString model.basePath (ResourceEdit resource id))
+        UpdateFormField fieldName value ->
+            ( { model | formData = Dict.insert fieldName value model.formData }
+            , Cmd.none
             )
-
-        UpdateFormModel formModel ->
-            ( { model | formModel = Just formModel }, Cmd.none )
 
         SubmitForm ->
-            case model.formModel of
-                Just formModel ->
-                    ( { model | loading = True }, submitForm model formModel )
-                
+            case model.currentTable of
+                Just tableName ->
+                    ( { model | loading = True }
+                    , submitForm model tableName
+                    )
+
                 Nothing ->
                     ( model, Cmd.none )
 
         CancelForm ->
-            case model.currentResource of
-                Just resource ->
-                    ( { model | formModel = Nothing, currentResourceId = Nothing }
-                    , Nav.pushUrl model.key (routeToString model.basePath (ResourceList resource))
+            case model.currentTable of
+                Just tableName ->
+                    ( { model | formData = Dict.empty, currentRecordId = Nothing }
+                    , Nav.pushUrl model.key (routeToPath model.basePath (TableList tableName))
                     )
-                
+
                 Nothing ->
-                    ( { model | formModel = Nothing, currentResourceId = Nothing }
-                    , Nav.pushUrl model.key (routeToString model.basePath Home)
-                    )
+                    ( model, Nav.pushUrl model.key (routeToPath model.basePath Home) )
 
-        DeleteResource resource id ->
+        DeleteRecord tableName recordId ->
             ( { model | loading = True }
-            , deleteResource model resource id
+            , deleteRecord model tableName recordId
             )
-
-        AdminApiResponseReceived response ->
-            handleApiResponse model response
-
-        SetError errorMsg ->
-            ( { model | error = Just errorMsg, loading = False }, Cmd.none )
 
         ClearError ->
             ( { model | error = Nothing }, Cmd.none )
 
+
+loadRouteData : Model -> Route -> Cmd Msg
+loadRouteData model route =
+    case route of
+        TableList tableName ->
+            loadRecords model tableName
+
+        RecordEdit tableName recordId ->
+            loadRecord model tableName recordId
+
+        _ ->
+            Cmd.none
+
+
 handleApiResponse : Model -> AdminApiResponse -> ( Model, Cmd Msg )
 handleApiResponse model response =
-    if response.success then
+    if response.correlationId == "schema" then
+        -- Schema response
         case response.data of
             Just data ->
-                -- Try to decode as array first (for list endpoints)
+                case Decode.decodeValue schemaDecoder data of
+                    Ok schema ->
+                        let
+                            route =
+                                parseRoute model.url
+                        in
+                        ( { model | schema = Just schema, loading = False, route = route }
+                        , loadRouteData { model | schema = Just schema } route
+                        )
+
+                    Err err ->
+                        ( { model | error = Just ("Schema decode error: " ++ Decode.errorToString err), loading = False }
+                        , Cmd.none
+                        )
+
+            Nothing ->
+                ( { model | error = Just "No schema data received", loading = False }, Cmd.none )
+
+    else if response.success then
+        case response.data of
+            Just data ->
+                -- Try array (list response)
                 case Decode.decodeValue (Decode.list Decode.value) data of
-                    Ok resourceList ->
-                        ( { model | loading = False, resources = resourceList, error = Nothing }, Cmd.none )
-                    
+                    Ok recordList ->
+                        ( { model | loading = False, records = recordList, error = Nothing }
+                        , Cmd.none
+                        )
+
                     Err _ ->
-                        -- If array decode fails, try single object (for individual resource)
+                        -- Try single object (record response)
                         case Decode.decodeValue Decode.value data of
-                            Ok resource ->
-                                -- Single resource response - could be form load or form submit success
-                                case (model.currentResource, model.route) of
-                                    (Just currentRes, ResourceEdit _ _) ->
-                                        -- Loading existing resource for editing
-                                        let
-                                            formModel = populateFormFromResource currentRes resource
-                                        in
-                                        ( { model | loading = False, formModel = Just formModel, error = Nothing }, Cmd.none )
-                                    
-                                    (Just currentRes, ResourceCreate _) ->
-                                        -- Successful create - navigate back to list
-                                        ( { model | loading = False, formModel = Nothing, currentResourceId = Nothing, error = Nothing }
-                                        , Nav.pushUrl model.key (routeToString model.basePath (ResourceList currentRes))
+                            Ok record ->
+                                case model.route of
+                                    RecordEdit _ _ ->
+                                        -- Populate form from record
+                                        ( { model
+                                            | loading = False
+                                            , formData = extractFormData record
+                                            , error = Nothing
+                                          }
+                                        , Cmd.none
                                         )
-                                    
-                                    (Just currentRes, _) ->
-                                        -- Successful update - navigate back to list  
-                                        ( { model | loading = False, formModel = Nothing, currentResourceId = Nothing, error = Nothing }
-                                        , Nav.pushUrl model.key (routeToString model.basePath (ResourceList currentRes))
+
+                                    RecordCreate tableName ->
+                                        -- Successful create - go back to list
+                                        ( { model | loading = False, formData = Dict.empty, currentRecordId = Nothing }
+                                        , Nav.pushUrl model.key (routeToPath model.basePath (TableList tableName))
                                         )
-                                    
-                                    (Nothing, _) ->
-                                        ( { model | loading = False, resources = [resource], error = Nothing }, Cmd.none )
-                            
-                            Err decodeError ->
-                                ( { model | loading = False, resources = [], error = Just ("Data decode error: " ++ Decode.errorToString decodeError) }, Cmd.none )
-            
+
+                                    _ ->
+                                        -- Successful update - go back to list
+                                        case model.currentTable of
+                                            Just tableName ->
+                                                ( { model | loading = False, formData = Dict.empty }
+                                                , Nav.pushUrl model.key (routeToPath model.basePath (TableList tableName))
+                                                )
+
+                                            Nothing ->
+                                                ( { model | loading = False, records = [ record ] }, Cmd.none )
+
+                            Err err ->
+                                ( { model | error = Just ("Decode error: " ++ Decode.errorToString err), loading = False }
+                                , Cmd.none
+                                )
+
             Nothing ->
-                ( { model | loading = False, resources = [], error = Nothing }, Cmd.none )
+                -- Successful delete (no content)
+                case model.currentTable of
+                    Just tableName ->
+                        ( { model | loading = False }
+                        , loadRecords model tableName
+                        )
+
+                    Nothing ->
+                        ( { model | loading = False }, Cmd.none )
+
     else
-        let
-            errorMsg = response.error |> Maybe.withDefault "Unknown API error"
-        in
-        ( { model | error = Just errorMsg, loading = False }, Cmd.none )
-
-populateFormFromResource : Resources.Resource -> Encode.Value -> Resources.FormModel
-populateFormFromResource resource resourceData =
-    let
-        baseForm = Resources.initFormModel resource
-        
-        populateField field =
-            let
-                fieldValue = case Decode.decodeValue (Decode.field field.name Decode.string) resourceData of
-                    Ok val -> val
-                    Err _ -> field.value
-            in
-            { field | value = fieldValue }
-        
-        populatedFields = List.map populateField baseForm.fields
-    in
-    { baseForm | fields = populatedFields }
+        ( { model | error = response.error, loading = False }, Cmd.none )
 
 
--- API FUNCTIONS
+extractFormData : Encode.Value -> Dict String String
+extractFormData value =
+    case Decode.decodeValue (Decode.dict Decode.value) value of
+        Ok dict ->
+            Dict.map (\_ v -> valueToString v) dict
 
-loadResourceList : Model -> Resources.Resource -> Cmd Msg
-loadResourceList model resource =
-    let
-        correlationId = String.fromInt model.apiCorrelationCounter
-        endpoint = Resources.resourceToString resource
-    in
+        Err _ ->
+            Dict.empty
+
+
+valueToString : Encode.Value -> String
+valueToString value =
+    case Decode.decodeValue Decode.string value of
+        Ok s ->
+            s
+
+        Err _ ->
+            case Decode.decodeValue Decode.int value of
+                Ok i ->
+                    String.fromInt i
+
+                Err _ ->
+                    case Decode.decodeValue Decode.float value of
+                        Ok f ->
+                            String.fromFloat f
+
+                        Err _ ->
+                            case Decode.decodeValue Decode.bool value of
+                                Ok b ->
+                                    if b then
+                                        "true"
+
+                                    else
+                                        "false"
+
+                                Err _ ->
+                                    Encode.encode 0 value
+
+
+
+-- API COMMANDS
+
+
+loadRecords : Model -> String -> Cmd Msg
+loadRecords model tableName =
     adminApiRequest
         { method = "GET"
-        , endpoint = endpoint
+        , endpoint = tableName
         , body = Nothing
-        , correlationId = correlationId
+        , correlationId = "list-" ++ tableName
         }
 
-loadResourceById : Model -> Resources.Resource -> String -> Cmd Msg
-loadResourceById model resource id =
-    let
-        correlationId = String.fromInt (model.apiCorrelationCounter + 1)
-        endpoint = Resources.resourceToString resource ++ "/" ++ id
-    in
+
+loadRecord : Model -> String -> String -> Cmd Msg
+loadRecord model tableName recordId =
     adminApiRequest
         { method = "GET"
-        , endpoint = endpoint
+        , endpoint = tableName ++ "/" ++ recordId
         , body = Nothing
-        , correlationId = correlationId
+        , correlationId = "get-" ++ tableName ++ "-" ++ recordId
         }
 
-submitForm : Model -> Resources.FormModel -> Cmd Msg
-submitForm model formModel =
+
+submitForm : Model -> String -> Cmd Msg
+submitForm model tableName =
     let
-        correlationId = String.fromInt (model.apiCorrelationCounter + 2)
-        resourceName = Resources.resourceToString formModel.resource
-        
-        -- Convert form fields to JSON
-        body = Encode.object
-            (List.map (\field -> ( field.name, Encode.string field.value )) formModel.fields)
-        
-        -- Determine if this is create or update based on currentResourceId
-        (method, endpoint) = case model.currentResourceId of
-            Just id ->
-                -- Update existing resource
-                ("PUT", resourceName ++ "/" ++ id)
-            
-            Nothing ->
-                -- Create new resource
-                ("POST", resourceName)
+        body =
+            Encode.object
+                (Dict.toList model.formData
+                    |> List.map (\( k, v ) -> ( k, Encode.string v ))
+                )
+
+        ( method, endpoint ) =
+            case model.currentRecordId of
+                Just recordId ->
+                    ( "PUT", tableName ++ "/" ++ recordId )
+
+                Nothing ->
+                    ( "POST", tableName )
     in
     adminApiRequest
         { method = method
         , endpoint = endpoint
         , body = Just body
-        , correlationId = correlationId
+        , correlationId = "submit-" ++ tableName
         }
 
-deleteResource : Model -> Resources.Resource -> String -> Cmd Msg
-deleteResource model resource id =
-    let
-        correlationId = String.fromInt (model.apiCorrelationCounter + 3)
-        endpoint = Resources.resourceToString resource ++ "/" ++ id
-    in
+
+deleteRecord : Model -> String -> String -> Cmd Msg
+deleteRecord model tableName recordId =
     adminApiRequest
         { method = "DELETE"
-        , endpoint = endpoint
+        , endpoint = tableName ++ "/" ++ recordId
         , body = Nothing
-        , correlationId = correlationId
+        , correlationId = "delete-" ++ tableName ++ "-" ++ recordId
         }
+
+
+
+-- SCHEMA DECODER
+
+
+schemaDecoder : Decoder Schema
+schemaDecoder =
+    Decode.map2 Schema
+        (Decode.field "tables" (Decode.dict tableSchemaDecoder))
+        (Decode.field "relationships" (Decode.list relationshipDecoder))
+
+
+tableSchemaDecoder : Decoder TableSchema
+tableSchemaDecoder =
+    Decode.map7 TableSchema
+        (Decode.field "structName" Decode.string)
+        (Decode.field "tableName" Decode.string)
+        (Decode.field "sourceFile" Decode.string)
+        (Decode.field "fields" (Decode.dict fieldSchemaDecoder))
+        (Decode.field "primaryKey" (Decode.nullable Decode.string))
+        (Decode.field "foreignKeys" (Decode.list foreignKeyDecoder))
+        (Decode.field "referencedBy" (Decode.list referenceDecoder))
+
+
+fieldSchemaDecoder : Decoder FieldSchema
+fieldSchemaDecoder =
+    Decode.map5 FieldSchema
+        (Decode.field "rustType" Decode.string)
+        (Decode.field "sqlType" Decode.string)
+        (Decode.field "nullable" Decode.bool)
+        (Decode.field "isPrimaryKey" Decode.bool)
+        (Decode.field "isTimestamp" Decode.bool)
+
+
+foreignKeyDecoder : Decoder ForeignKey
+foreignKeyDecoder =
+    Decode.map2 ForeignKey
+        (Decode.field "column" Decode.string)
+        (Decode.field "references" referenceDecoder)
+
+
+referenceDecoder : Decoder Reference
+referenceDecoder =
+    Decode.map2 Reference
+        (Decode.field "table" Decode.string)
+        (Decode.field "column" Decode.string)
+
+
+relationshipDecoder : Decoder Relationship
+relationshipDecoder =
+    Decode.map3 Relationship
+        (Decode.field "from" referenceDecoder)
+        (Decode.field "to" referenceDecoder)
+        (Decode.field "type" Decode.string)
+
 
 
 -- VIEW
 
+
 view : Model -> Browser.Document Msg
 view model =
-    { title = "Horatio Admin"
+    { title = "Admin"
     , body =
-        [ viewHeader model
-        , viewNavigation model
-        , viewContent model
+        [ div [ class "admin-layout" ]
+            [ viewSidebar model
+            , div [ class "admin-main" ]
+                [ viewError model.error
+                , viewContent model
+                ]
+            ]
         ]
     }
 
-viewHeader : Model -> Html Msg
-viewHeader model =
-    div [ class "admin-header" ]
-        [ h1 [] [ text "Horatio Admin" ]
-        , p [] [ text "Auto-generated admin interface for database models" ]
+
+viewSidebar : Model -> Html Msg
+viewSidebar model =
+    div [ class "admin-sidebar" ]
+        [ h2 [] [ text "Tables" ]
+        , case model.schema of
+            Just schema ->
+                ul [ class "table-list" ]
+                    (Dict.toList schema.tables
+                        |> List.sortBy Tuple.first
+                        |> List.map (viewTableLink model)
+                    )
+
+            Nothing ->
+                p [] [ text "Loading schema..." ]
         ]
 
-viewNavigation : Model -> Html Msg
-viewNavigation model =
-    div [ class "admin-nav" ]
-        (List.map (viewResourceLink model) Resources.allResources)
 
-viewResourceLink : Model -> Resources.Resource -> Html Msg
-viewResourceLink model resource =
+viewTableLink : Model -> ( String, TableSchema ) -> Html Msg
+viewTableLink model ( tableName, tableSchema ) =
     let
-        isActive = model.currentResource == Just resource
-        url = routeToString model.basePath (ResourceList resource)
-        clickHandler = onClickPreventDefault (LoadResourceList resource)
+        isActive =
+            model.currentTable == Just tableName
     in
-    a [ href url
-      , classList [ ( "active", isActive ) ]
-      , clickHandler
-      ] 
-      [ text (Resources.resourceToString resource) ]
-
-onClickPreventDefault : Msg -> Attribute Msg
-onClickPreventDefault msg =
-    Html.Events.preventDefaultOn "click" 
-        (Decode.succeed (msg, True))
-
-viewContent : Model -> Html Msg
-viewContent model =
-    div [ class "admin-content" ]
-        [ viewError model.error
-        , viewLoading model.loading
-        , viewRoute model
+    li
+        [ classList [ ( "active", isActive ) ] ]
+        [ a
+            [ href (routeToPath model.basePath (TableList tableName))
+            , onClick (NavigateToTable tableName)
+            ]
+            [ text tableSchema.structName ]
         ]
+
 
 viewError : Maybe String -> Html Msg
 viewError maybeError =
     case maybeError of
-        Nothing ->
-            text ""
-        
         Just errorMsg ->
-            div [ class "form-errors" ]
-                [ div [ class "error" ] [ text errorMsg ]
-                , button [ onClick ClearError ] [ text "✕" ]
+            div [ class "error-banner" ]
+                [ span [] [ text errorMsg ]
+                , button [ onClick ClearError ] [ text "x" ]
                 ]
 
-viewLoading : Bool -> Html Msg
-viewLoading loading =
-    if loading then
-        div [] [ text "Loading..." ]
-    else
-        text ""
+        Nothing ->
+            text ""
 
-viewRoute : Model -> Html Msg
-viewRoute model =
-    case model.route of
-        Home ->
-            viewHome model
-        
-        ResourceList resource ->
-            viewResourceList model resource
-        
-        ResourceEdit resource id ->
-            viewResourceEdit model resource id
-        
-        ResourceCreate resource ->
-            viewResourceCreate model resource
-        
-        NotFound ->
-            div [] [ h2 [] [ text "Page Not Found" ] ]
+
+viewContent : Model -> Html Msg
+viewContent model =
+    if model.loading && model.schema == Nothing then
+        div [ class "loading" ] [ text "Loading..." ]
+
+    else
+        case model.route of
+            Home ->
+                viewHome model
+
+            TableList tableName ->
+                viewTableList model tableName
+
+            RecordEdit tableName recordId ->
+                viewRecordForm model tableName (Just recordId)
+
+            RecordCreate tableName ->
+                viewRecordForm model tableName Nothing
+
+            NotFound ->
+                div [] [ h2 [] [ text "Not Found" ] ]
+
 
 viewHome : Model -> Html Msg
 viewHome model =
-    div []
-        [ h2 [] [ text "Welcome to Horatio Admin" ]
-        , p [] [ text "Select a resource from the navigation to manage your data." ]
-        , div []
-            [ h3 [] [ text "Available Resources:" ]
-            , ul []
-                (List.map (\resource ->
-                    li []
-                        [ a [ href (routeToString model.basePath (ResourceList resource))
-                            , onClickPreventDefault (LoadResourceList resource)
+    div [ class "home" ]
+        [ h1 [] [ text "Admin Dashboard" ]
+        , p [] [ text "Select a table from the sidebar to manage records." ]
+        , case model.schema of
+            Just schema ->
+                div []
+                    [ h3 [] [ text "Available Tables" ]
+                    , ul []
+                        (Dict.toList schema.tables
+                            |> List.map
+                                (\( name, tbl ) ->
+                                    li []
+                                        [ a [ href "#", onClick (NavigateToTable name) ]
+                                            [ text (tbl.structName ++ " (" ++ String.fromInt (Dict.size tbl.fields) ++ " fields)") ]
+                                        ]
+                                )
+                        )
+                    ]
+
+            Nothing ->
+                text ""
+        ]
+
+
+viewTableList : Model -> String -> Html Msg
+viewTableList model tableName =
+    case model.schema of
+        Just schema ->
+            case Dict.get tableName schema.tables of
+                Just tableSchema ->
+                    div [ class "table-view" ]
+                        [ div [ class "table-header" ]
+                            [ h2 [] [ text tableSchema.structName ]
+                            , button
+                                [ class "btn btn-primary"
+                                , onClick (NavigateToCreate tableName)
+                                ]
+                                [ text "+ New" ]
                             ]
-                            [ text (Resources.resourceToString resource) ]
+                        , if model.loading then
+                            p [] [ text "Loading..." ]
+
+                          else
+                            viewDataTable model tableName tableSchema
                         ]
-                ) Resources.allResources)
+
+                Nothing ->
+                    div [] [ text ("Unknown table: " ++ tableName) ]
+
+        Nothing ->
+            div [] [ text "Schema not loaded" ]
+
+
+viewDataTable : Model -> String -> TableSchema -> Html Msg
+viewDataTable model tableName tableSchema =
+    let
+        fieldNames =
+            Dict.keys tableSchema.fields
+                |> List.sortBy
+                    (\name ->
+                        if name == "id" then
+                            "0"
+
+                        else if name == "created_at" then
+                            "zzz"
+
+                        else
+                            name
+                    )
+    in
+    table [ class "data-table" ]
+        [ thead []
+            [ tr []
+                (List.map (\name -> th [] [ text (snakeToTitle name) ]) fieldNames
+                    ++ [ th [] [ text "Actions" ] ]
+                )
             ]
+        , tbody []
+            (List.map (viewDataRow model tableName fieldNames tableSchema) model.records)
         ]
 
-viewResourceList : Model -> Resources.Resource -> Html Msg
-viewResourceList model resource =
-    div []
-        [ div [ style "display" "flex", style "justify-content" "space-between", style "align-items" "center", style "margin-bottom" "1rem" ]
-            [ h2 [] [ text (Resources.resourceToString resource ++ " List") ]
-            , button 
-                [ class "btn btn-primary"
-                , onClick (CreateResource resource)
-                ] 
-                [ text ("New " ++ Resources.resourceToString resource) ]
+
+viewDataRow : Model -> String -> List String -> TableSchema -> Encode.Value -> Html Msg
+viewDataRow model tableName fieldNames tableSchema record =
+    let
+        recordId =
+            getFieldValue "id" record
+    in
+    tr []
+        (List.map
+            (\fieldName ->
+                let
+                    value =
+                        getFieldValue fieldName record
+
+                    fieldSchema =
+                        Dict.get fieldName tableSchema.fields
+                in
+                td []
+                    [ case fieldSchema of
+                        Just fs ->
+                            viewFieldValue fs fieldName value tableSchema
+
+                        Nothing ->
+                            text value
+                    ]
+            )
+            fieldNames
+            ++ [ td [ class "actions" ]
+                    [ button
+                        [ class "btn btn-sm"
+                        , onClick (NavigateToEdit tableName recordId)
+                        ]
+                        [ text "Edit" ]
+                    , button
+                        [ class "btn btn-sm btn-danger"
+                        , onClick (DeleteRecord tableName recordId)
+                        ]
+                        [ text "Delete" ]
+                    ]
+               ]
+        )
+
+
+viewFieldValue : FieldSchema -> String -> String -> TableSchema -> Html Msg
+viewFieldValue fieldSchema fieldName value tableSchema =
+    -- Check if this is a foreign key
+    let
+        maybeFk =
+            List.filter (\fk -> fk.column == fieldName) tableSchema.foreignKeys
+                |> List.head
+    in
+    case maybeFk of
+        Just fk ->
+            -- Render as link to related table
+            a
+                [ href "#"
+                , onClick (NavigateToEdit fk.references.table value)
+                , class "fk-link"
+                ]
+                [ text value ]
+
+        Nothing ->
+            -- Render based on type
+            if fieldSchema.isTimestamp then
+                text (formatTimestamp value)
+
+            else if String.contains "JSONB" fieldSchema.sqlType then
+                code [ class "json-preview" ] [ text (truncate 50 value) ]
+
+            else
+                text (truncate 100 value)
+
+
+viewRecordForm : Model -> String -> Maybe String -> Html Msg
+viewRecordForm model tableName maybeRecordId =
+    case model.schema of
+        Just schema ->
+            case Dict.get tableName schema.tables of
+                Just tableSchema ->
+                    let
+                        title =
+                            case maybeRecordId of
+                                Just _ ->
+                                    "Edit " ++ tableSchema.structName
+
+                                Nothing ->
+                                    "New " ++ tableSchema.structName
+
+                        editableFields =
+                            Dict.toList tableSchema.fields
+                                |> List.filter (\( name, fs ) -> not fs.isPrimaryKey && not fs.isTimestamp)
+                                |> List.sortBy Tuple.first
+                    in
+                    div [ class "form-view" ]
+                        [ h2 [] [ text title ]
+                        , if model.loading then
+                            p [] [ text "Loading..." ]
+
+                          else
+                            Html.form [ onSubmit SubmitForm ]
+                                [ div [ class "form-fields" ]
+                                    (List.map (viewFormField model tableSchema) editableFields)
+                                , div [ class "form-actions" ]
+                                    [ button [ type_ "submit", class "btn btn-primary" ] [ text "Save" ]
+                                    , button [ type_ "button", class "btn", onClick CancelForm ] [ text "Cancel" ]
+                                    ]
+                                ]
+                        ]
+
+                Nothing ->
+                    div [] [ text ("Unknown table: " ++ tableName) ]
+
+        Nothing ->
+            div [] [ text "Schema not loaded" ]
+
+
+viewFormField : Model -> TableSchema -> ( String, FieldSchema ) -> Html Msg
+viewFormField model tableSchema ( fieldName, fieldSchema ) =
+    let
+        currentValue =
+            Dict.get fieldName model.formData |> Maybe.withDefault ""
+
+        inputType =
+            sqlTypeToInputType fieldSchema
+
+        isRequired =
+            not fieldSchema.nullable
+
+        maybeFk =
+            List.filter (\fk -> fk.column == fieldName) tableSchema.foreignKeys
+                |> List.head
+    in
+    div [ class "form-group" ]
+        [ label [ for fieldName ]
+            [ text (snakeToTitle fieldName)
+            , if isRequired then
+                span [ class "required" ] [ text " *" ]
+
+              else
+                text ""
             ]
-        , Resources.viewTable
-            { resource = resource
-            , sortField = "created_at"
-            , sortDirection = "desc"
-            , currentPage = 1
-            , itemsPerPage = 20
-            }
-            model.resources
-            (\id -> EditResource resource id)
-            (\id -> DeleteResource resource id)
+        , case maybeFk of
+            Just fk ->
+                -- Foreign key - show as text input with hint
+                div []
+                    [ input
+                        [ type_ "text"
+                        , id fieldName
+                        , value currentValue
+                        , onInput (UpdateFormField fieldName)
+                        , required isRequired
+                        , placeholder ("ID from " ++ fk.references.table)
+                        ]
+                        []
+                    , small [ class "fk-hint" ] [ text ("References: " ++ fk.references.table) ]
+                    ]
+
+            Nothing ->
+                viewInputByType inputType fieldName currentValue isRequired fieldSchema
         ]
 
-viewResourceEdit : Model -> Resources.Resource -> String -> Html Msg
-viewResourceEdit model resource id =
-    div []
-        [ h2 [] [ text ("Edit " ++ Resources.resourceToString resource) ]
-        , case model.formModel of
-            Just formModel ->
-                Resources.viewForm formModel UpdateFormModel (\_ -> SubmitForm) CancelForm
-            
-            Nothing ->
-                text "Loading form..."
-        ]
 
-viewResourceCreate : Model -> Resources.Resource -> Html Msg
-viewResourceCreate model resource =
-    div []
-        [ h2 [] [ text ("Create " ++ Resources.resourceToString resource) ]
-        , case model.formModel of
-            Just formModel ->
-                Resources.viewForm formModel UpdateFormModel (\_ -> SubmitForm) CancelForm
-            
-            Nothing ->
-                text "Initializing form..."
-        ]
+viewInputByType : String -> String -> String -> Bool -> FieldSchema -> Html Msg
+viewInputByType inputType fieldName currentValue isRequired fieldSchema =
+    case inputType of
+        "textarea" ->
+            textarea
+                [ id fieldName
+                , value currentValue
+                , onInput (UpdateFormField fieldName)
+                , required isRequired
+                , rows 4
+                ]
+                []
+
+        "checkbox" ->
+            input
+                [ type_ "checkbox"
+                , id fieldName
+                , checked (currentValue == "true")
+                , onCheck
+                    (\b ->
+                        UpdateFormField fieldName
+                            (if b then
+                                "true"
+
+                             else
+                                "false"
+                            )
+                    )
+                ]
+                []
+
+        "number" ->
+            input
+                [ type_ "number"
+                , id fieldName
+                , value currentValue
+                , onInput (UpdateFormField fieldName)
+                , required isRequired
+                ]
+                []
+
+        _ ->
+            input
+                [ type_ inputType
+                , id fieldName
+                , value currentValue
+                , onInput (UpdateFormField fieldName)
+                , required isRequired
+                ]
+                []
+
+
+sqlTypeToInputType : FieldSchema -> String
+sqlTypeToInputType fieldSchema =
+    if String.contains "JSONB" fieldSchema.sqlType then
+        "textarea"
+
+    else if fieldSchema.sqlType == "BOOLEAN" then
+        "checkbox"
+
+    else if fieldSchema.sqlType == "INTEGER" || fieldSchema.sqlType == "BIGINT" then
+        "number"
+
+    else
+        "text"
+
+
+
+-- UTILITIES
+
+
+snakeToTitle : String -> String
+snakeToTitle str =
+    str
+        |> String.split "_"
+        |> List.map capitalize
+        |> String.join " "
+
+
+capitalize : String -> String
+capitalize str =
+    case String.uncons str of
+        Just ( first, rest ) ->
+            String.cons (Char.toUpper first) rest
+
+        Nothing ->
+            str
+
+
+truncate : Int -> String -> String
+truncate maxLen str =
+    if String.length str > maxLen then
+        String.left maxLen str ++ "..."
+
+    else
+        str
+
+
+formatTimestamp : String -> String
+formatTimestamp ts =
+    -- Just show raw for now - could convert from Unix ms
+    ts
+
+
+getFieldValue : String -> Encode.Value -> String
+getFieldValue fieldName record =
+    case Decode.decodeValue (Decode.field fieldName Decode.value) record of
+        Ok val ->
+            valueToString val
+
+        Err _ ->
+            ""
+
+
+onSubmit : msg -> Attribute msg
+onSubmit msg =
+    Html.Events.preventDefaultOn "submit" (Decode.succeed ( msg, True ))
+
 
 
 -- SUBSCRIPTIONS
 
+
 subscriptions : Model -> Sub Msg
-subscriptions model =
-    Sub.batch
-        [ adminApiResponse AdminApiResponseReceived
-        ]
+subscriptions _ =
+    adminApiResponse ApiResponseReceived
+
 
 
 -- MAIN
+
 
 main : Program Flags Model Msg
 main =
