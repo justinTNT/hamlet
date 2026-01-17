@@ -70,8 +70,8 @@ function expect(actual, message) {
 test('Admin UI generation completes successfully', () => {
     console.log('\n👑 Testing admin UI generation...');
     try {
-        const output = execSync('node packages/buildamp-cli/bin/buildamp.js gen --force', { stdio: 'pipe', encoding: 'utf8', cwd: rootDir });
-        const success = output.includes('Admin UI Generation') && output.includes('Admin UI:');
+        const output = execSync('node packages/buildamp/bin/buildamp.js gen', { stdio: 'pipe', encoding: 'utf8', cwd: rootDir });
+        const success = output.includes('Admin UI Generation') && output.includes('Resources.elm');
         return expect(success, 'Admin UI generation ran without errors').toBe(true);
     } catch (error) {
         console.log('Generation error:', error.message);
@@ -205,8 +205,8 @@ test('Admin UI builds without errors', () => {
 test('Admin generation integrates with main generation script', () => {
     console.log('\n🔗 Testing integration with main generation...');
     
-    // Check the new buildamp-cli generation orchestrator
-    const orchestratorPath = path.join(__dirname, '../packages/buildamp-cli/lib/generation-orchestrator.js');
+    // Check the buildamp generation orchestrator
+    const orchestratorPath = path.join(__dirname, '../packages/buildamp/lib/orchestrator.js');
     if (!fs.existsSync(orchestratorPath)) {
         return expect(false, 'Generation orchestrator exists').toBe(true);
     }
@@ -215,10 +215,10 @@ test('Admin generation integrates with main generation script', () => {
     
     let allValid = true;
     
-    // Check that admin generation is imported and called
+    // Check that admin generation is imported and registered
     allValid &= expect(orchestratorContent, 'Imports admin generation function').toContain('generateAdminUi');
-    allValid &= expect(orchestratorContent, 'Calls admin generation in pipeline').toContain('await generators.generateAdminUi()');
-    allValid &= expect(orchestratorContent, 'Has admin phase documentation').toContain('Admin UI Generation');
+    allValid &= expect(orchestratorContent, 'Registers admin generator').toContain("admin: generateAdminUi");
+    allValid &= expect(orchestratorContent, 'Admin included in db model targets').toContain("'admin'");
     
     return allValid;
 });

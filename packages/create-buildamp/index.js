@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import prompts from 'prompts';
 import { red, green, bold, cyan, yellow } from 'kolorist';
-import { discoverProjectPaths } from '../buildamp-core/index.js';
+import { discoverProjectPaths } from 'buildamp/core';
 
 const cwd = process.cwd();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -340,35 +340,22 @@ function emptyDir(dir) {
     }
 }
 
-// Dynamic imports for generation scripts from shared directory
+// Load generation scripts from buildamp package
 async function loadGenerationScripts() {
-    // Look for shared generation directory relative to Hamlet root
-    const sharedGenerationDir = path.join(process.cwd(), 'shared', 'generation');
-    
-    if (!fs.existsSync(sharedGenerationDir)) {
-        throw new Error(`Shared generation scripts not found: ${sharedGenerationDir}`);
-    }
-    
     try {
-        const { generateApiRoutes } = await import(path.join(sharedGenerationDir, 'api_routes.js'));
-        const { generateDatabaseQueries } = await import(path.join(sharedGenerationDir, 'database_queries.js'));
-        const { generateBrowserStorage } = await import(path.join(sharedGenerationDir, 'browser_storage.js'));
-        const { generateKvStore } = await import(path.join(sharedGenerationDir, 'kv_store.js'));
-        const { generateSSEEvents } = await import(path.join(sharedGenerationDir, 'sse_events.js'));
-        const { generateElmSharedModules } = await import(path.join(sharedGenerationDir, 'elm_shared_modules.js'));
-        const { generateElmHandlers } = await import(path.join(sharedGenerationDir, 'elm_handlers.js'));
-        
+        const generators = await import('buildamp/generators');
+
         return {
-            generateApiRoutes,
-            generateDatabaseQueries,
-            generateBrowserStorage,
-            generateKvStore,
-            generateSSEEvents,
-            generateElmSharedModules,
-            generateElmHandlers
+            generateApiRoutes: generators.generateApiRoutes,
+            generateDatabaseQueries: generators.generateDatabaseQueries,
+            generateBrowserStorage: generators.generateBrowserStorage,
+            generateKvStore: generators.generateKvStore,
+            generateSSEEvents: generators.generateSSEEvents,
+            generateElmSharedModules: generators.generateElmSharedModules,
+            generateElmHandlers: generators.generateElmHandlers
         };
     } catch (error) {
-        throw new Error(`Failed to load shared generation scripts: ${error.message}`);
+        throw new Error(`Failed to load buildamp generators: ${error.message}`);
     }
 }
 

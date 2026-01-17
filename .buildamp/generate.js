@@ -5,9 +5,11 @@
  * Generates type-safe JavaScript APIs from Rust models
  */
 
-import { generateDatabaseQueries } from '../shared/generation/database_queries.js';
-import { generateApiRoutes } from '../shared/generation/api_routes.js';
-import { generateBrowserStorage } from '../shared/generation/browser_storage.js';
+import {
+    generateDatabaseQueries,
+    generateApiRoutes,
+    generateBrowserStorage
+} from 'buildamp/generators';
 
 console.log('🚀 Starting BuildAmp code generation...');
 console.log('');

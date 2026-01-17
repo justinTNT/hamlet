@@ -1,8 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { generateElmSharedModules } from '../../../../shared/generation/elm_shared_modules.js';
-import { generateElmHandlers } from '../../../../shared/generation/elm_handlers.js';
+import { generateElmSharedModules, generateElmHandlers } from 'buildamp/generators';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

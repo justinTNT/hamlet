@@ -1,0 +1,330 @@
+{
+  "generatedAt": "2026-01-17T00:15:48.348Z",
+  "appName": "horatio",
+  "tables": {
+    "guests": {
+      "structName": "Guest",
+      "tableName": "guests",
+      "sourceFile": "guest.rs",
+      "fields": {
+        "id": {
+          "rustType": "DatabaseId<String>",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": true,
+          "isTimestamp": false
+        },
+        "name": {
+          "rustType": "String",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false
+        },
+        "picture": {
+          "rustType": "String",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false
+        },
+        "session_id": {
+          "rustType": "String",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false
+        },
+        "created_at": {
+          "rustType": "Timestamp",
+          "sqlType": "BIGINT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": true
+        }
+      },
+      "primaryKey": "id",
+      "foreignKeys": [],
+      "referencedBy": [
+        {
+          "table": "item_comments",
+          "column": "guest_id"
+        }
+      ]
+    },
+    "item_comments": {
+      "structName": "ItemComment",
+      "tableName": "item_comments",
+      "sourceFile": "item_comment.rs",
+      "fields": {
+        "id": {
+          "rustType": "DatabaseId<String>",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": true,
+          "isTimestamp": false
+        },
+        "item_id": {
+          "rustType": "String",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false
+        },
+        "guest_id": {
+          "rustType": "String",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false
+        },
+        "parent_id": {
+          "rustType": "Option<String>",
+          "sqlType": "TEXT",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "isTimestamp": false
+        },
+        "author_name": {
+          "rustType": "String",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false
+        },
+        "text": {
+          "rustType": "String",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false
+        },
+        "created_at": {
+          "rustType": "Timestamp",
+          "sqlType": "BIGINT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": true
+        }
+      },
+      "primaryKey": "id",
+      "foreignKeys": [
+        {
+          "column": "item_id",
+          "references": {
+            "table": "microblog_items",
+            "column": "id"
+          }
+        },
+        {
+          "column": "guest_id",
+          "references": {
+            "table": "guests",
+            "column": "id"
+          }
+        }
+      ],
+      "referencedBy": []
+    },
+    "item_tags": {
+      "structName": "ItemTag",
+      "tableName": "item_tags",
+      "sourceFile": "item_tag.rs",
+      "fields": {
+        "item_id": {
+          "rustType": "String",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false
+        },
+        "tag_id": {
+          "rustType": "String",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false
+        }
+      },
+      "primaryKey": null,
+      "foreignKeys": [
+        {
+          "column": "item_id",
+          "references": {
+            "table": "microblog_items",
+            "column": "id"
+          }
+        },
+        {
+          "column": "tag_id",
+          "references": {
+            "table": "tags",
+            "column": "id"
+          }
+        }
+      ],
+      "referencedBy": []
+    },
+    "microblog_items": {
+      "structName": "MicroblogItem",
+      "tableName": "microblog_items",
+      "sourceFile": "microblog_item.rs",
+      "fields": {
+        "id": {
+          "rustType": "DatabaseId<String>",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": true,
+          "isTimestamp": false
+        },
+        "title": {
+          "rustType": "String",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false
+        },
+        "link": {
+          "rustType": "Option<String>",
+          "sqlType": "TEXT",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "isTimestamp": false
+        },
+        "image": {
+          "rustType": "Option<String>",
+          "sqlType": "TEXT",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "isTimestamp": false
+        },
+        "extract": {
+          "rustType": "Option<RichContent>",
+          "sqlType": "JSONB",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "isTimestamp": false
+        },
+        "owner_comment": {
+          "rustType": "RichContent",
+          "sqlType": "JSONB",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false
+        },
+        "created_at": {
+          "rustType": "Timestamp",
+          "sqlType": "BIGINT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": true
+        },
+        "view_count": {
+          "rustType": "i32",
+          "sqlType": "INTEGER",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false
+        }
+      },
+      "primaryKey": "id",
+      "foreignKeys": [],
+      "referencedBy": [
+        {
+          "table": "item_comments",
+          "column": "item_id"
+        },
+        {
+          "table": "item_tags",
+          "column": "item_id"
+        }
+      ]
+    },
+    "tags": {
+      "structName": "Tag",
+      "tableName": "tags",
+      "sourceFile": "tag.rs",
+      "fields": {
+        "id": {
+          "rustType": "DatabaseId<String>",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": true,
+          "isTimestamp": false
+        },
+        "host": {
+          "rustType": "String",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false
+        },
+        "name": {
+          "rustType": "String",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false
+        }
+      },
+      "primaryKey": "id",
+      "foreignKeys": [],
+      "referencedBy": [
+        {
+          "table": "item_tags",
+          "column": "tag_id"
+        }
+      ]
+    }
+  },
+  "relationships": [
+    {
+      "from": {
+        "table": "item_comments",
+        "column": "item_id"
+      },
+      "to": {
+        "table": "microblog_items",
+        "column": "id"
+      },
+      "type": "many-to-one"
+    },
+    {
+      "from": {
+        "table": "item_comments",
+        "column": "guest_id"
+      },
+      "to": {
+        "table": "guests",
+        "column": "id"
+      },
+      "type": "many-to-one"
+    },
+    {
+      "from": {
+        "table": "item_tags",
+        "column": "item_id"
+      },
+      "to": {
+        "table": "microblog_items",
+        "column": "id"
+      },
+      "type": "many-to-one"
+    },
+    {
+      "from": {
+        "table": "item_tags",
+        "column": "tag_id"
+      },
+      "to": {
+        "table": "tags",
+        "column": "id"
+      },
+      "type": "many-to-one"
+    }
+  ],
+  "summary": {
+    "tableCount": 5,
+    "relationshipCount": 4
+  }
+}

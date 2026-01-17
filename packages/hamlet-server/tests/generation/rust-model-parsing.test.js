@@ -49,7 +49,7 @@ pub struct SimpleItem {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                const { generateElmSharedModules } = await import('buildamp/generators');
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
@@ -94,7 +94,7 @@ pub struct NamingExample {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                const { generateElmSharedModules } = await import('buildamp/generators');
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
@@ -140,7 +140,7 @@ pub struct OptionalFields {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                const { generateElmSharedModules } = await import('buildamp/generators');
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
@@ -185,7 +185,7 @@ pub struct VecExample {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                const { generateElmSharedModules } = await import('buildamp/generators');
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
@@ -244,7 +244,7 @@ pub struct UserSession {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                const { generateElmSharedModules } = await import('buildamp/generators');
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
@@ -288,7 +288,7 @@ pub struct CustomTypes {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                const { generateElmSharedModules } = await import('buildamp/generators');
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
@@ -338,7 +338,7 @@ pub struct ItemWithStatus {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                const { generateElmSharedModules } = await import('buildamp/generators');
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
@@ -383,7 +383,7 @@ pub struct Article {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                const { generateElmSharedModules } = await import('buildamp/generators');
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
@@ -432,7 +432,7 @@ pub struct Product {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                const { generateElmSharedModules } = await import('buildamp/generators');
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
@@ -470,7 +470,7 @@ pub struct Product {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                const { generateElmSharedModules } = await import('buildamp/generators');
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
@@ -509,7 +509,7 @@ pub fn some_function() -> String {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                const { generateElmSharedModules } = await import('buildamp/generators');
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
@@ -550,7 +550,7 @@ pub struct Broken {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                const { generateElmSharedModules } = await import('buildamp/generators');
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
@@ -592,7 +592,7 @@ pub struct LargeStruct {
 
             try {
                 const start = Date.now();
-                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                const { generateElmSharedModules } = await import('buildamp/generators');
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
@@ -639,7 +639,7 @@ pub struct SecurityTest {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                const { generateElmSharedModules } = await import('buildamp/generators');
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
@@ -689,7 +689,7 @@ pub struct ValidStruct {
             process.chdir(testOutputDir);
 
             try {
-                const { generateElmSharedModules } = await import('../../../../shared/generation/elm_shared_modules.js');
+                const { generateElmSharedModules } = await import('buildamp/generators');
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
