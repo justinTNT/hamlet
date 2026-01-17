@@ -1,5 +1,5 @@
 /**
- * BuildAmp - WASM and code generation from Rust models
+ * BuildAmp - Code generation from Rust models
  * Main entry point
  */
 

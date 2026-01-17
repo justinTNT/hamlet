@@ -2,19 +2,20 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { generateElmSharedModules } from 'buildamp/generators';
+import { createElmConfig, ensureGeneratedDir, createMockDbDir, createMockKvDir } from './test-helpers.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 describe('Elm Shared Modules Generation Tests', () => {
     const testOutputDir = path.join(__dirname, 'temp_elm_modules');
-    
+    const config = createElmConfig(testOutputDir);
+
     beforeEach(() => {
-        // Create temp directory for testing
         if (fs.existsSync(testOutputDir)) {
             fs.rmSync(testOutputDir, { recursive: true, force: true });
         }
-        fs.mkdirSync(testOutputDir, { recursive: true });
+        ensureGeneratedDir(testOutputDir);
     });
 
     afterEach(() => {
@@ -27,8 +28,7 @@ describe('Elm Shared Modules Generation Tests', () => {
     describe('Rust Model Parsing', () => {
         test('parseRustDbModels extracts correct struct types', async () => {
             // Create mock Rust files for testing
-            const mockDbDir = path.join(testOutputDir, 'src', 'models', 'db');
-            fs.mkdirSync(mockDbDir, { recursive: true });
+            const mockDbDir = createMockDbDir(testOutputDir);
 
             const mockRustContent = `
 use serde::{Deserialize, Serialize};
@@ -69,15 +69,6 @@ pub struct ItemComment {
 
             try {
                 // Import the generation function and test parseRustDbModels
-                // Configure for simple project structure (not monorepo)
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir  // The function adds /Generated automatically
-                };
-                
-                // Create output directory
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 const result = await generateElmSharedModules(config);
                 
                 expect(result).toHaveProperty('length');
@@ -98,8 +89,7 @@ pub struct ItemComment {
         });
 
         test('handles Rust Option types correctly', async () => {
-            const mockDbDir = path.join(testOutputDir, 'src', 'models', 'db');
-            fs.mkdirSync(mockDbDir, { recursive: true });
+            const mockDbDir = createMockDbDir(testOutputDir);
 
             const optionTestContent = `
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -118,15 +108,6 @@ pub struct TestModel {
             process.chdir(testOutputDir);
 
             try {
-                // Configure for simple project structure (not monorepo)
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir  // The function adds /Generated automatically
-                };
-                
-                // Create output directory
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
@@ -164,15 +145,6 @@ pub struct TestModel {
             process.chdir(testOutputDir);
 
             try {
-                // Configure for simple project structure (not monorepo)
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir  // The function adds /Generated automatically
-                };
-                
-                // Create output directory
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
@@ -193,15 +165,6 @@ pub struct TestModel {
             process.chdir(testOutputDir);
 
             try {
-                // Configure for simple project structure (not monorepo)
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir  // The function adds /Generated automatically
-                };
-                
-                // Create output directory
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
@@ -223,15 +186,6 @@ pub struct TestModel {
             process.chdir(testOutputDir);
 
             try {
-                // Configure for simple project structure (not monorepo)
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir  // The function adds /Generated automatically
-                };
-                
-                // Create output directory
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
@@ -260,15 +214,6 @@ pub struct TestModel {
             process.chdir(testOutputDir);
 
             try {
-                // Configure for simple project structure (not monorepo)
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir  // The function adds /Generated automatically
-                };
-                
-                // Create output directory
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
@@ -289,15 +234,6 @@ pub struct TestModel {
             process.chdir(testOutputDir);
 
             try {
-                // Configure for simple project structure (not monorepo)
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir  // The function adds /Generated automatically
-                };
-                
-                // Create output directory
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
@@ -320,15 +256,6 @@ pub struct TestModel {
             process.chdir(testOutputDir);
 
             try {
-                // Configure for simple project structure (not monorepo)
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir  // The function adds /Generated automatically
-                };
-                
-                // Create output directory
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const eventsPath = path.join(testOutputDir, 'Generated', 'Events.elm');
@@ -350,15 +277,6 @@ pub struct TestModel {
             process.chdir(testOutputDir);
 
             try {
-                // Configure for simple project structure (not monorepo)
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir  // The function adds /Generated automatically
-                };
-                
-                // Create output directory
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const eventsContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Events.elm'), 'utf-8');
@@ -378,15 +296,6 @@ pub struct TestModel {
             process.chdir(testOutputDir);
 
             try {
-                // Configure for simple project structure (not monorepo)
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir  // The function adds /Generated automatically
-                };
-                
-                // Create output directory
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const servicesPath = path.join(testOutputDir, 'Generated', 'Services.elm');
@@ -409,15 +318,6 @@ pub struct TestModel {
             process.chdir(testOutputDir);
 
             try {
-                // Configure for simple project structure (not monorepo)
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir  // The function adds /Generated automatically
-                };
-                
-                // Create output directory
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const servicesContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Services.elm'), 'utf-8');
@@ -439,15 +339,6 @@ pub struct TestModel {
             process.chdir(testOutputDir);
 
             try {
-                // Configure for simple project structure (not monorepo)
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir  // The function adds /Generated automatically
-                };
-                
-                // Create output directory
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const files = ['Database.elm', 'Events.elm', 'Services.elm'];
@@ -467,15 +358,6 @@ pub struct TestModel {
             process.chdir(testOutputDir);
 
             try {
-                // Configure for simple project structure (not monorepo)
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir  // The function adds /Generated automatically
-                };
-                
-                // Create output directory
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const databaseContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'Database.elm'), 'utf-8');
@@ -500,15 +382,6 @@ pub struct TestModel {
             process.chdir(testOutputDir);
 
             try {
-                // Configure for simple project structure (not monorepo)
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir  // The function adds /Generated automatically
-                };
-                
-                // Create output directory
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 ['Database.elm', 'Events.elm', 'Services.elm'].forEach(filename => {
@@ -535,15 +408,6 @@ pub struct TestModel {
 
             try {
                 // No mock_db directory created - should handle gracefully
-                // Configure for simple project structure (not monorepo)
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir  // The function adds /Generated automatically
-                };
-                
-                // Create output directory
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 const result = await generateElmSharedModules(config);
                 
                 expect(result).toBeDefined();
@@ -560,8 +424,7 @@ pub struct TestModel {
         });
 
         test('handles malformed Rust files gracefully', async () => {
-            const mockDbDir = path.join(testOutputDir, 'src', 'models', 'db');
-            fs.mkdirSync(mockDbDir, { recursive: true });
+            const mockDbDir = createMockDbDir(testOutputDir);
 
             // Create invalid Rust content
             fs.writeFileSync(path.join(mockDbDir, 'broken_db.rs'), 'invalid rust syntax {{{');
@@ -570,15 +433,6 @@ pub struct TestModel {
             process.chdir(testOutputDir);
 
             try {
-                // Configure for simple project structure (not monorepo)
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir  // The function adds /Generated automatically
-                };
-                
-                // Create output directory
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 const result = await generateElmSharedModules(config);
                 
                 // Should complete despite malformed files
@@ -597,15 +451,6 @@ pub struct TestModel {
             process.chdir(testOutputDir);
 
             try {
-                // Configure for simple project structure (not monorepo)
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir  // The function adds /Generated automatically
-                };
-                
-                // Create output directory
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const kvPath = path.join(testOutputDir, 'Generated', 'KV.elm');
@@ -628,8 +473,7 @@ pub struct TestModel {
         });
 
         test('generates KV types from Rust models', async () => {
-            const mockKvDir = path.join(testOutputDir, 'src', 'models', 'kv');
-            fs.mkdirSync(mockKvDir, { recursive: true });
+            const mockKvDir = createMockKvDir(testOutputDir);
 
             const testCacheContent = `
 pub struct TestCache {
@@ -661,13 +505,6 @@ pub struct UserSession {
             process.chdir(testOutputDir);
 
             try {
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir
-                };
-                
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const kvContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'KV.elm'), 'utf-8');
@@ -686,8 +523,7 @@ pub struct UserSession {
         });
 
         test('generates KV encoders and decoders', async () => {
-            const mockKvDir = path.join(testOutputDir, 'src', 'models', 'kv');
-            fs.mkdirSync(mockKvDir, { recursive: true });
+            const mockKvDir = createMockKvDir(testOutputDir);
 
             const simpleModelContent = `
 pub struct SimpleKvModel {
@@ -703,13 +539,6 @@ pub struct SimpleKvModel {
             process.chdir(testOutputDir);
 
             try {
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir
-                };
-                
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const kvContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'KV.elm'), 'utf-8');
@@ -729,13 +558,6 @@ pub struct SimpleKvModel {
 
             try {
                 // No KV models directory created
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir
-                };
-                
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 const result = await generateElmSharedModules(config);
                 
                 expect(result).toBeDefined();
@@ -759,13 +581,6 @@ pub struct SimpleKvModel {
             process.chdir(testOutputDir);
 
             try {
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir
-                };
-                
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const kvContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'KV.elm'), 'utf-8');
@@ -789,13 +604,6 @@ pub struct SimpleKvModel {
             process.chdir(testOutputDir);
 
             try {
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir
-                };
-                
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const kvContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'KV.elm'), 'utf-8');
@@ -825,13 +633,6 @@ pub struct SimpleKvModel {
             process.chdir(testOutputDir);
 
             try {
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir
-                };
-                
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const kvContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'KV.elm'), 'utf-8');
@@ -849,8 +650,7 @@ pub struct SimpleKvModel {
         });
 
         test('preserves Rust model source file information in comments', async () => {
-            const mockKvDir = path.join(testOutputDir, 'src', 'models', 'kv');
-            fs.mkdirSync(mockKvDir, { recursive: true });
+            const mockKvDir = createMockKvDir(testOutputDir);
 
             const testModelContent = `
 pub struct DocumentedModel {
@@ -865,13 +665,6 @@ pub struct DocumentedModel {
             process.chdir(testOutputDir);
 
             try {
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir
-                };
-                
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const kvContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'KV.elm'), 'utf-8');
@@ -888,13 +681,6 @@ pub struct DocumentedModel {
             process.chdir(testOutputDir);
 
             try {
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir
-                };
-                
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
 
                 const kvContent = fs.readFileSync(path.join(testOutputDir, 'Generated', 'KV.elm'), 'utf-8');
@@ -920,15 +706,6 @@ pub struct DocumentedModel {
 
             try {
                 const start = Date.now();
-                // Configure for simple project structure (not monorepo)
-                const config = {
-                    inputBasePath: testOutputDir,
-                    backendElmPath: testOutputDir  // The function adds /Generated automatically
-                };
-                
-                // Create output directory
-                fs.mkdirSync(path.join(testOutputDir, 'Generated'), { recursive: true });
-                
                 await generateElmSharedModules(config);
                 const duration = Date.now() - start;
 

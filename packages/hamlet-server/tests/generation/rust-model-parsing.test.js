@@ -53,7 +53,7 @@ pub struct SimpleItem {
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
-                    inputBasePath: testOutputDir,
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     backendElmPath: testOutputDir  // The function adds /Generated automatically
                 };
                 
@@ -98,7 +98,7 @@ pub struct NamingExample {
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
-                    inputBasePath: testOutputDir,
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     backendElmPath: testOutputDir  // The function adds /Generated automatically
                 };
                 
@@ -144,7 +144,7 @@ pub struct OptionalFields {
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
-                    inputBasePath: testOutputDir,
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     backendElmPath: testOutputDir  // The function adds /Generated automatically
                 };
                 
@@ -189,7 +189,7 @@ pub struct VecExample {
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
-                    inputBasePath: testOutputDir,
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     backendElmPath: testOutputDir  // The function adds /Generated automatically
                 };
                 
@@ -248,7 +248,7 @@ pub struct UserSession {
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
-                    inputBasePath: testOutputDir,
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     backendElmPath: testOutputDir  // The function adds /Generated automatically
                 };
                 
@@ -292,7 +292,7 @@ pub struct CustomTypes {
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
-                    inputBasePath: testOutputDir,
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     backendElmPath: testOutputDir  // The function adds /Generated automatically
                 };
                 
@@ -342,7 +342,7 @@ pub struct ItemWithStatus {
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
-                    inputBasePath: testOutputDir,
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     backendElmPath: testOutputDir  // The function adds /Generated automatically
                 };
                 
@@ -387,7 +387,7 @@ pub struct Article {
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
-                    inputBasePath: testOutputDir,
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     backendElmPath: testOutputDir  // The function adds /Generated automatically
                 };
                 
@@ -436,7 +436,7 @@ pub struct Product {
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
-                    inputBasePath: testOutputDir,
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     backendElmPath: testOutputDir  // The function adds /Generated automatically
                 };
                 
@@ -474,7 +474,7 @@ pub struct Product {
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
-                    inputBasePath: testOutputDir,
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     backendElmPath: testOutputDir  // The function adds /Generated automatically
                 };
                 
@@ -513,7 +513,7 @@ pub fn some_function() -> String {
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
-                    inputBasePath: testOutputDir,
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     backendElmPath: testOutputDir  // The function adds /Generated automatically
                 };
                 
@@ -554,7 +554,7 @@ pub struct Broken {
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
-                    inputBasePath: testOutputDir,
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     backendElmPath: testOutputDir  // The function adds /Generated automatically
                 };
                 
@@ -596,7 +596,7 @@ pub struct LargeStruct {
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
-                    inputBasePath: testOutputDir,
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     backendElmPath: testOutputDir  // The function adds /Generated automatically
                 };
                 
@@ -643,7 +643,7 @@ pub struct SecurityTest {
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
-                    inputBasePath: testOutputDir,
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     backendElmPath: testOutputDir  // The function adds /Generated automatically
                 };
                 
@@ -693,7 +693,7 @@ pub struct ValidStruct {
                 
                 // Configure for simple project structure (not monorepo)
                 const config = {
-                    inputBasePath: testOutputDir,
+                    inputBasePath: path.join(testOutputDir, 'src', 'models'),
                     backendElmPath: testOutputDir  // The function adds /Generated automatically
                 };
                 

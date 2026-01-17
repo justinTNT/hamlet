@@ -5,7 +5,7 @@ describe('Hamlet Server Core', () => {
     test('server can be created with minimal config', () => {
         const server = new HamletServer({ 
             port: 0,
-            features: { kv: false, sse: false, wasm: false }
+            features: { kv: false, sse: false }
         });
         
         expect(server).toBeDefined();
@@ -15,19 +15,18 @@ describe('Hamlet Server Core', () => {
     
     test('middleware loader detects features correctly', () => {
         const server = new HamletServer({ 
-            features: { kv: true, sse: false, wasm: false }
+            features: { kv: true, sse: false }
         });
-        
+
         const features = server.loader.detectFeatures();
         expect(features.hasKeyValueStore).toBe(true);
         expect(features.hasServerSentEvents).toBe(false);
-        expect(features.hasWASM).toBe(false);
     });
     
     test('health endpoint works without starting server', async () => {
         const server = new HamletServer({ 
             port: 0,
-            features: { kv: false, sse: false, wasm: false }
+            features: { kv: false, sse: false }
         });
         
         // Load middleware synchronously for test

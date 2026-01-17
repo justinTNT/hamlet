@@ -52,7 +52,10 @@ impl<T> SessionOnly<T> {
 
 impl<T> Expiring<T> {
     pub fn new(value: T, expires_in_seconds: u32) -> Self {
-        let now = js_sys::Date::now() as u64 / 1000;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
         Expiring {
             value,
             expires_at: now + expires_in_seconds as u64,
@@ -60,7 +63,10 @@ impl<T> Expiring<T> {
     }
     
     pub fn is_expired(&self) -> bool {
-        let now = js_sys::Date::now() as u64 / 1000;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
         now > self.expires_at
     }
     
@@ -93,7 +99,10 @@ impl<T> CrossTab<T> {
 
 impl<T> Cached<T> {
     pub fn new(value: T, ttl_seconds: Option<u32>) -> Self {
-        let now = js_sys::Date::now() as u64 / 1000;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
         Cached {
             value,
             cached_at: now,
@@ -103,7 +112,10 @@ impl<T> Cached<T> {
     
     pub fn is_stale(&self) -> bool {
         if let Some(ttl) = self.ttl_seconds {
-            let now = js_sys::Date::now() as u64 / 1000;
+            let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
             (now - self.cached_at) > ttl as u64
         } else {
             false
@@ -123,7 +135,10 @@ impl<T> Cached<T> {
     }
     
     pub fn age_seconds(&self) -> u64 {
-        let now = js_sys::Date::now() as u64 / 1000;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
         now - self.cached_at
     }
 }

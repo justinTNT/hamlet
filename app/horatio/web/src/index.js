@@ -1,18 +1,8 @@
-// import init, { encode_request, decode_response } from 'proto-rust';
 import { Elm } from './Main.elm';
 
-console.log("Horatio Client v1.0.0 - Ports Debug");
+console.log("Horatio Client v1.0.0");
 
 async function run() {
-    // Skip WASM initialization for now
-    // try {
-    //     await init();
-    //     console.log("WASM module initialized successfully.");
-    // } catch (e) {
-    //     console.error("Failed to initialize WASM module:", e);
-    //     return;
-    // }
-
     console.log("About to initialize Elm app...");
 
     // Read host-specific config from window.GLOBAL_CONFIG (set in host's index.html)
@@ -90,8 +80,6 @@ async function run() {
                     return;
                 }
 
-                // Skip WASM encoding for now - just pass through JSON
-                console.log("Encoding request (WASM bypassed)...");
                 const encodedBody = JSON.stringify(body);
                 console.log("Encoded request:", encodedBody);
 
@@ -112,14 +100,9 @@ async function run() {
                     })
                     .then((wireResponse) => {
                         console.log('Received response from server:', wireResponse);
-
-                        // Skip WASM decoding for now - response is already JSON
-                        const normalizedBody = wireResponse;
-                        console.log('Decoded response (WASM bypassed):', normalizedBody);
-
                         app.ports.rpcResponse.send({
                             endpoint,
-                            body: normalizedBody,
+                            body: wireResponse,
                             correlationId,
                         });
                     })

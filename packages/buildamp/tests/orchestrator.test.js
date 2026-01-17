@@ -5,6 +5,8 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
+import path from 'node:path';
+import fs from 'node:fs';
 
 // Suppress console output during tests (generators emit emojis that break TAP)
 function withSuppressedConsole(fn) {
@@ -26,12 +28,43 @@ function withSuppressedConsole(fn) {
     };
 }
 
+// Test paths using the hamlet project structure
+const testSrc = path.join(process.cwd(), 'app/horatio/models');
+const testDest = path.join(process.cwd(), 'tmp-test-output');
+
 describe('BuildAmp Orchestrator', () => {
+    // Clean up test output directory after tests
+    test.afterEach(() => {
+        if (fs.existsSync(testDest)) {
+            fs.rmSync(testDest, { recursive: true, force: true });
+        }
+    });
+
+    test('generate requires src option', withSuppressedConsole(async () => {
+        const { generate } = await import('../lib/orchestrator.js');
+
+        await assert.rejects(
+            async () => generate({ dest: testDest }),
+            /--src flag/,
+            'Should require --src option'
+        );
+    }));
+
+    test('generate requires dest option', withSuppressedConsole(async () => {
+        const { generate } = await import('../lib/orchestrator.js');
+
+        await assert.rejects(
+            async () => generate({ src: testSrc }),
+            /--dest flag/,
+            'Should require --dest option'
+        );
+    }));
+
     test('unknown model-dir throws error', withSuppressedConsole(async () => {
         const { generate } = await import('../lib/orchestrator.js');
 
         await assert.rejects(
-            async () => generate({ modelDir: 'unknown-dir' }),
+            async () => generate({ src: testSrc, dest: testDest, modelDir: 'unknown-dir' }),
             /Unknown model directory/,
             'Should reject unknown model directories'
         );
@@ -41,7 +74,7 @@ describe('BuildAmp Orchestrator', () => {
         const { generate } = await import('../lib/orchestrator.js');
 
         await assert.rejects(
-            async () => generate({ target: 'nonexistent-target' }),
+            async () => generate({ src: testSrc, dest: testDest, target: 'nonexistent-target' }),
             /Unknown target/,
             'Should reject unknown targets'
         );
@@ -50,12 +83,12 @@ describe('BuildAmp Orchestrator', () => {
     test('valid targets are accepted', withSuppressedConsole(async () => {
         const { generate } = await import('../lib/orchestrator.js');
 
-        const validTargets = ['js', 'elm', 'handlers', 'admin', 'wasm', 'sql', 'schema'];
+        const validTargets = ['js', 'elm', 'handlers', 'admin', 'sql', 'schema'];
 
         for (const target of validTargets) {
             // Each target should not throw an "Unknown target" error
             try {
-                await generate({ target });
+                await generate({ src: testSrc, dest: testDest, target });
             } catch (error) {
                 assert.ok(
                     !error.message.includes('Unknown target'),
@@ -72,7 +105,7 @@ describe('BuildAmp Orchestrator', () => {
 
         for (const modelDir of validModelDirs) {
             try {
-                await generate({ modelDir });
+                await generate({ src: testSrc, dest: testDest, modelDir });
             } catch (error) {
                 assert.ok(
                     !error.message.includes('Unknown model directory'),
@@ -86,7 +119,7 @@ describe('BuildAmp Orchestrator', () => {
         const { generate } = await import('../lib/orchestrator.js');
 
         // Run with a specific target to get predictable results
-        const results = await generate({ target: 'wasm' });
+        const results = await generate({ src: testSrc, dest: testDest, target: 'js' });
 
         assert.ok(Array.isArray(results), 'generate should return an array');
         assert.ok(results.length > 0, 'results should have at least one entry');
@@ -97,22 +130,20 @@ describe('BuildAmp Orchestrator', () => {
             assert.ok('success' in result, 'result should have success field');
         }
     }));
-
-    test('status function exists and returns', withSuppressedConsole(async () => {
-        const { status } = await import('../lib/orchestrator.js');
-
-        assert.ok(typeof status === 'function', 'status should be a function');
-
-        const result = await status();
-        assert.ok(typeof result === 'object', 'status should return an object');
-    }));
 });
 
 describe('Generator Mapping Logic', () => {
+    // Clean up test output directory after tests
+    test.afterEach(() => {
+        if (fs.existsSync(testDest)) {
+            fs.rmSync(testDest, { recursive: true, force: true });
+        }
+    });
+
     test('db model-dir runs correct generators', withSuppressedConsole(async () => {
         const { generate } = await import('../lib/orchestrator.js');
 
-        const results = await generate({ modelDir: 'db' });
+        const results = await generate({ src: testSrc, dest: testDest, modelDir: 'db' });
         const generatorNames = results.map(r => r.generator);
 
         assert.ok(generatorNames.includes('js'), 'db model-dir should run js generator');
@@ -125,7 +156,7 @@ describe('Generator Mapping Logic', () => {
     test('api model-dir runs correct generators', withSuppressedConsole(async () => {
         const { generate } = await import('../lib/orchestrator.js');
 
-        const results = await generate({ modelDir: 'api' });
+        const results = await generate({ src: testSrc, dest: testDest, modelDir: 'api' });
         const generatorNames = results.map(r => r.generator);
 
         assert.ok(generatorNames.includes('js'), 'api model-dir should run js generator');
@@ -136,7 +167,7 @@ describe('Generator Mapping Logic', () => {
     test('storage model-dir runs correct generators', withSuppressedConsole(async () => {
         const { generate } = await import('../lib/orchestrator.js');
 
-        const results = await generate({ modelDir: 'storage' });
+        const results = await generate({ src: testSrc, dest: testDest, modelDir: 'storage' });
         const generatorNames = results.map(r => r.generator);
 
         assert.ok(generatorNames.includes('js'), 'storage model-dir should run js generator');
@@ -146,50 +177,10 @@ describe('Generator Mapping Logic', () => {
     test('specific target only runs that generator', withSuppressedConsole(async () => {
         const { generate } = await import('../lib/orchestrator.js');
 
-        const results = await generate({ target: 'js' });
+        const results = await generate({ src: testSrc, dest: testDest, target: 'js' });
         const generatorNames = results.map(r => r.generator);
 
         assert.strictEqual(generatorNames.length, 1, 'specific target should run only one generator');
         assert.strictEqual(generatorNames[0], 'js', 'should run the specified generator');
-    }));
-});
-
-describe('WASM Generation via Orchestrator', () => {
-    test('wasm target runs wasm generator', withSuppressedConsole(async () => {
-        const { generate } = await import('../lib/orchestrator.js');
-
-        const results = await generate({ target: 'wasm' });
-        const generatorNames = results.map(r => r.generator);
-
-        assert.strictEqual(generatorNames.length, 1, 'wasm target should run one generator');
-        assert.strictEqual(generatorNames[0], 'wasm', 'should run wasm generator');
-    }));
-
-    test('wasm generator receives config options', withSuppressedConsole(async () => {
-        const { generate } = await import('../lib/orchestrator.js');
-
-        // Pass config with wasmTarget
-        const results = await generate({
-            target: 'wasm',
-            config: { wasmTarget: 'node' }
-        });
-
-        // The result should indicate the generator was called
-        assert.ok(results.length > 0, 'Should have results');
-        assert.strictEqual(results[0].generator, 'wasm');
-    }));
-
-    test('wasm result includes target information', withSuppressedConsole(async () => {
-        const { generate } = await import('../lib/orchestrator.js');
-
-        const results = await generate({ target: 'wasm' });
-        const wasmResult = results.find(r => r.generator === 'wasm');
-
-        assert.ok(wasmResult, 'Should have wasm result');
-        // Once implemented, result should include target info
-        if (wasmResult.result) {
-            assert.ok('target' in wasmResult.result || 'success' in wasmResult.result,
-                'WASM result should include target or success field');
-        }
     }));
 });

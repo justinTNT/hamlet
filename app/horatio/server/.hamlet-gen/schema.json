@@ -1,6 +1,5 @@
 {
-  "generatedAt": "2026-01-17T00:15:48.348Z",
-  "appName": "horatio",
+  "generatedAt": "2026-01-17T14:18:10.563Z",
   "tables": {
     "guests": {
       "structName": "Guest",

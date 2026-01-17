@@ -24,19 +24,17 @@ export async function generateElmSharedModules(config = {}) {
     // Use shared path utilities for consistency
     const paths = getGenerationPaths(config);
 
-    // Server-only modules go to server's generated directory
-    const serverOutputDir = config.backendElmPath ?
-        `${config.backendElmPath}/Generated` :
-        path.join(paths.serverHandlersDir, '../../generated/Generated');
+    // Legacy mode (tests): use flat Generated/ structure
+    // Normal mode: use server/Generated/ and shared/Generated/ subdirectories
+    const isLegacyMode = config.inputBasePath && !config.src;
 
-    // Config.elm goes to shared location (used by both web and server)
-    const sharedOutputDir = config.sharedElmPath ?
-        `${config.sharedElmPath}/Generated` :
-        path.join(paths.serverHandlersDir, '../../../shared/Generated');
+    const serverOutputDir = isLegacyMode
+        ? ensureOutputDir(path.join(paths.elmOutputPath, 'Generated'))
+        : ensureOutputDir(path.join(paths.elmOutputPath, 'server', 'Generated'));
 
-    // Ensure output directories exist
-    ensureOutputDir(serverOutputDir);
-    ensureOutputDir(sharedOutputDir);
+    const sharedOutputDir = isLegacyMode
+        ? ensureOutputDir(path.join(paths.elmOutputPath, 'Generated'))
+        : ensureOutputDir(path.join(paths.elmOutputPath, 'shared', 'Generated'));
 
     // Server-only modules
     const serverModules = [
@@ -970,7 +968,7 @@ function generateConfigFieldEncoder(field, allModels) {
  */
 function parseRustConfigModels(paths, config = {}) {
     const models = [];
-    const configPath = config.inputBasePath ? `${config.inputBasePath}/src/models/config/` :
+    const configPath = config.inputBasePath ? `${config.inputBasePath}/config/` :
                        paths.getModelPath('config');
 
     console.log('Looking for Config models at:', configPath);
@@ -1025,7 +1023,7 @@ function parseRustConfigModels(paths, config = {}) {
  */
 function parseRustDbModels(paths, config = {}) {
     const models = [];
-    const dbPath = config.inputBasePath ? `${config.inputBasePath}/src/models/db/` :
+    const dbPath = config.inputBasePath ? `${config.inputBasePath}/db/` :
                    paths.getModelPath('db');
     
     console.log('Looking for DB models at:', dbPath);
@@ -1086,7 +1084,7 @@ function parseRustDbModels(paths, config = {}) {
  */
 function parseRustKvModels(paths, config = {}) {
     const models = [];
-    const kvPath = config.inputBasePath ? `${config.inputBasePath}/src/models/kv/` : 
+    const kvPath = config.inputBasePath ? `${config.inputBasePath}/kv/` : 
                    paths.getModelPath('kv');
     
     if (!fs.existsSync(kvPath)) {
@@ -1657,7 +1655,7 @@ function generateBasicEncoder(elmType) {
  */
 function parseRustEventModels(paths, config = {}) {
     const models = [];
-    const eventsPath = config.inputBasePath ? `${config.inputBasePath}/src/models/events/` :
+    const eventsPath = config.inputBasePath ? `${config.inputBasePath}/events/` :
                       paths.getModelPath('events');
     
     if (!fs.existsSync(eventsPath)) {

@@ -16,7 +16,6 @@ export class MiddlewareLoader {
             hasKeyValueStore: this.server.config.features?.kv !== false,
             hasServerSentEvents: this.server.config.features?.sse !== false,
             hasDatabase: this.server.config.features?.database === true,
-            hasWASM: this.server.config.features?.wasm !== false, // Default enabled for BuildAmp
         };
     }
     
@@ -42,15 +41,14 @@ export class MiddlewareLoader {
         if (features.hasServerSentEvents) {
             await this.loadMiddleware('server-sent-events');
         }
-        
-        if (features.hasWASM) {
-            await this.loadMiddleware('buildamp-wasm');
-        }
-        
+
         // Load Elm service for backend business logic
         await this.loadMiddleware('elm-service');
-        
-        // Always load API routes last
+
+        // Load Admin API (must come before api-routes which has * fallback)
+        await this.loadMiddleware('admin-api');
+
+        // Load API routes (includes auto-generated routes from BuildAmp)
         await this.loadMiddleware('api-routes');
         
         // Wire up session-aware event processing

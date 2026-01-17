@@ -26,7 +26,7 @@ there's a few other benefits (like structured logging) that naturally fall into 
 
   BuildAmp = Capability
   - Takes Rust models
-  - Amplifies them into JS, Elm, WASM, SQL
+  - Amplifies them into JS, Elm, SQL
   - Handles code generation
   - Provides the concrete tooling
   - Could theoretically work for any app
@@ -77,26 +77,6 @@ buildamp gen:db           # Only database queries
 # Check generation status
 buildamp status
 ```
-
-### WASM Generation
-
-BuildAmp can compile Rust models to WASM modules:
-
-```bash
-# Build WASM for web (default)
-buildamp gen:wasm
-
-# Build WASM for Node.js
-buildamp gen:wasm --target node
-
-# Force rebuild even if up to date
-buildamp gen:wasm --force
-
-# Check WASM build status
-buildamp status           # Shows web/node WASM status
-```
-
-WASM builds are tracked in `contracts.json` for incremental builds - unchanged models skip recompilation.
 
 ### Handler Safety Scripts
 

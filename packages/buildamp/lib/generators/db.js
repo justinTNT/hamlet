@@ -194,9 +194,9 @@ export function generateDatabaseQueries(config = {}) {
 
     // Get full path to database models
     const dbModelsPath = getModelsFullPath('db', paths);
-    
-    // Ensure output directory exists (using jsGlueDir)
-    const outputPath = ensureOutputDir(paths.jsOutputPath);
+
+    // Ensure output directory exists
+    const outputPath = ensureOutputDir(paths.serverGlueDir);
 
     const allStructs = [];
 

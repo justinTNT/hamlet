@@ -1,6 +1,13 @@
 /**
  * BuildAmp Path Discovery
  * Detects project structure and provides paths for code generation
+ *
+ * NOTE: This module is for HAMLET framework use only.
+ * BuildAmp generators should use explicit --src and --dest paths instead.
+ * This magic discovery is kept here for backward compatibility with hamlet.
+ *
+ * Hamlet uses these functions to discover project structure automatically.
+ * BuildAmp CLI requires explicit paths for predictable behavior.
  */
 
 import fs from 'fs';
@@ -118,14 +125,6 @@ export function discoverProjectPaths(rootDir = process.cwd()) {
  * Uses .hamlet-gen to indicate these are generated for Hamlet apps
  */
 export const HAMLET_GEN_DIR = '.hamlet-gen';
-export const CONTRACTS_FILE = 'contracts.json';
-
-/**
- * Get the full path to contracts.json for a given project
- */
-export function getContractsPath(projectPaths) {
-    return path.join(projectPaths.elmGlueDir, CONTRACTS_FILE);
-}
 
 /**
  * Ensure .hamlet-gen directories exist

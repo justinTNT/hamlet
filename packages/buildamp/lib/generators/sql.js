@@ -436,9 +436,8 @@ export async function generateSqlMigrations(config = {}) {
         }
     }
 
-    // Determine output directory (server/migrations or similar)
-    const serverDir = path.join(process.cwd(), `app/${paths.appName}/server`);
-    const migrationsDir = path.join(serverDir, 'migrations');
+    // Determine output directory - put migrations in sql subdirectory of dest
+    const migrationsDir = path.join(paths.outputDir, 'sql', 'migrations');
 
     // Ensure migrations directory exists
     if (!fs.existsSync(migrationsDir)) {
@@ -562,7 +561,6 @@ export async function generateSchemaIntrospection(config = {}) {
 
     const introspection = {
         generatedAt: new Date().toISOString(),
-        appName: paths.appName,
         tables,
         relationships,
         summary: {
@@ -571,11 +569,8 @@ export async function generateSchemaIntrospection(config = {}) {
         }
     };
 
-    // Write to schema.json
-    const outputDir = path.join(process.cwd(), paths.jsGlueDir);
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-    }
+    // Write to schema.json in the server glue directory
+    const outputDir = ensureOutputDir(paths.serverGlueDir);
 
     const schemaFile = path.join(outputDir, 'schema.json');
     fs.writeFileSync(schemaFile, JSON.stringify(introspection, null, 2));

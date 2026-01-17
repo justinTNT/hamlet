@@ -17,7 +17,7 @@ console.log('');
 console.log('🚀 POST /api/GetFeed');
 console.log('  • Automatic host injection from tenant context'); 
 console.log('  • Type-safe request/response handling');
-console.log('  • WASM business logic integration');
+console.log('  • Business logic integration');
 console.log('');
 
 console.log('🚀 POST /api/SubmitItem'); 

@@ -1,7 +1,7 @@
 {
     "name": "buildamp",
     "version": "0.1.0",
-    "description": "WASM and code generation from Rust models",
+    "description": "Code generation from Rust models",
     "type": "module",
     "main": "./lib/index.js",
     "bin": {
@@ -19,7 +19,6 @@
         "test": "node --test tests/*.test.js"
     },
     "keywords": [
-        "wasm",
         "rust",
         "elm",
         "codegen",

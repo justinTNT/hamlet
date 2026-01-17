@@ -1,14 +1,11 @@
 import path from 'path';
 import fs from 'fs';
 import elmPlugin from 'vite-plugin-elm';
-import wasm from 'vite-plugin-wasm';
-import topLevelAwait from 'vite-plugin-top-level-await';
 
 export default function buildampPlugin(options = {}) {
     const config = {
         projectRoot: options.projectRoot || process.cwd(),
-        elm: options.elm || {},
-        wasm: options.wasm || {}
+        elm: options.elm || {}
     };
 
     // Initialize bundled plugins
@@ -16,8 +13,6 @@ export default function buildampPlugin(options = {}) {
 
     return [
         elm,
-        wasm(config.wasm),
-        topLevelAwait(),
         {
             name: 'vite-plugin-buildamp-reactive',
             

@@ -6,7 +6,7 @@
  * ⚠️  Changes will be overwritten during next generation
  * 
  * This file replaces manual endpoint switching with individual Express routes
- * that include automatic validation, context injection, and WASM integration.
+ * that include automatic validation and context injection.
  */
 
 /**

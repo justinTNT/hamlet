@@ -2,7 +2,7 @@
 
 /**
  * BuildAmp CLI
- * WASM and code generation from Rust models
+ * Code generation from Rust models
  */
 
 import { cli } from '../lib/cli.js';

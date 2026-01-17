@@ -13,12 +13,10 @@
         "vite",
         "vite-plugin",
         "buildamp",
-        "rust", 
-        "wasm",
+        "rust",
         "elm",
         "hot-reload",
-        "hmr",
-        "typescript"
+        "hmr"
     ],
     "author": "BuildAmp Team",
     "license": "MIT",
@@ -32,9 +30,7 @@
         "url": "https://github.com/buildamp/buildamp/issues"
     },
     "dependencies": {
-        "vite-plugin-elm": "^3.0.1",
-        "vite-plugin-wasm": "^3.2.2",
-        "vite-plugin-top-level-await": "^1.3.0"
+        "vite-plugin-elm": "^3.0.1"
     },
     "peerDependencies": {
         "vite": "^4.0.0 || ^5.0.0"

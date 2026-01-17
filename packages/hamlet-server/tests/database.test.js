@@ -4,11 +4,10 @@ describe('Database Middleware', () => {
     test('database middleware can be configured', () => {
         const server = new HamletServer({ 
             port: 0,
-            features: { 
+            features: {
                 database: true,
-                kv: false, 
-                sse: false, 
-                wasm: false 
+                kv: false,
+                sse: false
             }
         });
         
@@ -21,7 +20,7 @@ describe('Database Middleware', () => {
         // Just test feature detection without mocking complex pg behavior
         const server = new HamletServer({ 
             port: 0,
-            features: { database: true, kv: false, sse: false, wasm: false }
+            features: { database: true, kv: false, sse: false }
         });
         
         // Test that database feature is detected

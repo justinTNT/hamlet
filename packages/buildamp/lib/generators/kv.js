@@ -294,10 +294,10 @@ export function generateKvStore(config = {}) {
 
     // Get the models directory and output file paths
     const MODELS_DIR = getModelsFullPath('kv', paths);
-    const OUTPUT_FILE = path.join(process.cwd(), paths.jsOutputPath, 'kv-store.js');
+    const OUTPUT_FILE = path.join(paths.serverGlueDir, 'kv-store.js');
 
     // Ensure output directory exists
-    ensureOutputDir(paths.jsOutputPath);
+    ensureOutputDir(paths.serverGlueDir);
 
     const allStructs = [];
     const allDbReferences = new Set(); // Track all DB model references for cache primitives

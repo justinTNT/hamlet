@@ -1,41 +1,65 @@
 /**
  * Shared path utilities for generators
- * Wraps core/paths.js for backward compatibility
+ * All paths are explicit - no magic discovery
  */
 
 import fs from 'fs';
 import path from 'path';
-import { discoverProjectPaths } from '../../core/paths.js';
 
 /**
- * Get project paths with defaults for generation
- * Uses core path discovery for consistency
+ * Create paths object from explicit src/dest configuration
+ * @param {Object} config - Configuration with src and dest paths
+ * @param {string} config.src - Source models directory (absolute path)
+ * @param {string} config.dest - Destination output directory (absolute path)
  */
-export function getGenerationPaths(config = {}) {
-    // Use core path discovery
-    const paths = discoverProjectPaths();
+export function createPaths(config) {
+    if (!config.src) {
+        throw new Error('buildamp requires --src flag (path to models directory)');
+    }
+    if (!config.dest) {
+        throw new Error('buildamp requires --dest flag (path to output directory)');
+    }
 
-    // Use new .hamlet-gen output paths
-    const outputPaths = {
-        jsOutputPath: config.jsOutputPath || paths.jsGlueDir,
-        elmOutputPath: config.elmOutputPath || paths.elmGlueDir,
-    };
+    const src = path.resolve(config.src);
+    const dest = path.resolve(config.dest);
+
+    // Output subdirectories matching actual project structure
+    const serverGlueDir = path.join(dest, 'server', '.hamlet-gen');
+    const webGlueDir = path.join(dest, 'web', 'src', '.hamlet-gen');
 
     return {
-        ...paths,
-        ...outputPaths,
+        // Source paths
+        modelsDir: src,
+        dbModelsDir: path.join(src, 'db'),
+        apiModelsDir: path.join(src, 'api'),
+        storageModelsDir: path.join(src, 'storage'),
+        kvModelsDir: path.join(src, 'kv'),
+        sseModelsDir: path.join(src, 'sse'),
+        eventsModelsDir: path.join(src, 'events'),
+        configModelsDir: path.join(src, 'config'),
+
+        // Output paths
+        outputDir: dest,
+        serverGlueDir,
+        webGlueDir,
+
+        // Legacy aliases (for generator compatibility)
+        jsGlueDir: serverGlueDir,      // Server-side JS (api-routes, db-queries, kv-store)
+        elmGlueDir: webGlueDir,        // Web Elm + browser JS (ApiClient.elm, browser-storage.js)
+        elmOutputPath: webGlueDir,     // Alias for elm generators
+        serverHandlersDir: path.join(dest, 'server', 'src', 'Api', 'Handlers'),
 
         // Helper to get specific model paths
         getModelPath: (modelType) => {
             switch (modelType) {
-                case 'db': return paths.dbModelsDir;
-                case 'api': return paths.apiModelsDir;
-                case 'storage': return paths.storageModelsDir;
-                case 'kv': return paths.kvModelsDir;
-                case 'sse': return paths.sseModelsDir;
-                case 'events': return paths.eventsModelsDir;
-                case 'config': return paths.configModelsDir;
-                default: return paths.modelsDir;
+                case 'db': return path.join(src, 'db');
+                case 'api': return path.join(src, 'api');
+                case 'storage': return path.join(src, 'storage');
+                case 'kv': return path.join(src, 'kv');
+                case 'sse': return path.join(src, 'sse');
+                case 'events': return path.join(src, 'events');
+                case 'config': return path.join(src, 'config');
+                default: return src;
             }
         }
     };
@@ -45,7 +69,7 @@ export function getGenerationPaths(config = {}) {
  * Check if a models directory exists
  */
 export function modelsExist(modelType, paths) {
-    const modelsPath = path.join(process.cwd(), paths.getModelPath(modelType));
+    const modelsPath = paths.getModelPath(modelType);
     return fs.existsSync(modelsPath);
 }
 
@@ -53,18 +77,17 @@ export function modelsExist(modelType, paths) {
  * Get full path for a model directory
  */
 export function getModelsFullPath(modelType, paths) {
-    return path.join(process.cwd(), paths.getModelPath(modelType));
+    return paths.getModelPath(modelType);
 }
 
 /**
  * Ensure output directory exists
  */
 export function ensureOutputDir(outputPath) {
-    const fullPath = path.join(process.cwd(), outputPath);
-    if (!fs.existsSync(fullPath)) {
-        fs.mkdirSync(fullPath, { recursive: true });
+    if (!fs.existsSync(outputPath)) {
+        fs.mkdirSync(outputPath, { recursive: true });
     }
-    return fullPath;
+    return outputPath;
 }
 
 /**
@@ -117,12 +140,12 @@ export function parseCrossModelReferences(content) {
  * Load DB model metadata for cache primitive generation
  * Returns parsed DB models that can be used as cache types
  *
- * @param {Object} paths - Generation paths object
+ * @param {Object} paths - Paths object from createPaths
  * @returns {Map<string, Object>} Map of model name to model metadata
  */
 export function loadDbModelMetadata(paths) {
     const dbModels = new Map();
-    const dbPath = getModelsFullPath('db', paths);
+    const dbPath = paths.getModelPath('db');
 
     if (!fs.existsSync(dbPath)) {
         return dbModels;
@@ -168,4 +191,57 @@ export function loadDbModelMetadata(paths) {
     }
 
     return dbModels;
+}
+
+/**
+ * Get generation paths - accepts pre-computed paths, src/dest config, or legacy config
+ *
+ * @param {Object} config - Configuration object
+ * @param {Object} [config.paths] - Pre-computed paths object (from orchestrator)
+ * @param {string} [config.src] - Source models directory (for direct calls)
+ * @param {string} [config.dest] - Destination output directory (for direct calls)
+ * @param {string} [config.inputBasePath] - Legacy: path to models (maps to src parent)
+ * @param {string} [config.handlersPath] - Legacy: path to handlers output
+ */
+export function getGenerationPaths(config = {}) {
+    // If paths already provided (from orchestrator), use them directly
+    if (config.paths) {
+        return config.paths;
+    }
+
+    // Check for legacy config options (used by tests)
+    if (config.inputBasePath && !config.src) {
+        // Legacy mode - build paths from inputBasePath
+        const modelsDir = path.resolve(config.inputBasePath);
+        const outputDir = config.handlersPath ?
+            path.resolve(path.dirname(config.handlersPath), '..', '..', '..') :
+            process.cwd();
+
+        // Allow explicit jsOutputPath override for tests
+        const jsOutputDir = config.jsOutputPath
+            ? path.resolve(config.jsOutputPath)
+            : path.join(outputDir, 'server', '.hamlet-gen');
+
+        return {
+            modelsDir,
+            dbModelsDir: path.join(modelsDir, 'db'),
+            apiModelsDir: path.join(modelsDir, 'api'),
+            storageModelsDir: path.join(modelsDir, 'storage'),
+            kvModelsDir: path.join(modelsDir, 'kv'),
+            sseModelsDir: path.join(modelsDir, 'sse'),
+            eventsModelsDir: path.join(modelsDir, 'events'),
+            configModelsDir: path.join(modelsDir, 'config'),
+            outputDir,
+            serverGlueDir: jsOutputDir,
+            webGlueDir: path.join(outputDir, 'web', 'src', '.hamlet-gen'),
+            jsGlueDir: jsOutputDir,
+            elmGlueDir: path.join(outputDir, 'web', 'src', '.hamlet-gen'),
+            elmOutputPath: config.backendElmPath || path.join(outputDir, 'web', 'src', '.hamlet-gen'),
+            serverHandlersDir: config.handlersPath || path.join(outputDir, 'server', 'src', 'Api', 'Handlers'),
+            getModelPath: (modelType) => path.join(modelsDir, modelType)
+        };
+    }
+
+    // Otherwise create paths from src/dest
+    return createPaths(config);
 }

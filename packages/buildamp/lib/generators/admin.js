@@ -7,40 +7,41 @@
 
 import fs from 'fs';
 import path from 'path';
-import { discoverProjectPaths } from '../../core/paths.js';
+import { getGenerationPaths, modelsExist, ensureOutputDir } from './shared-paths.js';
 
 /**
  * Generate Admin UI resources
+ * @param {Object} config - Configuration with paths
  */
-export async function generateAdminUi() {
+export async function generateAdminUi(config = {}) {
     console.log('👑 Admin UI Generation:');
 
-    const projectPaths = discoverProjectPaths();
+    const paths = getGenerationPaths(config);
+
+    // Check if database models exist
+    if (!modelsExist('db', paths)) {
+        console.log('⚠️  No database models found to generate admin UI');
+        return { message: 'No models found' };
+    }
 
     // Parse database models from Rust files
-    const models = await discoverAndParseModels(projectPaths);
+    const models = await discoverAndParseModels(paths);
 
     if (models.length === 0) {
         console.log('⚠️  No database models found to generate admin UI');
         return { message: 'No models found' };
     }
 
-    // Determine output path
-    const outputPath = `app/${projectPaths.appName}`;
-    const adminSrcDir = path.join(outputPath, 'admin/src/Generated');
-    
-    // Ensure output directory exists
-    if (!fs.existsSync(adminSrcDir)) {
-        fs.mkdirSync(adminSrcDir, { recursive: true });
-    }
+    // Determine output path - admin goes in elm/admin subdirectory
+    const adminSrcDir = ensureOutputDir(path.join(paths.elmOutputPath, 'admin', 'Generated'));
 
     // Generate Resources.elm
     generateResourcesElm(models, adminSrcDir);
 
     console.log(`  - Generated Resources.elm with ${models.length} models`);
     console.log(`  - Output: ${path.join(adminSrcDir, 'Resources.elm')}`);
-    
-    return { 
+
+    return {
         models: models.length,
         outputFile: path.join(adminSrcDir, 'Resources.elm')
     };

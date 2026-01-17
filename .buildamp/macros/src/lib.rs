@@ -689,28 +689,25 @@ fn extract_api_struct_names(file_path: &str, module_name: &str) -> Result<Vec<(S
     Ok(base_names_with_module)
 }
 
-/// Generate WASM functions based on discovered API models
+/// Generate API functions based on discovered API models
 fn generate_wasm_functions(api_models: &[(String, String)]) -> proc_macro2::TokenStream {
     if api_models.is_empty() {
         return quote! {
-            // No API models found - generating placeholder WASM functions
-            #[wasm_bindgen]
+            // No API models found - generating placeholder functions
             pub fn dispatcher(_endpoint: String, _wire: String, _context_json: String) -> String {
                 "{}".to_string()
             }
-            
-            #[wasm_bindgen] 
+
             pub fn get_openapi_spec() -> String {
                 "{}".to_string()
             }
-            
-            #[wasm_bindgen]
+
             pub fn decode_response(_endpoint: String, wire: String) -> String {
                 wire
             }
         };
     }
-    
+
     // Generate dispatcher pairs with correct module paths
     let dispatcher_pairs: Vec<_> = api_models.iter().map(|(module, base_name)| {
         let module_ident = syn::Ident::new(module, proc_macro2::Span::call_site());
@@ -718,7 +715,7 @@ fn generate_wasm_functions(api_models: &[(String, String)]) -> proc_macro2::Toke
         let res_ident = syn::Ident::new(&format!("{}Res", base_name), proc_macro2::Span::call_site());
         quote! { (crate::models::api::#module_ident::#req_ident, crate::models::api::#module_ident::#res_ident) }
     }).collect();
-    
+
     // Generate decode response cases
     let decode_cases: Vec<_> = api_models.iter().map(|(module, base_name)| {
         let module_ident = syn::Ident::new(module, proc_macro2::Span::call_site());
@@ -732,23 +729,20 @@ fn generate_wasm_functions(api_models: &[(String, String)]) -> proc_macro2::Toke
             }
         }
     }).collect();
-    
+
     quote! {
-        #[wasm_bindgen]
         pub fn dispatcher(endpoint: String, wire: String, context_json: String) -> String {
             use buildamp_macro::generate_dispatcher;
             let context: crate::framework::common::Context = serde_json::from_str(&context_json).unwrap_or_default();
             generate_dispatcher!(#(#dispatcher_pairs),*)
         }
 
-        #[wasm_bindgen]
         pub fn get_openapi_spec() -> String {
             use buildamp_macro::generate_openapi_spec;
             generate_openapi_spec!(#(#dispatcher_pairs),*);
             get_openapi_spec()
         }
 
-        #[wasm_bindgen]
         pub fn decode_response(endpoint: String, wire: String) -> String {
             #(#decode_cases)*
             wire

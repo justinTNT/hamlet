@@ -70,7 +70,7 @@ function expect(actual, message) {
 test('Admin UI generation completes successfully', () => {
     console.log('\n👑 Testing admin UI generation...');
     try {
-        const output = execSync('node packages/buildamp/bin/buildamp.js gen', { stdio: 'pipe', encoding: 'utf8', cwd: rootDir });
+        const output = execSync('node packages/buildamp/bin/buildamp.js gen --src app/horatio/models --dest app/horatio', { stdio: 'pipe', encoding: 'utf8', cwd: rootDir });
         const success = output.includes('Admin UI Generation') && output.includes('Resources.elm');
         return expect(success, 'Admin UI generation ran without errors').toBe(true);
     } catch (error) {

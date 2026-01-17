@@ -479,7 +479,7 @@ function generateApiRoutes(config = {}) {
  * ⚠️  Changes will be overwritten during next generation
  * 
  * This file replaces manual endpoint switching with individual Express routes
- * that include automatic validation, context injection, and WASM integration.
+ * that include automatic validation and context injection.
  */
 
 /**
@@ -505,11 +505,8 @@ ${allRoutes}
     fs.writeFileSync(elmOutputFile, elmClientCode);
     
     // Write Elm backend types file
-    // BackendTypes.elm goes to the server's generated directory (not in .hamlet-gen)
-    const backendOutputPath = config.backendElmPath ? 
-        path.resolve(config.backendElmPath) :
-        path.join(process.cwd(), paths.appName === 'default' ? 'generated/Generated' : `app/${paths.appName}/server/generated`);
-    ensureOutputDir(backendOutputPath);
+    // BackendTypes.elm goes to elm/backend subdirectory of dest
+    const backendOutputPath = ensureOutputDir(path.join(paths.elmOutputPath, 'backend'));
     const backendOutputFile = path.join(backendOutputPath, 'BackendTypes.elm');
     fs.writeFileSync(backendOutputFile, elmBackendCode);
     

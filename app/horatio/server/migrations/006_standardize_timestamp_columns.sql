@@ -4,7 +4,7 @@
 -- Update microblog_items table
 ALTER TABLE microblog_items RENAME COLUMN timestamp TO created_at;
 
--- Update item_comments table  
+-- Update item_comments table
 ALTER TABLE item_comments RENAME COLUMN timestamp TO created_at;
 
 -- Update existing indexes to use new column name

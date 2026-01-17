@@ -1,8 +1,7 @@
 /**
  * BuildAmp Core
- * Re-exports all core utilities
+ * Re-exports core utilities
  */
 
-export * from './paths.js';
-export * from './contracts.js';
 export * from './parser.js';
+export * from './paths.js';

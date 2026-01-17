@@ -8,9 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
     plugins: [
         buildampPlugin({
-            crateDir: path.resolve(__dirname, '../'),
-            wasmOutDirWeb: 'pkg-web',
-            wasmOutDirNode: 'pkg-node'
+            crateDir: path.resolve(__dirname, '../')
         })
     ],
     server: {

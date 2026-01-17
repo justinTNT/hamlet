@@ -19,29 +19,14 @@ import path from 'path';
  */
 export async function generateElmHandlers(config = {}) {
     console.log('🔧 Analyzing Rust API definitions...');
-    
-    // Auto-detect project name for fallback
-    function getProjectName() {
-        const appDir = path.join(process.cwd(), 'app');
-        if (!fs.existsSync(appDir)) return null;
-        const projects = fs.readdirSync(appDir).filter(name => {
-            const fullPath = path.join(appDir, name);
-            const modelsPath = path.join(fullPath, 'models');
-            return fs.statSync(fullPath).isDirectory() && fs.existsSync(modelsPath);
-        });
-        return projects[0];
-    }
-    
-    const PROJECT_NAME = config.projectName || getProjectName();
-    const apiDir = config.inputBasePath ? `${config.inputBasePath}/api` :
-                   (PROJECT_NAME ? `app/${PROJECT_NAME}/models/api` : path.join(process.cwd(), 'src/models/api'));
-    const outputDir = config.handlersPath || 
-                     (PROJECT_NAME ? `app/${PROJECT_NAME}/server/src/Api/Handlers` : path.join(process.cwd(), 'src/Api/Handlers'));
-    
-    // Ensure output directory exists
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-    }
+
+    // Import getGenerationPaths for explicit paths
+    const { getGenerationPaths, ensureOutputDir } = await import('./shared-paths.js');
+    const paths = getGenerationPaths(config);
+
+    // Use explicit paths from config
+    const apiDir = paths.getModelPath('api');
+    const outputDir = ensureOutputDir(paths.serverHandlersDir);
     
     // Find all API files
     let apiFiles = [];
@@ -77,10 +62,14 @@ export async function generateElmHandlers(config = {}) {
             }
             
             // Check if required shared modules exist before generating new handlers
-            const databaseModulePath = config.backendElmPath ? 
-                `${config.backendElmPath}/Generated/Database.elm` :
-                (PROJECT_NAME ? `app/${PROJECT_NAME}/server/src/generated/Generated/Database.elm` : 'generated/Generated/Database.elm');
-            if (!fs.existsSync(databaseModulePath)) {
+            // Try multiple possible locations for Database.elm
+            const possiblePaths = [
+                path.join(paths.elmOutputPath, 'server', 'Generated', 'Database.elm'),
+                path.join(paths.elmOutputPath, 'Generated', 'Database.elm'),
+                path.join(paths.elmOutputPath, 'Database.elm')
+            ];
+            const databaseModuleExists = possiblePaths.some(p => fs.existsSync(p));
+            if (!databaseModuleExists) {
                 console.log(`   ⚠️  Skipping ${endpoint.name}HandlerTEA.elm (Database.elm not found - run shared module generation first)`);
                 skippedCount++;
                 continue;
@@ -98,10 +87,10 @@ export async function generateElmHandlers(config = {}) {
     
     console.log('');
     // Generate compilation script for all handlers
-    generateCompileScript(allEndpoints, config, PROJECT_NAME);
-    
+    generateCompileScript(allEndpoints, paths);
+
     // Generate updated elm-service.js integration
-    generateServiceIntegration(allEndpoints, config, PROJECT_NAME);
+    generateServiceIntegration(allEndpoints, paths);
     
     console.log('📊 Elm Handler Generation Summary:');
     console.log(`   Generated: ${generatedCount} new handlers`);
@@ -400,25 +389,31 @@ subscriptions _ =
 /**
  * Check if a handler needs regeneration due to dependency changes
  */
-function shouldRegenerateHandler(handlerFilePath, config = {}, PROJECT_NAME = null) {
+function shouldRegenerateHandler(handlerFilePath, paths) {
     try {
         const handlerContent = fs.readFileSync(handlerFilePath, 'utf-8');
         const handlerStat = fs.statSync(handlerFilePath);
-        
+
         // Check if handler imports Generated.Database
         const importsDatabase = /import\s+Generated\.Database/m.test(handlerContent);
-        
+
         if (importsDatabase) {
-            const databaseModulePath = config.backendElmPath ? 
-                `${config.backendElmPath}/Generated/Database.elm` :
-                (PROJECT_NAME ? `app/${PROJECT_NAME}/server/src/generated/Generated/Database.elm` : 'generated/Generated/Database.elm');
-            
-            if (fs.existsSync(databaseModulePath)) {
-                const databaseStat = fs.statSync(databaseModulePath);
-                
-                // Regenerate if Database module is newer than handler
-                if (databaseStat.mtime > handlerStat.mtime) {
-                    return true;
+            // Try multiple possible locations for Database.elm
+            const possiblePaths = [
+                path.join(paths.elmOutputPath, 'server', 'Generated', 'Database.elm'),
+                path.join(paths.elmOutputPath, 'Generated', 'Database.elm'),
+                path.join(paths.elmOutputPath, 'Database.elm')
+            ];
+
+            for (const databaseModulePath of possiblePaths) {
+                if (fs.existsSync(databaseModulePath)) {
+                    const databaseStat = fs.statSync(databaseModulePath);
+
+                    // Regenerate if Database module is newer than handler
+                    if (databaseStat.mtime > handlerStat.mtime) {
+                        return true;
+                    }
+                    break;
                 }
             }
         }
@@ -496,20 +491,20 @@ function generateResponseEncoder(endpoint) {
 /**
  * Generate compilation script for Elm handlers
  */
-function generateCompileScript(endpoints, config = {}, PROJECT_NAME = null) {
+function generateCompileScript(endpoints, paths) {
     const compileScript = `#!/bin/bash
 # Auto-generated Elm handler compilation script
-# Run this from app/{appName}/server/ directory
+# Run this from the handlers directory
 
 set -e
 echo "🔨 Compiling Elm handlers..."
 
 # Auto-discover all .elm files in the handlers directory
-for elm_file in src/Api/Handlers/*.elm; do
+for elm_file in *.elm; do
     if [ -f "$elm_file" ]; then
         # Extract filename without path and extension
         basename=$(basename "$elm_file" .elm)
-        
+
         echo "Compiling $basename..."
         elm make "$elm_file" --output="$basename.js" && mv "$basename.js" "$basename.cjs"
     fi
@@ -517,35 +512,28 @@ done
 
 echo "✅ All handlers compiled successfully!"
 `;
-    
-    // Always put compile script in app/{project}/server/ directory
-    const scriptPath = PROJECT_NAME ? 
-        `app/${PROJECT_NAME}/server/compile-handlers.sh` : 
-        'compile-handlers.sh';
+
+    // Put compile script in handlers output directory
+    const scriptPath = path.join(paths.serverHandlersDir, 'compile-handlers.sh');
     fs.writeFileSync(scriptPath, compileScript);
     fs.chmodSync(scriptPath, '755'); // Make executable
-    
+
     console.log(`   ✅ Generated compilation script: ${scriptPath}`);
 }
 
 /**
  * Generate updated elm-service.js integration
  */
-function generateServiceIntegration(endpoints, config = {}, PROJECT_NAME = null) {
-    const handlerConfigs = endpoints.map(endpoint => 
+function generateServiceIntegration(endpoints, paths) {
+    const handlerConfigs = endpoints.map(endpoint =>
         `            { name: '${endpoint.name}', file: '${endpoint.name}HandlerTEA', function: 'handle${endpoint.name}' }`
     ).join(',\n');
-    
-    // Compute handler path outside the template
-    const baseHandlersPath = config.backendElmPath ? 
-        config.backendElmPath.replace('/generated', '') :
-        (PROJECT_NAME ? `app/${PROJECT_NAME}/server` : 'server');
-    
+
     const serviceCode = `/**
  * Elm Service Middleware - Auto-generated
- * 
+ *
  * Executes compiled Elm handler functions for business logic.
- * This is where the "Rust once, JSON never" magic happens - 
+ * This is where the "Rust once, JSON never" magic happens -
  * Rust defines the API, Elm implements the business logic.
  */
 
@@ -556,44 +544,42 @@ import { createRequire } from 'module';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export default function createElmService(server) {
+export default function createElmService(server, handlersPath) {
     console.log('🌳 Setting up Elm service with individual handlers');
-    
+
     const handlers = new Map();
     const require = createRequire(import.meta.url);
-    
+
     // Load compiled Elm handlers
     try {
-        const handlersPath = path.join(__dirname, '../../../${baseHandlersPath}');
-        
         // Auto-generated handler configurations
         const handlerConfigs = [
 ${handlerConfigs}
         ];
-        
+
         for (const handlerConfig of handlerConfigs) {
             try {
                 const handlerPath = path.join(handlersPath, handlerConfig.file + '.cjs');
-                
+
                 // Load the compiled handler module
                 delete require.cache[require.resolve(handlerPath)];
                 const handlerModule = require(handlerPath);
-                
+
                 // Store the handler function
                 handlers.set(handlerConfig.name, {
                     ...handlerConfig,
                     handler: handlerModule.Elm['Api.Handlers.' + handlerConfig.file][handlerConfig.function]
                 });
-                
+
                 console.log('✅ Loaded handler: ' + handlerConfig.name);
             } catch (error) {
                 console.log('⚠️  Handler ' + handlerConfig.name + ' not found: ' + error.message);
                 // Handler will use fallback
             }
         }
-        
+
         console.log('🎯 Ready with ' + handlers.size + ' Elm handlers');
-        
+
     } catch (error) {
         console.error('❌ Failed to load Elm handlers:', error.message);
         return createFallbackService(server);
@@ -605,30 +591,30 @@ ${handlerConfigs}
          */
         async callHandler(handlerName, requestData, context = {}) {
             const handlerConfig = handlers.get(handlerName);
-            
+
             if (!handlerConfig || !handlerConfig.handler) {
                 throw new Error('Handler ' + handlerName + ' not available');
             }
-            
+
             try {
                 // Call the Elm handler function directly
                 const result = handlerConfig.handler(requestData);
-                
+
                 console.log('🌳 ' + handlerName + ' handler completed successfully');
                 return result;
-                
+
             } catch (error) {
                 console.error('❌ ' + handlerName + ' handler failed:', error);
                 throw error;
             }
         },
-        
+
         cleanup: async () => {
             console.log('🧹 Cleaning up Elm service');
             handlers.clear();
         }
     };
-    
+
     server.registerService('elm', elmService);
     return elmService;
 }
@@ -638,46 +624,37 @@ ${handlerConfigs}
  */
 function createFallbackService(server) {
     console.log('🔄 Creating fallback Elm service');
-    
+
     const fallbackService = {
         async callHandler(handlerName, requestData) {
             throw new Error('Elm service not available. Cannot call handler: ' + handlerName);
         },
-        
+
         cleanup: async () => console.log('🧹 Cleaning up fallback Elm service')
     };
-    
+
     server.registerService('elm', fallbackService);
     return fallbackService;
 }
 `;
-    
-    // Auto-detect service path based on working directory
-    const cwd = process.cwd();
-    
-    // Check if we have packages/hamlet-server in the current directory structure
-    const hasPackagesStructure = fs.existsSync('packages/hamlet-server/middleware');
-    const inHamletServer = cwd.includes('packages/hamlet-server');
-    
-    const servicePath = config.jsOutputPath ? 
-        `${config.jsOutputPath}/middleware/elm-service.js` :
-        ((inHamletServer && !hasPackagesStructure)
-            ? 'middleware/elm-service.js' 
-            : 'packages/hamlet-server/middleware/elm-service.js');
-    
-    // Check if middleware already has TEA handler support
-    const existingCode = fs.existsSync(servicePath) ? fs.readFileSync(servicePath, 'utf-8') : '';
-    const hasTeaSupport = existingCode.includes('TEA Handler Support') || existingCode.includes('handleRequest');
-    
-    if (hasTeaSupport) {
-        console.log(`   ⏭️  Skipping service integration: ${servicePath} (TEA support detected)`);
-    } else {
-        // Ensure directory exists before writing
-        const serviceDir = path.dirname(servicePath);
-        if (!fs.existsSync(serviceDir)) {
-            fs.mkdirSync(serviceDir, { recursive: true });
+
+    // Write to server glue directory
+    const servicePath = path.join(paths.serverGlueDir, 'elm-service.js');
+
+    // Skip if existing TEA support is detected
+    if (fs.existsSync(servicePath)) {
+        const existingContent = fs.readFileSync(servicePath, 'utf-8');
+        if (existingContent.includes('TEA Handler Support')) {
+            console.log(`   ⏭️  Skipping service integration (existing TEA support detected)`);
+            return;
         }
-        fs.writeFileSync(servicePath, serviceCode);
-        console.log(`   ✅ Generated service integration: ${servicePath}`);
     }
+
+    // Ensure directory exists before writing
+    const serviceDir = path.dirname(servicePath);
+    if (!fs.existsSync(serviceDir)) {
+        fs.mkdirSync(serviceDir, { recursive: true });
+    }
+    fs.writeFileSync(servicePath, serviceCode);
+    console.log(`   ✅ Generated service integration: ${servicePath}`);
 }

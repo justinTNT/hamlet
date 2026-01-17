@@ -15,32 +15,26 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 function parseArgs() {
     const args = process.argv.slice(2);
     const options = {
-        codegenOnly: false,
         fromModels: null,
         dryRun: false,
-        output: null,
         help: false,
         projectName: null
     };
-    
+
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
-        
-        if (arg === '--codegen-only') {
-            options.codegenOnly = true;
-        } else if (arg === '--from-models') {
+
+        if (arg === '--from-models') {
             options.fromModels = args[++i];
         } else if (arg === '--dry-run') {
             options.dryRun = true;
-        } else if (arg === '--output' || arg === '-o') {
-            options.output = args[++i];
         } else if (arg === '--help' || arg === '-h') {
             options.help = true;
         } else if (!arg.startsWith('--') && !options.projectName) {
             options.projectName = arg;
         }
     }
-    
+
     return options;
 }
 
@@ -50,19 +44,15 @@ ${bold('create-buildamp')} - BuildAmp project generator
 
 ${bold('USAGE:')}
   create-buildamp [PROJECT_NAME]                    Create new app from template
-  create-buildamp --codegen-only [OPTIONS]         Generate WASM and types only
   create-buildamp --from-models <DIR> <PROJECT>    Create app from existing models
 
 ${bold('OPTIONS:')}
-  --codegen-only              Generate WASM, JS, and TypeScript definitions
   --from-models <dir>         Use existing models directory as source
-  --output, -o <dir>          Output directory (default: dist/ for codegen)
   --dry-run                   Show what would be generated without creating files
   --help, -h                  Show this help message
 
 ${bold('EXAMPLES:')}
   ${cyan('create-buildamp my-app')}                      Create new app
-  ${cyan('create-buildamp --codegen-only --output dist')} Generate artifacts only
   ${cyan('create-buildamp --from-models src/models test-app')} App from models
   ${cyan('create-buildamp --dry-run --from-models src/models')}   Preview generation
 `);
@@ -70,102 +60,19 @@ ${bold('EXAMPLES:')}
 
 async function init() {
     const options = parseArgs();
-    
+
     if (options.help) {
         showHelp();
         return;
     }
-    
-    if (options.codegenOnly) {
-        await handleCodegenOnly(options);
-        return;
-    }
-    
+
     if (options.fromModels) {
         await handleFromModels(options);
         return;
     }
-    
+
     // Traditional template scaffolding
     await handleTraditionalScaffolding(options);
-}
-
-async function handleCodegenOnly(options) {
-    const outputDir = options.output || 'dist';
-    
-    if (options.dryRun) {
-        console.log(`${yellow('DRY RUN:')} Would generate WASM artifacts to ${bold(outputDir)}/`);
-        console.log(`  - buildamp.wasm`);
-        console.log(`  - buildamp.js`);
-        console.log(`  - buildamp.d.ts`);
-        console.log(`  - infrastructure.sql`);
-        console.log(`  - manifest.json`);
-        console.log(`  - elm/`);
-        console.log(`    - Api.elm`);
-        console.log(`    - Database.elm`);
-        console.log(`    - Events.elm`);
-        console.log(`    - Storage.elm`);
-        console.log(`    - KeyValue.elm`);
-        console.log(`    - ServerSentEvents.elm`);
-        console.log(`    - handlers/`);
-        console.log(`      - GetFeedHandler.elm`);
-        console.log(`      - SubmitItemHandler.elm`);
-        console.log(`      - SubmitCommentHandler.elm`);
-        console.log(`    - webhooks/`);
-        console.log(`      - SendWelcomeEmailWebhook.elm`);
-        console.log(`      - ProcessVideoWebhook.elm`);
-        return;
-    }
-    
-    console.log(`${cyan('Generating WASM artifacts...')}`);
-    
-    // Create output directory
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-    }
-    
-    try {
-        // Build WASM package
-        console.log('Building WASM package...');
-        execSync('cargo build --release', { stdio: 'inherit' });
-        execSync('wasm-pack build --target web --out-dir pkg-web', { stdio: 'inherit' });
-        
-        // Copy WASM artifacts
-        const wasmFiles = ['pkg-web/proto_rust.js', 'pkg-web/proto_rust_bg.wasm', 'pkg-web/proto_rust.d.ts'];
-        for (const file of wasmFiles) {
-            if (fs.existsSync(file)) {
-                const destName = file.replace('pkg-web/proto_rust', 'buildamp').replace('_bg', '');
-                fs.copyFileSync(file, path.join(outputDir, path.basename(destName)));
-            }
-        }
-        
-        // Generate infrastructure files using Node.js to call WASM
-        console.log('Generating infrastructure files...');
-        try {
-            await generateInfrastructureFiles(outputDir);
-        } catch (error) {
-            console.warn(`${yellow('Warning:')} Infrastructure generation skipped: ${error.message}`);
-        }
-        
-        // Generate all types using main project's generation scripts
-        console.log('Generating Elm types...');
-        try {
-            await generateUsingMainScripts(outputDir);
-        } catch (error) {
-            console.warn(`${yellow('Warning:')} Generation skipped: ${error.message}`);
-        }
-        
-        console.log(`${green('✓')} WASM artifacts generated in ${bold(outputDir)}/`);
-        console.log(`\n${bold('Generated files:')}`);
-        fs.readdirSync(outputDir).forEach(file => {
-            console.log(`  - ${file}`);
-        });
-        
-    } catch (error) {
-        console.error(`${red('Error:')} Failed to generate WASM artifacts`);
-        console.error(error.message);
-        process.exit(1);
-    }
 }
 
 async function handleFromModels(options) {

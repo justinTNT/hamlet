@@ -77,16 +77,6 @@ describe('Core Paths Module', () => {
         assert.strictEqual(typeof result, 'boolean', 'isBuildAmpProject should return boolean');
     });
 
-    test('getContractsPath returns valid path', async () => {
-        const { discoverProjectPaths, getContractsPath } = await import('../core/paths.js');
-
-        const projectPaths = discoverProjectPaths();
-        const contractsPath = getContractsPath(projectPaths);
-
-        assert.strictEqual(typeof contractsPath, 'string', 'contractsPath should be a string');
-        assert.ok(contractsPath.endsWith('contracts.json'), 'should end with contracts.json');
-    });
-
     test('HAMLET_GEN_DIR constant is correct', async () => {
         const { HAMLET_GEN_DIR } = await import('../core/paths.js');
 
