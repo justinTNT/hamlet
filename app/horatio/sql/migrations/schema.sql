@@ -77,8 +77,8 @@ CREATE INDEX idx_microblog_item_host ON microblog_item(host);
 -- Generated from tag.rs
 CREATE TABLE tag (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
-    host TEXT NOT NULL,
     name TEXT NOT NULL,
+    host TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE,
     deleted_at TIMESTAMP WITH TIME ZONE

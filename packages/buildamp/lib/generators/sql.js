@@ -67,6 +67,16 @@ function rustTypeToSql(fieldType, fieldName) {
         };
     }
 
+    // Link<T> - URL field, stored as TEXT
+    if (type.startsWith('Link<')) {
+        const innerType = type.slice(5, -1).trim();
+        const inner = rustTypeToSql(innerType, fieldName);
+        return {
+            sqlType: inner.sqlType,
+            constraints: inner.constraints
+        };
+    }
+
     // Basic types
     if (type === 'String' || type === 'str') {
         return { sqlType: 'TEXT', constraints: ['NOT NULL'] };
@@ -125,7 +135,9 @@ function parseRustStruct(content, filename) {
                 constraints: sqlInfo.constraints,
                 isPrimaryKey: fieldType.includes('DatabaseId'),
                 isTimestamp: fieldType.includes('Timestamp'),
-                isOptional: fieldType.includes('Option<')
+                isOptional: fieldType.includes('Option<'),
+                isLink: fieldType.includes('Link<'),
+                isRichContent: fieldType.includes('RichContent')
             });
         }
 
@@ -520,7 +532,9 @@ export async function generateSchemaIntrospection(config = {}) {
                 sqlType: field.sqlType,
                 nullable: field.isOptional,
                 isPrimaryKey: field.isPrimaryKey,
-                isTimestamp: field.isTimestamp
+                isTimestamp: field.isTimestamp,
+                isLink: field.isLink,
+                isRichContent: field.isRichContent
             };
 
             if (field.isPrimaryKey) {
@@ -559,13 +573,44 @@ export async function generateSchemaIntrospection(config = {}) {
         }
     }
 
+    // Detect join tables: no primary key, 2+ FKs, only FK columns + standard fields
+    const standardFields = ['host', 'created_at', 'updated_at', 'deleted_at'];
+    for (const tableName of Object.keys(tables)) {
+        const table = tables[tableName];
+        const fkColumns = table.foreignKeys.map(fk => fk.column);
+
+        table.isJoinTable = (
+            table.primaryKey === null &&
+            table.foreignKeys.length >= 2 &&
+            Object.keys(table.fields).every(f =>
+                fkColumns.includes(f) || standardFields.includes(f)
+            )
+        );
+    }
+
+    // Detect many-to-many relationships from join tables
+    const manyToManyRelationships = [];
+    for (const [tableName, table] of Object.entries(tables)) {
+        if (table.isJoinTable && table.foreignKeys.length === 2) {
+            const [fk1, fk2] = table.foreignKeys;
+            manyToManyRelationships.push({
+                table1: fk1.references.table,
+                table2: fk2.references.table,
+                joinTable: tableName
+            });
+        }
+    }
+
     const introspection = {
         generatedAt: new Date().toISOString(),
         tables,
         relationships,
+        manyToManyRelationships,
         summary: {
             tableCount: Object.keys(tables).length,
-            relationshipCount: relationships.length
+            relationshipCount: relationships.length,
+            joinTableCount: Object.values(tables).filter(t => t.isJoinTable).length,
+            manyToManyCount: manyToManyRelationships.length
         }
     };
 

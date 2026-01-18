@@ -62,13 +62,9 @@ export async function generateElmHandlers(config = {}) {
             }
             
             // Check if required shared modules exist before generating new handlers
-            // Try multiple possible locations for Database.elm
-            const possiblePaths = [
-                path.join(paths.elmOutputPath, 'server', 'Generated', 'Database.elm'),
-                path.join(paths.elmOutputPath, 'Generated', 'Database.elm'),
-                path.join(paths.elmOutputPath, 'Database.elm')
-            ];
-            const databaseModuleExists = possiblePaths.some(p => fs.existsSync(p));
+            // Database.elm is in server elm directory
+            const databaseModulePath = path.join(paths.serverElmDir, 'Generated', 'Database.elm');
+            const databaseModuleExists = fs.existsSync(databaseModulePath);
             if (!databaseModuleExists) {
                 console.log(`   ⚠️  Skipping ${endpoint.name}HandlerTEA.elm (Database.elm not found - run shared module generation first)`);
                 skippedCount++;
@@ -398,22 +394,14 @@ function shouldRegenerateHandler(handlerFilePath, paths) {
         const importsDatabase = /import\s+Generated\.Database/m.test(handlerContent);
 
         if (importsDatabase) {
-            // Try multiple possible locations for Database.elm
-            const possiblePaths = [
-                path.join(paths.elmOutputPath, 'server', 'Generated', 'Database.elm'),
-                path.join(paths.elmOutputPath, 'Generated', 'Database.elm'),
-                path.join(paths.elmOutputPath, 'Database.elm')
-            ];
+            // Database.elm is in server elm directory
+            const databaseModulePath = path.join(paths.serverElmDir, 'Generated', 'Database.elm');
+            if (fs.existsSync(databaseModulePath)) {
+                const databaseStat = fs.statSync(databaseModulePath);
 
-            for (const databaseModulePath of possiblePaths) {
-                if (fs.existsSync(databaseModulePath)) {
-                    const databaseStat = fs.statSync(databaseModulePath);
-
-                    // Regenerate if Database module is newer than handler
-                    if (databaseStat.mtime > handlerStat.mtime) {
-                        return true;
-                    }
-                    break;
+                // Regenerate if Database module is newer than handler
+                if (databaseStat.mtime > handlerStat.mtime) {
+                    return true;
                 }
             }
         }

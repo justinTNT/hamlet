@@ -10,7 +10,6 @@ import { generateKvStore } from './generators/kv.js';
 import { generateSSEEvents } from './generators/sse.js';
 import { generateElmSharedModules } from './generators/elm.js';
 import { generateElmHandlers } from './generators/handlers.js';
-import { generateAdminUi } from './generators/admin.js';
 import { generateSqlMigrations, generateSchemaIntrospection } from './generators/sql.js';
 import { createPaths } from './generators/shared-paths.js';
 
@@ -19,7 +18,7 @@ import { createPaths } from './generators/shared-paths.js';
  * When a model-dir is specified, these generators run
  */
 const modelDirGenerators = {
-    db: ['js', 'elm', 'admin', 'sql', 'schema'],
+    db: ['js', 'elm', 'sql', 'schema'],
     api: ['js', 'elm', 'handlers'],
     storage: ['js', 'elm'],
     kv: ['js', 'elm'],
@@ -77,7 +76,6 @@ const targetGenerators = {
     js: generateJavaScript,
     elm: generateElmSharedModules,
     handlers: generateElmHandlers,
-    admin: generateAdminUi,
     sql: generateSqlMigrations,
     schema: generateSchemaIntrospection,
 };

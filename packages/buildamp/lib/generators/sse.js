@@ -6,7 +6,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { parseCrossModelReferences } from './shared-paths.js';
+import { parseCrossModelReferences, getGenerationPaths, ensureOutputDir } from './shared-paths.js';
 
 // Parse SSE event models from Rust file content
 function parseSSEModels(content, filename) {
@@ -286,48 +286,19 @@ export function setupSSE(app, baseUrl = '/api/events') {
 
 // Generate all SSE-related files
 export function generateSSEEvents(config = {}) {
-    // Auto-detect project name for fallback
-    function getProjectName() {
-        const appDir = path.join(process.cwd(), 'app');
-        if (!fs.existsSync(appDir)) return null;
-        
-        const projects = fs.readdirSync(appDir).filter(name => {
-            const fullPath = path.join(appDir, name);
-            const modelsPath = path.join(fullPath, 'models');
-            
-            return fs.statSync(fullPath).isDirectory() && 
-                   fs.existsSync(modelsPath);
-        });
-        
-        return projects[0];
-    }
+    const paths = getGenerationPaths(config);
 
-    const PROJECT_NAME = config.projectName || getProjectName();
-    const sseModelsPath = config.inputBasePath ? 
-        path.resolve(config.inputBasePath, 'sse') :
-        path.join(process.cwd(), 'src/models/sse');
-    const elmOutputPath = config.backendElmPath ? 
-        path.resolve(config.backendElmPath) :
-        (PROJECT_NAME ? path.join(process.cwd(), `app/${PROJECT_NAME}/server/generated`) : path.join(process.cwd(), 'generated'));
-    const jsOutputPath = config.jsOutputPath ? 
-        path.resolve(config.jsOutputPath) :
-        path.join(process.cwd(), 'packages/hamlet-server/generated');
-    
+    const sseModelsPath = paths.sseModelsDir;
+    const elmOutputPath = ensureOutputDir(paths.webGlueDir);  // SSE events go to web (client-side)
+    const jsOutputPath = ensureOutputDir(paths.serverGlueDir);
+
     if (!fs.existsSync(sseModelsPath)) {
-        console.log('📁 No src/models/sse directory found, skipping SSE generation');
+        console.log('📁 No SSE models directory found, skipping SSE generation');
         return {
             models: 0,
             generated: false,
             outputFiles: []
         };
-    }
-    
-    // Ensure output directories exist
-    if (!fs.existsSync(elmOutputPath)) {
-        fs.mkdirSync(elmOutputPath, { recursive: true });
-    }
-    if (!fs.existsSync(jsOutputPath)) {
-        fs.mkdirSync(jsOutputPath, { recursive: true });
     }
     
     const allModels = [];

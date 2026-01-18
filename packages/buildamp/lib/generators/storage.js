@@ -320,7 +320,7 @@ encode${name} ${varName} =
 -}
 decode${name} : Json.Decode.Decoder ${name}
 decode${name} =
-    Json.Decode.map${model.fields.length} ${name}
+    Json.Decode.map${model.fields.length === 1 ? '' : model.fields.length} ${name}
         ${decoderFields}
 
 

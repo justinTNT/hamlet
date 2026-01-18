@@ -10,5 +10,4 @@ export { generateKvStore } from './kv.js';
 export { generateSSEEvents } from './sse.js';
 export { generateElmSharedModules } from './elm.js';
 export { generateElmHandlers } from './handlers.js';
-export { generateAdminUi } from './admin.js';
 export { generateSqlMigrations, generateSchemaIntrospection } from './sql.js';

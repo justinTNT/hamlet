@@ -83,7 +83,7 @@ describe('BuildAmp Orchestrator', () => {
     test('valid targets are accepted', withSuppressedConsole(async () => {
         const { generate } = await import('../lib/orchestrator.js');
 
-        const validTargets = ['js', 'elm', 'handlers', 'admin', 'sql', 'schema'];
+        const validTargets = ['js', 'elm', 'handlers', 'sql', 'schema'];
 
         for (const target of validTargets) {
             // Each target should not throw an "Unknown target" error
@@ -148,7 +148,6 @@ describe('Generator Mapping Logic', () => {
 
         assert.ok(generatorNames.includes('js'), 'db model-dir should run js generator');
         assert.ok(generatorNames.includes('elm'), 'db model-dir should run elm generator');
-        assert.ok(generatorNames.includes('admin'), 'db model-dir should run admin generator');
         assert.ok(generatorNames.includes('sql'), 'db model-dir should run sql generator');
         assert.ok(generatorNames.includes('schema'), 'db model-dir should run schema generator');
     }));

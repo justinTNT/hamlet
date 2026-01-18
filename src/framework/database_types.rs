@@ -108,6 +108,40 @@ impl<T> From<T> for JsonBlob<T> {
     }
 }
 
+/// A URL/link field with semantic meaning for admin UI display
+/// Maps to SQL: `field_name TEXT` (same as inner type)
+/// Admin UI renders this as a clickable, truncated external link
+#[derive(Debug, Clone, Serialize, Deserialize, Elm, ElmEncode, ElmDecode)]
+#[repr(transparent)]
+pub struct Link<T>(pub T);
+
+impl<T> Link<T> {
+    pub fn new(value: T) -> Self {
+        Link(value)
+    }
+
+    pub fn get(&self) -> &T {
+        &self.0
+    }
+
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+impl<T> std::ops::Deref for Link<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> From<T> for Link<T> {
+    fn from(value: T) -> Self {
+        Link::new(value)
+    }
+}
+
 // Type aliases for common database patterns
 pub type DatabaseId<T> = Generated<T>;
 pub type AutoIncrement<T> = Generated<T>;

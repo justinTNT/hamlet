@@ -1,9 +1,0 @@
-{
-  "version": "1.0",
-  "hash": {
-    "signature": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "files": {}
-  },
-  "timestamp": "2026-01-08T11:24:27.472Z",
-  "modelsDir": "src/models"
-}

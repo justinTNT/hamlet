@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-01-17T16:22:39.183Z",
+  "generatedAt": "2026-01-18T01:59:54.839Z",
   "tables": {
     "guest": {
       "structName": "Guest",
@@ -11,35 +11,45 @@
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": true,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         },
         "name": {
           "rustType": "String",
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": false,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         },
         "picture": {
           "rustType": "String",
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": false,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         },
         "session_id": {
           "rustType": "String",
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": false,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         },
         "created_at": {
           "rustType": "Timestamp",
           "sqlType": "BIGINT",
           "nullable": false,
           "isPrimaryKey": false,
-          "isTimestamp": true
+          "isTimestamp": true,
+          "isLink": false,
+          "isRichContent": false
         }
       },
       "primaryKey": "id",
@@ -49,7 +59,8 @@
           "table": "item_comment",
           "column": "guest_id"
         }
-      ]
+      ],
+      "isJoinTable": false
     },
     "item_comment": {
       "structName": "ItemComment",
@@ -61,49 +72,63 @@
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": true,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         },
         "item_id": {
           "rustType": "String",
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": false,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         },
         "guest_id": {
           "rustType": "String",
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": false,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         },
         "parent_id": {
           "rustType": "Option<String>",
           "sqlType": "TEXT",
           "nullable": true,
           "isPrimaryKey": false,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         },
         "author_name": {
           "rustType": "String",
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": false,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         },
         "text": {
           "rustType": "String",
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": false,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         },
         "created_at": {
           "rustType": "Timestamp",
           "sqlType": "BIGINT",
           "nullable": false,
           "isPrimaryKey": false,
-          "isTimestamp": true
+          "isTimestamp": true,
+          "isLink": false,
+          "isRichContent": false
         }
       },
       "primaryKey": "id",
@@ -123,7 +148,8 @@
           }
         }
       ],
-      "referencedBy": []
+      "referencedBy": [],
+      "isJoinTable": false
     },
     "item_tag": {
       "structName": "ItemTag",
@@ -135,14 +161,18 @@
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": false,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         },
         "tag_id": {
           "rustType": "String",
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": false,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         }
       },
       "primaryKey": null,
@@ -162,7 +192,8 @@
           }
         }
       ],
-      "referencedBy": []
+      "referencedBy": [],
+      "isJoinTable": true
     },
     "microblog_item": {
       "structName": "MicroblogItem",
@@ -174,56 +205,72 @@
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": true,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         },
         "title": {
           "rustType": "String",
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": false,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         },
         "link": {
-          "rustType": "Option<String>",
+          "rustType": "Option<Link<String>>",
           "sqlType": "TEXT",
           "nullable": true,
           "isPrimaryKey": false,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": true,
+          "isRichContent": false
         },
         "image": {
-          "rustType": "Option<String>",
+          "rustType": "Option<Link<String>>",
           "sqlType": "TEXT",
           "nullable": true,
           "isPrimaryKey": false,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": true,
+          "isRichContent": false
         },
         "extract": {
           "rustType": "Option<RichContent>",
           "sqlType": "JSONB",
           "nullable": true,
           "isPrimaryKey": false,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": true
         },
         "owner_comment": {
           "rustType": "RichContent",
           "sqlType": "JSONB",
           "nullable": false,
           "isPrimaryKey": false,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": true
         },
         "created_at": {
           "rustType": "Timestamp",
           "sqlType": "BIGINT",
           "nullable": false,
           "isPrimaryKey": false,
-          "isTimestamp": true
+          "isTimestamp": true,
+          "isLink": false,
+          "isRichContent": false
         },
         "view_count": {
           "rustType": "i32",
           "sqlType": "INTEGER",
           "nullable": false,
           "isPrimaryKey": false,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         }
       },
       "primaryKey": "id",
@@ -237,7 +284,8 @@
           "table": "item_tag",
           "column": "item_id"
         }
-      ]
+      ],
+      "isJoinTable": false
     },
     "tag": {
       "structName": "Tag",
@@ -249,21 +297,18 @@
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": true,
-          "isTimestamp": false
-        },
-        "host": {
-          "rustType": "String",
-          "sqlType": "TEXT",
-          "nullable": false,
-          "isPrimaryKey": false,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         },
         "name": {
           "rustType": "String",
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": false,
-          "isTimestamp": false
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         }
       },
       "primaryKey": "id",
@@ -273,7 +318,8 @@
           "table": "item_tag",
           "column": "tag_id"
         }
-      ]
+      ],
+      "isJoinTable": false
     }
   },
   "relationships": [
@@ -322,8 +368,17 @@
       "type": "many-to-one"
     }
   ],
+  "manyToManyRelationships": [
+    {
+      "table1": "microblog_item",
+      "table2": "tag",
+      "joinTable": "item_tag"
+    }
+  ],
   "summary": {
     "tableCount": 5,
-    "relationshipCount": 4
+    "relationshipCount": 4,
+    "joinTableCount": 1,
+    "manyToManyCount": 1
   }
 }

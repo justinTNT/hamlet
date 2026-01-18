@@ -53,8 +53,7 @@ describe('Generators Exports', () => {
             'generateKvStore',
             'generateSSEEvents',
             'generateElmSharedModules',
-            'generateElmHandlers',
-            'generateAdminUi'
+            'generateElmHandlers'
         ];
 
         for (const exportName of expectedExports) {
@@ -99,12 +98,5 @@ describe('Generators Exports', () => {
         const { generateElmHandlers } = await import('../lib/generators/index.js');
         const result = await generateElmHandlers(testConfig);
         assert.ok(typeof result === 'object', 'should return an object');
-    }));
-
-    test('generateAdminUi is callable', withSuppressedConsole(async () => {
-        const { generateAdminUi } = await import('../lib/generators/index.js');
-        const result = await generateAdminUi(testConfig);
-        // Admin UI generator may return undefined if successful
-        assert.ok(result === undefined || typeof result === 'object', 'should return object or undefined');
     }));
 });
