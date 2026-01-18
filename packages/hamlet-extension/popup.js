@@ -25,6 +25,26 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         return;
     }
 
+    // Check if URL is injectable (not a protected chrome:// or extension page)
+    const url = activeTab.url || "";
+    const isProtectedUrl = url.startsWith('chrome://') ||
+                           url.startsWith('chrome-extension://') ||
+                           url.startsWith('about:') ||
+                           url.startsWith('edge://') ||
+                           url.startsWith('brave://') ||
+                           url === '';
+
+    if (isProtectedUrl) {
+        console.log("Protected URL, skipping script injection:", url);
+        initElm({
+            title: activeTab.title || "",
+            url: url,
+            selection: "",
+            images: []
+        });
+        return;
+    }
+
     chrome.scripting.executeScript({
         target: { tabId: activeTab.id },
         func: () => {
@@ -88,6 +108,37 @@ function setupPorts(app) {
             } else {
                 app.ports.inbound.send(response);
             }
+        });
+    });
+
+    // Open admin UI in new tab
+    app.ports.openAdmin.subscribe(function (data) {
+        // data: { url: string, adminToken: string }
+        // Convert API URL to admin URL: http://localhost:3000/api -> http://localhost:3000/admin
+        let adminUrl = data.url.replace(/\/api\/?$/, '/admin');
+
+        // Append token as query param if provided
+        if (data.adminToken && data.adminToken.trim() !== '') {
+            adminUrl += '?admin_token=' + encodeURIComponent(data.adminToken);
+        }
+
+        console.log("Opening admin URL:", adminUrl);
+        chrome.tabs.create({ url: adminUrl });
+    });
+
+    // Host management ports
+    app.ports.saveHosts.subscribe(function (hosts) {
+        console.log("Saving hosts:", hosts);
+        chrome.storage.local.set({ hosts: hosts }, function () {
+            console.log("Hosts saved");
+        });
+    });
+
+    app.ports.loadHosts.subscribe(function () {
+        console.log("Loading hosts...");
+        chrome.storage.local.get(['hosts'], function (result) {
+            console.log("Hosts loaded:", result.hosts);
+            app.ports.hostsLoaded.send(result.hosts || []);
         });
     });
 }

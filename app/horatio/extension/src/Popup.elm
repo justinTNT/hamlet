@@ -4,10 +4,11 @@ import Api
 import Api.Port
 import Api.Schema
 import Browser
-import Html exposing (Html, button, div, h3, h4, text, input, textarea, img, label, select, option)
-import Html.Attributes exposing (placeholder, value, style, src, type_, checked, name, selected)
+import Html exposing (Html, button, div, h3, h4, p, text, input, textarea, img, label, select, option, span)
+import Html.Attributes exposing (placeholder, value, style, src, type_, checked, name, selected, class)
 import Html.Events exposing (onClick, onInput)
 import Json.Encode as Encode
+import Json.Decode as Decode
 
 
 -- PORTS
@@ -15,18 +16,56 @@ import Json.Encode as Encode
 port outbound : Encode.Value -> Cmd msg
 port inbound : (Encode.Value -> msg) -> Sub msg
 
+-- Host management ports
+port saveHosts : Encode.Value -> Cmd msg
+port loadHosts : () -> Cmd msg
+port hostsLoaded : (Encode.Value -> msg) -> Sub msg
+port openAdmin : Encode.Value -> Cmd msg
+
 
 -- HOST CONFIG
 
 type alias HostConfig =
     { name : String
     , url : String
+    , adminToken : String
     }
+
+
+encodeHosts : List HostConfig -> Encode.Value
+encodeHosts hosts =
+    Encode.list encodeHost hosts
+
+
+encodeHost : HostConfig -> Encode.Value
+encodeHost host =
+    Encode.object
+        [ ( "name", Encode.string host.name )
+        , ( "url", Encode.string host.url )
+        , ( "adminToken", Encode.string host.adminToken )
+        ]
+
+
+decodeHosts : Decode.Decoder (List HostConfig)
+decodeHosts =
+    Decode.list decodeHost
+
+
+decodeHost : Decode.Decoder HostConfig
+decodeHost =
+    Decode.map3 HostConfig
+        (Decode.field "name" Decode.string)
+        (Decode.field "url" Decode.string)
+        (Decode.oneOf
+            [ Decode.field "adminToken" Decode.string
+            , Decode.succeed ""
+            ]
+        )
 
 
 defaultHosts : List HostConfig
 defaultHosts =
-    [ { name = "test", url = "http://localhost:3000/api" }
+    [ { name = "localhost", url = "http://localhost:3000/api", adminToken = "" }
     ]
 
 
@@ -47,6 +86,11 @@ hostFromUrl url =
 
 
 -- MODEL
+
+type View
+    = WriterView
+    | SettingsView
+
 
 type alias Flags =
     { title : String
@@ -70,7 +114,16 @@ type alias Model =
     , newTagInput : String
     , hosts : List HostConfig
     , selectedHost : HostConfig
+    , currentView : View
+    , editingHost : Maybe HostConfig
+    , hostForm : HostConfig
+    , hostsLoaded : Bool
     }
+
+
+emptyHostForm : HostConfig
+emptyHostForm =
+    { name = "", url = "", adminToken = "" }
 
 
 init : Flags -> ( Model, Cmd Msg )
@@ -80,21 +133,10 @@ init flags =
 
         initialHost =
             List.head defaultHosts
-                |> Maybe.withDefault { name = "localhost", url = "http://localhost:3000/api" }
-
-        host = hostFromUrl initialHost.url
-
-        req = Api.getTags { host = host }
-        portMsg = Api.Port.send GotTags req
-
-        ( newPortModel, cmd ) =
-            Api.Port.update
-                { sendPort = sendWithUrl initialHost.url }
-                portMsg
-                initialPortModel
+                |> Maybe.withDefault { name = "localhost", url = "http://localhost:3000/api", adminToken = "" }
     in
-    ( { portModel = newPortModel
-      , status = "Ready"
+    ( { portModel = initialPortModel
+      , status = "Loading hosts..."
       , title = flags.title
       , url = flags.url
       , selection = flags.selection
@@ -104,10 +146,14 @@ init flags =
       , availableTags = []
       , selectedTags = []
       , newTagInput = ""
-      , hosts = defaultHosts
+      , hosts = []
       , selectedHost = initialHost
+      , currentView = WriterView
+      , editingHost = Nothing
+      , hostForm = emptyHostForm
+      , hostsLoaded = False
       }
-    , cmd
+    , loadHosts ()
     )
 
 
@@ -141,6 +187,14 @@ type Msg
     | NewTagInput String
     | AddNewTag
     | HostSelected String
+    | SwitchView View
+    | HostsReceived Encode.Value
+    | UpdateHostForm String String
+    | SaveHost
+    | EditHost HostConfig
+    | DeleteHost String
+    | CancelHostEdit
+    | OpenAdminForHost HostConfig
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -284,13 +338,198 @@ update msg model =
                 in
                 ( { model | selectedTags = newSelected, availableTags = newAvailable, newTagInput = "" }, Cmd.none )
 
+        SwitchView newView ->
+            ( { model | currentView = newView }, Cmd.none )
+
+        HostsReceived json ->
+            case Decode.decodeValue decodeHosts json of
+                Ok hosts ->
+                    let
+                        actualHosts =
+                            if List.isEmpty hosts then
+                                defaultHosts
+                            else
+                                hosts
+
+                        selectedHost =
+                            List.head actualHosts
+                                |> Maybe.withDefault model.selectedHost
+
+                        host = hostFromUrl selectedHost.url
+                        req = Api.getTags { host = host }
+                        portMsg = Api.Port.send GotTags req
+
+                        ( newPortModel, cmd ) =
+                            Api.Port.update
+                                { sendPort = sendWithUrl selectedHost.url }
+                                portMsg
+                                model.portModel
+                    in
+                    ( { model
+                      | hosts = actualHosts
+                      , selectedHost = selectedHost
+                      , hostsLoaded = True
+                      , status = "Ready"
+                      , portModel = newPortModel
+                      }
+                    , cmd
+                    )
+
+                Err _ ->
+                    ( { model
+                      | hosts = defaultHosts
+                      , selectedHost = List.head defaultHosts |> Maybe.withDefault model.selectedHost
+                      , hostsLoaded = True
+                      , status = "Ready"
+                      }
+                    , Cmd.none
+                    )
+
+        UpdateHostForm field val ->
+            let
+                hf = model.hostForm
+                newHostForm =
+                    case field of
+                        "name" ->
+                            { hf | name = val }
+                        "url" ->
+                            { hf | url = val }
+                        "adminToken" ->
+                            { hf | adminToken = val }
+                        _ ->
+                            hf
+            in
+            ( { model | hostForm = newHostForm }, Cmd.none )
+
+        SaveHost ->
+            let
+                newHost = model.hostForm
+
+                updatedHosts =
+                    case model.editingHost of
+                        Just editing ->
+                            List.map
+                                (\h ->
+                                    if h.name == editing.name then
+                                        newHost
+                                    else
+                                        h
+                                )
+                                model.hosts
+
+                        Nothing ->
+                            model.hosts ++ [ newHost ]
+
+                selectedHost =
+                    if model.selectedHost.name == (model.editingHost |> Maybe.map .name |> Maybe.withDefault "") then
+                        newHost
+                    else
+                        model.selectedHost
+            in
+            ( { model
+              | hosts = updatedHosts
+              , hostForm = emptyHostForm
+              , editingHost = Nothing
+              , selectedHost = selectedHost
+              }
+            , saveHosts (encodeHosts updatedHosts)
+            )
+
+        EditHost hostConfig ->
+            ( { model
+              | editingHost = Just hostConfig
+              , hostForm = hostConfig
+              }
+            , Cmd.none
+            )
+
+        DeleteHost hostName ->
+            let
+                updatedHosts =
+                    List.filter (\h -> h.name /= hostName) model.hosts
+
+                -- If we deleted the selected host, select the first remaining one
+                selectedHost =
+                    if model.selectedHost.name == hostName then
+                        List.head updatedHosts
+                            |> Maybe.withDefault model.selectedHost
+                    else
+                        model.selectedHost
+            in
+            ( { model | hosts = updatedHosts, selectedHost = selectedHost }
+            , saveHosts (encodeHosts updatedHosts)
+            )
+
+        CancelHostEdit ->
+            ( { model
+              | editingHost = Nothing
+              , hostForm = emptyHostForm
+              }
+            , Cmd.none
+            )
+
+        OpenAdminForHost hostConfig ->
+            ( model
+            , openAdmin
+                (Encode.object
+                    [ ( "url", Encode.string hostConfig.url )
+                    , ( "adminToken", Encode.string hostConfig.adminToken )
+                    ]
+                )
+            )
+
 
 -- VIEW
 
 view : Model -> Html Msg
 view model =
-    div [ style "width" "100%", style "padding" "15px", style "font-family" "sans-serif" ]
-        [ h3 [] [ text "Horatio Writer" ]
+    div [ style "width" "100%", style "padding" "15px", style "font-family" "sans-serif", style "min-width" "350px" ]
+        [ viewTabs model
+        , case model.currentView of
+            WriterView ->
+                viewWriter model
+
+            SettingsView ->
+                viewSettings model
+        ]
+
+
+viewTabs : Model -> Html Msg
+viewTabs model =
+    div [ style "display" "flex", style "border-bottom" "1px solid #ddd", style "margin-bottom" "15px" ]
+        [ viewTab "Writer" WriterView model.currentView
+        , viewTab "Hosts" SettingsView model.currentView
+        ]
+
+
+viewTab : String -> View -> View -> Html Msg
+viewTab label targetView currentView =
+    let
+        isActive = targetView == currentView
+        baseStyle =
+            [ style "padding" "8px 16px"
+            , style "cursor" "pointer"
+            , style "border" "none"
+            , style "background" "transparent"
+            , style "font-size" "14px"
+            ]
+        activeStyle =
+            if isActive then
+                [ style "border-bottom" "2px solid #007bff"
+                , style "color" "#007bff"
+                , style "font-weight" "bold"
+                ]
+            else
+                [ style "color" "#666" ]
+    in
+    button (baseStyle ++ activeStyle ++ [ onClick (SwitchView targetView) ])
+        [ text label ]
+
+
+viewWriter : Model -> Html Msg
+viewWriter model =
+    div []
+        [ h3 [ style "margin-top" "0" ] [ text "Horatio Writer" ]
 
         -- Host Selector
         , div [ style "margin-bottom" "10px" ]
@@ -395,6 +634,153 @@ view model =
         ]
 
 
+viewSettings : Model -> Html Msg
+viewSettings model =
+    div []
+        [ h3 [ style "margin-top" "0" ] [ text "Configured Hosts" ]
+        , p [ style "color" "#666", style "font-size" "0.9em", style "margin-bottom" "15px" ]
+            [ text "Manage your Horatio servers. Admin tokens are sent as headers for secure admin access." ]
+
+        -- Host form
+        , div [ style "background" "#f5f5f5", style "padding" "15px", style "border-radius" "4px", style "margin-bottom" "15px" ]
+            [ h4 [ style "margin-top" "0", style "margin-bottom" "10px" ]
+                [ text (if model.editingHost /= Nothing then "Edit Host" else "Add New Host") ]
+            , div [ style "margin-bottom" "10px" ]
+                [ label [ style "display" "block", style "font-weight" "bold", style "margin-bottom" "3px" ] [ text "Name" ]
+                , input
+                    [ value model.hostForm.name
+                    , onInput (UpdateHostForm "name")
+                    , placeholder "My Server"
+                    , style "width" "100%"
+                    , style "padding" "5px"
+                    , style "box-sizing" "border-box"
+                    ] []
+                ]
+            , div [ style "margin-bottom" "10px" ]
+                [ label [ style "display" "block", style "font-weight" "bold", style "margin-bottom" "3px" ] [ text "API URL" ]
+                , input
+                    [ value model.hostForm.url
+                    , onInput (UpdateHostForm "url")
+                    , placeholder "http://localhost:3000/api"
+                    , style "width" "100%"
+                    , style "padding" "5px"
+                    , style "box-sizing" "border-box"
+                    ] []
+                ]
+            , div [ style "margin-bottom" "10px" ]
+                [ label [ style "display" "block", style "font-weight" "bold", style "margin-bottom" "3px" ] [ text "Admin Token (optional)" ]
+                , input
+                    [ type_ "password"
+                    , value model.hostForm.adminToken
+                    , onInput (UpdateHostForm "adminToken")
+                    , placeholder "For admin UI access"
+                    , style "width" "100%"
+                    , style "padding" "5px"
+                    , style "box-sizing" "border-box"
+                    ] []
+                ]
+            , div [ style "display" "flex", style "gap" "10px" ]
+                [ button
+                    [ onClick SaveHost
+                    , style "padding" "8px 16px"
+                    , style "background-color" "#007bff"
+                    , style "color" "white"
+                    , style "border" "none"
+                    , style "cursor" "pointer"
+                    , style "border-radius" "4px"
+                    ]
+                    [ text (if model.editingHost /= Nothing then "Update" else "Add Host") ]
+                , if model.editingHost /= Nothing then
+                    button
+                        [ onClick CancelHostEdit
+                        , style "padding" "8px 16px"
+                        , style "background-color" "#6c757d"
+                        , style "color" "white"
+                        , style "border" "none"
+                        , style "cursor" "pointer"
+                        , style "border-radius" "4px"
+                        ]
+                        [ text "Cancel" ]
+                  else
+                    text ""
+                ]
+            ]
+
+        -- Host list
+        , if List.isEmpty model.hosts then
+            div [ style "color" "#666", style "font-style" "italic" ]
+                [ text "No hosts configured. Add one above." ]
+          else
+            div []
+                (List.map (viewHostRow model.selectedHost) model.hosts)
+        ]
+
+
+viewHostRow : HostConfig -> HostConfig -> Html Msg
+viewHostRow selectedHost host =
+    let
+        isSelected = host.name == selectedHost.name
+        hasAdminToken = not (String.isEmpty host.adminToken)
+    in
+    div
+        [ style "display" "flex"
+        , style "align-items" "center"
+        , style "padding" "10px"
+        , style "border" (if isSelected then "2px solid #007bff" else "1px solid #ddd")
+        , style "border-radius" "4px"
+        , style "margin-bottom" "8px"
+        , style "background" (if isSelected then "#f0f7ff" else "white")
+        ]
+        [ div [ style "flex-grow" "1" ]
+            [ div [ style "font-weight" "bold" ] [ text host.name ]
+            , div [ style "font-size" "0.85em", style "color" "#666" ] [ text host.url ]
+            , if hasAdminToken then
+                div [ style "font-size" "0.8em", style "color" "#28a745", style "margin-top" "2px" ]
+                    [ text "Admin access configured" ]
+              else
+                text ""
+            ]
+        , div [ style "display" "flex", style "gap" "5px", style "flex-shrink" "0" ]
+            [ if hasAdminToken then
+                button
+                    [ onClick (OpenAdminForHost host)
+                    , style "padding" "4px 8px"
+                    , style "background-color" "#28a745"
+                    , style "color" "white"
+                    , style "border" "none"
+                    , style "cursor" "pointer"
+                    , style "border-radius" "3px"
+                    , style "font-size" "0.85em"
+                    ]
+                    [ text "Admin" ]
+              else
+                text ""
+            , button
+                [ onClick (EditHost host)
+                , style "padding" "4px 8px"
+                , style "background-color" "#6c757d"
+                , style "color" "white"
+                , style "border" "none"
+                , style "cursor" "pointer"
+                , style "border-radius" "3px"
+                , style "font-size" "0.85em"
+                ]
+                [ text "Edit" ]
+            , button
+                [ onClick (DeleteHost host.name)
+                , style "padding" "4px 8px"
+                , style "background-color" "#dc3545"
+                , style "color" "white"
+                , style "border" "none"
+                , style "cursor" "pointer"
+                , style "border-radius" "3px"
+                , style "font-size" "0.85em"
+                ]
+                [ text "Delete" ]
+            ]
+        ]
+
+
 viewHostOption : HostConfig -> HostConfig -> Html Msg
 viewHostOption selectedHost host =
     option
@@ -459,5 +845,13 @@ main =
         { init = init
         , view = view
         , update = update
-        , subscriptions = \_ -> Api.Port.subscriptions inbound PortMsg
+        , subscriptions = subscriptions
         }
+
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Sub.batch
+        [ Api.Port.subscriptions inbound PortMsg
+        , hostsLoaded HostsReceived
+        ]
