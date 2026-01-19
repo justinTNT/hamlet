@@ -51,12 +51,12 @@ function suppressConsole() {
 function createElmModels(baseDir) {
     // Create directory structure
     const dirs = [
-        path.join(baseDir, 'shared', 'Schema'),
-        path.join(baseDir, 'shared', 'Api'),
-        path.join(baseDir, 'shared', 'Kv'),
-        path.join(baseDir, 'shared', 'Sse'),
-        path.join(baseDir, 'shared', 'Storage'),
-        path.join(baseDir, 'shared', 'Framework'),
+        path.join(baseDir, 'models', 'Schema'),
+        path.join(baseDir, 'models', 'Api'),
+        path.join(baseDir, 'models', 'Kv'),
+        path.join(baseDir, 'models', 'Sse'),
+        path.join(baseDir, 'models', 'Storage'),
+        path.join(baseDir, 'models', 'Framework'),
         path.join(baseDir, 'models'),
         path.join(baseDir, 'sql', 'migrations'),
     ];
@@ -66,8 +66,8 @@ function createElmModels(baseDir) {
     }
 
     // Create Framework types (required imports)
-    fs.writeFileSync(path.join(baseDir, 'shared', 'Framework', 'Schema.elm'), `
-module Framework.Schema exposing (..)
+    fs.writeFileSync(path.join(baseDir, 'models', 'Framework', 'Schema.elm'), `
+module Interface.Schema exposing (..)
 
 type alias DatabaseId a = a
 type alias Timestamp = Int
@@ -76,17 +76,17 @@ type alias ForeignKey parent child = child
 type alias Host = String
 `);
 
-    fs.writeFileSync(path.join(baseDir, 'shared', 'Framework', 'Api.elm'), `
-module Framework.Api exposing (..)
+    fs.writeFileSync(path.join(baseDir, 'models', 'Framework', 'Api.elm'), `
+module Interface.Api exposing (..)
 
 type alias Inject a = a
 `);
 
     // Create Schema (DB) model
-    fs.writeFileSync(path.join(baseDir, 'shared', 'Schema', 'TestItem.elm'), `
+    fs.writeFileSync(path.join(baseDir, 'models', 'Schema', 'TestItem.elm'), `
 module Schema.TestItem exposing (TestItem)
 
-import Framework.Schema exposing (DatabaseId, Timestamp)
+import Interface.Schema exposing (DatabaseId, Timestamp)
 
 type alias TestItem =
     { id : DatabaseId String
@@ -98,10 +98,10 @@ type alias TestItem =
     }
 `);
 
-    fs.writeFileSync(path.join(baseDir, 'shared', 'Schema', 'TestComment.elm'), `
+    fs.writeFileSync(path.join(baseDir, 'models', 'Schema', 'TestComment.elm'), `
 module Schema.TestComment exposing (TestComment)
 
-import Framework.Schema exposing (DatabaseId, ForeignKey, Timestamp)
+import Interface.Schema exposing (DatabaseId, ForeignKey, Timestamp)
 
 type alias TestComment =
     { id : DatabaseId String
@@ -113,10 +113,10 @@ type alias TestComment =
 `);
 
     // Create API model
-    fs.writeFileSync(path.join(baseDir, 'shared', 'Api', 'GetItems.elm'), `
+    fs.writeFileSync(path.join(baseDir, 'models', 'Api', 'GetItems.elm'), `
 module Api.GetItems exposing (..)
 
-import Framework.Api exposing (..)
+import Interface.Api exposing (..)
 
 type alias Request =
     { host : Inject String
@@ -133,10 +133,10 @@ type alias ItemSummary =
     }
 `);
 
-    fs.writeFileSync(path.join(baseDir, 'shared', 'Api', 'CreateItem.elm'), `
+    fs.writeFileSync(path.join(baseDir, 'models', 'Api', 'CreateItem.elm'), `
 module Api.CreateItem exposing (..)
 
-import Framework.Api exposing (..)
+import Interface.Api exposing (..)
 
 type alias Request =
     { host : Inject String
@@ -151,7 +151,7 @@ type alias Response =
 `);
 
     // Create KV model
-    fs.writeFileSync(path.join(baseDir, 'shared', 'Kv', 'CachedItems.elm'), `
+    fs.writeFileSync(path.join(baseDir, 'models', 'Kv', 'CachedItems.elm'), `
 module Kv.CachedItems exposing (..)
 
 type alias CachedItems =
@@ -162,7 +162,7 @@ type alias CachedItems =
 `);
 
     // Create SSE model
-    fs.writeFileSync(path.join(baseDir, 'shared', 'Sse', 'ItemCreatedEvent.elm'), `
+    fs.writeFileSync(path.join(baseDir, 'models', 'Sse', 'ItemCreatedEvent.elm'), `
 module Sse.ItemCreatedEvent exposing (..)
 
 type alias ItemCreatedEvent =
@@ -172,7 +172,7 @@ type alias ItemCreatedEvent =
     }
 `);
 
-    fs.writeFileSync(path.join(baseDir, 'shared', 'Sse', 'ItemDeletedEvent.elm'), `
+    fs.writeFileSync(path.join(baseDir, 'models', 'Sse', 'ItemDeletedEvent.elm'), `
 module Sse.ItemDeletedEvent exposing (..)
 
 type alias ItemDeletedEvent =
@@ -182,7 +182,7 @@ type alias ItemDeletedEvent =
 `);
 
     // Create Storage model
-    fs.writeFileSync(path.join(baseDir, 'shared', 'Storage', 'UserPrefs.elm'), `
+    fs.writeFileSync(path.join(baseDir, 'models', 'Storage', 'UserPrefs.elm'), `
 module Storage.UserPrefs exposing (..)
 
 type alias UserPrefs =
@@ -492,7 +492,7 @@ describe('Integration Tests - Error Handling', () => {
             fs.rmSync(tempDir, { recursive: true, force: true });
         }
         fs.mkdirSync(path.join(tempDir, 'models'), { recursive: true });
-        fs.mkdirSync(path.join(tempDir, 'shared'), { recursive: true });
+        fs.mkdirSync(path.join(tempDir, 'models'), { recursive: true });
 
         try {
             const paths = createTestConfig();

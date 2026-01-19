@@ -1,4 +1,4 @@
-module Framework.Events exposing (..)
+module Interface.Events exposing (..)
 
 {-| Event Framework Types
 

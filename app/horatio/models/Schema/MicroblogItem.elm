@@ -7,7 +7,7 @@ with optional link, image, and extract.
 
 -}
 
-import Framework.Schema exposing (DatabaseId, Link, MultiTenant, RichContent, SoftDelete, Timestamp)
+import Interface.Schema exposing (DatabaseId, Link, MultiTenant, RichContent, SoftDelete, Timestamp)
 
 
 type alias MicroblogItem =

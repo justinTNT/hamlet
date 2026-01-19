@@ -7,7 +7,7 @@ module Api.GetTags exposing (..)
 
 -}
 
-import Framework.Api exposing (..)
+import Interface.Api exposing (..)
 
 
 {-| Request payload for getting tags.

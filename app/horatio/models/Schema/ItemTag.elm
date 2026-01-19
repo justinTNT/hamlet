@@ -7,7 +7,7 @@ primary key - the combination of itemId and tagId is unique.
 
 -}
 
-import Framework.Schema exposing (ForeignKey, MultiTenant, SoftDelete)
+import Interface.Schema exposing (ForeignKey, MultiTenant, SoftDelete)
 import Schema.MicroblogItem exposing (MicroblogItem)
 import Schema.Tag exposing (Tag)
 

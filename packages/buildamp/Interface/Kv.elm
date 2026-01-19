@@ -1,4 +1,4 @@
-module Framework.Kv exposing (..)
+module Interface.Kv exposing (..)
 
 {-| KV Store Schema Types
 

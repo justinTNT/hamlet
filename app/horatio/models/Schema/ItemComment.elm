@@ -6,7 +6,7 @@ Comments can be nested via parentId for threaded discussions.
 
 -}
 
-import Framework.Schema exposing (DatabaseId, ForeignKey, MultiTenant, SoftDelete, Timestamp)
+import Interface.Schema exposing (DatabaseId, ForeignKey, MultiTenant, SoftDelete, Timestamp)
 import Schema.Guest exposing (Guest)
 import Schema.MicroblogItem exposing (MicroblogItem)
 

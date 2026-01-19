@@ -1,4 +1,4 @@
-module Framework.Api exposing (..)
+module Interface.Api exposing (..)
 
 {-| API Schema Types
 

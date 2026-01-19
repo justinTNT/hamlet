@@ -5,7 +5,7 @@ port module Generated.KV exposing (..)
 This module provides a strongly-typed, capability-based key-value store interface
 that automatically handles host isolation and TTL management.
 
-Generated from Elm models in: shared/Kv/*.elm
+Generated from Elm models in: models/Kv/*.elm
 
 @docs KvRequest, KvResult, KvData
 @docs set, get, delete, exists

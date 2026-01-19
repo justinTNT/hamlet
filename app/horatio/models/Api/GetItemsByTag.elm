@@ -7,7 +7,7 @@ module Api.GetItemsByTag exposing (..)
 
 -}
 
-import Framework.Api exposing (..)
+import Interface.Api exposing (..)
 import Api.GetFeed exposing (FeedItem)
 
 

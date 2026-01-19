@@ -7,7 +7,7 @@ module Api.GetItem exposing (..)
 
 -}
 
-import Framework.Api exposing (..)
+import Interface.Api exposing (..)
 import Api.SubmitItem exposing (MicroblogItem)
 
 

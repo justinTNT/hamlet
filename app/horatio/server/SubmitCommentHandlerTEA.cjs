@@ -3186,50 +3186,59 @@ var $author$project$Generated$Database$dbCreate = _Platform_outgoingPort(
 					$elm$json$Json$Encode$string($.table))
 				]));
 	});
+var $author$project$Generated$Database$encodeMaybe = F2(
+	function (encoder, maybeValue) {
+		if (maybeValue.$ === 'Nothing') {
+			return $elm$json$Json$Encode$null;
+		} else {
+			var value = maybeValue.a;
+			return encoder(value);
+		}
+	});
+var $author$project$Generated$Database$encodeItemCommentDbCreate = function (item) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'item_id',
+				$elm$json$Json$Encode$string(item.itemId)),
+				_Utils_Tuple2(
+				'guest_id',
+				$elm$json$Json$Encode$string(item.guestId)),
+				_Utils_Tuple2(
+				'parent_id',
+				A2($author$project$Generated$Database$encodeMaybe, $elm$json$Json$Encode$string, item.parentId)),
+				_Utils_Tuple2(
+				'author_name',
+				$elm$json$Json$Encode$string(item.authorName)),
+				_Utils_Tuple2(
+				'text',
+				$elm$json$Json$Encode$string(item.text)),
+				_Utils_Tuple2(
+				'created_at',
+				$elm$json$Json$Encode$int(item.createdAt))
+			]));
+};
 var $author$project$Api$Handlers$SubmitCommentHandlerTEA$getServerTimestamp = function (config) {
 	return config.serverNow;
 };
 var $author$project$Api$Handlers$SubmitCommentHandlerTEA$processRequest = F2(
 	function (request, model) {
 		var currentTimestamp = $author$project$Api$Handlers$SubmitCommentHandlerTEA$getServerTimestamp(model.globalConfig);
-		var insertData = $elm$json$Json$Encode$object(
-			_List_fromArray(
-				[
-					_Utils_Tuple2(
-					'item_id',
-					$elm$json$Json$Encode$string(request.itemId)),
-					_Utils_Tuple2(
-					'guest_id',
-					$elm$json$Json$Encode$string(
-						A2($elm$core$Maybe$withDefault, 'guest_anonymous', request.authorName))),
-					_Utils_Tuple2(
-					'author_name',
-					$elm$json$Json$Encode$string(
-						A2($elm$core$Maybe$withDefault, 'Anonymous', request.authorName))),
-					_Utils_Tuple2(
-					'text',
-					$elm$json$Json$Encode$string(request.text)),
-					_Utils_Tuple2(
-					'created_at',
-					$elm$json$Json$Encode$int(currentTimestamp)),
-					_Utils_Tuple2(
-					'parent_id',
-					function () {
-						var _v0 = request.parentId;
-						if (_v0.$ === 'Just') {
-							var pid = _v0.a;
-							return $elm$json$Json$Encode$string(pid);
-						} else {
-							return $elm$json$Json$Encode$null;
-						}
-					}())
-				]));
-		var dbRequest = {
-			data: insertData,
-			id: 'create_comment_' + $elm$core$String$fromInt(currentTimestamp),
-			table: 'item_comment'
+		var commentData = {
+			authorName: A2($elm$core$Maybe$withDefault, 'Anonymous', request.authorName),
+			createdAt: currentTimestamp,
+			guestId: A2($elm$core$Maybe$withDefault, 'guest_anonymous', request.authorName),
+			itemId: request.itemId,
+			parentId: request.parentId,
+			text: request.text
 		};
-		return $author$project$Generated$Database$dbCreate(dbRequest);
+		return $author$project$Generated$Database$dbCreate(
+			{
+				data: $author$project$Generated$Database$encodeItemCommentDbCreate(commentData),
+				id: 'create_comment_' + $elm$core$String$fromInt(currentTimestamp),
+				table: 'item_comment'
+			});
 	});
 var $author$project$Api$Handlers$SubmitCommentHandlerTEA$update = F2(
 	function (msg, model) {

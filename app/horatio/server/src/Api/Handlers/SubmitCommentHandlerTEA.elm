@@ -175,35 +175,26 @@ getServerTimestamp config =
 
 processRequest : SubmitCommentReq -> Model -> Cmd Msg
 processRequest request model =
-    -- Create a new comment and save it to database
     let
-        -- Use server timestamp for consistency  
         currentTimestamp = getServerTimestamp model.globalConfig
-        
-        -- Create database insert data for raw dbCreate
-        -- Note: id and host fields will be automatically generated/injected
-        insertData = 
-            Encode.object
-                [ ("item_id", Encode.string request.itemId)
-                , ("guest_id", Encode.string (Maybe.withDefault "guest_anonymous" request.authorName))
-                , ("author_name", Encode.string (Maybe.withDefault "Anonymous" request.authorName))
-                , ("text", Encode.string request.text)
-                , ("created_at", Encode.int currentTimestamp)
-                , ("parent_id", 
-                    case request.parentId of
-                        Just pid -> Encode.string pid
-                        Nothing -> Encode.null)
-                ]
-        
-        -- Create database request with auto-generated ID
-        dbRequest = 
-            { id = "create_comment_" ++ String.fromInt currentTimestamp
-            , table = "item_comment"
-            , data = insertData
+
+        -- Use type-safe DbCreate encoder
+        -- Framework fields (host, deletedAt) are injected automatically by the runtime
+        commentData : DB.ItemCommentDbCreate
+        commentData =
+            { itemId = request.itemId
+            , guestId = Maybe.withDefault "guest_anonymous" request.authorName
+            , parentId = request.parentId
+            , authorName = Maybe.withDefault "Anonymous" request.authorName
+            , text = request.text
+            , createdAt = currentTimestamp
             }
     in
-    -- Insert comment into database using raw dbCreate port
-    DB.dbCreate dbRequest
+    DB.dbCreate
+        { id = "create_comment_" ++ String.fromInt currentTimestamp
+        , table = "item_comment"
+        , data = DB.encodeItemCommentDbCreate commentData
+        }
 
 
 -- DECODING

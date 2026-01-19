@@ -166,7 +166,7 @@ update msg model =
                                           , existingTags = tags
                                           , tagsToCreate = tagsToCreate
                                           }
-                                        , createNextTag model.context tagsToCreate
+                                        , createNextTag tagsToCreate
                                         )
                                 Err err ->
                                     ( { model | stage = Failed (Decode.errorToString err) }
@@ -218,7 +218,7 @@ update msg model =
                                   | createdTagIds = newCreatedIds
                                   , tagsToCreate = remainingTags
                                   }
-                                , createNextTag model.context remainingTags
+                                , createNextTag remainingTags
                                 )
                         Err err ->
                             ( { model | stage = Failed (Decode.errorToString err) }
@@ -320,16 +320,18 @@ loadTags =
     DB.findTags DB.queryAll
 
 
-createNextTag : Maybe Context -> List String -> Cmd Msg
-createNextTag maybeCtx tags =
-    case ( maybeCtx, List.head tags ) of
-        ( Just _, Just tagName ) ->
+createNextTag : List String -> Cmd Msg
+createNextTag tags =
+    case List.head tags of
+        Just tagName ->
             DB.dbCreate
                 { id = "create_tag_" ++ tagName
                 , table = "tag"
-                , data = DB.encodeTagDbCreate { name = tagName }
+                , data = DB.encodeTagDbCreate
+                    { name = tagName
+                    }
                 }
-        _ ->
+        Nothing ->
             Cmd.none
 
 
@@ -340,7 +342,10 @@ linkTagsToItem maybeItemId tagIds =
             DB.dbCreate
                 { id = "link_tag_" ++ tagId
                 , table = "item_tag"
-                , data = DB.encodeItemTagDbCreate { itemId = itemId, tagId = tagId }
+                , data = DB.encodeItemTagDbCreate
+                    { itemId = itemId
+                    , tagId = tagId
+                    }
                 }
         _ ->
             Cmd.none

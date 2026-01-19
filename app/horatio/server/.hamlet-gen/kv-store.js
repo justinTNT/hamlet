@@ -1,6 +1,6 @@
 /**
  * Auto-Generated KV Store Functions
- * Generated from Elm models in app/horatio/shared/Kv
+ * Generated from Elm models in app/horatio/models/Kv
  *
  * DO NOT EDIT - Changes will be overwritten
  */

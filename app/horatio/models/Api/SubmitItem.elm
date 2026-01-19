@@ -7,7 +7,7 @@ module Api.SubmitItem exposing (..)
 
 -}
 
-import Framework.Api exposing (..)
+import Interface.Api exposing (..)
 import Api.SubmitComment exposing (CommentItem)
 
 

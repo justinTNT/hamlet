@@ -3,7 +3,9 @@
     "source-directories": [
         "src",
         "src/.hamlet-gen",
-        "../shared"
+        "../models",
+        "../models/.hamlet-gen",
+        "../../../packages/buildamp"
     ],
     "elm-version": "0.19.1",
     "dependencies": {

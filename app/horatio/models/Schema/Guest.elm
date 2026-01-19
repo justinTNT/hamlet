@@ -7,7 +7,7 @@ on microblog items.
 
 -}
 
-import Framework.Schema exposing (DatabaseId, MultiTenant, SoftDelete, Timestamp)
+import Interface.Schema exposing (DatabaseId, MultiTenant, SoftDelete, Timestamp)
 
 
 type alias Guest =

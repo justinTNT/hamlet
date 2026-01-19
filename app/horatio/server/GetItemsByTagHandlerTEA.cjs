@@ -2955,9 +2955,9 @@ var $elm$core$Basics$identity = function (x) {
 var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$complete = _Platform_outgoingPort('complete', $elm$core$Basics$identity);
 var $elm$json$Json$Decode$decodeValue = _Json_run;
 var $elm$json$Json$Decode$list = _Json_decodeList;
-var $author$project$Generated$Database$TagDb = F2(
-	function (id, name) {
-		return {id: id, name: name};
+var $author$project$Generated$Database$TagDb = F4(
+	function (id, host, name, deletedAt) {
+		return {deletedAt: deletedAt, host: host, id: id, name: name};
 	});
 var $elm$json$Json$Decode$map2 = _Json_map2;
 var $author$project$Generated$Database$andMap = $elm$json$Json$Decode$map2($elm$core$Basics$apR);
@@ -2965,60 +2965,6 @@ var $author$project$Generated$Database$decodeField = F2(
 	function (fieldName, decoder) {
 		return $author$project$Generated$Database$andMap(
 			A2($elm$json$Json$Decode$field, fieldName, decoder));
-	});
-var $author$project$Generated$Database$tagDbDecoder = A3(
-	$author$project$Generated$Database$decodeField,
-	'name',
-	$elm$json$Json$Decode$string,
-	A3(
-		$author$project$Generated$Database$decodeField,
-		'id',
-		$elm$json$Json$Decode$string,
-		$elm$json$Json$Decode$succeed($author$project$Generated$Database$TagDb)));
-var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$decodeAllTags = function (data) {
-	var _v0 = A2(
-		$elm$json$Json$Decode$decodeValue,
-		$elm$json$Json$Decode$list($author$project$Generated$Database$tagDbDecoder),
-		data);
-	if (_v0.$ === 'Ok') {
-		var tags = _v0.a;
-		return $elm$core$Result$Ok(tags);
-	} else {
-		var error = _v0.a;
-		return $elm$core$Result$Err(
-			'Failed to decode tags: ' + $elm$json$Json$Decode$errorToString(error));
-	}
-};
-var $author$project$Generated$Database$ItemTagDb = F2(
-	function (itemId, tagId) {
-		return {itemId: itemId, tagId: tagId};
-	});
-var $author$project$Generated$Database$itemtagDbDecoder = A3(
-	$author$project$Generated$Database$decodeField,
-	'tag_id',
-	$elm$json$Json$Decode$string,
-	A3(
-		$author$project$Generated$Database$decodeField,
-		'item_id',
-		$elm$json$Json$Decode$string,
-		$elm$json$Json$Decode$succeed($author$project$Generated$Database$ItemTagDb)));
-var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$decodeItemTags = function (data) {
-	var _v0 = A2(
-		$elm$json$Json$Decode$decodeValue,
-		$elm$json$Json$Decode$list($author$project$Generated$Database$itemtagDbDecoder),
-		data);
-	if (_v0.$ === 'Ok') {
-		var itemTags = _v0.a;
-		return $elm$core$Result$Ok(itemTags);
-	} else {
-		var error = _v0.a;
-		return $elm$core$Result$Err(
-			'Failed to decode item tags: ' + $elm$json$Json$Decode$errorToString(error));
-	}
-};
-var $author$project$Generated$Database$MicroblogItemDb = F8(
-	function (id, title, link, image, extract, ownerComment, createdAt, viewCount) {
-		return {createdAt: createdAt, extract: extract, id: id, image: image, link: link, ownerComment: ownerComment, title: title, viewCount: viewCount};
 	});
 var $elm$json$Json$Decode$nullable = function (decoder) {
 	return $elm$json$Json$Decode$oneOf(
@@ -3045,39 +2991,134 @@ var $author$project$Generated$Database$timestampDecoder = $elm$json$Json$Decode$
 			$elm$json$Json$Decode$int,
 			A2($elm$json$Json$Decode$andThen, $author$project$Generated$Database$stringToInt, $elm$json$Json$Decode$string)
 		]));
-var $author$project$Generated$Database$microblogitemDbDecoder = A3(
+var $author$project$Generated$Database$tagDbDecoder = A3(
 	$author$project$Generated$Database$decodeField,
-	'view_count',
-	$elm$json$Json$Decode$int,
+	'deleted_at',
+	$elm$json$Json$Decode$nullable($author$project$Generated$Database$timestampDecoder),
 	A3(
 		$author$project$Generated$Database$decodeField,
-		'created_at',
-		$author$project$Generated$Database$timestampDecoder,
+		'name',
+		$elm$json$Json$Decode$string,
 		A3(
 			$author$project$Generated$Database$decodeField,
-			'owner_comment',
+			'host',
 			$elm$json$Json$Decode$string,
 			A3(
 				$author$project$Generated$Database$decodeField,
-				'extract',
-				$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
+				'id',
+				$elm$json$Json$Decode$string,
+				$elm$json$Json$Decode$succeed($author$project$Generated$Database$TagDb)))));
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$decodeAllTags = function (data) {
+	var _v0 = A2(
+		$elm$json$Json$Decode$decodeValue,
+		$elm$json$Json$Decode$list($author$project$Generated$Database$tagDbDecoder),
+		data);
+	if (_v0.$ === 'Ok') {
+		var tags = _v0.a;
+		return $elm$core$Result$Ok(tags);
+	} else {
+		var error = _v0.a;
+		return $elm$core$Result$Err(
+			'Failed to decode tags: ' + $elm$json$Json$Decode$errorToString(error));
+	}
+};
+var $author$project$Generated$Database$ItemTagDb = F4(
+	function (itemId, tagId, host, deletedAt) {
+		return {deletedAt: deletedAt, host: host, itemId: itemId, tagId: tagId};
+	});
+var $author$project$Generated$Database$itemtagDbDecoder = A3(
+	$author$project$Generated$Database$decodeField,
+	'deleted_at',
+	$elm$json$Json$Decode$nullable($author$project$Generated$Database$timestampDecoder),
+	A3(
+		$author$project$Generated$Database$decodeField,
+		'host',
+		$elm$json$Json$Decode$string,
+		A3(
+			$author$project$Generated$Database$decodeField,
+			'tag_id',
+			$elm$json$Json$Decode$string,
+			A3(
+				$author$project$Generated$Database$decodeField,
+				'item_id',
+				$elm$json$Json$Decode$string,
+				$elm$json$Json$Decode$succeed($author$project$Generated$Database$ItemTagDb)))));
+var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$decodeItemTags = function (data) {
+	var _v0 = A2(
+		$elm$json$Json$Decode$decodeValue,
+		$elm$json$Json$Decode$list($author$project$Generated$Database$itemtagDbDecoder),
+		data);
+	if (_v0.$ === 'Ok') {
+		var itemTags = _v0.a;
+		return $elm$core$Result$Ok(itemTags);
+	} else {
+		var error = _v0.a;
+		return $elm$core$Result$Err(
+			'Failed to decode item tags: ' + $elm$json$Json$Decode$errorToString(error));
+	}
+};
+var $author$project$Generated$Database$MicroblogItemDb = function (id) {
+	return function (host) {
+		return function (title) {
+			return function (link) {
+				return function (image) {
+					return function (extract) {
+						return function (ownerComment) {
+							return function (createdAt) {
+								return function (viewCount) {
+									return function (deletedAt) {
+										return {createdAt: createdAt, deletedAt: deletedAt, extract: extract, host: host, id: id, image: image, link: link, ownerComment: ownerComment, title: title, viewCount: viewCount};
+									};
+								};
+							};
+						};
+					};
+				};
+			};
+		};
+	};
+};
+var $author$project$Generated$Database$microblogitemDbDecoder = A3(
+	$author$project$Generated$Database$decodeField,
+	'deleted_at',
+	$elm$json$Json$Decode$nullable($author$project$Generated$Database$timestampDecoder),
+	A3(
+		$author$project$Generated$Database$decodeField,
+		'view_count',
+		$elm$json$Json$Decode$int,
+		A3(
+			$author$project$Generated$Database$decodeField,
+			'created_at',
+			$author$project$Generated$Database$timestampDecoder,
+			A3(
+				$author$project$Generated$Database$decodeField,
+				'owner_comment',
+				$elm$json$Json$Decode$string,
 				A3(
 					$author$project$Generated$Database$decodeField,
-					'image',
+					'extract',
 					$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
 					A3(
 						$author$project$Generated$Database$decodeField,
-						'link',
+						'image',
 						$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
 						A3(
 							$author$project$Generated$Database$decodeField,
-							'title',
-							$elm$json$Json$Decode$string,
+							'link',
+							$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
 							A3(
 								$author$project$Generated$Database$decodeField,
-								'id',
+								'title',
 								$elm$json$Json$Decode$string,
-								$elm$json$Json$Decode$succeed($author$project$Generated$Database$MicroblogItemDb)))))))));
+								A3(
+									$author$project$Generated$Database$decodeField,
+									'host',
+									$elm$json$Json$Decode$string,
+									A3(
+										$author$project$Generated$Database$decodeField,
+										'id',
+										$elm$json$Json$Decode$string,
+										$elm$json$Json$Decode$succeed($author$project$Generated$Database$MicroblogItemDb)))))))))));
 var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$microblogItemDbDecoder = $author$project$Generated$Database$microblogitemDbDecoder;
 var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$decodeItems = function (data) {
 	var _v0 = A2(
@@ -3482,6 +3523,202 @@ var $author$project$Generated$Database$dbFind = _Platform_outgoingPort(
 					$elm$json$Json$Encode$string($.table))
 				]));
 	});
+var $author$project$Interface$Query$encodeFilterExpr = function (expr) {
+	switch (expr.$) {
+		case 'Eq':
+			var field = expr.a;
+			var value = expr.b;
+			return $elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						$elm$json$Json$Encode$string('Eq')),
+						_Utils_Tuple2(
+						'field',
+						$elm$json$Json$Encode$string(field)),
+						_Utils_Tuple2('value', value)
+					]));
+		case 'Neq':
+			var field = expr.a;
+			var value = expr.b;
+			return $elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						$elm$json$Json$Encode$string('Neq')),
+						_Utils_Tuple2(
+						'field',
+						$elm$json$Json$Encode$string(field)),
+						_Utils_Tuple2('value', value)
+					]));
+		case 'Gt':
+			var field = expr.a;
+			var value = expr.b;
+			return $elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						$elm$json$Json$Encode$string('Gt')),
+						_Utils_Tuple2(
+						'field',
+						$elm$json$Json$Encode$string(field)),
+						_Utils_Tuple2('value', value)
+					]));
+		case 'Gte':
+			var field = expr.a;
+			var value = expr.b;
+			return $elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						$elm$json$Json$Encode$string('Gte')),
+						_Utils_Tuple2(
+						'field',
+						$elm$json$Json$Encode$string(field)),
+						_Utils_Tuple2('value', value)
+					]));
+		case 'Lt':
+			var field = expr.a;
+			var value = expr.b;
+			return $elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						$elm$json$Json$Encode$string('Lt')),
+						_Utils_Tuple2(
+						'field',
+						$elm$json$Json$Encode$string(field)),
+						_Utils_Tuple2('value', value)
+					]));
+		case 'Lte':
+			var field = expr.a;
+			var value = expr.b;
+			return $elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						$elm$json$Json$Encode$string('Lte')),
+						_Utils_Tuple2(
+						'field',
+						$elm$json$Json$Encode$string(field)),
+						_Utils_Tuple2('value', value)
+					]));
+		case 'Like':
+			var field = expr.a;
+			var pattern = expr.b;
+			return $elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						$elm$json$Json$Encode$string('Like')),
+						_Utils_Tuple2(
+						'field',
+						$elm$json$Json$Encode$string(field)),
+						_Utils_Tuple2(
+						'value',
+						$elm$json$Json$Encode$string(pattern))
+					]));
+		case 'ILike':
+			var field = expr.a;
+			var pattern = expr.b;
+			return $elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						$elm$json$Json$Encode$string('ILike')),
+						_Utils_Tuple2(
+						'field',
+						$elm$json$Json$Encode$string(field)),
+						_Utils_Tuple2(
+						'value',
+						$elm$json$Json$Encode$string(pattern))
+					]));
+		case 'IsNull':
+			var field = expr.a;
+			return $elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						$elm$json$Json$Encode$string('IsNull')),
+						_Utils_Tuple2(
+						'field',
+						$elm$json$Json$Encode$string(field))
+					]));
+		case 'IsNotNull':
+			var field = expr.a;
+			return $elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						$elm$json$Json$Encode$string('IsNotNull')),
+						_Utils_Tuple2(
+						'field',
+						$elm$json$Json$Encode$string(field))
+					]));
+		case 'In':
+			var field = expr.a;
+			var values = expr.b;
+			return $elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						$elm$json$Json$Encode$string('In')),
+						_Utils_Tuple2(
+						'field',
+						$elm$json$Json$Encode$string(field)),
+						_Utils_Tuple2(
+						'values',
+						A2($elm$json$Json$Encode$list, $elm$core$Basics$identity, values))
+					]));
+		case 'And':
+			var exprs = expr.a;
+			return $elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						$elm$json$Json$Encode$string('And')),
+						_Utils_Tuple2(
+						'exprs',
+						A2($elm$json$Json$Encode$list, $author$project$Interface$Query$encodeFilterExpr, exprs))
+					]));
+		case 'Or':
+			var exprs = expr.a;
+			return $elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						$elm$json$Json$Encode$string('Or')),
+						_Utils_Tuple2(
+						'exprs',
+						A2($elm$json$Json$Encode$list, $author$project$Interface$Query$encodeFilterExpr, exprs))
+					]));
+		default:
+			var subExpr = expr.a;
+			return $elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'type',
+						$elm$json$Json$Encode$string('Not')),
+						_Utils_Tuple2(
+						'expr',
+						$author$project$Interface$Query$encodeFilterExpr(subExpr))
+					]));
+	}
+};
 var $author$project$Generated$Database$encodeFilter = function (filter) {
 	switch (filter.$) {
 		case 'ById':
@@ -3496,31 +3733,7 @@ var $author$project$Generated$Database$encodeFilter = function (filter) {
 						'value',
 						$elm$json$Json$Encode$string(id))
 					]));
-		case 'BySlug':
-			var slug = filter.a;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						$elm$json$Json$Encode$string('BySlug')),
-						_Utils_Tuple2(
-						'value',
-						$elm$json$Json$Encode$string(slug))
-					]));
-		case 'ByUserId':
-			var userId = filter.a;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						$elm$json$Json$Encode$string('ByUserId')),
-						_Utils_Tuple2(
-						'value',
-						$elm$json$Json$Encode$string(userId))
-					]));
-		default:
+		case 'ByField':
 			var field = filter.a;
 			var value = filter.b;
 			return $elm$json$Json$Encode$object(
@@ -3536,6 +3749,9 @@ var $author$project$Generated$Database$encodeFilter = function (filter) {
 						'value',
 						$elm$json$Json$Encode$string(value))
 					]));
+		default:
+			var expr = filter.a;
+			return $author$project$Interface$Query$encodeFilterExpr(expr);
 	}
 };
 var $author$project$Generated$Database$encodeMaybePagination = function (maybePagination) {
@@ -3555,17 +3771,24 @@ var $author$project$Generated$Database$encodeMaybePagination = function (maybePa
 				]));
 	}
 };
-var $author$project$Generated$Database$encodeSort = function (sort) {
-	switch (sort.$) {
-		case 'CreatedAtAsc':
-			return $elm$json$Json$Encode$string('created_at_asc');
-		case 'CreatedAtDesc':
-			return $elm$json$Json$Encode$string('created_at_desc');
-		case 'TitleAsc':
-			return $elm$json$Json$Encode$string('title_asc');
-		default:
-			return $elm$json$Json$Encode$string('title_desc');
+var $author$project$Generated$Database$encodeDirection = function (direction) {
+	if (direction.$ === 'Asc') {
+		return $elm$json$Json$Encode$string('asc');
+	} else {
+		return $elm$json$Json$Encode$string('desc');
 	}
+};
+var $author$project$Generated$Database$encodeSort = function (sort) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'field',
+				$elm$json$Json$Encode$string(sort.field)),
+				_Utils_Tuple2(
+				'direction',
+				$author$project$Generated$Database$encodeDirection(sort.direction))
+			]));
 };
 var $author$project$Generated$Database$encodeQuery = function (query) {
 	return $elm$json$Json$Encode$object(
@@ -3638,14 +3861,22 @@ var $author$project$Generated$Database$findMicroblogItems = function (query) {
 			table: 'microblog_item'
 		});
 };
-var $author$project$Generated$Database$CreatedAtDesc = {$: 'CreatedAtDesc'};
+var $author$project$Generated$Database$Desc = {$: 'Desc'};
+var $author$project$Generated$Database$sortBy = F3(
+	function (field, direction, query) {
+		return _Utils_update(
+			query,
+			{
+				sort: _Utils_ap(
+					query.sort,
+					_List_fromArray(
+						[
+							{direction: direction, field: field}
+						]))
+			});
+	});
 var $author$project$Generated$Database$sortByCreatedAt = function (query) {
-	return _Utils_update(
-		query,
-		{
-			sort: _List_fromArray(
-				[$author$project$Generated$Database$CreatedAtDesc])
-		});
+	return A3($author$project$Generated$Database$sortBy, 'created_at', $author$project$Generated$Database$Desc, query);
 };
 var $author$project$Api$Handlers$GetItemsByTagHandlerTEA$loadMicroblogItems = $author$project$Generated$Database$findMicroblogItems(
 	$author$project$Generated$Database$sortByCreatedAt($author$project$Generated$Database$queryAll));

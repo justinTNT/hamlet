@@ -32,7 +32,7 @@ shared/
 ```elm
 module Schema.User exposing (..)
 
-import Framework.Schema exposing (..)
+import Interface.Schema exposing (..)
 
 type alias User =
     { id : DatabaseId String       -- Primary key with UUID
@@ -49,7 +49,7 @@ type alias User =
 ```elm
 module Api.CreateUser exposing (..)
 
-import Framework.Api exposing (..)
+import Interface.Api exposing (..)
 
 type alias Request =
     { host : Inject String              -- Server-injected

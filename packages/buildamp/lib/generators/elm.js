@@ -56,9 +56,183 @@ export async function generateElmSharedModules(config = {}) {
         console.log(`   ✅ Generated ${module.name} (shared)`);
     }
 
-    const allModules = [...serverModules, ...sharedModules];
+    // Generate per-model field accessor modules for type-safe query building
+    const dbModels = parseDbModels(paths, config);
+    const fieldModules = generateFieldAccessorModules(dbModels, serverOutputDir);
+    console.log(`   ✅ Generated ${fieldModules.length} field accessor modules`);
+
+    const allModules = [...serverModules, ...sharedModules, ...fieldModules.map(f => `Database/${f}`)];
     console.log(`📊 Generated ${allModules.length} shared modules`);
-    return allModules.map(m => m.name);
+    return allModules.map(m => m.name || m);
+}
+
+/**
+ * Generate per-model field accessor modules for type-safe query building
+ * Creates modules like Generated/Database/MicroblogItem.elm
+ */
+function generateFieldAccessorModules(models, serverOutputDir) {
+    const databaseDir = ensureOutputDir(path.join(serverOutputDir, 'Database'));
+    const generatedModules = [];
+
+    for (const model of models) {
+        if (!model.isMainModel) continue; // Skip component types
+
+        const moduleName = `${model.name}.elm`;
+        const content = generateFieldAccessorModule(model);
+        const filePath = path.join(databaseDir, moduleName);
+        fs.writeFileSync(filePath, content);
+        generatedModules.push(moduleName);
+    }
+
+    return generatedModules;
+}
+
+/**
+ * Generate a single field accessor module for a database model
+ */
+function generateFieldAccessorModule(model) {
+    const modelName = model.name;
+    const dbTypeName = `${modelName}Db`;
+
+    // Generate field accessors with phantom types and encoders
+    const fieldAccessors = model.fields.map(field => {
+        const snakeFieldName = camelToSnake(field.name);
+        const elmFieldName = snakeToCamel(field.name);
+        const phantomType = getPhantomType(field);
+        const encoder = getFieldEncoder(field);
+
+        return `{-| Field accessor for ${snakeFieldName}
+-}
+${elmFieldName} : Field ${dbTypeName} ${phantomType}
+${elmFieldName} =
+    Field "${snakeFieldName}" ${encoder}`;
+    }).join('\n\n\n');
+
+    return `module Generated.Database.${modelName} exposing (..)
+
+{-| Type-safe field accessors for ${modelName}
+
+Use these with Interface.Query operators for compile-time safe queries:
+
+    import Interface.Query as Q
+    import Generated.Database.${modelName} as ${modelName}
+
+    -- Filter by field
+    ${modelName}.title |> Q.eq "Hello"
+
+    -- Sort by field
+    Q.desc ${modelName}.createdAt
+
+-}
+
+import Interface.Query exposing (Field(..))
+import Generated.Database exposing (${dbTypeName})
+import Json.Encode as Encode
+
+
+${fieldAccessors}
+`;
+}
+
+/**
+ * Get the phantom type for a field (used in Field model value)
+ */
+function getPhantomType(field) {
+    const elmType = field.elmType;
+
+    // Handle special framework types
+    if (elmType === 'MultiTenant' || elmType === 'String') {
+        return 'String';
+    }
+    if (elmType === 'Int') {
+        return 'Int';
+    }
+    if (elmType === 'Float') {
+        return 'Float';
+    }
+    if (elmType === 'Bool') {
+        return 'Bool';
+    }
+    if (elmType === 'SoftDelete') {
+        return '(Maybe Int)';
+    }
+    if (elmType.startsWith('Maybe ')) {
+        const innerType = elmType.slice(6);
+        const phantomInner = getPhantomTypeSimple(innerType);
+        return `(Maybe ${phantomInner})`;
+    }
+
+    // Default to String for unknown types
+    return 'String';
+}
+
+/**
+ * Get phantom type for inner types (without Maybe wrapper handling)
+ */
+function getPhantomTypeSimple(elmType) {
+    if (elmType === 'String' || elmType === 'MultiTenant' || elmType === 'Link' || elmType === 'RichContent') {
+        return 'String';
+    }
+    if (elmType === 'Int' || elmType === 'Timestamp') {
+        return 'Int';
+    }
+    if (elmType === 'Float') {
+        return 'Float';
+    }
+    if (elmType === 'Bool') {
+        return 'Bool';
+    }
+    return 'String'; // Default fallback
+}
+
+/**
+ * Get the JSON encoder for a field type
+ */
+function getFieldEncoder(field) {
+    const elmType = field.elmType;
+
+    if (elmType === 'String' || elmType === 'MultiTenant' || elmType === 'Link' || elmType === 'RichContent') {
+        return 'Encode.string';
+    }
+    if (elmType === 'Int' || elmType === 'Timestamp') {
+        return 'Encode.int';
+    }
+    if (elmType === 'Float') {
+        return 'Encode.float';
+    }
+    if (elmType === 'Bool') {
+        return 'Encode.bool';
+    }
+    if (elmType === 'SoftDelete') {
+        return '(Maybe.withDefault Encode.null << Maybe.map Encode.int)';
+    }
+    if (elmType.startsWith('Maybe ')) {
+        const innerType = elmType.slice(6);
+        const innerEncoder = getFieldEncoderSimple(innerType);
+        return `(Maybe.withDefault Encode.null << Maybe.map ${innerEncoder})`;
+    }
+
+    // Default to string encoder for unknown types
+    return 'Encode.string';
+}
+
+/**
+ * Get encoder for inner types (without Maybe wrapper handling)
+ */
+function getFieldEncoderSimple(elmType) {
+    if (elmType === 'String' || elmType === 'Link' || elmType === 'RichContent') {
+        return 'Encode.string';
+    }
+    if (elmType === 'Int' || elmType === 'Timestamp') {
+        return 'Encode.int';
+    }
+    if (elmType === 'Float') {
+        return 'Encode.float';
+    }
+    if (elmType === 'Bool') {
+        return 'Encode.bool';
+    }
+    return 'Encode.string';
 }
 
 /**
@@ -77,11 +251,12 @@ that automatically handles host isolation and query building.
 
 @docs Database, Query, Filter, Sort, Pagination
 @docs findItems, findItem, createItem, updateItem, killItem
-@docs queryAll, byId, byField, sortBy, sortByCreatedAt, paginate
+@docs queryAll, byId, byField, where_, orderBy, sortBy, sortByCreatedAt, paginate
 @docs GlobalConfig, GlobalState
 
 -}
 
+import Interface.Query as Q
 import Json.Encode as Encode
 import Json.Decode as Decode
 
@@ -123,10 +298,15 @@ type alias Query a =
 
 
 {-| Filter types for queries
+
+Supports both legacy filters (ById, ByField) and the new type-safe
+filter expressions from Interface.Query.
+
 -}
 type Filter a
     = ById String
     | ByField String String
+    | Expr (Q.FilterExpr a)
 
 
 {-| Sort direction
@@ -209,6 +389,54 @@ paginate offset limit query =
     { query | paginate = Just { offset = offset, limit = limit } }
 
 
+-- TYPE-SAFE QUERY BUILDERS (using Interface.Query)
+
+{-| Add a type-safe filter expression to query
+
+Use with operators from Interface.Query:
+
+    import Interface.Query as Q
+    import Generated.Database.MicroblogItem as Blog
+
+    DB.findMicroblogItems
+        (DB.queryAll
+            |> DB.where_ (Blog.viewCount |> Q.gt 100)
+            |> DB.where_ (Blog.deletedAt |> Q.isNull)
+        )
+
+-}
+where_ : Q.FilterExpr a -> Query a -> Query a
+where_ expr query =
+    { query | filter = query.filter ++ [Expr expr] }
+
+
+{-| Add a type-safe sort expression to query
+
+Use with sort operators from Interface.Query:
+
+    import Interface.Query as Q
+    import Generated.Database.MicroblogItem as Blog
+
+    DB.findMicroblogItems
+        (DB.queryAll
+            |> DB.orderBy (Q.desc Blog.createdAt)
+        )
+
+-}
+orderBy : Q.SortExpr a -> Query a -> Query a
+orderBy sortExpr query =
+    let
+        newSort =
+            case sortExpr of
+                Q.SortAsc field ->
+                    { field = field, direction = Asc }
+
+                Q.SortDesc field ->
+                    { field = field, direction = Desc }
+    in
+    { query | sort = query.sort ++ [newSort] }
+
+
 -- INTERNAL HELPERS
 
 addFilter : Filter a -> Query a -> Query a  
@@ -287,6 +515,8 @@ encodeFilter filter =
             Encode.object [("type", Encode.string "ById"), ("value", Encode.string id)]
         ByField field value ->
             Encode.object [("type", Encode.string "ByField"), ("field", Encode.string field), ("value", Encode.string value)]
+        Expr expr ->
+            Q.encodeFilterExpr expr
 
 
 encodeDirection : Direction -> Encode.Value
@@ -512,7 +742,7 @@ decode${model.name} =
 This module provides a strongly-typed, capability-based key-value store interface
 that automatically handles host isolation and TTL management.
 
-Generated from Elm models in: shared/Kv/*.elm
+Generated from Elm models in: models/Kv/*.elm
 
 @docs KvRequest, KvResult, KvData
 @docs set, get, delete, exists
@@ -1220,24 +1450,31 @@ type alias ${model.name}Db =
 }
 
 /**
- * Generate create type alias (only non-optional fields)
+ * Generate create type alias (all user-settable fields, excluding framework-managed fields)
+ * MultiTenant (host) and SoftDelete (deletedAt) are handled automatically by the runtime.
+ * Optional fields are wrapped in Maybe so they can be set during creation.
  */
 function generateCreateTypeAlias(model) {
     const createFields = model.fields
-        .filter(field => !field.isOptional && field.name !== 'id' && field.name !== 'timestamp');
-    
+        .filter(field => field.name !== 'id' && field.name !== 'timestamp')
+        .filter(field => field.elmType !== 'MultiTenant' && field.elmType !== 'SoftDelete');
+
     if (createFields.length === 0) {
         return `-- No create type needed for ${model.name}`;
     }
-    
+
     const fields = createFields.map((field, index) => {
         const elmFieldName = snakeToCamel(field.name);
         const prefix = index === 0 ? '    ' : '    , ';
-        return `${prefix}${elmFieldName} : ${field.elmType}`;
+        // Optional fields become Maybe if not already
+        const fieldType = field.isOptional && !field.elmType.startsWith('Maybe ')
+            ? `Maybe ${field.elmType}`
+            : field.elmType;
+        return `${prefix}${elmFieldName} : ${fieldType}`;
     }).join('\n');
-    
+
     return `{-| Database entity for creating new ${model.name}
-Only includes fields that can be set during creation
+Framework fields (host, deletedAt) are injected automatically by the runtime.
 -}
 type alias ${model.name}DbCreate =
     { ${fields}
@@ -1387,10 +1624,12 @@ encode${modelName}DbCreate : ${modelName}DbCreate -> Encode.Value
 encode${modelName}DbCreate item =
     Encode.object
         [ ${model.fields
-            .filter(field => !field.isOptional && field.name !== 'id' && field.name !== 'timestamp')
+            .filter(field => field.name !== 'id' && field.name !== 'timestamp')
+            .filter(field => field.elmType !== 'MultiTenant' && field.elmType !== 'SoftDelete')
             .map(field => {
                 const snakeFieldName = camelToSnake(field.name);
-                const encoder = generateFieldEncoder(field);
+                // Optional fields need encodeMaybe wrapper
+                const encoder = generateFieldEncoder(field, field.isOptional);
                 return `("${snakeFieldName}", ${encoder} item.${field.name})`;
             }).join('\n        , ')}
         ]

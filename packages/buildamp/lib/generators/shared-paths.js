@@ -52,8 +52,8 @@ export function createPaths(config) {
     const serverGlueDir = path.join(dest, 'server', '.hamlet-gen');
     const webGlueDir = path.join(dest, 'web', 'src', '.hamlet-gen');
 
-    // Elm model source paths (shared/ directory)
-    const sharedDir = path.join(dest, 'shared');
+    // Elm model source paths (models/ directory - user-written definitions)
+    const modelsDir = path.join(dest, 'models');
 
     return {
         // Source paths (legacy - no longer used, Elm models in shared/ are the source of truth)
@@ -66,21 +66,21 @@ export function createPaths(config) {
         eventsModelsDir: path.join(src, 'events'),
         configModelsDir: path.join(src, 'config'),
 
-        // Elm model source paths (shared/ directory)
-        elmSchemaDir: path.join(sharedDir, 'Schema'),
-        elmApiDir: path.join(sharedDir, 'Api'),
-        elmKvDir: path.join(sharedDir, 'Kv'),
-        elmStorageDir: path.join(sharedDir, 'Storage'),
-        elmSseDir: path.join(sharedDir, 'Sse'),
-        elmEventsDir: path.join(sharedDir, 'Events'),
-        elmConfigDir: path.join(sharedDir, 'Config'),
+        // Elm model source paths (models/ directory)
+        elmSchemaDir: path.join(modelsDir, 'Schema'),
+        elmApiDir: path.join(modelsDir, 'Api'),
+        elmKvDir: path.join(modelsDir, 'Kv'),
+        elmStorageDir: path.join(modelsDir, 'Storage'),
+        elmSseDir: path.join(modelsDir, 'Sse'),
+        elmEventsDir: path.join(modelsDir, 'Events'),
+        elmConfigDir: path.join(modelsDir, 'Config'),
 
         // Output paths
         outputDir: dest,
         serverGlueDir,                 // Server JS: api-routes.js, database-queries.js, kv-store.js
         serverElmDir: serverGlueDir,   // Server Elm: Generated/Database.elm, etc (add to elm.json sources)
         webGlueDir,                    // Web: ApiClient.elm, StoragePorts.elm, browser-storage.js
-        sharedElmDir: path.join(dest, 'shared', '.hamlet-gen'),  // Shared Elm: Config.elm
+        sharedElmDir: path.join(modelsDir, '.hamlet-gen'),  // Shared Elm: Config.elm
 
         // Legacy aliases (for generator compatibility)
         jsGlueDir: serverGlueDir,      // Server-side JS (api-routes, db-queries, kv-store)
@@ -106,14 +106,14 @@ export function createPaths(config) {
         getElmModelPath: (modelType) => {
             switch (modelType) {
                 case 'db':
-                case 'schema': return path.join(sharedDir, 'Schema');
-                case 'api': return path.join(sharedDir, 'Api');
-                case 'storage': return path.join(sharedDir, 'Storage');
-                case 'kv': return path.join(sharedDir, 'Kv');
-                case 'sse': return path.join(sharedDir, 'Sse');
-                case 'events': return path.join(sharedDir, 'Events');
-                case 'config': return path.join(sharedDir, 'Config');
-                default: return sharedDir;
+                case 'schema': return path.join(modelsDir, 'Schema');
+                case 'api': return path.join(modelsDir, 'Api');
+                case 'storage': return path.join(modelsDir, 'Storage');
+                case 'kv': return path.join(modelsDir, 'Kv');
+                case 'sse': return path.join(modelsDir, 'Sse');
+                case 'events': return path.join(modelsDir, 'Events');
+                case 'config': return path.join(modelsDir, 'Config');
+                default: return modelsDir;
             }
         }
     };
@@ -188,7 +188,7 @@ export function getGenerationPaths(config = {}) {
             serverGlueDir: jsOutputDir,
             serverElmDir: jsOutputDir,          // Legacy: same as serverGlueDir
             webGlueDir: path.join(outputDir, 'web', 'src', '.hamlet-gen'),
-            sharedElmDir: path.join(outputDir, 'shared', '.hamlet-gen'),
+            sharedElmDir: path.join(outputDir, 'models', '.hamlet-gen'),
             jsGlueDir: jsOutputDir,
             elmGlueDir: path.join(outputDir, 'web', 'src', '.hamlet-gen'),
             elmOutputPath,

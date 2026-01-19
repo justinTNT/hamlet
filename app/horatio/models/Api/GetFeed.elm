@@ -7,7 +7,7 @@ module Api.GetFeed exposing (..)
 
 -}
 
-import Framework.Api exposing (..)
+import Interface.Api exposing (..)
 
 
 {-| Request payload for getting the feed.

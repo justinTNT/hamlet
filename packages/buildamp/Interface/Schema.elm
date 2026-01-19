@@ -1,4 +1,4 @@
-module Framework.Schema exposing
+module Interface.Schema exposing
     ( DatabaseId
     , Timestamp
     , Host

@@ -530,7 +530,7 @@ function generateApiRoutes(config = {}) {
 
     // Try Elm API schemas first
     if (schemaLang === 'elm') {
-        const elmApiDir = path.join(paths.outputDir, 'shared/Api');
+        const elmApiDir = paths.elmApiDir || path.join(paths.outputDir, 'models/Api');
         if (fs.existsSync(elmApiDir)) {
             const elmApis = parseElmApiDir(elmApiDir);
             if (elmApis.length > 0) {

@@ -4,7 +4,7 @@ module Events.SendWelcomeEmail exposing (..)
 -}
 
 import Dict exposing (Dict)
-import Framework.Events exposing (CorrelationId, DateTime, ExecuteAt)
+import Interface.Events exposing (CorrelationId, DateTime, ExecuteAt)
 
 
 type alias SendWelcomeEmail =

@@ -380,14 +380,17 @@ export default async function createElmService(server) {
                             try {
                                 const dbService = server.getService('database');
 
-                                // Automatically inject host field for tenant isolation
-                                const dataWithHost = {
+                                // Automatically inject framework-managed fields:
+                                // - host: for tenant isolation (MultiTenant)
+                                // - deleted_at: always null for new records (SoftDelete)
+                                const dataWithFrameworkFields = {
                                     ...request.data,
-                                    host: requestContext.host
+                                    host: requestContext.host,
+                                    deleted_at: null
                                 };
 
-                                const fields = Object.keys(dataWithHost);
-                                const values = Object.values(dataWithHost);
+                                const fields = Object.keys(dataWithFrameworkFields);
+                                const values = Object.values(dataWithFrameworkFields);
                                 const placeholders = fields.map((_, i) => `$${i + 1}`).join(', ');
                                 const sql = `INSERT INTO ${request.table} (${fields.join(', ')}) VALUES (${placeholders}) RETURNING *`;
 
@@ -803,6 +806,18 @@ function translateQueryToSQL(table, queryObj, host, schema = loadedSchema) {
             // Use AND if we have base conditions or this isn't the first filter, otherwise add WHERE
             const needsWhere = !hasBaseConditions && index === 0;
             const connector = needsWhere ? ' WHERE ' : ' AND ';
+
+            // Handle new expression-based filters (from Framework.Query)
+            const exprTypes = ['Eq', 'Neq', 'Gt', 'Gte', 'Lt', 'Lte', 'Like', 'ILike', 'IsNull', 'IsNotNull', 'In', 'And', 'Or', 'Not'];
+            if (exprTypes.includes(filter.type)) {
+                const result = translateFilterExpr(filter, paramIndex);
+                sql += `${connector}${result.clause}`;
+                params.push(...result.params);
+                paramIndex += result.params.length;
+                return;
+            }
+
+            // Handle legacy filter types
             switch (filter.type) {
                 case 'ById':
                     sql += `${connector}id = $${paramIndex}`;
@@ -865,6 +880,182 @@ function translateQueryToSQL(table, queryObj, host, schema = loadedSchema) {
     }
 
     return { sql, params };
+}
+
+/**
+ * Translate a FilterExpr AST node to SQL clause with parameters
+ * Recursively handles And/Or/Not for complex queries
+ *
+ * @param {Object} filter - The filter expression object from Elm
+ * @param {number} paramIndex - Current parameter index for $1, $2, etc.
+ * @returns {{ clause: string, params: any[] }} - SQL clause and parameters
+ */
+function translateFilterExpr(filter, paramIndex) {
+    // Validate field name to prevent SQL injection
+    const validateFieldName = (field) => {
+        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(field)) {
+            throw new Error(`Invalid filter field: ${field}`);
+        }
+        return field;
+    };
+
+    switch (filter.type) {
+        case 'Eq': {
+            const field = validateFieldName(filter.field);
+            return {
+                clause: `${field} = $${paramIndex}`,
+                params: [filter.value]
+            };
+        }
+
+        case 'Neq': {
+            const field = validateFieldName(filter.field);
+            return {
+                clause: `${field} <> $${paramIndex}`,
+                params: [filter.value]
+            };
+        }
+
+        case 'Gt': {
+            const field = validateFieldName(filter.field);
+            return {
+                clause: `${field} > $${paramIndex}`,
+                params: [filter.value]
+            };
+        }
+
+        case 'Gte': {
+            const field = validateFieldName(filter.field);
+            return {
+                clause: `${field} >= $${paramIndex}`,
+                params: [filter.value]
+            };
+        }
+
+        case 'Lt': {
+            const field = validateFieldName(filter.field);
+            return {
+                clause: `${field} < $${paramIndex}`,
+                params: [filter.value]
+            };
+        }
+
+        case 'Lte': {
+            const field = validateFieldName(filter.field);
+            return {
+                clause: `${field} <= $${paramIndex}`,
+                params: [filter.value]
+            };
+        }
+
+        case 'Like': {
+            const field = validateFieldName(filter.field);
+            return {
+                clause: `${field} LIKE $${paramIndex}`,
+                params: [filter.value]
+            };
+        }
+
+        case 'ILike': {
+            const field = validateFieldName(filter.field);
+            return {
+                clause: `${field} ILIKE $${paramIndex}`,
+                params: [filter.value]
+            };
+        }
+
+        case 'IsNull': {
+            const field = validateFieldName(filter.field);
+            return {
+                clause: `${field} IS NULL`,
+                params: []
+            };
+        }
+
+        case 'IsNotNull': {
+            const field = validateFieldName(filter.field);
+            return {
+                clause: `${field} IS NOT NULL`,
+                params: []
+            };
+        }
+
+        case 'In': {
+            const field = validateFieldName(filter.field);
+            const values = filter.values || [];
+            if (values.length === 0) {
+                // Empty IN clause is always false
+                return { clause: 'FALSE', params: [] };
+            }
+            const placeholders = values.map((_, i) => `$${paramIndex + i}`).join(', ');
+            return {
+                clause: `${field} IN (${placeholders})`,
+                params: values
+            };
+        }
+
+        case 'And': {
+            const exprs = filter.exprs || [];
+            if (exprs.length === 0) {
+                return { clause: 'TRUE', params: [] };
+            }
+            if (exprs.length === 1) {
+                return translateFilterExpr(exprs[0], paramIndex);
+            }
+            const results = [];
+            const allParams = [];
+            let currentParamIndex = paramIndex;
+            for (const expr of exprs) {
+                const result = translateFilterExpr(expr, currentParamIndex);
+                results.push(result.clause);
+                allParams.push(...result.params);
+                currentParamIndex += result.params.length;
+            }
+            return {
+                clause: `(${results.join(' AND ')})`,
+                params: allParams
+            };
+        }
+
+        case 'Or': {
+            const exprs = filter.exprs || [];
+            if (exprs.length === 0) {
+                return { clause: 'FALSE', params: [] };
+            }
+            if (exprs.length === 1) {
+                return translateFilterExpr(exprs[0], paramIndex);
+            }
+            const results = [];
+            const allParams = [];
+            let currentParamIndex = paramIndex;
+            for (const expr of exprs) {
+                const result = translateFilterExpr(expr, currentParamIndex);
+                results.push(result.clause);
+                allParams.push(...result.params);
+                currentParamIndex += result.params.length;
+            }
+            return {
+                clause: `(${results.join(' OR ')})`,
+                params: allParams
+            };
+        }
+
+        case 'Not': {
+            const innerExpr = filter.expr;
+            if (!innerExpr) {
+                return { clause: 'TRUE', params: [] };
+            }
+            const result = translateFilterExpr(innerExpr, paramIndex);
+            return {
+                clause: `NOT (${result.clause})`,
+                params: result.params
+            };
+        }
+
+        default:
+            console.warn(`Unknown filter expression type: ${filter.type}`);
+            return { clause: 'TRUE', params: [] };
+    }
 }
 
 /**

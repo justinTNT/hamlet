@@ -7,11 +7,12 @@ that automatically handles host isolation and query building.
 
 @docs Database, Query, Filter, Sort, Pagination
 @docs findItems, findItem, createItem, updateItem, killItem
-@docs queryAll, byId, byField, sortBy, sortByCreatedAt, paginate
+@docs queryAll, byId, byField, where_, orderBy, sortBy, sortByCreatedAt, paginate
 @docs GlobalConfig, GlobalState
 
 -}
 
+import Interface.Query as Q
 import Json.Encode as Encode
 import Json.Decode as Decode
 
@@ -53,10 +54,15 @@ type alias Query a =
 
 
 {-| Filter types for queries
+
+Supports both legacy filters (ById, ByField) and the new type-safe
+filter expressions from Interface.Query.
+
 -}
 type Filter a
     = ById String
     | ByField String String
+    | Expr (Q.FilterExpr a)
 
 
 {-| Sort direction
@@ -139,6 +145,54 @@ paginate offset limit query =
     { query | paginate = Just { offset = offset, limit = limit } }
 
 
+-- TYPE-SAFE QUERY BUILDERS (using Interface.Query)
+
+{-| Add a type-safe filter expression to query
+
+Use with operators from Interface.Query:
+
+    import Interface.Query as Q
+    import Generated.Database.MicroblogItem as Blog
+
+    DB.findMicroblogItems
+        (DB.queryAll
+            |> DB.where_ (Blog.viewCount |> Q.gt 100)
+            |> DB.where_ (Blog.deletedAt |> Q.isNull)
+        )
+
+-}
+where_ : Q.FilterExpr a -> Query a -> Query a
+where_ expr query =
+    { query | filter = query.filter ++ [Expr expr] }
+
+
+{-| Add a type-safe sort expression to query
+
+Use with sort operators from Interface.Query:
+
+    import Interface.Query as Q
+    import Generated.Database.MicroblogItem as Blog
+
+    DB.findMicroblogItems
+        (DB.queryAll
+            |> DB.orderBy (Q.desc Blog.createdAt)
+        )
+
+-}
+orderBy : Q.SortExpr a -> Query a -> Query a
+orderBy sortExpr query =
+    let
+        newSort =
+            case sortExpr of
+                Q.SortAsc field ->
+                    { field = field, direction = Asc }
+
+                Q.SortDesc field ->
+                    { field = field, direction = Desc }
+    in
+    { query | sort = query.sort ++ [newSort] }
+
+
 -- INTERNAL HELPERS
 
 addFilter : Filter a -> Query a -> Query a  
@@ -217,6 +271,8 @@ encodeFilter filter =
             Encode.object [("type", Encode.string "ById"), ("value", Encode.string id)]
         ByField field value ->
             Encode.object [("type", Encode.string "ByField"), ("field", Encode.string field), ("value", Encode.string value)]
+        Expr expr ->
+            Q.encodeFilterExpr expr
 
 
 encodeDirection : Direction -> Encode.Value
@@ -262,15 +318,13 @@ type alias GuestDb =
     }
 
 {-| Database entity for creating new Guest
-Only includes fields that can be set during creation
+Framework fields (host, deletedAt) are injected automatically by the runtime.
 -}
 type alias GuestDbCreate =
-    {     host : MultiTenant
-    , name : String
+    {     name : String
     , picture : String
     , sessionId : String
     , createdAt : Int
-    , deletedAt : SoftDelete
     }
 
 {-| Database entity for updating existing Guest
@@ -362,12 +416,10 @@ guestDbDecoder =
 encodeGuestDbCreate : GuestDbCreate -> Encode.Value
 encodeGuestDbCreate item =
     Encode.object
-        [ ("host", Encode.string item.host)
-        , ("name", Encode.string item.name)
+        [ ("name", Encode.string item.name)
         , ("picture", Encode.string item.picture)
         , ("session_id", Encode.string item.sessionId)
         , ("created_at", Encode.int item.createdAt)
-        , ("deleted_at", encodeMaybe Encode.int item.deletedAt)
         ]
 
 
@@ -399,16 +451,15 @@ type alias ItemCommentDb =
     }
 
 {-| Database entity for creating new ItemComment
-Only includes fields that can be set during creation
+Framework fields (host, deletedAt) are injected automatically by the runtime.
 -}
 type alias ItemCommentDbCreate =
-    {     host : MultiTenant
-    , itemId : String
+    {     itemId : String
     , guestId : String
+    , parentId : Maybe String
     , authorName : String
     , text : String
     , createdAt : Int
-    , deletedAt : SoftDelete
     }
 
 {-| Database entity for updating existing ItemComment
@@ -504,13 +555,12 @@ itemcommentDbDecoder =
 encodeItemCommentDbCreate : ItemCommentDbCreate -> Encode.Value
 encodeItemCommentDbCreate item =
     Encode.object
-        [ ("host", Encode.string item.host)
-        , ("item_id", Encode.string item.itemId)
+        [ ("item_id", Encode.string item.itemId)
         , ("guest_id", Encode.string item.guestId)
+        , ("parent_id", encodeMaybe Encode.string item.parentId)
         , ("author_name", Encode.string item.authorName)
         , ("text", Encode.string item.text)
         , ("created_at", Encode.int item.createdAt)
-        , ("deleted_at", encodeMaybe Encode.int item.deletedAt)
         ]
 
 
@@ -539,13 +589,11 @@ type alias ItemTagDb =
     }
 
 {-| Database entity for creating new ItemTag
-Only includes fields that can be set during creation
+Framework fields (host, deletedAt) are injected automatically by the runtime.
 -}
 type alias ItemTagDbCreate =
     {     itemId : String
     , tagId : String
-    , host : MultiTenant
-    , deletedAt : SoftDelete
     }
 
 {-| Database entity for updating existing ItemTag
@@ -634,8 +682,6 @@ encodeItemTagDbCreate item =
     Encode.object
         [ ("item_id", Encode.string item.itemId)
         , ("tag_id", Encode.string item.tagId)
-        , ("host", Encode.string item.host)
-        , ("deleted_at", encodeMaybe Encode.int item.deletedAt)
         ]
 
 
@@ -666,15 +712,16 @@ type alias MicroblogItemDb =
     }
 
 {-| Database entity for creating new MicroblogItem
-Only includes fields that can be set during creation
+Framework fields (host, deletedAt) are injected automatically by the runtime.
 -}
 type alias MicroblogItemDbCreate =
-    {     host : MultiTenant
-    , title : String
+    {     title : String
+    , link : Maybe String
+    , image : Maybe String
+    , extract : Maybe String
     , ownerComment : String
     , createdAt : Int
     , viewCount : Int
-    , deletedAt : SoftDelete
     }
 
 {-| Database entity for updating existing MicroblogItem
@@ -772,12 +819,13 @@ microblogitemDbDecoder =
 encodeMicroblogItemDbCreate : MicroblogItemDbCreate -> Encode.Value
 encodeMicroblogItemDbCreate item =
     Encode.object
-        [ ("host", Encode.string item.host)
-        , ("title", Encode.string item.title)
+        [ ("title", Encode.string item.title)
+        , ("link", encodeMaybe Encode.string item.link)
+        , ("image", encodeMaybe Encode.string item.image)
+        , ("extract", encodeMaybe Encode.string item.extract)
         , ("owner_comment", Encode.string item.ownerComment)
         , ("created_at", Encode.int item.createdAt)
         , ("view_count", Encode.int item.viewCount)
-        , ("deleted_at", encodeMaybe Encode.int item.deletedAt)
         ]
 
 
@@ -807,12 +855,10 @@ type alias TagDb =
     }
 
 {-| Database entity for creating new Tag
-Only includes fields that can be set during creation
+Framework fields (host, deletedAt) are injected automatically by the runtime.
 -}
 type alias TagDbCreate =
-    {     host : MultiTenant
-    , name : String
-    , deletedAt : SoftDelete
+    {     name : String
     }
 
 {-| Database entity for updating existing Tag
@@ -898,9 +944,7 @@ tagDbDecoder =
 encodeTagDbCreate : TagDbCreate -> Encode.Value
 encodeTagDbCreate item =
     Encode.object
-        [ ("host", Encode.string item.host)
-        , ("name", Encode.string item.name)
-        , ("deleted_at", encodeMaybe Encode.int item.deletedAt)
+        [ ("name", Encode.string item.name)
         ]
 
 

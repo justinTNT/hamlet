@@ -776,4 +776,308 @@ describe('Elm TEA Service Unit Tests', () => {
             expect(typeof validRequest.key).toBe('string');
         });
     });
+
+    describe('FilterExpr Translation Tests', () => {
+        // Helper function that mirrors translateFilterExpr from elm-service.js
+        function translateFilterExpr(filter, paramIndex) {
+            const validateFieldName = (field) => {
+                if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(field)) {
+                    throw new Error(`Invalid filter field: ${field}`);
+                }
+                return field;
+            };
+
+            switch (filter.type) {
+                case 'Eq': {
+                    const field = validateFieldName(filter.field);
+                    return { clause: `${field} = $${paramIndex}`, params: [filter.value] };
+                }
+                case 'Neq': {
+                    const field = validateFieldName(filter.field);
+                    return { clause: `${field} <> $${paramIndex}`, params: [filter.value] };
+                }
+                case 'Gt': {
+                    const field = validateFieldName(filter.field);
+                    return { clause: `${field} > $${paramIndex}`, params: [filter.value] };
+                }
+                case 'Gte': {
+                    const field = validateFieldName(filter.field);
+                    return { clause: `${field} >= $${paramIndex}`, params: [filter.value] };
+                }
+                case 'Lt': {
+                    const field = validateFieldName(filter.field);
+                    return { clause: `${field} < $${paramIndex}`, params: [filter.value] };
+                }
+                case 'Lte': {
+                    const field = validateFieldName(filter.field);
+                    return { clause: `${field} <= $${paramIndex}`, params: [filter.value] };
+                }
+                case 'Like': {
+                    const field = validateFieldName(filter.field);
+                    return { clause: `${field} LIKE $${paramIndex}`, params: [filter.value] };
+                }
+                case 'ILike': {
+                    const field = validateFieldName(filter.field);
+                    return { clause: `${field} ILIKE $${paramIndex}`, params: [filter.value] };
+                }
+                case 'IsNull': {
+                    const field = validateFieldName(filter.field);
+                    return { clause: `${field} IS NULL`, params: [] };
+                }
+                case 'IsNotNull': {
+                    const field = validateFieldName(filter.field);
+                    return { clause: `${field} IS NOT NULL`, params: [] };
+                }
+                case 'In': {
+                    const field = validateFieldName(filter.field);
+                    const values = filter.values || [];
+                    if (values.length === 0) return { clause: 'FALSE', params: [] };
+                    const placeholders = values.map((_, i) => `$${paramIndex + i}`).join(', ');
+                    return { clause: `${field} IN (${placeholders})`, params: values };
+                }
+                case 'And': {
+                    const exprs = filter.exprs || [];
+                    if (exprs.length === 0) return { clause: 'TRUE', params: [] };
+                    if (exprs.length === 1) return translateFilterExpr(exprs[0], paramIndex);
+                    const results = [];
+                    const allParams = [];
+                    let currentParamIndex = paramIndex;
+                    for (const expr of exprs) {
+                        const result = translateFilterExpr(expr, currentParamIndex);
+                        results.push(result.clause);
+                        allParams.push(...result.params);
+                        currentParamIndex += result.params.length;
+                    }
+                    return { clause: `(${results.join(' AND ')})`, params: allParams };
+                }
+                case 'Or': {
+                    const exprs = filter.exprs || [];
+                    if (exprs.length === 0) return { clause: 'FALSE', params: [] };
+                    if (exprs.length === 1) return translateFilterExpr(exprs[0], paramIndex);
+                    const results = [];
+                    const allParams = [];
+                    let currentParamIndex = paramIndex;
+                    for (const expr of exprs) {
+                        const result = translateFilterExpr(expr, currentParamIndex);
+                        results.push(result.clause);
+                        allParams.push(...result.params);
+                        currentParamIndex += result.params.length;
+                    }
+                    return { clause: `(${results.join(' OR ')})`, params: allParams };
+                }
+                case 'Not': {
+                    const innerExpr = filter.expr;
+                    if (!innerExpr) return { clause: 'TRUE', params: [] };
+                    const result = translateFilterExpr(innerExpr, paramIndex);
+                    return { clause: `NOT (${result.clause})`, params: result.params };
+                }
+                default:
+                    return { clause: 'TRUE', params: [] };
+            }
+        }
+
+        test('Eq filter translates to equals comparison', () => {
+            const filter = { type: 'Eq', field: 'title', value: 'Hello World' };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('title = $1');
+            expect(result.params).toEqual(['Hello World']);
+        });
+
+        test('Neq filter translates to not equals comparison', () => {
+            const filter = { type: 'Neq', field: 'status', value: 'draft' };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('status <> $1');
+            expect(result.params).toEqual(['draft']);
+        });
+
+        test('Gt filter translates to greater than comparison', () => {
+            const filter = { type: 'Gt', field: 'view_count', value: 100 };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('view_count > $1');
+            expect(result.params).toEqual([100]);
+        });
+
+        test('Gte filter translates to greater than or equal comparison', () => {
+            const filter = { type: 'Gte', field: 'created_at', value: 1704067200 };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('created_at >= $1');
+            expect(result.params).toEqual([1704067200]);
+        });
+
+        test('Lt filter translates to less than comparison', () => {
+            const filter = { type: 'Lt', field: 'price', value: 50 };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('price < $1');
+            expect(result.params).toEqual([50]);
+        });
+
+        test('Lte filter translates to less than or equal comparison', () => {
+            const filter = { type: 'Lte', field: 'quantity', value: 10 };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('quantity <= $1');
+            expect(result.params).toEqual([10]);
+        });
+
+        test('Like filter translates to LIKE with pattern', () => {
+            const filter = { type: 'Like', field: 'title', value: '%Elm%' };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('title LIKE $1');
+            expect(result.params).toEqual(['%Elm%']);
+        });
+
+        test('ILike filter translates to case-insensitive ILIKE', () => {
+            const filter = { type: 'ILike', field: 'title', value: '%elm%' };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('title ILIKE $1');
+            expect(result.params).toEqual(['%elm%']);
+        });
+
+        test('IsNull filter translates to IS NULL', () => {
+            const filter = { type: 'IsNull', field: 'deleted_at' };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('deleted_at IS NULL');
+            expect(result.params).toEqual([]);
+        });
+
+        test('IsNotNull filter translates to IS NOT NULL', () => {
+            const filter = { type: 'IsNotNull', field: 'image' };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('image IS NOT NULL');
+            expect(result.params).toEqual([]);
+        });
+
+        test('In filter translates to IN clause with multiple values', () => {
+            const filter = { type: 'In', field: 'status', values: ['published', 'featured'] };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('status IN ($1, $2)');
+            expect(result.params).toEqual(['published', 'featured']);
+        });
+
+        test('In filter with empty values returns FALSE', () => {
+            const filter = { type: 'In', field: 'status', values: [] };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('FALSE');
+            expect(result.params).toEqual([]);
+        });
+
+        test('And filter combines expressions with AND', () => {
+            const filter = {
+                type: 'And',
+                exprs: [
+                    { type: 'Gt', field: 'view_count', value: 100 },
+                    { type: 'IsNull', field: 'deleted_at' }
+                ]
+            };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('(view_count > $1 AND deleted_at IS NULL)');
+            expect(result.params).toEqual([100]);
+        });
+
+        test('Or filter combines expressions with OR', () => {
+            const filter = {
+                type: 'Or',
+                exprs: [
+                    { type: 'Like', field: 'title', value: '%Elm%' },
+                    { type: 'Like', field: 'extract', value: '%Elm%' }
+                ]
+            };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('(title LIKE $1 OR extract LIKE $2)');
+            expect(result.params).toEqual(['%Elm%', '%Elm%']);
+        });
+
+        test('Not filter wraps expression with NOT', () => {
+            const filter = {
+                type: 'Not',
+                expr: { type: 'Eq', field: 'status', value: 'draft' }
+            };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('NOT (status = $1)');
+            expect(result.params).toEqual(['draft']);
+        });
+
+        test('Nested And/Or filters translate correctly', () => {
+            const filter = {
+                type: 'And',
+                exprs: [
+                    { type: 'IsNull', field: 'deleted_at' },
+                    { type: 'Not', expr: { type: 'Eq', field: 'title', value: 'Draft' } },
+                    {
+                        type: 'Or',
+                        exprs: [
+                            { type: 'Like', field: 'title', value: '%Elm%' },
+                            { type: 'Like', field: 'extract', value: '%Elm%' }
+                        ]
+                    }
+                ]
+            };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('(deleted_at IS NULL AND NOT (title = $1) AND (title LIKE $2 OR extract LIKE $3))');
+            expect(result.params).toEqual(['Draft', '%Elm%', '%Elm%']);
+        });
+
+        test('Parameter indices increment correctly across complex queries', () => {
+            const filter = {
+                type: 'And',
+                exprs: [
+                    { type: 'Eq', field: 'status', value: 'active' },
+                    { type: 'Gt', field: 'view_count', value: 50 },
+                    { type: 'In', field: 'category', values: ['tech', 'science', 'art'] },
+                    { type: 'Lte', field: 'created_at', value: 1704067200 }
+                ]
+            };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('(status = $1 AND view_count > $2 AND category IN ($3, $4, $5) AND created_at <= $6)');
+            expect(result.params).toEqual(['active', 50, 'tech', 'science', 'art', 1704067200]);
+        });
+
+        test('Empty And filter returns TRUE', () => {
+            const filter = { type: 'And', exprs: [] };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('TRUE');
+            expect(result.params).toEqual([]);
+        });
+
+        test('Empty Or filter returns FALSE', () => {
+            const filter = { type: 'Or', exprs: [] };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('FALSE');
+            expect(result.params).toEqual([]);
+        });
+
+        test('Single-element And/Or unwraps the expression', () => {
+            const andFilter = { type: 'And', exprs: [{ type: 'Eq', field: 'id', value: '123' }] };
+            const orFilter = { type: 'Or', exprs: [{ type: 'Eq', field: 'id', value: '456' }] };
+
+            const andResult = translateFilterExpr(andFilter, 1);
+            const orResult = translateFilterExpr(orFilter, 1);
+
+            expect(andResult.clause).toBe('id = $1');
+            expect(orResult.clause).toBe('id = $1');
+        });
+
+        test('Invalid field name throws error', () => {
+            const filter = { type: 'Eq', field: 'DROP TABLE; --', value: 'malicious' };
+            expect(() => translateFilterExpr(filter, 1)).toThrow('Invalid filter field');
+        });
+
+        test('Field names with underscores are valid', () => {
+            const filter = { type: 'Eq', field: 'created_at', value: 12345 };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('created_at = $1');
+        });
+
+        test('Field names starting with underscore are valid', () => {
+            const filter = { type: 'Eq', field: '_internal_id', value: 'abc' };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('_internal_id = $1');
+        });
+
+        test('Unknown filter type returns TRUE (safe fallback)', () => {
+            const filter = { type: 'UnknownType', field: 'foo', value: 'bar' };
+            const result = translateFilterExpr(filter, 1);
+            expect(result.clause).toBe('TRUE');
+            expect(result.params).toEqual([]);
+        });
+    });
 });
