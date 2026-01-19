@@ -2960,9 +2960,9 @@ var $elm$core$Basics$identity = function (x) {
 var $author$project$Api$Handlers$GetItemHandlerTEA$complete = _Platform_outgoingPort('complete', $elm$core$Basics$identity);
 var $elm$json$Json$Decode$decodeValue = _Json_run;
 var $elm$json$Json$Decode$list = _Json_decodeList;
-var $author$project$Generated$Database$TagDb = F3(
-	function (id, host, name) {
-		return {host: host, id: id, name: name};
+var $author$project$Generated$Database$TagDb = F2(
+	function (id, name) {
+		return {id: id, name: name};
 	});
 var $elm$json$Json$Decode$map2 = _Json_map2;
 var $author$project$Generated$Database$andMap = $elm$json$Json$Decode$map2($elm$core$Basics$apR);
@@ -2977,13 +2977,9 @@ var $author$project$Generated$Database$tagDbDecoder = A3(
 	$elm$json$Json$Decode$string,
 	A3(
 		$author$project$Generated$Database$decodeField,
-		'host',
+		'id',
 		$elm$json$Json$Decode$string,
-		A3(
-			$author$project$Generated$Database$decodeField,
-			'id',
-			$elm$json$Json$Decode$string,
-			$elm$json$Json$Decode$succeed($author$project$Generated$Database$TagDb))));
+		$elm$json$Json$Decode$succeed($author$project$Generated$Database$TagDb)));
 var $author$project$Api$Handlers$GetItemHandlerTEA$decodeAllTags = function (data) {
 	var _v0 = A2(
 		$elm$json$Json$Decode$decodeValue,

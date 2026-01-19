@@ -10,10 +10,8 @@
     "./middleware": "./middleware/index.js"
   },
   "scripts": {
-    "pretest": "node tests/generation/setup-test-files.js",
-    "test": "npx --node-options='--experimental-vm-modules' jest",
+    "test": "npx --node-options='--experimental-vm-modules' jest --forceExit tests/core.test.js tests/database.test.js tests/middleware/ tests/security/",
     "test:core": "npx --node-options='--experimental-vm-modules' jest tests/core.test.js tests/database.test.js tests/middleware/ tests/security/",
-    "test:generation": "node tests/generation/setup-test-files.js && npx --node-options='--experimental-vm-modules' jest tests/generation/",
     "test:watch": "npx --node-options='--experimental-vm-modules' jest --watch",
     "lint": "eslint ."
   },

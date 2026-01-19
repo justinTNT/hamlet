@@ -54,16 +54,9 @@ cronEvent cronExpression payload =
 -- EVENT PAYLOAD TYPES (Generated from src/models/events/*.rs)
 
 type EventPayload
-    = ProcessVideo ProcessVideoData
-    | GenerateDailyReport GenerateDailyReportData
+    = GenerateDailyReport GenerateDailyReportData
+    | ProcessVideo ProcessVideoData
     | SendWelcomeEmail SendWelcomeEmailData
-
-
-type alias ProcessVideoData =
-    {    videoId : String
-    , qualityPreset : Maybe String
-    , webhookUrl : Maybe String
-    }
 
 
 type alias GenerateDailyReportData =
@@ -75,11 +68,22 @@ type alias GenerateDailyReportData =
     }
 
 
+type alias ProcessVideoData =
+    {    correlationId : String
+    , videoId : String
+    , executeAt : String
+    , qualityPreset : Maybe String
+    , webhookUrl : Maybe String
+    }
+
+
 type alias SendWelcomeEmailData =
-    {    userId : String
+    {    correlationId : String
+    , userId : String
     , email : String
     , name : String
-    , templateVars : String
+    , executeAt : Maybe String
+    , templateVars : Maybe String
     }
 
 
@@ -95,21 +99,21 @@ type alias EventRequest =
     }
 
 
--- ENCODING (Generated from Rust event models)
+-- ENCODING
 
 encodeEventPayload : EventPayload -> Encode.Value
 encodeEventPayload payload =
     case payload of
-        ProcessVideo data ->
-            Encode.object
-                [ ("type", Encode.string "ProcessVideo")
-                , ("data", encodeProcessVideo data)
-                ]
-                
         GenerateDailyReport data ->
             Encode.object
                 [ ("type", Encode.string "GenerateDailyReport")
                 , ("data", encodeGenerateDailyReport data)
+                ]
+                
+        ProcessVideo data ->
+            Encode.object
+                [ ("type", Encode.string "ProcessVideo")
+                , ("data", encodeProcessVideo data)
                 ]
                 
         SendWelcomeEmail data ->
@@ -119,25 +123,27 @@ encodeEventPayload payload =
                 ]
 
 
-encodeProcessVideo : ProcessVideoData -> Encode.Value
-encodeProcessVideo data =
-    Encode.object
-        [ -- Generated from event model fields
-        ("video_id", Encode.string data.videoId)
-        , ("quality_preset", encodeMaybe Encode.string data.qualityPreset)
-        , ("webhook_url", encodeMaybe Encode.string data.webhookUrl)
-        ]
-
-
 encodeGenerateDailyReport : GenerateDailyReportData -> Encode.Value
 encodeGenerateDailyReport data =
     Encode.object
         [ -- Generated from event model fields
-        ("user_id", Encode.string data.userId)
-        , ("cron_expression", Encode.string data.cronExpression)
+        ("userId", Encode.string data.userId)
+        , ("cronExpression", Encode.string data.cronExpression)
         , ("timezone", encodeMaybe Encode.string data.timezone)
-        , ("report_type", Encode.string data.reportType)
-        , ("email_results", encodeMaybe Encode.string data.emailResults)
+        , ("reportType", Encode.string data.reportType)
+        , ("emailResults", encodeMaybe Encode.string data.emailResults)
+        ]
+
+
+encodeProcessVideo : ProcessVideoData -> Encode.Value
+encodeProcessVideo data =
+    Encode.object
+        [ -- Generated from event model fields
+        ("correlationId", Encode.string data.correlationId)
+        , ("videoId", Encode.string data.videoId)
+        , ("executeAt", Encode.string data.executeAt)
+        , ("qualityPreset", encodeMaybe Encode.string data.qualityPreset)
+        , ("webhookUrl", encodeMaybe Encode.string data.webhookUrl)
         ]
 
 
@@ -145,10 +151,12 @@ encodeSendWelcomeEmail : SendWelcomeEmailData -> Encode.Value
 encodeSendWelcomeEmail data =
     Encode.object
         [ -- Generated from event model fields
-        ("user_id", Encode.string data.userId)
+        ("correlationId", Encode.string data.correlationId)
+        , ("userId", Encode.string data.userId)
         , ("email", Encode.string data.email)
         , ("name", Encode.string data.name)
-        , ("template_vars", Encode.string data.templateVars)
+        , ("executeAt", encodeMaybe Encode.string data.executeAt)
+        , ("templateVars", encodeMaybe Encode.string data.templateVars)
         ]
 
 

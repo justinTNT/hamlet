@@ -2,6 +2,7 @@
     "type": "application",
     "source-directories": [
         "web/src",
+        "../shared",
         "web/src/.hamlet-gen"
     ],
     "elm-version": "0.19.1",

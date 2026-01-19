@@ -2,13 +2,13 @@ this aims to be a simple build tool
 
 right now it just fits neatly in vite, but maybe we should consider other host build envs for this same kind of tool.
 
-our contract with the elm dev user is: "rust once, json never"
-business domain types in rust => autogen elm types with codecs
+our contract with the elm dev user is: "elm once, json never"
+business domain types in elm => autogen JS glue, SQL schemas, admin UI
 to absorb some representational pain on behalf of the user
 
 this tool is a helper that aims to amplify the build through autogeneration
 As a mere helper, it does not want to make many demands of devs.
-There's an escape hatch for code, but all we need in rust is very basic data definition.
+There's an escape hatch for code, but all we need in elm is very basic type aliases.
 
 in return, you get cross platform client/server interop.
 for certain classes of app, a similar approach works for store.
@@ -25,11 +25,11 @@ there's a few other benefits (like structured logging) that naturally fall into 
   - Not a framework
 
   BuildAmp = Capability
-  - Takes Rust models
-  - Amplifies them into JS, Elm, SQL
+  - Takes Elm type aliases
+  - Amplifies them into JS glue, SQL schemas, admin UI
+  - Uses tree-sitter for accurate Elm parsing
   - Handles code generation
   - Provides the concrete tooling
-  - Could theoretically work for any app
 
 
 **The Philosophy:**
@@ -60,19 +60,15 @@ Buildamp gives you surgical precision for your few weird holes. Nothing more, no
 
 ### Code Generation
 
-Use the BuildAmp CLI to generate code from Rust models:
+Use the BuildAmp CLI to generate code from Elm models:
 
 ```bash
-# Generate all targets for all model types
-buildamp gen
+# Generate all targets from Elm type aliases
+buildamp gen --src app/horatio/models --dest app/horatio
 
 # Generate for specific model directory
-buildamp gen api          # API routes, Elm types, handler scaffolds
-buildamp gen db           # Database queries, Elm types, admin UI
-
-# Generate specific target only
-buildamp gen:elm          # Only Elm type generation
-buildamp gen:db           # Only database queries
+buildamp gen api --src ... --dest ...    # API routes, JS handlers
+buildamp gen db --src ... --dest ...     # Database queries, SQL schema
 
 # Check generation status
 buildamp status

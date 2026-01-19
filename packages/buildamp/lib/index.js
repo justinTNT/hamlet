@@ -1,5 +1,5 @@
 /**
- * BuildAmp - Code generation from Rust models
+ * BuildAmp - Code generation from Elm models
  * Main entry point
  */
 

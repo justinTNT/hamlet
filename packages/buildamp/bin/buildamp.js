@@ -2,7 +2,7 @@
 
 /**
  * BuildAmp CLI
- * Code generation from Rust models
+ * Code generation from Elm models
  */
 
 import { cli } from '../lib/cli.js';

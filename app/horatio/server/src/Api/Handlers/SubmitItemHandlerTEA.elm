@@ -323,11 +323,11 @@ loadTags =
 createNextTag : Maybe Context -> List String -> Cmd Msg
 createNextTag maybeCtx tags =
     case ( maybeCtx, List.head tags ) of
-        ( Just ctx, Just tagName ) ->
+        ( Just _, Just tagName ) ->
             DB.dbCreate
                 { id = "create_tag_" ++ tagName
                 , table = "tag"
-                , data = DB.encodeTagDbCreate { host = ctx.host, name = tagName }
+                , data = DB.encodeTagDbCreate { name = tagName }
                 }
         _ ->
             Cmd.none

@@ -4,7 +4,7 @@
 Hamlet provides **type-safe client-server boundaries** with **web-native capabilities** for modern PWA development. Focus on eliminating JSON codec drudgery while enabling mobile-like experiences through standard web APIs.
 
 ## Current State
-- ✅ **Core Framework**: Rust→Elm type generation working
+- ✅ **Core Framework**: Elm->Elm/js/sql type generation working
 - ✅ **Database Integration**: Automatic migrations, tenant isolation
 - ✅ **Middleware Stack**: KV store, sessions with tenant isolation  
 - ✅ **Demo Application**: Horatio microblog proves the concept
@@ -17,11 +17,6 @@ Hamlet provides **type-safe client-server boundaries** with **web-native capabil
 **Configuration-driven capabilities:**
 
 ### With Database + Event Store Enabled
-```rust
-[hamlet.features]
-database = true
-event_store = true  // Adds ES tables to existing database
-```
 
 **Full Capabilities:**
 - ✅ **Multi-stage workflows** - Chain operations reliably
@@ -32,10 +27,6 @@ event_store = true  // Adds ES tables to existing database
 - ✅ **Correlation tracking** - Trace related events
 
 ### Without Database OR Event Store Disabled
-```rust
-[hamlet.features]
-database = false  // OR event_store = false
-```
 
 **Best-Effort Capabilities:**
 - ❌ **Multi-stage workflows** - Not available
@@ -58,14 +49,12 @@ database = false  // OR event_store = false
 
 Client↔client messaging with server-mediated routing.
 
-```rust
-// Type-safe client messaging
-#[derive(BuildAmpWebSocket, Debug, Clone)]
-pub enum GameMessage {
-    PlayerMove { game_id: String, x: i32, y: i32 },
-    ChatMessage { text: String },
-    GameState { board: Vec<Vec<i32>> },
-}
+```elm
+-- Type-safe client messaging (in shared/Ws/GameMessage.elm)
+type GameMessage
+    = PlayerMove { gameId : String, x : Int, y : Int }
+    | ChatMessage { text : String }
+    | GameState { board : List (List Int) }
 ```
 
 **Generated Elm interface:**
@@ -87,20 +76,19 @@ pub enum GameMessage {
 Essential for real applications. Web-native file handling with event integration.
 
 #### 2.1 Type-Safe File Upload
-```rust
-#[derive(BuildAmpFileUpload, Debug, Clone)]
-pub struct PhotoUploadReq {
-    pub album_id: String,
-    pub caption: Option<String>,
-    pub constraints: FileConstraints,
-}
+```elm
+-- In app/models/api/PhotoUpload.elm
+type alias PhotoUploadReq =
+    { albumId : String
+    , caption : Maybe String
+    , constraints : FileConstraints
+    }
 
-#[derive(BuildAmpElm, Debug, Clone)]
-pub struct FileConstraints {
-    pub max_size_mb: u32,
-    pub allowed_types: Vec<String>,
-    pub image_max_dimensions: Option<(u32, u32)>,
-}
+type alias FileConstraints =
+    { maxSizeMb : Int
+    , allowedTypes : List String
+    , imageMaxDimensions : Maybe ( Int, Int )
+    }
 ```
 
 #### 2.2 Event Integration
@@ -126,14 +114,13 @@ pub struct FileConstraints {
 Type-safe worker communication for CPU-intensive tasks.
 
 #### 4.1 Worker Communication Types
-```rust
-#[derive(BuildAmpWorker, Debug, Clone)]  
-pub enum ImageWorker {
-    ProcessImage { image_data: Vec<u8>, width: u32 },
-    ProcessingProgress { percent: f32 },
-    ProcessingComplete { result_url: String },
-    ProcessingFailed { error: String },
-}
+```elm
+-- In app/models/ww/ImageWorker.elm
+type ImageWorker
+    = ProcessImage { imageData : List Int, width : Int }
+    | ProcessingProgress { percent : Float }
+    | ProcessingComplete { resultUrl : String }
+    | ProcessingFailed { error : String }
 ```
 
 #### 4.2 Generated Worker Infrastructure
@@ -166,7 +153,7 @@ Enhanced tooling and documentation.
 
 ## Architecture Principles
 
-1. **Type-Safe Boundaries First**: All communication defined in Rust, generated for Elm
+1. **Type-Safe Boundaries First**: All communication defined as interfaces to Elm models, with related codecs and types generated for Elm
 2. **Event-Driven Foundation**: Multi-stage workflows and reliable integrations via event store
 3. **Graceful Degradation**: Apps work without event store, get enhanced capabilities with it
 4. **Web-Native**: Standard web APIs, not native app emulation
@@ -196,11 +183,11 @@ Enhanced tooling and documentation.
 ### Phase 5 (DevEx)
 - [-] Interactive API documentation
 - [-] Comprehensive guides and examples
-- [x] Support basic validation type constructors on rust models where appropriate ✅ **COMPLETED**
+- [x] Support basic validation type constructors on models where appropriate ✅ **COMPLETED**
 
   **Validation Types Implementation - COMPLETED**
   
-  Successfully implemented boundary validation system using composable type constructors with convenient type aliases. Provides JSON transport safety through Rust's type system and generates synchronized client-server validation.
+  Successfully implemented boundary validation system using composable type constructors with convenient type aliases. Provides JSON transport codecs and generates synchronized client-server validation.
   
   Completed features:
   - Core validation type constructors (Bounded, Format, CharSet, Encoding)
@@ -223,13 +210,17 @@ Enhanced tooling and documentation.
   Event types - special case:
   - app/models/events - auto-apply format("json") validation to payload
 
-  Composable building blocks:
-  // Base validation types
-  Bounded<T, MIN, MAX>        // Range validation
-  Format<T, EMAIL>            // Format validation
-  CharSet<T, ASCII>           // Character set validation
-  Encoding<T, BASE64>         // Encoding validation
+  Composable building blocks (expressed in Elm):
+  ```elm
+  -- Base validation wrapper types
+  type alias Bounded a = { value : a, min : Int, max : Int }
+  type alias Format a = { value : a, format : String }
+  type alias CharSet a = { value : a, charset : String }
+  type alias Encoding a = { value : a, encoding : String }
 
-  used to create validated type aliases:
-  * type SafeText<const MIN: usize, const MAX: usize> = Bounded<CharSet<String, Utf8Safe>, MIN, MAX>;
+  -- Convenient validated type aliases
+  type alias SafeText = Bounded String      -- Range-validated string
+  type alias EmailAddress = Format String   -- Email format validated
+  type alias ValidUrl = Format String       -- URL format validated
+  ```
 

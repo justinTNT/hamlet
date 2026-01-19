@@ -1,72 +1,49 @@
 /**
  * Database Query Generation
- * Generates type-safe database functions from Rust database models
- * Replaces dangerous SQL string manipulation with pre-generated, validated queries
+ *
+ * Generates type-safe database functions from Elm schema models.
  */
 
 import fs from 'fs';
 import path from 'path';
-import { getGenerationPaths, modelsExist, getModelsFullPath, ensureOutputDir } from './shared-paths.js';
-
-// Parse a Rust struct from file content
-function parseRustStruct(content, filename) {
-    const structs = [];
-    const structRegex = /pub struct\s+(\w+)\s*{([^}]+)}/g;
-    let match;
-
-    while ((match = structRegex.exec(content)) !== null) {
-        const [, structName, fieldsContent] = match;
-
-        // Parse fields
-        const fields = [];
-        const fieldRegex = /pub\s+(\w+):\s*([^,\n]+)/g;
-        let fieldMatch;
-
-        while ((fieldMatch = fieldRegex.exec(fieldsContent)) !== null) {
-            const [, fieldName, fieldType] = fieldMatch;
-            fields.push({
-                name: fieldName,
-                type: fieldType.trim(),
-                // Check for special database types
-                isPrimaryKey: fieldType.includes('DatabaseId'),
-                isTimestamp: fieldType.includes('Timestamp'),
-                isOptional: fieldType.includes('Option<')
-            });
-        }
-
-        // Determine table name from struct name (convert CamelCase to snake_case)
-        const tableName = structName
-            .replace(/([A-Z])/g, '_$1')
-            .toLowerCase()
-            .substring(1);
-
-        structs.push({
-            name: structName,
-            tableName,
-            fields,
-            filename
-        });
-    }
-
-    return structs;
-}
+import { getGenerationPaths, ensureOutputDir } from './shared-paths.js';
+import { parseElmSchemaDir } from '../../core/elm-parser-ts.js';
 
 // Generate database query functions for a struct
 function generateQueryFunctions(struct) {
-    const { name, tableName, fields } = struct;
+    const { name, tableName, fields, isMultiTenant, isSoftDelete, multiTenantFieldName, softDeleteFieldName } = struct;
 
-    const nonIdFields = fields.filter(f => !f.isPrimaryKey && f.name !== 'host');
+    // Use actual field names or defaults for backward compat
+    const tenantField = multiTenantFieldName || 'host';
+    const deletedField = softDeleteFieldName || 'deleted_at';
+
+    // Filter out tenant and deleted fields from insert fields
+    const nonIdFields = fields.filter(f => !f.isPrimaryKey && f.name !== tenantField);
     const columnNames = nonIdFields.map(f => f.name).join(', ');
-    const columnPlaceholders = nonIdFields.map((_, i) => '$' + (i + 2)).join(', '); // $1 is for host
+    const columnPlaceholders = nonIdFields.map((_, i) => '$' + (i + 2)).join(', '); // $1 is for tenant
     const fieldAccess = nonIdFields.map(f => name.toLowerCase() + '.' + f.name).join(', ');
 
-    const insertSql = `INSERT INTO ${tableName} (${columnNames}, host) VALUES (${columnPlaceholders}, $1) RETURNING *`;
-    const selectAllSql = `SELECT * FROM ${tableName} WHERE host = $1 ORDER BY created_at DESC`;
-    const selectAllLiveSql = `SELECT * FROM ${tableName} WHERE host = $1 AND deleted_at IS NULL ORDER BY created_at DESC`;
-    const selectByIdSql = `SELECT * FROM ${tableName} WHERE id = $1 AND host = $2`;
-    const selectByIdLiveSql = `SELECT * FROM ${tableName} WHERE id = $1 AND host = $2 AND deleted_at IS NULL`;
-    const softDeleteSql = `UPDATE ${tableName} SET deleted_at = NOW() WHERE id = $1 AND host = $2 RETURNING *`;
-    const deleteSql = `DELETE FROM ${tableName} WHERE id = $1 AND host = $2 RETURNING id`;
+    // Build SQL based on model flags
+    const insertSql = `INSERT INTO ${tableName} (${columnNames}, ${tenantField}) VALUES (${columnPlaceholders}, $1) RETURNING *`;
+    const selectAllSql = `SELECT * FROM ${tableName} WHERE ${tenantField} = $1 ORDER BY created_at DESC`;
+
+    // Only include soft-delete filter if model has SoftDelete field
+    const selectAllLiveSql = isSoftDelete
+        ? `SELECT * FROM ${tableName} WHERE ${tenantField} = $1 AND ${deletedField} IS NULL ORDER BY created_at DESC`
+        : `SELECT * FROM ${tableName} WHERE ${tenantField} = $1 ORDER BY created_at DESC`;
+
+    const selectByIdSql = `SELECT * FROM ${tableName} WHERE id = $1 AND ${tenantField} = $2`;
+
+    const selectByIdLiveSql = isSoftDelete
+        ? `SELECT * FROM ${tableName} WHERE id = $1 AND ${tenantField} = $2 AND ${deletedField} IS NULL`
+        : `SELECT * FROM ${tableName} WHERE id = $1 AND ${tenantField} = $2`;
+
+    // Soft delete uses actual field name and timestamp
+    const softDeleteSql = isSoftDelete
+        ? `UPDATE ${tableName} SET ${deletedField} = extract(epoch from now()) * 1000 WHERE id = $1 AND ${tenantField} = $2 RETURNING *`
+        : `DELETE FROM ${tableName} WHERE id = $1 AND ${tenantField} = $2 RETURNING *`; // Hard delete if no SoftDelete
+
+    const deleteSql = `DELETE FROM ${tableName} WHERE id = $1 AND ${tenantField} = $2 RETURNING id`;
 
     return `
 // Auto-generated database functions for ${name}
@@ -176,41 +153,48 @@ async function delete${name}(id, host) {
 
 // Generate all database query functions
 export function generateDatabaseQueries(config = {}) {
-    // Use shared path utilities for consistent path discovery
+    console.log('🏗️ Generating database queries...');
+
     const paths = getGenerationPaths(config);
-    
-    // Debug logging
-    const dbPath = paths.getModelPath('db');
-    const fullDbPath = getModelsFullPath('db', paths);
-    const exists = modelsExist('db', paths);
-    
-    // Check if database models exist
-    if (!exists) {
-        console.log(`📁 No models/db directory found at ${dbPath}, skipping database query generation`);
-        console.log(`   (Full path: ${fullDbPath})`);
-        console.log(`   (CWD: ${process.cwd()})`);
-        return;
+    const elmSchemaDir = paths.elmSchemaDir;
+
+    if (!fs.existsSync(elmSchemaDir)) {
+        console.log(`📁 No schema models found at ${elmSchemaDir}, skipping generation`);
+        return { models: [], structs: 0, functions: 0 };
     }
 
-    // Get full path to database models
-    const dbModelsPath = getModelsFullPath('db', paths);
+    const elmTypes = parseElmSchemaDir(elmSchemaDir);
 
-    // Ensure output directory exists
-    const outputPath = ensureOutputDir(paths.serverGlueDir);
-
-    const allStructs = [];
-
-    // Read all .rs files in models/db directory
-    const files = fs.readdirSync(dbModelsPath).filter(file => file.endsWith('.rs') && file !== 'mod.rs');
-
-    for (const file of files) {
-        const filePath = path.join(dbModelsPath, file);
-        const content = fs.readFileSync(filePath, 'utf-8');
-        const structs = parseRustStruct(content, file);
-        allStructs.push(...structs);
+    if (elmTypes.length === 0) {
+        console.log('📁 No schema models found, skipping generation');
+        return { models: [], structs: 0, functions: 0 };
     }
+
+    console.log(`📦 Using Elm Schema models from ${elmSchemaDir}`);
+
+    const allStructs = elmTypes.map(t => ({
+        name: t.name,
+        tableName: t.tableName,
+        fields: t.fields.map(f => ({
+            name: f.name,
+            type: f.rustType,
+            isPrimaryKey: f.isPrimaryKey,
+            isTimestamp: f.isTimestamp,
+            isOptional: f.isOptional,
+            isMultiTenant: f.isMultiTenant,
+            isSoftDelete: f.isSoftDelete
+        })),
+        filename: t.filename,
+        // Pass through MultiTenant/SoftDelete flags
+        isMultiTenant: t.isMultiTenant || false,
+        isSoftDelete: t.isSoftDelete || false,
+        multiTenantFieldName: t.multiTenantFieldName || null,
+        softDeleteFieldName: t.softDeleteFieldName || null
+    }));
 
     console.log(`🔍 Found ${allStructs.length} database models: ${allStructs.map(s => s.name).join(', ')}`);
+
+    const outputPath = ensureOutputDir(paths.serverGlueDir);
 
     // Generate functions for each struct
     const allFunctions = allStructs.map(generateQueryFunctions).join('\n\n');

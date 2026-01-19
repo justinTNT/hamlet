@@ -97,7 +97,7 @@ test('Schema.json exists with valid structure', () => {
 test('Main.elm is schema-driven (no Generated imports)', () => {
     console.log('\n🔍 Testing Main.elm is schema-driven...');
 
-    const mainPath = path.join(rootDir, 'app/horatio/admin/src/Main.elm');
+    const mainPath = path.join(rootDir, 'app/horatio/admin/web/src/Main.elm');
     if (!expect(mainPath, 'Main.elm exists').toExist()) {
         return false;
     }

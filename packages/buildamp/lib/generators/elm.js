@@ -1,19 +1,14 @@
 /**
  * Elm Shared Modules Generation
- * 
- * Generates shared port modules for Database, Events, and Services capabilities
- * that are used by TEA handlers for async operations.
- * 
- * Key principles:
- * - Generate capability-based interfaces
- * - Auto-derive types from Rust models
- * - Provide strongly-typed query builders
- * - Hide implementation complexity from developers
+ *
+ * Generates shared port modules for Database, Events, KV, and Services
+ * capabilities from Elm schema models.
  */
 
 import fs from 'fs';
 import path from 'path';
 import { getGenerationPaths, ensureOutputDir } from './shared-paths.js';
+import { parseElmSchemaDir, parseElmConfigDir, parseElmEventsDir, parseElmKvDir } from '../../core/elm-parser-ts.js';
 
 /**
  * Generate all shared Elm modules (configurable version)
@@ -70,8 +65,8 @@ export async function generateElmSharedModules(config = {}) {
  * Generate Database module with query builder interface
  */
 function generateDatabaseModule(paths, config = {}) {
-    // Parse actual Rust models to generate correct Elm types
-    const dbModels = parseRustDbModels(paths, config);
+    // Parse Elm schema models
+    const dbModels = parseDbModels(paths, config);
     
     return `port module Generated.Database exposing (..)
 
@@ -82,7 +77,7 @@ that automatically handles host isolation and query building.
 
 @docs Database, Query, Filter, Sort, Pagination
 @docs findItems, findItem, createItem, updateItem, killItem
-@docs queryAll, byId, bySlug, sortByCreatedAt, paginate
+@docs queryAll, byId, byField, sortBy, sortByCreatedAt, paginate
 @docs GlobalConfig, GlobalState
 
 -}
@@ -122,27 +117,31 @@ type Database
 -}
 type alias Query a =
     { filter : List (Filter a)
-    , sort : List (Sort a)  
+    , sort : List Sort
     , paginate : Maybe Pagination
     }
 
 
-{-| Filter types for different models
+{-| Filter types for queries
 -}
 type Filter a
     = ById String
-    | BySlug String
-    | ByUserId String
     | ByField String String
 
 
-{-| Sort options
+{-| Sort direction
 -}
-type Sort a
-    = CreatedAtAsc
-    | CreatedAtDesc
-    | TitleAsc
-    | TitleDesc
+type Direction
+    = Asc
+    | Desc
+
+
+{-| Sort by field name and direction
+-}
+type alias Sort =
+    { field : String
+    , direction : Direction
+    }
 
 
 {-| Pagination parameters
@@ -151,6 +150,16 @@ type alias Pagination =
     { offset : Int
     , limit : Int
     }
+
+
+{-| Multi-tenant field type (same as String, for documentation)
+-}
+type alias MultiTenant = String
+
+
+{-| Soft-delete field type (nullable timestamp)
+-}
+type alias SoftDelete = Maybe Int
 
 
 -- QUERY BUILDERS
@@ -172,18 +181,25 @@ byId id query =
     { query | filter = query.filter ++ [ById id] }
 
 
-{-| Add slug filter to query
+{-| Add field filter to query
 -}
-bySlug : String -> Query a -> Query a
-bySlug slug query =
-    { query | filter = query.filter ++ [BySlug slug] }
+byField : String -> String -> Query a -> Query a
+byField field value query =
+    { query | filter = query.filter ++ [ByField field value] }
 
 
-{-| Sort by created_at descending
+{-| Sort by a field with direction
+-}
+sortBy : String -> Direction -> Query a -> Query a
+sortBy field direction query =
+    { query | sort = query.sort ++ [{ field = field, direction = direction }] }
+
+
+{-| Sort by created_at descending (convenience helper)
 -}
 sortByCreatedAt : Query a -> Query a
 sortByCreatedAt query =
-    { query | sort = [CreatedAtDesc] }
+    sortBy "created_at" Desc query
 
 
 {-| Add pagination to query
@@ -253,7 +269,7 @@ type alias DbResponse =
     }
 
 
--- ENCODING/DECODING (Generated from Rust models)
+-- ENCODING/DECODING
 
 encodeQuery : Query a -> Encode.Value
 encodeQuery query =
@@ -269,21 +285,23 @@ encodeFilter filter =
     case filter of
         ById id ->
             Encode.object [("type", Encode.string "ById"), ("value", Encode.string id)]
-        BySlug slug ->
-            Encode.object [("type", Encode.string "BySlug"), ("value", Encode.string slug)]
-        ByUserId userId ->
-            Encode.object [("type", Encode.string "ByUserId"), ("value", Encode.string userId)]
         ByField field value ->
             Encode.object [("type", Encode.string "ByField"), ("field", Encode.string field), ("value", Encode.string value)]
 
 
-encodeSort : Sort a -> Encode.Value
+encodeDirection : Direction -> Encode.Value
+encodeDirection direction =
+    case direction of
+        Asc -> Encode.string "asc"
+        Desc -> Encode.string "desc"
+
+
+encodeSort : Sort -> Encode.Value
 encodeSort sort =
-    case sort of
-        CreatedAtAsc -> Encode.string "created_at_asc"
-        CreatedAtDesc -> Encode.string "created_at_desc"
-        TitleAsc -> Encode.string "title_asc"
-        TitleDesc -> Encode.string "title_desc"
+    Encode.object
+        [ ("field", Encode.string sort.field)
+        , ("direction", encodeDirection sort.direction)
+        ]
 
 
 encodeMaybePagination : Maybe Pagination -> Encode.Value
@@ -297,7 +315,7 @@ encodeMaybePagination maybePagination =
                 ]
 
 
--- DATABASE MODELS AND FUNCTIONS (Generated from Rust database models)
+-- DATABASE MODELS AND FUNCTIONS
 
 ${generateDbModelTypes(dbModels)}
 
@@ -355,8 +373,8 @@ toString query =
  * Generate Events module for Event Sourcing
  */
 function generateEventsModule(paths, config = {}) {
-    // Parse actual Rust event models to generate correct types
-    const eventModels = parseRustEventModels(paths, config);
+    // Parse Elm event models
+    const eventModels = parseEventModels(paths, config);
     
     return `port module Generated.Events exposing (..)
 
@@ -428,7 +446,7 @@ type alias EventRequest =
     }
 
 
--- ENCODING (Generated from Rust event models)
+-- ENCODING
 
 ${generateEventEncoders(eventModels)}
 
@@ -445,8 +463,8 @@ encodeMaybe encoder maybeValue =
  * Generate KV Store module with type-safe operations
  */
 function generateKvModule(paths, config = {}) {
-    // Parse actual Rust KV models to generate correct Elm types
-    const kvModels = parseRustKvModels(paths, config);
+    // Parse Elm KV models
+    const kvModels = parseKvModels(paths, config);
     
     const modelDocs = kvModels.length > 0 ? 
         kvModels.map(model => `@docs ${model.name}`).join('\n') : 
@@ -494,7 +512,7 @@ decode${model.name} =
 This module provides a strongly-typed, capability-based key-value store interface
 that automatically handles host isolation and TTL management.
 
-Generated from Rust models in: models/kv/*.rs
+Generated from Elm models in: shared/Kv/*.elm
 
 @docs KvRequest, KvResult, KvData
 @docs set, get, delete, exists
@@ -779,11 +797,11 @@ hashString str =
 }
 
 /**
- * Generate Config module with types from Rust config models
+ * Generate Config module with types from Elm config models
  */
 function generateConfigModule(paths, config = {}) {
-    // Parse actual Rust config models
-    const configModels = parseRustConfigModels(paths, config);
+    // Parse Elm config models
+    const configModels = parseConfigModels(paths, config);
 
     if (configModels.length === 0) {
         return `module Generated.Config exposing (..)
@@ -802,7 +820,7 @@ type alias EmptyConfig = {}
 
 {-| Generated configuration types for app initialization
 
-These types are generated from Rust models in models/config/*.rs
+These types are generated from Elm models in shared/Config/*.elm
 They define the shape of configuration data passed to Elm via init flags.
 
 @docs ${configModels.map(m => m.name).join(', ')}
@@ -813,7 +831,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 
 
--- CONFIG TYPES (Generated from Rust config models)
+-- CONFIG TYPES
 
 ${generateConfigModelTypes(configModels)}
 
@@ -964,358 +982,184 @@ function generateConfigFieldEncoder(field, allModels) {
 
 
 /**
- * Parse Rust config models from models/config/*.rs files
+ * Parse config models from Elm Config files
  */
-function parseRustConfigModels(paths, config = {}) {
+function parseConfigModels(paths, config = {}) {
     const models = [];
-    const configPath = config.inputBasePath ? `${config.inputBasePath}/config/` :
-                       paths.getModelPath('config');
+    const elmConfigPath = paths.elmConfigDir;
 
-    console.log('Looking for Config models at:', configPath);
-
-    if (!fs.existsSync(configPath)) {
-        console.warn('Config models directory not found, generating empty Config module');
+    if (!fs.existsSync(elmConfigPath)) {
         return [];
     }
 
-    const files = fs.readdirSync(configPath).filter(f => f.endsWith('.rs') && f !== 'mod.rs');
-
-    // First pass: collect all model names
-    const allKnownModels = [];
-    for (const file of files) {
-        const filePath = path.join(configPath, file);
-        const content = fs.readFileSync(filePath, 'utf-8');
-        const modelStructs = parseRustStructs(content, [], file);
-
-        for (const struct of modelStructs) {
-            allKnownModels.push(struct.name);
-        }
-    }
-
-    // Second pass: parse fields with knowledge of all models
-    for (const file of files) {
-        const filePath = path.join(configPath, file);
-        const content = fs.readFileSync(filePath, 'utf-8');
-        const modelStructs = parseRustStructs(content, allKnownModels, file);
-
-        for (const struct of modelStructs) {
-            // Normalize struct name - convert snake_case to PascalCase for Elm compatibility
-            const normalizedName = struct.name.includes('_')
-                ? struct.name.split('_').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('')
-                : struct.name.charAt(0).toUpperCase() + struct.name.slice(1);
-
-            models.push({
-                name: normalizedName,
-                fields: struct.fields,
-                sourceFile: file,
-                isMainModel: struct.isMainModel,
-                isComponent: struct.isComponent
-            });
-        }
-    }
-
-    return models;
-}
-
-
-/**
- * Parse Rust database models from src/models/db/*.rs files
- */
-function parseRustDbModels(paths, config = {}) {
-    const models = [];
-    const dbPath = config.inputBasePath ? `${config.inputBasePath}/db/` :
-                   paths.getModelPath('db');
-    
-    console.log('Looking for DB models at:', dbPath);
-    
-    if (!fs.existsSync(dbPath)) {
-        console.warn('Database models directory not found, using fallback types');
-        return getDefaultDbModels();
-    }
-    
-    const files = fs.readdirSync(dbPath).filter(f => f.endsWith('.rs') && f !== 'mod.rs');
-    
-    const modelsByName = new Map();
-    
-    // First pass: collect all model names
-    const allKnownModels = [];
-    for (const file of files) {
-        const filePath = path.join(dbPath, file);
-        const content = fs.readFileSync(filePath, 'utf-8');
-        const modelStructs = parseRustStructs(content, [], file);
-        
-        for (const struct of modelStructs) {
-            allKnownModels.push(struct.name);
-        }
-    }
-    
-    // Second pass: parse fields with knowledge of all models
-    for (const file of files) {
-        const filePath = path.join(dbPath, file);
-        const content = fs.readFileSync(filePath, 'utf-8');
-        const modelStructs = parseRustStructs(content, allKnownModels, file);
-        
-        for (const struct of modelStructs) {
-            // Normalize struct name - convert snake_case to PascalCase for Elm compatibility  
-            const normalizedName = struct.name.includes('_') 
-                ? struct.name.split('_').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('')
-                : struct.name.charAt(0).toUpperCase() + struct.name.slice(1);
-            
-            // Deduplicate models with the same normalized name
-            if (!modelsByName.has(normalizedName)) {
-                modelsByName.set(normalizedName, {
-                    name: normalizedName,
-                    fields: struct.fields,
-                    tableName: struct.isMainModel ? pascalToSnake(struct.name) : null,
-                    isMainModel: struct.isMainModel,
-                    isComponent: struct.isComponent,
-                    sourceFile: file
-                });
-            }
-        }
-    }
-    
-    models.push(...modelsByName.values());
-    return models.length > 0 ? models : getDefaultDbModels();
-}
-
-/**
- * Parse Rust KV models from src/models/kv/*.rs files
- */
-function parseRustKvModels(paths, config = {}) {
-    const models = [];
-    const kvPath = config.inputBasePath ? `${config.inputBasePath}/kv/` : 
-                   paths.getModelPath('kv');
-    
-    if (!fs.existsSync(kvPath)) {
-        console.warn('KV models directory not found, generating empty KV module');
-        return [];
-    }
-    
-    const files = fs.readdirSync(kvPath).filter(f => f.endsWith('.rs') && f !== 'mod.rs');
-    
-    for (const file of files) {
-        const filePath = path.join(kvPath, file);
-        const content = fs.readFileSync(filePath, 'utf-8');
-        const modelStructs = parseRustStructs(content, [], file);
-        
-        for (const struct of modelStructs) {
-            // Normalize struct name for Elm
-            const normalizedName = struct.name.includes('_') 
-                ? struct.name.split('_').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('')
-                : struct.name.charAt(0).toUpperCase() + struct.name.slice(1);
-            
-            models.push({
-                name: normalizedName,
-                fields: struct.fields,
-                sourceFile: file
-            });
-        }
-    }
-    
-    return models;
-}
-
-
-/**
- * Parse Rust struct definitions from file content
- */
-function parseRustStructs(content, knownModels = [], filename = null) {
-    const structs = [];
-    
-    // Match all pub struct definitions (no annotation required)
-    const structPattern = /pub\s+struct\s+(\w+)\s*\{([^}]+)\}/gs;
-    let match;
-    
-    while ((match = structPattern.exec(content)) !== null) {
-        const [, structName, fieldsContent] = match;
-        const fields = parseStructFields(fieldsContent, knownModels);
-        
-        // Classify based on filename convention
-        const isMainModel = filename ? fuzzyMatchFilename(structName, filename) : true;
-        
-        structs.push({
-            name: structName,
-            fields: fields,
-            isMainModel: isMainModel,
-            isComponent: !isMainModel
+    const elmModels = parseElmConfigDir(elmConfigPath);
+    for (const model of elmModels) {
+        models.push({
+            name: model.name,
+            fields: model.fields.map(f => ({
+                name: f.name,
+                elmType: elmTypeToElmType(f.elmType),
+                isOptional: f.isOptional
+            })),
+            sourceFile: model.filename,
+            isMainModel: true,
+            isComponent: false
         });
-    }
-    
-    return structs;
-}
-
-/**
- * Check if struct name fuzzy matches filename
- * e.g., "MicroblogItem" matches "microblog_item.rs"
- */
-function fuzzyMatchFilename(structName, filename) {
-    // Remove .rs extension
-    const baseName = filename.replace(/\.rs$/, '');
-    
-    // Convert struct name from PascalCase to snake_case
-    const snakeCaseStruct = structName
-        .replace(/([A-Z])/g, '_$1')  // Insert underscore before capitals
-        .toLowerCase()               // Convert to lowercase
-        .replace(/^_/, '');          // Remove leading underscore
-    
-    return snakeCaseStruct === baseName;
-}
-
-/**
- * Parse individual struct fields and convert Rust types to Elm types
- */
-function parseStructFields(fieldsContent, knownModels = []) {
-    const fields = [];
-    const fieldPattern = /pub\s+(\w+):\s*([^,\n]+)/g;
-    let match;
-    
-    while ((match = fieldPattern.exec(fieldsContent)) !== null) {
-        const [, fieldName, rustType] = match;
-        const elmType = rustTypeToElmType(rustType.trim(), knownModels);
-        
-        // Skip serde attributes and dependencies for now
-        if (!fieldName.startsWith('#[') && !rustType.includes('#[dependency')) {
-            fields.push({
-                name: fieldName,
-                rustType: rustType.trim(),
-                elmType: elmType,
-                isOptional: rustType.includes('Option<'),
-                isList: rustType.includes('Vec<')
+        // Also add helper types
+        for (const helper of (model.helperTypes || [])) {
+            models.push({
+                name: helper.name,
+                fields: helper.fields.map(f => ({
+                    name: f.name,
+                    elmType: elmTypeToElmType(f.elmType),
+                    isOptional: f.isOptional
+                })),
+                sourceFile: model.filename,
+                isMainModel: false,
+                isComponent: true
             });
         }
     }
-    
-    return fields;
+    return models;
+}
+
+
+/**
+ * Parse database models from Elm Schema files
+ */
+function parseDbModels(paths, config = {}) {
+    const elmSchemaDir = paths.elmSchemaDir;
+
+    if (!fs.existsSync(elmSchemaDir)) {
+        console.warn(`Schema directory not found at ${elmSchemaDir}`);
+        return [];
+    }
+
+    const elmTypes = parseElmSchemaDir(elmSchemaDir);
+    return elmTypes.map(t => ({
+        name: t.name,
+        fields: t.fields.map(f => ({
+            name: snakeToCamel(f.name),
+            elmType: elmTypeToElmType(f.rustType),
+            rustType: f.rustType,
+            isPrimaryKey: f.isPrimaryKey,
+            isTimestamp: f.isTimestamp,
+            isOptional: f.isOptional,
+            isForeignKey: f.isForeignKey,
+            referencedTable: f.referencedTable
+        })),
+        tableName: t.tableName,
+        isMainModel: true,
+        isComponent: false,
+        sourceFile: t.filename
+    }));
 }
 
 /**
- * Convert Rust types to equivalent Elm types
+ * Parse KV models from Elm KV files
  */
-function rustTypeToElmType(rustType, knownModels = []) {
-    // Remove generic parameters for basic mapping
-    const baseType = rustType.replace(/<[^>]*>/g, '');
-    
-    const typeMap = {
-        'String': 'String',
-        'i32': 'Int', 
-        'i64': 'Int',
-        'u32': 'Int',
-        'u64': 'Int',
-        'f32': 'Float',
-        'f64': 'Float',
-        'bool': 'Bool',
-        'DatabaseId': 'String',  // DatabaseId<T> becomes String
-        'Timestamp': 'Int',      // Timestamp becomes Int (Unix timestamp)
-        'DefaultComment': 'String', // DefaultComment becomes String
-        'Uuid': 'String',        // Uuid becomes String
-        'RichContent': 'String', // RichContent is stored as TEXT in database
-        // Model references - assume they exist as Db types
-        'ItemComment': 'ItemCommentDb',
-        'Guest': 'GuestDb', 
-        'Tag': 'TagDb',
-    };
-    
-    if (rustType.startsWith('JsonBlob<')) {
-        const match = rustType.match(/JsonBlob<(.+)>/);
-        if (match) {
-            const innerType = match[1];
-            // JsonBlob<T> becomes the component type directly in Elm
-            return rustTypeToElmType(innerType, knownModels);
-        }
+function parseKvModels(paths, config = {}) {
+    const elmKvDir = paths.elmKvDir;
+
+    if (!fs.existsSync(elmKvDir)) {
+        return [];
     }
-    
-    if (rustType.startsWith('Option<')) {
-        const match = rustType.match(/Option<(.+)>/);
-        if (match) {
-            const innerType = match[1];
-            return `Maybe ${rustTypeToElmType(innerType, knownModels)}`;
-        }
-    }
-    
-    if (rustType.startsWith('Vec<')) {
-        const match = rustType.match(/Vec<(.+)>/);
-        if (match) {
-            const innerType = match[1];
-            const innerElmType = rustTypeToElmType(innerType, knownModels);
-            // Add parentheses for nested List types to ensure proper syntax
-            if (innerElmType.startsWith('List ')) {
-                return `List (${innerElmType})`;
-            }
-            return `List ${innerElmType}`;
-        }
-    }
-    
-    // Check if it's a known type
-    if (typeMap[baseType]) {
-        return typeMap[baseType];
-    }
-    
-    // Check if it's a known domain model (should map to ModelDb type)
-    if (knownModels.includes(baseType)) {
-        return `${baseType}Db`;
-    }
-    
-    // For enum types (typically PascalCase single words), treat as String
-    // This is a heuristic - enums are usually PascalCase without underscores
-    if (/^[A-Z][a-zA-Z]*$/.test(baseType)) {
-        return 'String';
-    }
-    
-    // Convert unknown complex types to Db versions
-    return `${baseType}Db`;
+
+    const elmModels = parseElmKvDir(elmKvDir);
+    return elmModels.map(m => ({
+        name: m.name,
+        fields: m.fields.map(f => ({
+            name: f.name,
+            elmType: f.elmType,
+            isOptional: f.isOptional
+        })),
+        sourceFile: m.filename
+    }));
 }
 
-/**
- * Fallback database models when parsing fails
- */
-function getDefaultDbModels() {
-    return [
-        {
-            name: 'MicroblogItem',
-            tableName: 'microblog_items',
-            fields: [
-                { name: 'id', elmType: 'String', isOptional: false, isList: false },
-                { name: 'title', elmType: 'String', isOptional: false, isList: false },
-                { name: 'link', elmType: 'Maybe String', isOptional: true, isList: false },
-                { name: 'image', elmType: 'Maybe String', isOptional: true, isList: false },
-                { name: 'extract', elmType: 'Maybe String', isOptional: true, isList: false },
-                { name: 'ownerComment', elmType: 'String', isOptional: false, isList: false },
-                { name: 'timestamp', elmType: 'Int', isOptional: false, isList: false }
-            ]
-        }
-    ];
-}
 
-function camelToSnake(str) {
-    return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-}
-
-function pascalToSnake(str) {
-    // Convert PascalCase to snake_case properly
-    return str.replace(/([A-Z])/g, (match, letter, index) => {
-        return (index > 0 ? '_' : '') + letter.toLowerCase();
-    });
-}
-
-function pluralize(str) {
-    // Simple pluralization - add 's' or handle common cases
-    if (str.endsWith('y')) {
-        return str.slice(0, -1) + 'ies';
-    } else if (str.endsWith('s') || str.endsWith('sh') || str.endsWith('ch') || str.endsWith('x') || str.endsWith('z')) {
-        return str + 'es';
-    } else {
-        return str + 's';
-    }
-}
+// Helper functions
 
 function snakeToCamel(str) {
     return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
               .replace(/_([0-9])/g, (_, digit) => digit);
 }
 
+function camelToSnake(str) {
+    return str.replace(/([A-Z])/g, '_$1').toLowerCase();
+}
+
 /**
- * Generate Elm type aliases from parsed Rust database models
+ * Convert Elm schema types to Elm module types
+ * Maps from Elm parser representation to what Database.elm expects
+ */
+function elmTypeToElmType(elmType) {
+    // DatabaseId a -> String (the ID type)
+    if (elmType.startsWith('DatabaseId ')) {
+        return 'String';
+    }
+    // Timestamp -> Int
+    if (elmType === 'Timestamp') {
+        return 'Int';
+    }
+    // Host -> String
+    if (elmType === 'Host') {
+        return 'String';
+    }
+    // ForeignKey Table a -> String (the FK type)
+    if (elmType.startsWith('ForeignKey ')) {
+        return 'String';
+    }
+    // RichContent -> String (stored as TEXT/JSONB in database)
+    if (elmType === 'RichContent') {
+        return 'String';
+    }
+    // Link -> String (URL stored as TEXT)
+    if (elmType === 'Link') {
+        return 'String';
+    }
+    // CorrelationId a -> String (event tracking phantom type)
+    if (elmType.startsWith('CorrelationId ')) {
+        return 'String';
+    }
+    // ExecuteAt a -> String (scheduled execution phantom type)
+    if (elmType.startsWith('ExecuteAt ')) {
+        return 'String';
+    }
+    // DateTime -> String
+    if (elmType === 'DateTime') {
+        return 'String';
+    }
+    // Dict a b -> String (serialize as JSON string)
+    if (elmType.startsWith('Dict ')) {
+        return 'String';
+    }
+    // Maybe a -> Maybe a (already correct)
+    if (elmType.startsWith('Maybe ')) {
+        const innerType = elmType.slice(6);
+        // Handle parenthesized inner types like "Maybe (ExecuteAt DateTime)"
+        let cleanInner = innerType;
+        if (innerType.startsWith('(') && innerType.endsWith(')')) {
+            cleanInner = innerType.slice(1, -1);
+        }
+        const convertedInner = elmTypeToElmType(cleanInner);
+        // Add parens if inner type has spaces
+        if (convertedInner.includes(' ')) {
+            return `Maybe (${convertedInner})`;
+        }
+        return `Maybe ${convertedInner}`;
+    }
+    // List a -> List a
+    if (elmType.startsWith('List ')) {
+        const innerType = elmType.slice(5);
+        return `List ${elmTypeToElmType(innerType)}`;
+    }
+    // Basic types pass through
+    return elmType;
+}
+
+/**
+ * Generate Elm type aliases from parsed database models
  */
 function generateDbModelTypes(models) {
     return models.map(model => {
@@ -1362,14 +1206,13 @@ ${componentEncoders}`;
  */
 function generateModelTypeAlias(model) {
     const fields = model.fields.map((field, index) => {
-        const comment = field.rustType ? ` -- ${field.rustType} in Rust` : '';
+        const comment = field.rustType ? ` -- ${field.rustType}` : '';
         const elmFieldName = snakeToCamel(field.name);
         const prefix = index === 0 ? '    ' : '    , ';
         return `${prefix}${elmFieldName} : ${field.elmType}${comment}`;
     }).join('\n');
     
     return `{-| Database entity for ${model.name}
-This corresponds to the Rust ${model.name} struct with database-specific types
 -}
 type alias ${model.name}Db =
     { ${fields}
@@ -1407,22 +1250,25 @@ type alias ${model.name}DbCreate =
 function generateUpdateTypeAlias(model) {
     const updateFields = model.fields
         .filter(field => field.name !== 'id' && field.name !== 'timestamp');
-    
+
     if (updateFields.length === 0) {
         return `-- No update type needed for ${model.name}`;
     }
-    
+
     const fields = updateFields.map((field, index) => {
-        const optionalType = field.elmType.startsWith('Maybe ') ? field.elmType : `Maybe ${field.elmType}`;
+        // SoftDelete is already Maybe Int, don't double-wrap
+        // Same for types already starting with Maybe
+        const isAlreadyOptional = field.elmType.startsWith('Maybe ') || field.elmType === 'SoftDelete';
+        const optionalType = isAlreadyOptional ? field.elmType : `Maybe ${field.elmType}`;
         const elmFieldName = snakeToCamel(field.name);
         const prefix = index === 0 ? '    ' : '    , ';
         return `${prefix}${elmFieldName} : ${optionalType}`;
     }).join('\n');
-    
+
     return `{-| Database entity for updating existing ${model.name}
 All fields optional to support partial updates
 -}
-type alias ${model.name}DbUpdate = 
+type alias ${model.name}DbUpdate =
     { ${fields}
     }`;
 }
@@ -1504,9 +1350,9 @@ function generateComponentEncodersDecoders(model) {
 ${modelName.toLowerCase()}DbDecoder =
     Decode.succeed ${modelName}Db
 ${model.fields.map(field => {
-    const elmFieldName = snakeToCamel(field.name);
+    const snakeFieldName = camelToSnake(field.name);
     const decoder = generateFieldDecoder(field);
-    return `        |> decodeField "${field.name}" ${decoder}`;
+    return `        |> decodeField "${snakeFieldName}" ${decoder}`;
 }).join('\n')}
 
 
@@ -1514,9 +1360,9 @@ encode${modelName}Db : ${modelName}Db -> Encode.Value
 encode${modelName}Db item =
     Encode.object
         [ ${model.fields.map(field => {
-            const elmFieldName = snakeToCamel(field.name);
+            const snakeFieldName = camelToSnake(field.name);
             const encoder = generateFieldEncoder(field);
-            return `("${field.name}", ${encoder} item.${elmFieldName})`;
+            return `("${snakeFieldName}", ${encoder} item.${field.name})`;
         }).join('\n        , ')}
         ]`;
 }
@@ -1526,14 +1372,14 @@ encode${modelName}Db item =
  */
 function generateEncodersDecoders(model) {
     const modelName = model.name;
-    
+
     return `${modelName.toLowerCase()}DbDecoder : Decode.Decoder ${modelName}Db
 ${modelName.toLowerCase()}DbDecoder =
     Decode.succeed ${modelName}Db
 ${model.fields.map(field => {
-    const elmFieldName = snakeToCamel(field.name);
+    const snakeFieldName = camelToSnake(field.name);
     const decoder = generateFieldDecoder(field);
-    return `        |> decodeField "${field.name}" ${decoder}`;
+    return `        |> decodeField "${snakeFieldName}" ${decoder}`;
 }).join('\n')}
 
 
@@ -1543,9 +1389,9 @@ encode${modelName}DbCreate item =
         [ ${model.fields
             .filter(field => !field.isOptional && field.name !== 'id' && field.name !== 'timestamp')
             .map(field => {
-                const elmFieldName = snakeToCamel(field.name);
+                const snakeFieldName = camelToSnake(field.name);
                 const encoder = generateFieldEncoder(field);
-                return `("${field.name}", ${encoder} item.${elmFieldName})`;
+                return `("${snakeFieldName}", ${encoder} item.${field.name})`;
             }).join('\n        , ')}
         ]
 
@@ -1556,9 +1402,9 @@ encode${modelName}DbUpdate item =
         [ ${model.fields
             .filter(field => field.name !== 'id' && field.name !== 'timestamp')
             .map(field => {
-                const elmFieldName = snakeToCamel(field.name);
+                const snakeFieldName = camelToSnake(field.name);
                 const encoder = generateFieldEncoder(field, true); // optional for update
-                return `("${field.name}", ${encoder} item.${elmFieldName})`;
+                return `("${snakeFieldName}", ${encoder} item.${field.name})`;
             }).join('\n        , ')}
         ]`;
 }
@@ -1574,12 +1420,22 @@ function generateFieldDecoder(field) {
         const baseName = componentType.replace(/Db$/, '');
         return `${baseName.toLowerCase()}DbDecoder`;
     }
-    
+
     // Special handling for Timestamp fields - PostgreSQL BIGINT comes as string
     if (field.rustType === 'Timestamp') {
         return 'timestampDecoder';
     }
-    
+
+    // Special handling for SoftDelete - it's defined as Maybe Int (nullable timestamp)
+    if (field.elmType === 'SoftDelete') {
+        return '(Decode.nullable timestampDecoder)';
+    }
+
+    // Special handling for MultiTenant - it's defined as String
+    if (field.elmType === 'MultiTenant') {
+        return 'Decode.string';
+    }
+
     if (field.elmType.startsWith('Maybe ')) {
         const innerType = field.elmType.replace('Maybe ', '');
         return `(Decode.nullable ${generateBasicDecoder(innerType)})`;
@@ -1600,6 +1456,8 @@ function generateBasicDecoder(elmType) {
         case 'Int': return 'Decode.int';
         case 'Float': return 'Decode.float';
         case 'Bool': return 'Decode.bool';
+        case 'MultiTenant': return 'Decode.string';  // MultiTenant = String
+        case 'SoftDelete': return '(Decode.nullable timestampDecoder)';  // SoftDelete = Maybe Int
         default: return 'Decode.string'; // Fallback for custom types
     }
 }
@@ -1609,23 +1467,29 @@ function generateBasicDecoder(elmType) {
  */
 function generateFieldEncoder(field, isOptional = false) {
     let baseEncoder;
-    
+
     // Special handling for JsonBlob fields - encode using component encoder
     if (field.rustType && field.rustType.startsWith('JsonBlob<')) {
         const componentType = field.elmType; // e.g., "MicroblogItemDataDb"
         const baseName = componentType.replace(/Db$/, '');
         baseEncoder = `encode${baseName}Db`;
+    } else if (field.elmType === 'SoftDelete') {
+        // SoftDelete = Maybe Int, encode as nullable int
+        baseEncoder = 'encodeMaybe Encode.int';
+    } else if (field.elmType === 'MultiTenant') {
+        // MultiTenant = String
+        baseEncoder = 'Encode.string';
     } else if (field.elmType.startsWith('Maybe ')) {
         const innerType = field.elmType.replace('Maybe ', '');
         baseEncoder = `encodeMaybe ${generateBasicEncoder(innerType)}`;
     } else {
         baseEncoder = generateBasicEncoder(field.elmType);
     }
-    
-    if (isOptional && !field.elmType.startsWith('Maybe ')) {
+
+    if (isOptional && !field.elmType.startsWith('Maybe ') && field.elmType !== 'SoftDelete') {
         return `encodeMaybe ${baseEncoder}`;
     }
-    
+
     return baseEncoder;
 }
 
@@ -1645,132 +1509,38 @@ function generateBasicEncoder(elmType) {
             case 'Int': return 'Encode.int';
             case 'Float': return 'Encode.float';
             case 'Bool': return 'Encode.bool';
+            case 'MultiTenant': return 'Encode.string';  // MultiTenant = String
+            case 'SoftDelete': return 'encodeMaybe Encode.int';  // SoftDelete = Maybe Int
             default: return 'Encode.string'; // Fallback for custom types
         }
     }
 }
 
 /**
- * Parse Rust event models from src/models/events/*.rs files
+ * Parse event models from Elm Events files
  */
-function parseRustEventModels(paths, config = {}) {
+function parseEventModels(paths, config = {}) {
     const models = [];
-    const eventsPath = config.inputBasePath ? `${config.inputBasePath}/events/` :
-                      paths.getModelPath('events');
-    
-    if (!fs.existsSync(eventsPath)) {
-        console.warn('Events models directory not found, using fallback types');
-        return getDefaultEventModels();
-    }
-    
-    const files = fs.readdirSync(eventsPath).filter(f => f.endsWith('.rs') && f !== 'mod.rs');
-    
-    for (const file of files) {
-        const filePath = path.join(eventsPath, file);
-        const content = fs.readFileSync(filePath, 'utf-8');
-        const eventStructs = parseRustEventStructs(content);
-        
-        for (const struct of eventStructs) {
-            models.push({
-                name: struct.name,
-                fields: struct.fields,
-                sourceFile: file
-            });
-        }
-    }
-    
-    return models.length > 0 ? models : getDefaultEventModels();
-}
+    const elmEventsPath = paths.elmEventsDir;
 
-/**
- * Parse Rust event struct definitions from file content
- */
-function parseRustEventStructs(content) {
-    const structs = [];
-    
-    // Match pub struct definitions (event models don't need buildamp annotations)
-    const structPattern = /pub\s+struct\s+(\w+)\s*\{([^}]+)\}/gs;
-    let match;
-    
-    while ((match = structPattern.exec(content)) !== null) {
-        const [, structName, fieldsContent] = match;
-        const fields = parseEventStructFields(fieldsContent);
-        
-        structs.push({
-            name: structName,
-            fields: fields
+    if (!fs.existsSync(elmEventsPath)) {
+        return [];
+    }
+
+    const elmModels = parseElmEventsDir(elmEventsPath);
+    for (const model of elmModels) {
+        models.push({
+            name: model.name,
+            fields: model.fields.map(f => ({
+                name: f.camelName || f.name,
+                rustType: f.type,
+                elmType: elmTypeToElmType(f.elmType),
+                isOptional: f.isOptional
+            })),
+            sourceFile: model.filename
         });
     }
-    
-    return structs;
-}
-
-/**
- * Parse event struct fields, skipping framework fields
- */
-function parseEventStructFields(fieldsContent) {
-    const fields = [];
-    const fieldPattern = /pub\s+(\w+):\s*([^,\n]+)/g;
-    let match;
-    
-    while ((match = fieldPattern.exec(fieldsContent)) !== null) {
-        const [, fieldName, rustType] = match;
-        
-        // Skip framework fields
-        if (fieldName === 'correlation_id' || fieldName === 'execute_at') {
-            continue;
-        }
-        
-        const elmType = eventRustTypeToElmType(rustType.trim());
-        
-        fields.push({
-            name: fieldName,
-            rustType: rustType.trim(),
-            elmType: elmType,
-            isOptional: rustType.includes('Option<')
-        });
-    }
-    
-    return fields;
-}
-
-/**
- * Convert Rust types to Elm types for event models
- */
-function eventRustTypeToElmType(rustType) {
-    // Remove generic parameters for basic mapping
-    const baseType = rustType.replace(/<[^>]*>/g, '');
-    
-    const typeMap = {
-        'String': 'String',
-        'i32': 'Int', 
-        'i64': 'Int',
-        'f32': 'Float',
-        'f64': 'Float',
-        'bool': 'Bool',
-    };
-    
-    if (rustType.startsWith('Option<')) {
-        const match = rustType.match(/Option<(.+)>/);
-        if (match) {
-            const innerType = match[1];
-            return `Maybe ${eventRustTypeToElmType(innerType)}`;
-        }
-    }
-    
-    if (rustType.startsWith('Vec<')) {
-        const match = rustType.match(/Vec<(.+)>/);
-        if (match) {
-            const innerType = match[1];
-            return `List ${eventRustTypeToElmType(innerType)}`;
-        }
-    }
-    
-    if (rustType.includes('HashMap<String, String>')) {
-        return 'List (String, String)';
-    }
-    
-    return typeMap[baseType] || 'String';
+    return models;
 }
 
 /**
@@ -1848,25 +1618,3 @@ ${mainEncoderCases}
 ${individualEncoders}`;
 }
 
-/**
- * Fallback event models when parsing fails
- */
-function getDefaultEventModels() {
-    return [
-        {
-            name: 'SendWelcomeEmail',
-            fields: [
-                { name: 'user_id', elmType: 'String', isOptional: false },
-                { name: 'email', elmType: 'String', isOptional: false },
-                { name: 'name', elmType: 'String', isOptional: false }
-            ]
-        },
-        {
-            name: 'ProcessVideo',
-            fields: [
-                { name: 'file_id', elmType: 'String', isOptional: false },
-                { name: 'process_type', elmType: 'String', isOptional: false }
-            ]
-        }
-    ];
-}

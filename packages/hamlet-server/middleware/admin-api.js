@@ -57,8 +57,13 @@ export default function createAdminApi(server) {
         }
     });
 
+    // Cache for loaded schema
+    let cachedSchema = null;
+
     // Helper to load schema
     const loadSchema = async () => {
+        if (cachedSchema) return cachedSchema;
+
         const fs = await import('fs');
         const path = await import('path');
 
@@ -70,10 +75,40 @@ export default function createAdminApi(server) {
 
         for (const schemaPath of possiblePaths) {
             if (fs.existsSync(schemaPath)) {
-                return JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
+                cachedSchema = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
+                return cachedSchema;
             }
         }
         return null;
+    };
+
+    /**
+     * Build WHERE clause based on schema MultiTenant/SoftDelete flags
+     * Returns { whereClause, params, nextParamIndex }
+     */
+    const buildSchemaAwareWhereClause = (tableSchema, host) => {
+        // Determine field names from schema, with defaults for backward compat
+        const tenantField = tableSchema?.multiTenantFieldName || 'host';
+        const deletedField = tableSchema?.softDeleteFieldName || 'deleted_at';
+
+        const conditions = [];
+        const params = [];
+        let nextParamIndex = 1;
+
+        // MultiTenant filtering: apply if schema says so, OR fallback if no schema (backward compat)
+        if (!tableSchema || tableSchema.isMultiTenant !== false) {
+            conditions.push(`${tenantField} = $${nextParamIndex}`);
+            params.push(host);
+            nextParamIndex++;
+        }
+
+        // SoftDelete filtering: apply if schema says so, OR fallback if no schema (backward compat)
+        if (!tableSchema || tableSchema.isSoftDelete !== false) {
+            conditions.push(`${deletedField} IS NULL`);
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+        return { whereClause, params, nextParamIndex, tenantField };
     };
 
     // Options endpoint - returns id/label pairs for FK dropdowns
@@ -111,36 +146,60 @@ export default function createAdminApi(server) {
 
     // Generic endpoints
 
-    // List all resources
+    // List all resources with server-side sorting and pagination
     server.app.get('/admin/api/:resource', requireAdmin, async (req, res) => {
         try {
-            const resource = req.params.resource; // e.g., "Guest"
+            const resource = req.params.resource; // e.g., "guest" or "microblog_item"
             // Extract host and remove port number if present
-            const rawHost = req.get('X-Forwarded-Host') || req.get('Host'); 
+            const rawHost = req.get('X-Forwarded-Host') || req.get('Host');
             const host = rawHost ? rawHost.split(':')[0] : 'localhost';
 
-            // Convert snake_case resource to PascalCase for method dispatch
-            const methodResource = snakeToPascal(resource);
-            
-            // Try soft delete-aware method first, fallback to original
-            let methodName = `find${methodResource}sByHost`;
-            if (typeof db[methodName] !== 'function') {
-                methodName = `get${methodResource}sByHost`;
+            // Parse query params for sorting and pagination
+            const sortField = req.query.sort || 'created_at';
+            const sortDir = (req.query.dir || 'desc').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+            const offset = parseInt(req.query.offset, 10) || 0;
+            const limit = Math.min(parseInt(req.query.limit, 10) || 50, 500); // Cap at 500
+
+            // Validate sort field to prevent SQL injection (only allow alphanumeric and underscore)
+            if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(sortField)) {
+                return res.status(400).json({ error: 'Invalid sort field' });
             }
 
-            if (typeof db[methodName] === 'function') {
-                const results = await db[methodName](host);
-                
-                // Remove the host field from each result (internal tenant field)
-                const cleanResults = results.map(item => {
-                    const { host, ...cleanItem } = item;
-                    return cleanItem;
-                });
-                
-                res.json(cleanResults);
-            } else {
-                res.status(404).json({ error: `Resource '${resource}' not found or not listable` });
-            }
+            // Load schema for schema-aware query building
+            const schema = await loadSchema();
+            const tableSchema = schema?.tables?.[resource];
+            const { whereClause, params, nextParamIndex, tenantField } = buildSchemaAwareWhereClause(tableSchema, host);
+
+            // Build SQL query with sorting and pagination
+            const dataQuery = `
+                SELECT * FROM ${resource}
+                ${whereClause}
+                ORDER BY ${sortField} ${sortDir}
+                LIMIT $${nextParamIndex} OFFSET $${nextParamIndex + 1}
+            `;
+            const countQuery = `
+                SELECT COUNT(*) as total FROM ${resource}
+                ${whereClause}
+            `;
+
+            // Execute both queries
+            const [dataResult, countResult] = await Promise.all([
+                db.query(dataQuery, [...params, limit, offset]),
+                db.query(countQuery, params)
+            ]);
+
+            // Remove the tenant field from each result (internal tenant field)
+            const cleanResults = dataResult.rows.map(item => {
+                const { [tenantField]: _, ...cleanItem } = item;
+                return cleanItem;
+            });
+
+            res.json({
+                data: cleanResults,
+                total: parseInt(countResult.rows[0].total, 10),
+                offset,
+                limit
+            });
         } catch (error) {
             console.error('Admin list error:', error);
             res.status(500).json({ error: error.message });

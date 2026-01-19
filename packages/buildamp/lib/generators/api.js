@@ -1,18 +1,20 @@
 /**
  * API Route Generation
- * Generates Express routes and Elm backend types from #[buildamp_api] annotations in src/models/api/
+ * Generates Express routes and Elm backend types from Elm API definitions in shared/Api/
  * Replaces manual endpoint switching with individual type-safe routes
  */
 
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { getGenerationPaths, modelsExist, getModelsFullPath, ensureOutputDir, parseCrossModelReferences } from './shared-paths.js';
+import { getGenerationPaths, modelsExist, getModelsFullPath, ensureOutputDir } from './shared-paths.js';
+import { parseElmApiDir } from '../../core/elm-parser-ts.js';
+import { generateUnionEncoder, generateUnionDecoder, generateUnionTypeDefinition } from './union-types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Parse buildamp_api annotations from Rust file content
+// Parse buildamp_api annotations from file content
 function parseApiAnnotations(content, filename) {
     const apis = [];
     
@@ -161,7 +163,7 @@ ${validationChecks}
 }
 
 /**
- * Convert Rust type to Elm type
+ * Convert schema type to Elm type
  */
 function rustTypeToElmType(rustType) {
     const typeMap = {
@@ -325,9 +327,49 @@ ${httpFunctions}
 }
 
 /**
+ * Generate code for all union types (definitions, encoders, decoders)
+ */
+function generateUnionTypesCode(unionTypes) {
+    const definitions = [];
+    const encoders = [];
+    const decoders = [];
+
+    for (const unionType of unionTypes) {
+        // Skip types with type parameters (generic types like Maybe a)
+        if (unionType.typeParams && unionType.typeParams.length > 0) {
+            continue;
+        }
+
+        definitions.push(generateUnionTypeDefinition(unionType));
+
+        const encoder = generateUnionEncoder(unionType);
+        if (encoder) encoders.push(encoder);
+
+        const decoder = generateUnionDecoder(unionType);
+        if (decoder) decoders.push(decoder);
+    }
+
+    const parts = [];
+    if (definitions.length > 0) {
+        parts.push('-- Union Types\n' + definitions.join('\n\n'));
+    }
+    if (encoders.length > 0) {
+        parts.push('-- Union Type Encoders\n' + encoders.join('\n\n'));
+    }
+    if (decoders.length > 0) {
+        parts.push('-- Union Type Decoders\n' + decoders.join('\n\n'));
+    }
+
+    return parts.join('\n\n');
+}
+
+/**
  * Generate Elm backend types for API handlers
  */
-function generateElmBackendTypes(allApis) {
+function generateElmBackendTypes(allApis, unionTypes = []) {
+    // Generate union type definitions, encoders, and decoders
+    const unionTypeCode = unionTypes.length > 0 ? generateUnionTypesCode(unionTypes) : '';
+
     // Generate BackendAction type with all endpoints
     const backendActions = allApis.map(api => {
         const actionName = api.path; // GetFeed, SubmitItem, etc.
@@ -415,46 +457,104 @@ backendActionEncoder enum =
 ${actionEncoderCases}
 
 -- Updated backendActionDecoder cases:
-backendActionDecoder = 
+backendActionDecoder =
     Json.Decode.oneOf
         [ -- Add your existing cases here first
 ${actionDecoderCases}
         ]
+${unionTypeCode ? '\n' + unionTypeCode : ''}
 `;
+}
+
+/**
+ * Convert Elm API format to the format expected by generators
+ */
+function convertElmApiToGeneratorFormat(elmApi) {
+    // Convert Elm annotations to generator format
+    const convertAnnotations = (annotations) => {
+        const result = {};
+        if (annotations.inject) {
+            result.inject = 'host'; // Elm uses Inject type wrapper
+        }
+        if (annotations.required) {
+            result.required = true;
+        }
+        if (annotations.trim) {
+            result.trim = true;
+        }
+        return result;
+    };
+
+    // Map Elm types to schema format types (for compatibility with existing generators)
+    const elmTypeToSchemaType = (elmType) => {
+        if (elmType.startsWith('Maybe ')) {
+            const inner = elmType.slice(6);
+            return `Option<${elmTypeToSchemaType(inner)}>`;
+        }
+        if (elmType.startsWith('List ')) {
+            const inner = elmType.slice(5);
+            return `Vec<${elmTypeToSchemaType(inner)}>`;
+        }
+        if (elmType === 'Int') return 'i64';
+        if (elmType === 'Float') return 'f64';
+        if (elmType === 'Bool') return 'bool';
+        return elmType; // String stays String
+    };
+
+    return {
+        struct_name: `${elmApi.name}Req`,
+        name: `${elmApi.name}Req`,
+        path: elmApi.name,
+        serverContext: elmApi.serverContext ? 'ServerContext' : null,
+        fields: elmApi.request.fields.map(f => ({
+            name: f.name,
+            type: elmTypeToSchemaType(f.elmType),
+            annotations: convertAnnotations(f.annotations)
+        })),
+        filename: elmApi.filename,
+        // Keep Elm-specific data for enhanced generation
+        _elm: elmApi
+    };
 }
 
 // Generate all API routes
 function generateApiRoutes(config = {}) {
     // Use shared path discovery
     const paths = getGenerationPaths(config);
+    const schemaLang = config.schemaLang || 'elm';
 
-    // Check if API models exist
-    if (!modelsExist('api', paths)) {
-        console.log('❌ No API models directory found, skipping API route generation');
-        return;
-    }
-
-    const apiModelsPath = getModelsFullPath('api', paths);
     const outputPath = ensureOutputDir(paths.jsGlueDir);
-
     const allApis = [];
     const allDbReferences = new Set(); // Track cross-model DB references
+    const allUnionTypes = []; // Collect union types from all API modules
 
-    // Read all .rs files in src/models/api
-    const files = fs.readdirSync(apiModelsPath).filter(file => file.endsWith('.rs') && file !== 'mod.rs');
-
-    for (const file of files) {
-        const filePath = path.join(apiModelsPath, file);
-        const content = fs.readFileSync(filePath, 'utf-8');
-        const apis = parseApiAnnotations(content, file);
-        allApis.push(...apis);
-
-        // Detect cross-model references (e.g., use crate::models::db::MicroblogItem)
-        const refs = parseCrossModelReferences(content);
-        refs.db.forEach(dbModel => allDbReferences.add(dbModel));
+    // Try Elm API schemas first
+    if (schemaLang === 'elm') {
+        const elmApiDir = path.join(paths.outputDir, 'shared/Api');
+        if (fs.existsSync(elmApiDir)) {
+            const elmApis = parseElmApiDir(elmApiDir);
+            if (elmApis.length > 0) {
+                console.log(`🌳 Parsing Elm API schemas from ${elmApiDir}`);
+                for (const elmApi of elmApis) {
+                    allApis.push(convertElmApiToGeneratorFormat(elmApi));
+                    // Collect union types from this API module
+                    if (elmApi.unionTypes && elmApi.unionTypes.length > 0) {
+                        allUnionTypes.push(...elmApi.unionTypes);
+                    }
+                }
+                console.log(`🔍 Found ${allApis.length} API endpoints (elm): ${allApis.map(api => api.path).join(', ')}`);
+                if (allUnionTypes.length > 0) {
+                    console.log(`🔷 Found ${allUnionTypes.length} union types: ${allUnionTypes.map(t => t.name).join(', ')}`);
+                }
+            }
+        }
     }
 
-    console.log(`🔍 Found ${allApis.length} API endpoints: ${allApis.map(api => api.path).join(', ')}`);
+    // If no Elm APIs found, skip generation
+    if (allApis.length === 0) {
+        console.log('❌ No API endpoints found in Elm models, skipping API route generation');
+        return;
+    }
 
     // Report cross-model references
     const dbReferencesArray = Array.from(allDbReferences);
@@ -468,8 +568,8 @@ function generateApiRoutes(config = {}) {
     // Generate Elm client code for each API (with cross-model imports)
     const elmClientCode = generateElmApiClient(allApis, allDbReferences);
     
-    // Generate Elm backend types for each API
-    const elmBackendCode = generateElmBackendTypes(allApis);
+    // Generate Elm backend types for each API (including union types)
+    const elmBackendCode = generateElmBackendTypes(allApis, allUnionTypes);
     
     const outputContent = `/**
  * Auto-Generated API Routes  
@@ -535,3 +635,17 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 
 export { generateApiRoutes };
+
+// Exported for testing
+export const _test = {
+    parseApiAnnotations,
+    generateRoute,
+    rustTypeToElmType,
+    generateElmTypeDefinition,
+    generateElmEncoder,
+    generateElmHttpFunction,
+    generateElmApiClient,
+    generateElmBackendTypes,
+    generateUnionTypesCode,
+    convertElmApiToGeneratorFormat
+};

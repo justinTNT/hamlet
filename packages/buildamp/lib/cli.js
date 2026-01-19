@@ -1,6 +1,6 @@
 /**
  * BuildAmp CLI
- * Code generation from Rust models
+ * Code generation from Elm models
  *
  * Usage:
  *   buildamp gen --src ./models --dest ./generated
@@ -13,13 +13,13 @@ const program = new Command();
 
 program
     .name('buildamp')
-    .description('Code generation from Rust models')
+    .description('Code generation from Elm models')
     .version('0.1.0');
 
 program
     .command('gen')
-    .description('Generate Elm/JS/SQL from Rust models')
-    .requiredOption('--src <path>', 'Path to Rust models directory')
+    .description('Generate Elm/JS/SQL from models')
+    .requiredOption('--src <path>', 'Path to models directory')
     .requiredOption('--dest <path>', 'Path to output directory')
     .action(async (options) => {
         try {

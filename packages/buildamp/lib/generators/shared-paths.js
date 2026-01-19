@@ -12,6 +12,29 @@ import path from 'path';
  * @param {string} config.src - Source models directory (absolute path)
  * @param {string} config.dest - Destination output directory (absolute path)
  */
+/**
+ * Find project root by looking for .git (repo root, not subpackage)
+ */
+function findProjectRoot(startDir = process.cwd()) {
+    let dir = startDir;
+    while (dir !== path.dirname(dir)) {
+        // Prioritize .git - this is the actual repo root
+        if (fs.existsSync(path.join(dir, '.git'))) {
+            return dir;
+        }
+        dir = path.dirname(dir);
+    }
+    // Fallback: look for package.json
+    dir = startDir;
+    while (dir !== path.dirname(dir)) {
+        if (fs.existsSync(path.join(dir, 'package.json'))) {
+            return dir;
+        }
+        dir = path.dirname(dir);
+    }
+    return process.cwd(); // Final fallback to CWD
+}
+
 export function createPaths(config) {
     if (!config.src) {
         throw new Error('buildamp requires --src flag (path to models directory)');
@@ -20,15 +43,20 @@ export function createPaths(config) {
         throw new Error('buildamp requires --dest flag (path to output directory)');
     }
 
-    const src = path.resolve(config.src);
-    const dest = path.resolve(config.dest);
+    // Resolve paths relative to project root, not CWD
+    const projectRoot = findProjectRoot();
+    const src = path.isAbsolute(config.src) ? config.src : path.resolve(projectRoot, config.src);
+    const dest = path.isAbsolute(config.dest) ? config.dest : path.resolve(projectRoot, config.dest);
 
     // Output subdirectories matching actual project structure
     const serverGlueDir = path.join(dest, 'server', '.hamlet-gen');
     const webGlueDir = path.join(dest, 'web', 'src', '.hamlet-gen');
 
+    // Elm model source paths (shared/ directory)
+    const sharedDir = path.join(dest, 'shared');
+
     return {
-        // Source paths
+        // Source paths (legacy - no longer used, Elm models in shared/ are the source of truth)
         modelsDir: src,
         dbModelsDir: path.join(src, 'db'),
         apiModelsDir: path.join(src, 'api'),
@@ -37,6 +65,15 @@ export function createPaths(config) {
         sseModelsDir: path.join(src, 'sse'),
         eventsModelsDir: path.join(src, 'events'),
         configModelsDir: path.join(src, 'config'),
+
+        // Elm model source paths (shared/ directory)
+        elmSchemaDir: path.join(sharedDir, 'Schema'),
+        elmApiDir: path.join(sharedDir, 'Api'),
+        elmKvDir: path.join(sharedDir, 'Kv'),
+        elmStorageDir: path.join(sharedDir, 'Storage'),
+        elmSseDir: path.join(sharedDir, 'Sse'),
+        elmEventsDir: path.join(sharedDir, 'Events'),
+        elmConfigDir: path.join(sharedDir, 'Config'),
 
         // Output paths
         outputDir: dest,
@@ -51,7 +88,7 @@ export function createPaths(config) {
         elmOutputPath: webGlueDir,     // Alias for elm generators
         serverHandlersDir: path.join(dest, 'server', 'src', 'Api', 'Handlers'),
 
-        // Helper to get specific model paths
+        // Helper to get specific model paths (legacy - use getElmModelPath instead)
         getModelPath: (modelType) => {
             switch (modelType) {
                 case 'db': return path.join(src, 'db');
@@ -62,6 +99,21 @@ export function createPaths(config) {
                 case 'events': return path.join(src, 'events');
                 case 'config': return path.join(src, 'config');
                 default: return src;
+            }
+        },
+
+        // Helper to get Elm model paths
+        getElmModelPath: (modelType) => {
+            switch (modelType) {
+                case 'db':
+                case 'schema': return path.join(sharedDir, 'Schema');
+                case 'api': return path.join(sharedDir, 'Api');
+                case 'storage': return path.join(sharedDir, 'Storage');
+                case 'kv': return path.join(sharedDir, 'Kv');
+                case 'sse': return path.join(sharedDir, 'Sse');
+                case 'events': return path.join(sharedDir, 'Events');
+                case 'config': return path.join(sharedDir, 'Config');
+                default: return sharedDir;
             }
         }
     };
@@ -92,108 +144,6 @@ export function ensureOutputDir(outputPath) {
     return outputPath;
 }
 
-/**
- * Parse cross-model references from Rust file content
- * Detects `use crate::models::{interface}::{Type}` statements
- *
- * @param {string} content - Rust file content
- * @returns {Object} Object with arrays of referenced types per interface
- *   { db: ['MicroblogItem', 'ItemComment'], api: [], ... }
- */
-export function parseCrossModelReferences(content) {
-    const references = {
-        db: [],
-        api: [],
-        storage: [],
-        kv: [],
-        sse: [],
-        events: [],
-        config: []
-    };
-
-    // Match: use crate::models::db::TypeName;
-    // Match: use crate::models::db::{Type1, Type2};
-    const singleUsePattern = /use\s+crate::models::(\w+)::(\w+);/g;
-    const multiUsePattern = /use\s+crate::models::(\w+)::\{([^}]+)\};/g;
-
-    let match;
-
-    // Parse single imports: use crate::models::db::MicroblogItem;
-    while ((match = singleUsePattern.exec(content)) !== null) {
-        const [, interface_, typeName] = match;
-        if (references[interface_]) {
-            references[interface_].push(typeName);
-        }
-    }
-
-    // Parse multi imports: use crate::models::db::{MicroblogItem, ItemComment};
-    while ((match = multiUsePattern.exec(content)) !== null) {
-        const [, interface_, typeList] = match;
-        if (references[interface_]) {
-            const types = typeList.split(',').map(t => t.trim()).filter(t => t);
-            references[interface_].push(...types);
-        }
-    }
-
-    return references;
-}
-
-/**
- * Load DB model metadata for cache primitive generation
- * Returns parsed DB models that can be used as cache types
- *
- * @param {Object} paths - Paths object from createPaths
- * @returns {Map<string, Object>} Map of model name to model metadata
- */
-export function loadDbModelMetadata(paths) {
-    const dbModels = new Map();
-    const dbPath = paths.getModelPath('db');
-
-    if (!fs.existsSync(dbPath)) {
-        return dbModels;
-    }
-
-    const files = fs.readdirSync(dbPath).filter(f => f.endsWith('.rs') && f !== 'mod.rs');
-
-    for (const file of files) {
-        const filePath = path.join(dbPath, file);
-        const content = fs.readFileSync(filePath, 'utf-8');
-
-        // Parse struct definitions
-        const structPattern = /pub\s+struct\s+(\w+)\s*\{([^}]+)\}/gs;
-        let match;
-
-        while ((match = structPattern.exec(content)) !== null) {
-            const [, structName, fieldsContent] = match;
-
-            // Parse fields to find the id field type
-            const idFieldMatch = fieldsContent.match(/pub\s+id:\s*DatabaseId<([^>]+)>/);
-            const hasDbId = !!idFieldMatch;
-
-            // Parse all fields
-            const fields = [];
-            const fieldPattern = /pub\s+(\w+):\s*([^,\n]+)/g;
-            let fieldMatch;
-
-            while ((fieldMatch = fieldPattern.exec(fieldsContent)) !== null) {
-                const [, fieldName, fieldType] = fieldMatch;
-                fields.push({
-                    name: fieldName,
-                    rustType: fieldType.trim()
-                });
-            }
-
-            dbModels.set(structName, {
-                name: structName,
-                fields,
-                hasDbId,
-                sourceFile: file
-            });
-        }
-    }
-
-    return dbModels;
-}
 
 /**
  * Get generation paths - accepts pre-computed paths, src/dest config, or legacy config

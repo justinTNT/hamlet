@@ -82,19 +82,19 @@ describe('HMR Boundaries', () => {
     expect(elmWatcher).toBeUndefined();
   });
 
-  test('does NOT react to Rust model changes', async () => {
+  test('does NOT react to model directory changes', async () => {
     const plugin = await import('../index.js');
     const instance = plugin.default({ projectRoot: '/test/project' });
     const buildampPlugin = instance.find(p => p.name === 'vite-plugin-buildamp-reactive');
-    
+
     await buildampPlugin.configureServer(mockServer);
-    
-    // Should not have watchers for Rust files
-    const rustWatcher = fileWatchCallbacks.find(w => 
-      w.path.includes('.rs') || w.path.includes('models/')
+
+    // Should not have watchers for model source files
+    const modelWatcher = fileWatchCallbacks.find(w =>
+      w.path.includes('models/')
     );
-    
-    expect(rustWatcher).toBeUndefined();
+
+    expect(modelWatcher).toBeUndefined();
   });
 
   test('triggers full-reload on contract changes', async () => {

@@ -102,6 +102,8 @@ type alias FieldSchema =
     , isTimestamp : Bool
     , isLink : Bool
     , isRichContent : Bool
+    , isEnumLike : Bool
+    , enumValues : List String
     }
 
 
@@ -162,8 +164,11 @@ type alias Model =
     , error : Maybe String
     , correlationCounter : Int
     , sidebarCollapsed : Bool
-    , sortField : Maybe String
+    , sortField : String
     , sortDirection : SortDirection
+    , pageOffset : Int
+    , pageLimit : Int
+    , totalRecords : Int
     , columnWidths : Dict String Int
     , resizing : Maybe ResizeState
     }
@@ -210,8 +215,11 @@ init flags url key =
             , error = Nothing
             , correlationCounter = 0
             , sidebarCollapsed = False
-            , sortField = Nothing
-            , sortDirection = NoSort
+            , sortField = "created_at"
+            , sortDirection = Desc
+            , pageOffset = 0
+            , pageLimit = 10
+            , totalRecords = 0
             , columnWidths = Dict.empty
             , resizing = Nothing
             }
@@ -305,6 +313,8 @@ type Msg
     | ClearError
     | ToggleSidebar
     | ToggleSort String
+    | NextPage
+    | PrevPage
     | PreferencesLoaded (Maybe Prefs.AdminPreferences)
     | StartResize String String Float Int
     | Resize Float
@@ -326,16 +336,73 @@ update msg model =
             let
                 route =
                     parseRoute url
+
+                -- Detect if we're navigating to a different table
+                newTableName =
+                    case route of
+                        TableList name ->
+                            Just name
+
+                        _ ->
+                            Nothing
+
+                isNewTable =
+                    case ( newTableName, model.currentTable ) of
+                        ( Just new, Just old ) ->
+                            new /= old
+
+                        ( Just _, Nothing ) ->
+                            True
+
+                        _ ->
+                            False
+
+                -- Clear form state when navigating to a new record edit to avoid stale data
+                -- Reset pagination when navigating to a different table
+                clearedModel =
+                    case route of
+                        RecordEdit _ _ ->
+                            { model
+                                | formData = Dict.empty
+                                , m2mLinkedIds = Dict.empty
+                                , m2mOptions = Dict.empty
+                            }
+
+                        RecordCreate _ ->
+                            { model
+                                | formData = Dict.empty
+                                , m2mLinkedIds = Dict.empty
+                                , m2mOptions = Dict.empty
+                            }
+
+                        TableList tableName ->
+                            if isNewTable then
+                                { model | pageOffset = 0, currentTable = Just tableName }
+
+                            else
+                                model
+
+                        _ ->
+                            model
+
+                -- Only show loading spinner when we're actually fetching data
+                shouldShowLoading =
+                    case route of
+                        RecordCreate _ ->
+                            False  -- No record to fetch for create
+
+                        _ ->
+                            True
             in
-            ( { model | url = url, route = route, error = Nothing }
-            , loadRouteData model route
+            ( { clearedModel | url = url, route = route, error = Nothing, loading = shouldShowLoading }
+            , loadRouteData clearedModel route
             )
 
         ApiResponseReceived response ->
             handleApiResponse model response
 
         NavigateToTable tableName ->
-            ( { model | loading = True, currentTable = Just tableName }
+            ( { model | loading = True, currentTable = Just tableName, pageOffset = 0 }
             , Nav.pushUrl model.key (routeToPath model.basePath (TableList tableName))
             )
 
@@ -353,6 +420,9 @@ update msg model =
                 | loading = True
                 , currentTable = Just tableName
                 , currentRecordId = Just recordId
+                , formData = Dict.empty
+                , m2mLinkedIds = Dict.empty
+                , m2mOptions = Dict.empty
               }
             , Nav.pushUrl model.key (routeToPath model.basePath (RecordEdit tableName recordId))
             )
@@ -413,23 +483,66 @@ update msg model =
         ToggleSort fieldName ->
             let
                 ( newSortField, newSortDirection ) =
-                    if model.sortField == Just fieldName then
-                        -- Cycle through: Asc -> Desc -> NoSort
+                    if model.sortField == fieldName then
+                        -- Toggle direction: Asc -> Desc -> Asc
                         case model.sortDirection of
                             Asc ->
-                                ( Just fieldName, Desc )
+                                ( fieldName, Desc )
 
                             Desc ->
-                                ( Nothing, NoSort )
+                                ( fieldName, Asc )
 
                             NoSort ->
-                                ( Just fieldName, Asc )
+                                ( fieldName, Asc )
 
                     else
-                        -- New field, start with Asc
-                        ( Just fieldName, Asc )
+                        -- New field, start with Desc (newest first usually makes sense)
+                        ( fieldName, Desc )
+
+                newModel =
+                    { model
+                        | sortField = newSortField
+                        , sortDirection = newSortDirection
+                        , pageOffset = 0
+                        , loading = True
+                    }
             in
-            ( { model | sortField = newSortField, sortDirection = newSortDirection }, Cmd.none )
+            case model.currentTable of
+                Just tableName ->
+                    ( newModel, loadRecords newModel tableName )
+
+                Nothing ->
+                    ( newModel, Cmd.none )
+
+        NextPage ->
+            let
+                newOffset =
+                    model.pageOffset + model.pageLimit
+
+                newModel =
+                    { model | pageOffset = newOffset, loading = True }
+            in
+            case model.currentTable of
+                Just tableName ->
+                    ( newModel, loadRecords newModel tableName )
+
+                Nothing ->
+                    ( newModel, Cmd.none )
+
+        PrevPage ->
+            let
+                newOffset =
+                    Basics.max 0 (model.pageOffset - model.pageLimit)
+
+                newModel =
+                    { model | pageOffset = newOffset, loading = True }
+            in
+            case model.currentTable of
+                Just tableName ->
+                    ( newModel, loadRecords newModel tableName )
+
+                Nothing ->
+                    ( newModel, Cmd.none )
 
         PreferencesLoaded maybePrefs ->
             case maybePrefs of
@@ -651,52 +764,69 @@ handleApiResponse model response =
         -- M2M save response - just ignore
         ( model, Cmd.none )
 
-    else if response.success then
+    else if String.startsWith "list-" response.correlationId then
+        -- Paginated list response: {data: [...], total: N, offset: N, limit: N}
         case response.data of
             Just data ->
-                -- Try array (list response)
-                case Decode.decodeValue (Decode.list Decode.value) data of
-                    Ok recordList ->
-                        ( { model | loading = False, records = recordList, error = Nothing }
+                case Decode.decodeValue paginatedResponseDecoder data of
+                    Ok paginated ->
+                        ( { model
+                            | loading = False
+                            , records = paginated.data
+                            , totalRecords = paginated.total
+                            , pageOffset = paginated.offset
+                            , pageLimit = paginated.limit
+                            , error = Nothing
+                          }
                         , Cmd.none
                         )
 
-                    Err _ ->
-                        -- Try single object (record response)
-                        case Decode.decodeValue Decode.value data of
-                            Ok record ->
-                                case model.route of
-                                    RecordEdit _ _ ->
-                                        -- Populate form from record
-                                        ( { model
-                                            | loading = False
-                                            , formData = extractFormData record
-                                            , error = Nothing
-                                          }
-                                        , Cmd.none
-                                        )
+                    Err err ->
+                        ( { model | error = Just ("Decode error: " ++ Decode.errorToString err), loading = False }
+                        , Cmd.none
+                        )
 
-                                    RecordCreate tableName ->
-                                        -- Successful create - go back to list
-                                        ( { model | loading = False, formData = Dict.empty, currentRecordId = Nothing }
+            Nothing ->
+                ( { model | error = Just "No data in list response", loading = False }, Cmd.none )
+
+    else if response.success then
+        case response.data of
+            Just data ->
+                -- Try single object (record response)
+                case Decode.decodeValue Decode.value data of
+                    Ok record ->
+                        case model.route of
+                            RecordEdit _ _ ->
+                                -- Populate form from record
+                                ( { model
+                                    | loading = False
+                                    , formData = extractFormData record
+                                    , error = Nothing
+                                  }
+                                , Cmd.none
+                                )
+
+                            RecordCreate tableName ->
+                                -- Successful create - go back to list
+                                ( { model | loading = False, formData = Dict.empty, currentRecordId = Nothing }
+                                , Nav.pushUrl model.key (routeToPath model.basePath (TableList tableName))
+                                )
+
+                            _ ->
+                                -- Successful update - go back to list
+                                case model.currentTable of
+                                    Just tableName ->
+                                        ( { model | loading = False, formData = Dict.empty }
                                         , Nav.pushUrl model.key (routeToPath model.basePath (TableList tableName))
                                         )
 
-                                    _ ->
-                                        -- Successful update - go back to list
-                                        case model.currentTable of
-                                            Just tableName ->
-                                                ( { model | loading = False, formData = Dict.empty }
-                                                , Nav.pushUrl model.key (routeToPath model.basePath (TableList tableName))
-                                                )
+                                    Nothing ->
+                                        ( { model | loading = False, records = [ record ] }, Cmd.none )
 
-                                            Nothing ->
-                                                ( { model | loading = False, records = [ record ] }, Cmd.none )
-
-                            Err err ->
-                                ( { model | error = Just ("Decode error: " ++ Decode.errorToString err), loading = False }
-                                , Cmd.none
-                                )
+                    Err err ->
+                        ( { model | error = Just ("Decode error: " ++ Decode.errorToString err), loading = False }
+                        , Cmd.none
+                        )
 
             Nothing ->
                 -- Successful delete (no content)
@@ -758,9 +888,27 @@ valueToString value =
 
 loadRecords : Model -> String -> Cmd Msg
 loadRecords model tableName =
+    let
+        sortDir =
+            case model.sortDirection of
+                Asc ->
+                    "asc"
+
+                Desc ->
+                    "desc"
+
+                NoSort ->
+                    "desc"
+
+        queryParams =
+            "?sort=" ++ model.sortField
+                ++ "&dir=" ++ sortDir
+                ++ "&offset=" ++ String.fromInt model.pageOffset
+                ++ "&limit=" ++ String.fromInt model.pageLimit
+    in
     adminApiRequest
         { method = "GET"
-        , endpoint = tableName
+        , endpoint = tableName ++ queryParams
         , body = Nothing
         , correlationId = "list-" ++ tableName
         }
@@ -994,7 +1142,7 @@ tableSchemaDecoder =
 
 fieldSchemaDecoder : Decoder FieldSchema
 fieldSchemaDecoder =
-    Decode.map7 FieldSchema
+    Decode.map8 FieldSchema
         (Decode.field "rustType" Decode.string)
         (Decode.field "sqlType" Decode.string)
         (Decode.field "nullable" Decode.bool)
@@ -1002,6 +1150,12 @@ fieldSchemaDecoder =
         (Decode.field "isTimestamp" Decode.bool)
         (Decode.oneOf [ Decode.field "isLink" Decode.bool, Decode.succeed False ])
         (Decode.oneOf [ Decode.field "isRichContent" Decode.bool, Decode.succeed False ])
+        (Decode.oneOf [ Decode.field "isEnumLike" Decode.bool, Decode.succeed False ])
+        |> Decode.andThen
+            (\partial ->
+                Decode.oneOf [ Decode.field "enumValues" (Decode.list Decode.string), Decode.succeed [] ]
+                    |> Decode.map (\enumVals -> partial enumVals)
+            )
 
 
 foreignKeyDecoder : Decoder ForeignKey
@@ -1031,6 +1185,23 @@ fkOptionDecoder =
     Decode.map2 FkOption
         (Decode.field "id" Decode.string)
         (Decode.field "label" Decode.string)
+
+
+type alias PaginatedResponse =
+    { data : List Encode.Value
+    , total : Int
+    , offset : Int
+    , limit : Int
+    }
+
+
+paginatedResponseDecoder : Decoder PaginatedResponse
+paginatedResponseDecoder =
+    Decode.map4 PaginatedResponse
+        (Decode.field "data" (Decode.list Decode.value))
+        (Decode.field "total" Decode.int)
+        (Decode.field "offset" Decode.int)
+        (Decode.field "limit" Decode.int)
 
 
 
@@ -1230,8 +1401,14 @@ viewTableList model tableName =
 viewDataTable : Model -> String -> TableSchema -> Html Msg
 viewDataTable model tableName tableSchema =
     let
+        -- Filter out framework-managed fields
+        isFrameworkField fs =
+            fs.rustType == "SoftDelete" || fs.rustType == "MultiTenant"
+
         fieldNames =
-            Dict.keys tableSchema.fields
+            Dict.toList tableSchema.fields
+                |> List.filter (\( _, fs ) -> not (isFrameworkField fs))
+                |> List.map Tuple.first
                 |> List.sortBy
                     (\name ->
                         if name == "id" then
@@ -1259,7 +1436,7 @@ viewDataTable model tableName tableSchema =
 
         sortIndicator : String -> String
         sortIndicator fieldName =
-            if model.sortField == Just fieldName then
+            if model.sortField == fieldName then
                 case model.sortDirection of
                     Asc ->
                         " ▲"
@@ -1272,18 +1449,6 @@ viewDataTable model tableName tableSchema =
 
             else
                 ""
-
-        sortedRecords =
-            case ( model.sortField, model.sortDirection ) of
-                ( Just field, Asc ) ->
-                    List.sortBy (\r -> getFieldValue field r) model.records
-
-                ( Just field, Desc ) ->
-                    List.sortBy (\r -> getFieldValue field r) model.records
-                        |> List.reverse
-
-                _ ->
-                    model.records
 
         defaultWidth =
             150
@@ -1367,17 +1532,75 @@ viewDataTable model tableName tableSchema =
                     []
                 ]
     in
-    table
-        [ class "data-table"
-        , classList [ ( "resizing", model.resizing /= Nothing ) ]
-        , attribute "data-table-name" tableName
-        ]
-        [ thead []
-            [ tr []
-                (List.map viewColumnHeader fieldNames ++ [ actionsHeader ])
+    div []
+        [ table
+            [ class "data-table"
+            , classList [ ( "resizing", model.resizing /= Nothing ) ]
+            , attribute "data-table-name" tableName
             ]
-        , tbody []
-            (List.map (viewDataRow model tableName fieldNames tableSchema) sortedRecords)
+            [ thead []
+                [ tr []
+                    (List.map viewColumnHeader fieldNames ++ [ actionsHeader ])
+                ]
+            , tbody []
+                (List.map (viewDataRow model tableName fieldNames tableSchema) model.records)
+            ]
+        , viewPagination model
+        ]
+
+
+viewPagination : Model -> Html Msg
+viewPagination model =
+    let
+        currentPage =
+            (model.pageOffset // model.pageLimit) + 1
+
+        totalPages =
+            ceiling (toFloat model.totalRecords / toFloat model.pageLimit)
+
+        hasPrev =
+            model.pageOffset > 0
+
+        hasNext =
+            model.pageOffset + model.pageLimit < model.totalRecords
+
+        startRecord =
+            model.pageOffset + 1
+
+        endRecord =
+            Basics.min (model.pageOffset + model.pageLimit) model.totalRecords
+    in
+    div [ class "pagination" ]
+        [ span [ class "pagination-info" ]
+            [ text
+                (if model.totalRecords == 0 then
+                    "No records"
+
+                 else
+                    "Showing "
+                        ++ String.fromInt startRecord
+                        ++ "-"
+                        ++ String.fromInt endRecord
+                        ++ " of "
+                        ++ String.fromInt model.totalRecords
+                )
+            ]
+        , div [ class "pagination-controls" ]
+            [ button
+                [ class "btn btn-sm"
+                , onClick PrevPage
+                , disabled (not hasPrev)
+                ]
+                [ text "← Prev" ]
+            , span [ class "pagination-page" ]
+                [ text ("Page " ++ String.fromInt currentPage ++ " of " ++ String.fromInt totalPages) ]
+            , button
+                [ class "btn btn-sm"
+                , onClick NextPage
+                , disabled (not hasNext)
+                ]
+                [ text "Next →" ]
+            ]
         ]
 
 
@@ -1540,9 +1763,13 @@ viewRecordForm model tableName maybeRecordId =
                                 Nothing ->
                                     "New " ++ tableSchema.structName
 
+                        -- Filter out system-managed fields
+                        isFrameworkField fs =
+                            fs.rustType == "SoftDelete" || fs.rustType == "MultiTenant"
+
                         editableFields =
                             Dict.toList tableSchema.fields
-                                |> List.filter (\( name, fs ) -> not fs.isPrimaryKey && not fs.isTimestamp)
+                                |> List.filter (\( _, fs ) -> not fs.isPrimaryKey && not fs.isTimestamp && not (isFrameworkField fs))
                                 |> List.sortBy Tuple.first
                     in
                     div [ class "form-view" ]
@@ -1754,7 +1981,29 @@ viewFormField model tableSchema ( fieldName, fieldSchema ) =
                             ]
 
             Nothing ->
-                viewInputByType inputType fieldName currentValue isRequired fieldSchema
+                -- Check if this is an enum-like union type
+                if fieldSchema.isEnumLike && not (List.isEmpty fieldSchema.enumValues) then
+                    -- Render as dropdown
+                    select
+                        [ id fieldName
+                        , onInput (UpdateFormField fieldName)
+                        , required isRequired
+                        , class "enum-select"
+                        ]
+                        (option [ value "", selected (currentValue == "") ] [ text ("-- Select " ++ snakeToTitle fieldName ++ " --") ]
+                            :: List.map
+                                (\enumVal ->
+                                    option
+                                        [ value enumVal
+                                        , selected (currentValue == enumVal)
+                                        ]
+                                        [ text enumVal ]
+                                )
+                                fieldSchema.enumValues
+                        )
+
+                else
+                    viewInputByType inputType fieldName currentValue isRequired fieldSchema
         ]
 
 

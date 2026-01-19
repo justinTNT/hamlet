@@ -65,7 +65,7 @@ export function discoverProjectPaths(rootDir = process.cwd()) {
             // App name for reference
             appName: activeApp,
 
-            // Source paths (Rust models)
+            // Source paths (legacy - Elm models in shared/ are now the source of truth)
             modelsDir: `app/${activeApp}/models`,
             dbModelsDir: `app/${activeApp}/models/db`,
             apiModelsDir: `app/${activeApp}/models/api`,
@@ -95,7 +95,7 @@ export function discoverProjectPaths(rootDir = process.cwd()) {
         // App name for reference
         appName: 'default',
 
-        // Source paths (Rust models)
+        // Source paths (legacy - Elm models in shared/ are now the source of truth)
         modelsDir: 'src/models',
         dbModelsDir: 'src/models/db',
         apiModelsDir: 'src/models/api',

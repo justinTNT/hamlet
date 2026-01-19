@@ -1,84 +1,81 @@
 /**
  * Elm Handler Scaffolding Generation
- * 
- * Generates Elm handler files (once) for each API endpoint defined in Rust.
+ *
+ * Generates Elm handler files (once) for each API endpoint defined in Elm.
  * These are scaffolding files that developers can then customize with business logic.
- * 
+ *
  * Key principles:
  * - Generate files ONLY if they don't exist (never overwrite existing files)
- * - Developer must manually move/delete files to force regeneration  
- * - Parse Rust API definitions to find endpoints
+ * - Developer must manually move/delete files to force regeneration
+ * - Parse Elm API definitions to find endpoints
  * - Create properly typed Elm handlers with database placeholders
  */
 
 import fs from 'fs';
 import path from 'path';
+import { parseElmApiDir } from '../../core/elm-parser-ts.js';
 
 /**
  * Generate Elm handler scaffolding files (only if they don't exist)
  */
 export async function generateElmHandlers(config = {}) {
-    console.log('🔧 Analyzing Rust API definitions...');
+    console.log('🔧 Analyzing API definitions...');
 
     // Import getGenerationPaths for explicit paths
     const { getGenerationPaths, ensureOutputDir } = await import('./shared-paths.js');
     const paths = getGenerationPaths(config);
 
-    // Use explicit paths from config
-    const apiDir = paths.getModelPath('api');
     const outputDir = ensureOutputDir(paths.serverHandlersDir);
-    
-    // Find all API files
-    let apiFiles = [];
-    if (fs.existsSync(apiDir)) {
-        apiFiles = fs.readdirSync(apiDir)
-            .filter(file => file.endsWith('.rs') && !file.startsWith('.'))
-            .map(file => path.join(apiDir, file));
+
+    // Try Elm API definitions first
+    const elmApiDir = paths.elmApiDir;
+    let allEndpoints = [];
+
+    if (fs.existsSync(elmApiDir)) {
+        const elmApis = parseElmApiDir(elmApiDir);
+        if (elmApis.length > 0) {
+            console.log(`📦 Using Elm API models from ${elmApiDir}`);
+            allEndpoints = elmApis.map(api => ({
+                name: api.name,
+                requestType: `${api.name}Req`,
+                responseType: `${api.name}Res`
+            }));
+        }
     }
-        
-    console.log(`📁 Found ${apiFiles.length} API definition files`);
-    
+
+    console.log(`📁 Found ${allEndpoints.length} API endpoints`);
+
     let generatedCount = 0;
     let skippedCount = 0;
     const generatedFiles = [];
-    const allEndpoints = [];
-    
-    // Process each API file
-    for (const filePath of apiFiles) {
-        const content = fs.readFileSync(filePath, 'utf-8');
-        const endpoints = parseApiEndpoints(content);
-        allEndpoints.push(...endpoints);
-        
-        console.log(`📝 Processing ${path.basename(filePath)}: ${endpoints.length} endpoints`);
-        
-        // Generate handler for each endpoint
-        for (const endpoint of endpoints) {
-            const handlerFile = path.join(outputDir, `${endpoint.name}HandlerTEA.elm`);
-            
-            if (fs.existsSync(handlerFile)) {
-                console.log(`   ⏭️  Skipping ${endpoint.name}HandlerTEA.elm (already exists)`);
-                skippedCount++;
-                continue;
-            }
-            
-            // Check if required shared modules exist before generating new handlers
-            // Database.elm is in server elm directory
-            const databaseModulePath = path.join(paths.serverElmDir, 'Generated', 'Database.elm');
-            const databaseModuleExists = fs.existsSync(databaseModulePath);
-            if (!databaseModuleExists) {
-                console.log(`   ⚠️  Skipping ${endpoint.name}HandlerTEA.elm (Database.elm not found - run shared module generation first)`);
-                skippedCount++;
-                continue;
-            }
 
-            console.log(`   ✅ Creating ${endpoint.name}HandlerTEA.elm`);
-            
-            const handlerContent = generateHandlerContent(endpoint);
-            fs.writeFileSync(handlerFile, handlerContent);
-            
-            generatedFiles.push(handlerFile);
-            generatedCount++;
+    // Generate handler for each endpoint
+    for (const endpoint of allEndpoints) {
+        const handlerFile = path.join(outputDir, `${endpoint.name}HandlerTEA.elm`);
+
+        if (fs.existsSync(handlerFile)) {
+            console.log(`   ⏭️  Skipping ${endpoint.name}HandlerTEA.elm (already exists)`);
+            skippedCount++;
+            continue;
         }
+
+        // Check if required shared modules exist before generating new handlers
+        // Database.elm is in server elm directory
+        const databaseModulePath = path.join(paths.serverElmDir, 'Generated', 'Database.elm');
+        const databaseModuleExists = fs.existsSync(databaseModulePath);
+        if (!databaseModuleExists) {
+            console.log(`   ⚠️  Skipping ${endpoint.name}HandlerTEA.elm (Database.elm not found - run shared module generation first)`);
+            skippedCount++;
+            continue;
+        }
+
+        console.log(`   ✅ Creating ${endpoint.name}HandlerTEA.elm`);
+
+        const handlerContent = generateHandlerContent(endpoint);
+        fs.writeFileSync(handlerFile, handlerContent);
+
+        generatedFiles.push(handlerFile);
+        generatedCount++;
     }
     
     console.log('');
@@ -100,29 +97,6 @@ export async function generateElmHandlers(config = {}) {
         skipped: skippedCount,
         outputFiles: generatedFiles
     };
-}
-
-/**
- * Parse API endpoints from Rust file content
- */
-function parseApiEndpoints(content) {
-    const endpoints = [];
-    
-    // Match #[buildamp_api(path = "EndpointName")] or #[buildamp(path = "EndpointName")] patterns
-    const apiRegex = /#\[buildamp(?:_api)?\([^#]*?path\s*=\s*"([^"]+)"[^#]*?\]\s*pub struct\s+(\w+)/gs;
-    
-    let match;
-    while ((match = apiRegex.exec(content)) !== null) {
-        const [, path, structName] = match;
-        
-        endpoints.push({
-            name: path,
-            requestType: structName,
-            responseType: structName.replace('Req', 'Res') // Convention: GetFeedReq -> GetFeedRes
-        });
-    }
-    
-    return endpoints;
 }
 
 /**
@@ -521,8 +495,7 @@ function generateServiceIntegration(endpoints, paths) {
  * Elm Service Middleware - Auto-generated
  *
  * Executes compiled Elm handler functions for business logic.
- * This is where the "Rust once, JSON never" magic happens -
- * Rust defines the API, Elm implements the business logic.
+ * Elm defines both the API schema and the business logic.
  */
 
 import path from 'path';
@@ -646,3 +619,11 @@ function createFallbackService(server) {
     fs.writeFileSync(servicePath, serviceCode);
     console.log(`   ✅ Generated service integration: ${servicePath}`);
 }
+
+// Exported for testing
+export const _test = {
+    generateHandlerContent,
+    shouldRegenerateHandler,
+    generatePlaceholderResponse,
+    generateResponseEncoder
+};

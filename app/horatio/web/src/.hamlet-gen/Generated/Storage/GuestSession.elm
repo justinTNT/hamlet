@@ -30,9 +30,9 @@ import StoragePorts
 {-| GuestSession type for storage operations
 -}
 type alias GuestSession =
-    { guest_id : String
-    , display_name : String
-    , created_at : Int
+    { guestId : String
+    , displayName : String
+    , createdAt : Int
     }
 
 
@@ -43,9 +43,9 @@ type alias GuestSession =
 encodeGuestSession : GuestSession -> Json.Encode.Value
 encodeGuestSession guestsession =
     Json.Encode.object
-        [         ("guest_id", Json.Encode.string guestsession.guest_id)
-        ,         ("display_name", Json.Encode.string guestsession.display_name)
-        ,         ("created_at", Json.Encode.int guestsession.created_at)
+        [         ("guest_id", Json.Encode.string guestsession.guestId)
+        ,         ("display_name", Json.Encode.string guestsession.displayName)
+        ,         ("created_at", Json.Encode.int guestsession.createdAt)
         ]
 
 {-| Decode GuestSession from JSON

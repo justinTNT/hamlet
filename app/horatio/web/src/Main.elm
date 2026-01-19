@@ -106,9 +106,9 @@ createGuestSession =
     Random.generate
         (\randomInt ->
             GuestSessionCreated
-                { guest_id = "guest-" ++ String.fromInt randomInt
-                , display_name = "Guest" ++ String.fromInt (modBy 1000 randomInt)
-                , created_at = 0  -- Will be set by server timestamp later
+                { guestId = "guest-" ++ String.fromInt randomInt
+                , displayName = "Guest" ++ String.fromInt (modBy 1000 randomInt)
+                , createdAt = 0  -- Will be set by server timestamp later
                 }
         )
         (Random.int 1 9999)
@@ -142,7 +142,7 @@ submitComment model =
                 , itemId = itemId
                 , parentId = parentId
                 , text = model.newComment
-                , authorName = Maybe.map .display_name model.guestSession
+                , authorName = Maybe.map .displayName model.guestSession
                 }
                 |> Api.Http.send SubmittedComment
         
@@ -307,7 +307,7 @@ view model =
             , div [ style "margin-bottom" "20px", style "display" "flex", style "justify-content" "space-between", style "align-items" "center" ]
                 [ button [ onClick PerformSubmitItem ] [ text "Test: Submit Item" ]
                 , span [ style "font-size" "0.9em", style "color" "#666" ]
-                    [ text ("Signed in as: " ++ (Maybe.map .display_name model.guestSession |> Maybe.withDefault "Loading...")) ]
+                    [ text ("Signed in as: " ++ (Maybe.map .displayName model.guestSession |> Maybe.withDefault "Loading...")) ]
                 ]
             , viewContent model
             ]
@@ -501,7 +501,7 @@ viewReplyButton model itemId parentId =
             if activeReply.itemId == itemId && activeReply.parentId == parentId then
                 div [ style "margin-top" "5px", style "background" "#f0f0f0", style "padding" "10px" ]
                     [ div [ style "margin-bottom" "5px", style "font-size" "0.9em", style "color" "#666" ]
-                        [ text ("Commenting as: " ++ (Maybe.map .display_name model.guestSession |> Maybe.withDefault "Guest")) ]
+                        [ text ("Commenting as: " ++ (Maybe.map .displayName model.guestSession |> Maybe.withDefault "Guest")) ]
                     , textarea 
                         [ placeholder "Write a reply..."
                         , value model.newComment

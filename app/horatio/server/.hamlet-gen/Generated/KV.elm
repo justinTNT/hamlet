@@ -5,7 +5,7 @@ port module Generated.KV exposing (..)
 This module provides a strongly-typed, capability-based key-value store interface
 that automatically handles host isolation and TTL management.
 
-Generated from Rust models in: models/kv/*.rs
+Generated from Elm models in: shared/Kv/*.elm
 
 @docs KvRequest, KvResult, KvData
 @docs set, get, delete, exists
@@ -54,7 +54,7 @@ type alias KvData =
 
 
 -- GENERATED KV MODEL TYPES
-{-| TestCache KV model (from test_cache.rs)
+{-| TestCache KV model (from TestCache.elm)
 -}
 type alias TestCache =
     { key : String
@@ -62,7 +62,7 @@ type alias TestCache =
     , ttl : Int
     }
 
-{-| UserProfile KV model (from user_session.rs)
+{-| UserProfile KV model (from UserProfile.elm)
 -}
 type alias UserProfile =
     { id : String
@@ -70,10 +70,10 @@ type alias UserProfile =
     , string : String
     }
 
-{-| UserSession KV model (from user_session.rs)
+{-| UserSession KV model (from UserSession.elm)
 -}
 type alias UserSession =
-    { profile : String
+    { profile : UserProfile
     , loginTime : Int
     , permissions : List String
     , ttl : Int

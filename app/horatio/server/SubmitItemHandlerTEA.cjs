@@ -3178,9 +3178,6 @@ var $author$project$Generated$Database$encodeTagDbCreate = function (item) {
 		_List_fromArray(
 			[
 				_Utils_Tuple2(
-				'host',
-				$elm$json$Json$Encode$string(item.host)),
-				_Utils_Tuple2(
 				'name',
 				$elm$json$Json$Encode$string(item.name))
 			]));
@@ -3200,12 +3197,11 @@ var $author$project$Api$Handlers$SubmitItemHandlerTEA$createNextTag = F2(
 			maybeCtx,
 			$elm$core$List$head(tags));
 		if ((_v0.a.$ === 'Just') && (_v0.b.$ === 'Just')) {
-			var ctx = _v0.a.a;
 			var tagName = _v0.b.a;
 			return $author$project$Generated$Database$dbCreate(
 				{
 					data: $author$project$Generated$Database$encodeTagDbCreate(
-						{host: ctx.host, name: tagName}),
+						{name: tagName}),
 					id: 'create_tag_' + tagName,
 					table: 'tag'
 				});
@@ -3721,9 +3717,9 @@ var $elm$core$List$member = F2(
 			xs);
 	});
 var $elm$core$Basics$not = _Basics_not;
-var $author$project$Generated$Database$TagDb = F3(
-	function (id, host, name) {
-		return {host: host, id: id, name: name};
+var $author$project$Generated$Database$TagDb = F2(
+	function (id, name) {
+		return {id: id, name: name};
 	});
 var $elm$json$Json$Decode$map2 = _Json_map2;
 var $author$project$Generated$Database$andMap = $elm$json$Json$Decode$map2($elm$core$Basics$apR);
@@ -3738,13 +3734,9 @@ var $author$project$Generated$Database$tagDbDecoder = A3(
 	$elm$json$Json$Decode$string,
 	A3(
 		$author$project$Generated$Database$decodeField,
-		'host',
+		'id',
 		$elm$json$Json$Decode$string,
-		A3(
-			$author$project$Generated$Database$decodeField,
-			'id',
-			$elm$json$Json$Decode$string,
-			$elm$json$Json$Decode$succeed($author$project$Generated$Database$TagDb))));
+		$elm$json$Json$Decode$succeed($author$project$Generated$Database$TagDb)));
 var $author$project$Api$Handlers$SubmitItemHandlerTEA$update = F2(
 	function (msg, model) {
 		switch (msg.$) {

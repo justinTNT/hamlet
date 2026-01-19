@@ -1,22 +1,20 @@
 /**
  * SQL Migration Generation
- * Generates CREATE TABLE statements from Rust database models
  *
- * Outputs:
- * - schema.sql: Full CREATE TABLE statements for fresh database init
- * - migrations/NNN_auto.sql: Incremental ALTERs (if migra available)
+ * Generates CREATE TABLE statements from Elm schema models.
  */
 
 import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { getGenerationPaths, modelsExist, getModelsFullPath, ensureOutputDir } from './shared-paths.js';
+import { getGenerationPaths, ensureOutputDir } from './shared-paths.js';
+import { parseElmSchemaDir, parseElmSchemaDirFull } from '../../core/elm-parser-ts.js';
 
 const execAsync = promisify(exec);
 
 /**
- * Map Rust types to SQL types with constraints
+ * Map types to SQL types with constraints
  */
 function rustTypeToSql(fieldType, fieldName) {
     const type = fieldType.trim();
@@ -108,57 +106,6 @@ function rustTypeToSql(fieldType, fieldName) {
 }
 
 /**
- * Parse a Rust struct from file content
- * Similar to db.js parseRustStruct but extracts full type info
- */
-function parseRustStruct(content, filename) {
-    const structs = [];
-    const structRegex = /pub struct\s+(\w+)\s*{([^}]+)}/g;
-    let match;
-
-    while ((match = structRegex.exec(content)) !== null) {
-        const [, structName, fieldsContent] = match;
-
-        // Parse fields
-        const fields = [];
-        const fieldRegex = /pub\s+(\w+):\s*([^,\n]+)/g;
-        let fieldMatch;
-
-        while ((fieldMatch = fieldRegex.exec(fieldsContent)) !== null) {
-            const [, fieldName, fieldType] = fieldMatch;
-            const sqlInfo = rustTypeToSql(fieldType, fieldName);
-
-            fields.push({
-                name: fieldName,
-                rustType: fieldType.trim(),
-                sqlType: sqlInfo.sqlType,
-                constraints: sqlInfo.constraints,
-                isPrimaryKey: fieldType.includes('DatabaseId'),
-                isTimestamp: fieldType.includes('Timestamp'),
-                isOptional: fieldType.includes('Option<'),
-                isLink: fieldType.includes('Link<'),
-                isRichContent: fieldType.includes('RichContent')
-            });
-        }
-
-        // Convert CamelCase struct name to snake_case table name (singular, matches db.js)
-        const tableName = structName
-            .replace(/([A-Z])/g, '_$1')
-            .toLowerCase()
-            .substring(1);
-
-        structs.push({
-            name: structName,
-            tableName,
-            fields,
-            filename
-        });
-    }
-
-    return structs;
-}
-
-/**
  * Detect foreign key references from field names
  * Returns { referencedTable, referencedColumn } or null
  */
@@ -198,26 +145,44 @@ function detectForeignKey(fieldName, knownTables) {
  * Generate CREATE TABLE statement for a struct
  * @param {Object} struct - Parsed struct info
  * @param {string[]} knownTables - All known table names for FK validation
+ * @param {Object} unionTypeMap - Map of union type name -> union type info (optional)
  * @returns {{ sql: string, foreignKeys: Array, warnings: Array }}
  */
-function generateCreateTable(struct, knownTables = []) {
-    const { tableName, fields } = struct;
+function generateCreateTable(struct, knownTables = [], unionTypeMap = {}) {
+    const { tableName, fields, isMultiTenant, isSoftDelete, multiTenantFieldName } = struct;
     const foreignKeys = [];
     const warnings = [];
+    const checkConstraints = [];
 
     const columnDefs = fields.map(field => {
         const parts = [field.name, field.sqlType];
         parts.push(...field.constraints);
+
+        // Check if field type references an enum-like union type
+        const fieldTypeName = field.rustType.replace(/^Maybe\s+/, '').trim();
+        if (unionTypeMap[fieldTypeName]) {
+            const ut = unionTypeMap[fieldTypeName];
+            if (isEnumLike(ut)) {
+                const enumValues = ut.variants.map(v => `'${v.name}'`).join(', ');
+                checkConstraints.push(`    CHECK (${field.name} IN (${enumValues}))`);
+            }
+        }
+
         return '    ' + parts.join(' ');
     });
 
-    // Add standard columns that all tables should have
+    // Check what columns already exist in model fields
     const hasHost = fields.some(f => f.name === 'host');
     const hasCreatedAt = fields.some(f => f.name === 'created_at');
     const hasUpdatedAt = fields.some(f => f.name === 'updated_at');
     const hasDeletedAt = fields.some(f => f.name === 'deleted_at');
 
-    if (!hasHost) {
+    // Check if model has explicit MultiTenant/SoftDelete fields (with any name)
+    const hasMultiTenantField = isMultiTenant || fields.some(f => f.isMultiTenant);
+    const hasSoftDeleteField = isSoftDelete || fields.some(f => f.isSoftDelete);
+
+    // Only auto-add host if model doesn't have explicit MultiTenant field and doesn't have a host column
+    if (!hasMultiTenantField && !hasHost) {
         columnDefs.push('    host TEXT NOT NULL');
     }
     if (!hasCreatedAt) {
@@ -226,7 +191,8 @@ function generateCreateTable(struct, knownTables = []) {
     if (!hasUpdatedAt) {
         columnDefs.push('    updated_at TIMESTAMP WITH TIME ZONE');
     }
-    if (!hasDeletedAt) {
+    // Only auto-add deleted_at if model doesn't have explicit SoftDelete field and doesn't have deleted_at column
+    if (!hasSoftDeleteField && !hasDeletedAt) {
         columnDefs.push('    deleted_at TIMESTAMP WITH TIME ZONE');
     }
 
@@ -247,13 +213,19 @@ function generateCreateTable(struct, knownTables = []) {
         }
     }
 
+    // Combine all definitions: columns, foreign keys, and check constraints
+    const allDefs = [...columnDefs, ...checkConstraints];
+
+    // Determine the tenant field name for the index (use explicit field name or default to 'host')
+    const tenantFieldName = multiTenantFieldName || 'host';
+
     const sql = `-- Generated from ${struct.filename}
 CREATE TABLE ${tableName} (
-${columnDefs.join(',\n')}
+${allDefs.join(',\n')}
 );
 
 -- Index for tenant isolation
-CREATE INDEX idx_${tableName}_host ON ${tableName}(host);`;
+CREATE INDEX idx_${tableName}_${tenantFieldName} ON ${tableName}(${tenantFieldName});`;
 
     return { sql, foreignKeys, warnings };
 }
@@ -261,11 +233,12 @@ CREATE INDEX idx_${tableName}_host ON ${tableName}(host);`;
 /**
  * Generate full schema.sql from all db models
  * @param {Array} structs - Parsed struct definitions
+ * @param {Array} unionTypes - Parsed union type definitions (optional)
  * @returns {{ schema: string, foreignKeys: Array, warnings: Array }}
  */
-function generateSchema(structs) {
+function generateSchema(structs, unionTypes = []) {
     const header = `-- BuildAmp Generated Schema
--- Generated from Rust database models
+-- Generated from database models
 --
 -- DO NOT EDIT THIS FILE MANUALLY
 -- Changes will be overwritten during next generation
@@ -278,13 +251,19 @@ function generateSchema(structs) {
     // Collect all table names for FK validation
     const knownTables = structs.map(s => s.tableName);
 
-    // Generate tables with FK validation
+    // Build union type lookup for CHECK constraint generation
+    const unionTypeMap = {};
+    for (const ut of unionTypes) {
+        unionTypeMap[ut.name] = ut;
+    }
+
+    // Generate tables with FK validation and CHECK constraints
     const allForeignKeys = [];
     const allWarnings = [];
     const tableSqls = [];
 
     for (const struct of structs) {
-        const result = generateCreateTable(struct, knownTables);
+        const result = generateCreateTable(struct, knownTables, unionTypeMap);
         tableSqls.push(result.sql);
         allForeignKeys.push(...result.foreignKeys.map(fk => ({
             table: struct.tableName,
@@ -370,7 +349,7 @@ async function generateMigration(schemaContent, config) {
             const migrationFile = path.join(migrationsDir, `${migrationNum}_auto.sql`);
 
             const migrationContent = `-- Auto-generated migration
--- Generated by BuildAmp from Rust model changes
+-- Generated by BuildAmp from model changes
 -- Review before applying!
 
 ${stdout}`;
@@ -402,35 +381,113 @@ ${stdout}`;
 }
 
 /**
+ * Check if a union type is enum-like (all variants have no arguments)
+ */
+function isEnumLike(unionType) {
+    return unionType.variants.every(v => v.args.length === 0);
+}
+
+/**
+ * Process union types for schema output
+ */
+function processUnionTypes(unionTypes) {
+    return unionTypes.map(ut => ({
+        name: ut.name,
+        filename: ut.filename,
+        isEnumLike: isEnumLike(ut),
+        variants: ut.variants.map(v => ({
+            name: v.name,
+            args: v.args
+        })),
+        // For enum-like types, provide simple list of variant names
+        enumValues: isEnumLike(ut) ? ut.variants.map(v => v.name) : null
+    }));
+}
+
+/**
+ * Parse database models from Elm schema files
+ * @param {Object} config - Configuration with paths
+ * @returns {Array} Array of parsed types with SQL type info
+ */
+function parseDbModels(config = {}) {
+    const paths = getGenerationPaths(config);
+    const schemaDir = paths.elmSchemaDir;
+
+    if (!fs.existsSync(schemaDir)) {
+        return [];
+    }
+
+    const types = parseElmSchemaDir(schemaDir);
+
+    // Add SQL type info to each field
+    return types.map(t => ({
+        ...t,
+        fields: t.fields.map(f => {
+            const sqlInfo = rustTypeToSql(f.rustType, f.name);
+            return {
+                ...f,
+                sqlType: sqlInfo.sqlType,
+                constraints: sqlInfo.constraints
+            };
+        })
+    }));
+}
+
+/**
+ * Parse database models AND union types from Elm schema files
+ * @param {Object} config - Configuration with paths
+ * @returns {{ structs: Array, unionTypes: Array }}
+ */
+function parseDbModelsFull(config = {}) {
+    const paths = getGenerationPaths(config);
+    const schemaDir = paths.elmSchemaDir;
+
+    if (!fs.existsSync(schemaDir)) {
+        return { structs: [], unionTypes: [] };
+    }
+
+    const { records, unionTypes } = parseElmSchemaDirFull(schemaDir);
+
+    // Add SQL type info to each field
+    const structs = records.map(t => ({
+        ...t,
+        fields: t.fields.map(f => {
+            const sqlInfo = rustTypeToSql(f.rustType, f.name);
+            return {
+                ...f,
+                sqlType: sqlInfo.sqlType,
+                constraints: sqlInfo.constraints
+            };
+        })
+    }));
+
+    return { structs, unionTypes };
+}
+
+/**
  * Main SQL generation function
  */
 export async function generateSqlMigrations(config = {}) {
-    const paths = getGenerationPaths(config);
+    console.log('🏗️ Generating SQL migrations...');
 
-    // Check if database models exist
-    if (!modelsExist('db', paths)) {
-        console.log('📁 No models/db directory found, skipping SQL generation');
+    const paths = getGenerationPaths(config);
+    const { structs: allStructs, unionTypes: allUnionTypes } = parseDbModelsFull(config);
+
+    if (allStructs.length === 0) {
+        console.log(`📁 No schema models found at ${paths.elmSchemaDir}, skipping generation`);
         return null;
     }
 
-    const dbModelsPath = getModelsFullPath('db', paths);
-
-    // Parse all db models
-    const allStructs = [];
-    const files = fs.readdirSync(dbModelsPath)
-        .filter(file => file.endsWith('.rs') && file !== 'mod.rs');
-
-    for (const file of files) {
-        const filePath = path.join(dbModelsPath, file);
-        const content = fs.readFileSync(filePath, 'utf-8');
-        const structs = parseRustStruct(content, file);
-        allStructs.push(...structs);
-    }
-
+    console.log(`📦 Using Elm Schema models from ${paths.elmSchemaDir}`);
     console.log(`🔍 Found ${allStructs.length} database models: ${allStructs.map(s => s.name).join(', ')}`);
 
-    // Generate schema with FK validation
-    const { schema: schemaContent, foreignKeys, warnings } = generateSchema(allStructs);
+    if (allUnionTypes.length > 0) {
+        const enumLikeCount = allUnionTypes.filter(isEnumLike).length;
+        console.log(`🔷 Found ${allUnionTypes.length} union types (${enumLikeCount} enum-like): ${allUnionTypes.map(u => u.name).join(', ')}`);
+    }
+
+    // Generate schema with FK validation and CHECK constraints for enum-like union types
+    const { schema: schemaContent, foreignKeys, warnings } = generateSchema(allStructs, allUnionTypes);
 
     // Report FK relationships
     if (foreignKeys.length > 0) {
@@ -487,25 +544,20 @@ export async function generateSqlMigrations(config = {}) {
  * Outputs structured metadata for admin UI, documentation, etc.
  */
 export async function generateSchemaIntrospection(config = {}) {
-    const paths = getGenerationPaths(config);
+    console.log('🏗️ Generating schema introspection...');
 
-    if (!modelsExist('db', paths)) {
-        console.log('📁 No models/db directory found, skipping schema introspection');
+    const paths = getGenerationPaths(config);
+    const { structs: allStructs, unionTypes: allUnionTypes } = parseDbModelsFull(config);
+
+    if (allStructs.length === 0) {
+        console.log(`📁 No schema models found at ${paths.elmSchemaDir}, skipping generation`);
         return null;
     }
 
-    const dbModelsPath = getModelsFullPath('db', paths);
-
-    // Parse all db models
-    const allStructs = [];
-    const files = fs.readdirSync(dbModelsPath)
-        .filter(file => file.endsWith('.rs') && file !== 'mod.rs');
-
-    for (const file of files) {
-        const filePath = path.join(dbModelsPath, file);
-        const content = fs.readFileSync(filePath, 'utf-8');
-        const structs = parseRustStruct(content, file);
-        allStructs.push(...structs);
+    // Build union type lookup for field type detection
+    const unionTypeMap = {};
+    for (const ut of allUnionTypes) {
+        unionTypeMap[ut.name] = ut;
     }
 
     // Build table name lookup
@@ -523,11 +575,16 @@ export async function generateSchemaIntrospection(config = {}) {
             fields: {},
             primaryKey: null,
             foreignKeys: [],
-            referencedBy: []
+            referencedBy: [],
+            // MultiTenant and SoftDelete flags for runtime query filtering
+            isMultiTenant: struct.isMultiTenant || false,
+            isSoftDelete: struct.isSoftDelete || false,
+            multiTenantFieldName: struct.multiTenantFieldName || 'host',
+            softDeleteFieldName: struct.softDeleteFieldName || 'deleted_at'
         };
 
         for (const field of struct.fields) {
-            tableInfo.fields[field.name] = {
+            const fieldInfo = {
                 rustType: field.rustType,
                 sqlType: field.sqlType,
                 nullable: field.isOptional,
@@ -537,24 +594,52 @@ export async function generateSchemaIntrospection(config = {}) {
                 isRichContent: field.isRichContent
             };
 
+            // Check if field type references a union type
+            const fieldTypeName = field.rustType.replace(/^Maybe\s+/, '').trim();
+            if (unionTypeMap[fieldTypeName]) {
+                const ut = unionTypeMap[fieldTypeName];
+                fieldInfo.isUnionType = true;
+                fieldInfo.unionTypeName = fieldTypeName;
+                fieldInfo.isEnumLike = isEnumLike(ut);
+                if (fieldInfo.isEnumLike) {
+                    fieldInfo.enumValues = ut.variants.map(v => v.name);
+                }
+            }
+
+            tableInfo.fields[field.name] = fieldInfo;
+
             if (field.isPrimaryKey) {
                 tableInfo.primaryKey = field.name;
             }
 
-            // Detect foreign keys
-            const fk = detectForeignKey(field.name, knownTables);
-            if (fk && fk.referencedTable) {
+            // Detect foreign keys - use explicit FK info from Elm parser, or heuristic fallback
+            let fkTable = null;
+            let fkColumn = 'id';
+
+            if (field.isForeignKey && field.referencedTable) {
+                // Explicit FK from Elm ForeignKey type
+                fkTable = field.referencedTable;
+            } else {
+                // Heuristic FK detection (field name pattern)
+                const fk = detectForeignKey(field.name, knownTables);
+                if (fk && fk.referencedTable) {
+                    fkTable = fk.referencedTable;
+                    fkColumn = fk.referencedColumn;
+                }
+            }
+
+            if (fkTable) {
                 tableInfo.foreignKeys.push({
                     column: field.name,
                     references: {
-                        table: fk.referencedTable,
-                        column: fk.referencedColumn
+                        table: fkTable,
+                        column: fkColumn
                     }
                 });
 
                 relationships.push({
                     from: { table: struct.tableName, column: field.name },
-                    to: { table: fk.referencedTable, column: fk.referencedColumn },
+                    to: { table: fkTable, column: fkColumn },
                     type: 'many-to-one'
                 });
             }
@@ -601,18 +686,28 @@ export async function generateSchemaIntrospection(config = {}) {
         }
     }
 
+    // Process union types for output
+    const enumTypes = processUnionTypes(allUnionTypes);
+
     const introspection = {
         generatedAt: new Date().toISOString(),
         tables,
         relationships,
         manyToManyRelationships,
+        enumTypes,
         summary: {
             tableCount: Object.keys(tables).length,
             relationshipCount: relationships.length,
             joinTableCount: Object.values(tables).filter(t => t.isJoinTable).length,
-            manyToManyCount: manyToManyRelationships.length
+            manyToManyCount: manyToManyRelationships.length,
+            enumTypeCount: enumTypes.length,
+            enumLikeCount: enumTypes.filter(e => e.isEnumLike).length
         }
     };
+
+    if (enumTypes.length > 0) {
+        console.log(`🔷 Found ${enumTypes.length} union types: ${enumTypes.map(e => e.name).join(', ')}`);
+    }
 
     // Write to schema.json in the server glue directory
     const outputDir = ensureOutputDir(paths.serverGlueDir);
@@ -630,6 +725,6 @@ export async function generateSchemaIntrospection(config = {}) {
 export default generateSqlMigrations;
 
 // Test helpers - export internal functions for unit testing
-export const parseRustStructForTest = parseRustStruct;
 export const generateCreateTableForTest = generateCreateTable;
 export const generateSchemaForTest = generateSchema;
+export { isEnumLike, processUnionTypes };

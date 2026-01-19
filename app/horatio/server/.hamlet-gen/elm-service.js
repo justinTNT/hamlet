@@ -2,8 +2,7 @@
  * Elm Service Middleware - Auto-generated
  *
  * Executes compiled Elm handler functions for business logic.
- * This is where the "Rust once, JSON never" magic happens -
- * Rust defines the API, Elm implements the business logic.
+ * Elm defines both the API schema and the business logic.
  */
 
 import path from 'path';
@@ -23,12 +22,12 @@ export default function createElmService(server, handlersPath) {
     try {
         // Auto-generated handler configurations
         const handlerConfigs = [
-            { name: 'SubmitComment', file: 'SubmitCommentHandlerTEA', function: 'handleSubmitComment' },
             { name: 'GetFeed', file: 'GetFeedHandlerTEA', function: 'handleGetFeed' },
-            { name: 'SubmitItem', file: 'SubmitItemHandlerTEA', function: 'handleSubmitItem' },
             { name: 'GetItem', file: 'GetItemHandlerTEA', function: 'handleGetItem' },
             { name: 'GetItemsByTag', file: 'GetItemsByTagHandlerTEA', function: 'handleGetItemsByTag' },
-            { name: 'GetTags', file: 'GetTagsHandlerTEA', function: 'handleGetTags' }
+            { name: 'GetTags', file: 'GetTagsHandlerTEA', function: 'handleGetTags' },
+            { name: 'SubmitComment', file: 'SubmitCommentHandlerTEA', function: 'handleSubmitComment' },
+            { name: 'SubmitItem', file: 'SubmitItemHandlerTEA', function: 'handleSubmitItem' }
         ];
 
         for (const handlerConfig of handlerConfigs) {

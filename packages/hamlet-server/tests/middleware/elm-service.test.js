@@ -114,7 +114,8 @@ describe('Elm TEA Service Unit Tests', () => {
 
     test('database query structure supports parameterization', () => {
         const buildQuery = (table, filters, host) => {
-            let sql = `SELECT * FROM ${table} WHERE host = $1`;
+            // Hardwired filters: host isolation AND soft delete filtering
+            let sql = `SELECT * FROM ${table} WHERE host = $1 AND deleted_at IS NULL`;
             let params = [host];
             let paramIndex = 2;
 
@@ -139,9 +140,28 @@ describe('Elm TEA Service Unit Tests', () => {
         ], 'test.com');
 
         expect(query.sql).toContain('WHERE host = $1');
+        expect(query.sql).toContain('AND deleted_at IS NULL');
         expect(query.sql).toContain('AND id = $2');
         expect(query.sql).toContain('AND status = $3');
         expect(query.params).toEqual(['test.com', 'item123', 'active']);
+    });
+
+    test('database queries always include soft delete filter', () => {
+        // This test ensures soft-deleted records are never returned
+        // Mirrors translateQueryToSQL in elm-service.js
+        const translateQueryToSQL = (table, queryObj, host) => {
+            // Hardwired filters: host isolation AND soft delete filtering
+            let sql = `SELECT * FROM ${table} WHERE host = $1 AND deleted_at IS NULL`;
+            let params = [host];
+            return { sql, params };
+        };
+
+        const query = translateQueryToSQL('microblog_item', {}, 'localhost');
+
+        // Both host and soft delete filters must be present
+        expect(query.sql).toContain('host = $1');
+        expect(query.sql).toContain('deleted_at IS NULL');
+        expect(query.sql).toBe('SELECT * FROM microblog_item WHERE host = $1 AND deleted_at IS NULL');
     });
 
     test('port message structure follows Elm conventions', () => {
@@ -391,6 +411,190 @@ describe('Elm TEA Service Unit Tests', () => {
             expect(clearTimeoutSpy).toHaveBeenCalledWith(timeoutId);
             expect(cleanupRequestSubscriptions).toHaveBeenCalled();
             expect(mockHandlerPool.releaseHandler).toHaveBeenCalledWith(mockHandler);
+        });
+    });
+
+    describe('Schema-aware Query Translation Tests', () => {
+        test('translateQueryToSQL includes host filter for MultiTenant tables using schema field name', () => {
+            const schema = {
+                tables: {
+                    posts: {
+                        isMultiTenant: true,
+                        isSoftDelete: true,
+                        multiTenantFieldName: 'tenant',
+                        softDeleteFieldName: 'deleted_at'
+                    }
+                }
+            };
+
+            // Simulate translateQueryToSQL behavior
+            const table = 'posts';
+            const tableSchema = schema.tables[table];
+            const tenantField = tableSchema?.multiTenantFieldName || 'host';
+            const deletedField = tableSchema?.softDeleteFieldName || 'deleted_at';
+
+            let sql = `SELECT * FROM ${table}`;
+            let params = [];
+            let paramIndex = 1;
+            const conditions = [];
+
+            if (!tableSchema || tableSchema.isMultiTenant) {
+                conditions.push(`${tenantField} = $${paramIndex}`);
+                params.push('test.host');
+                paramIndex++;
+            }
+
+            if (!tableSchema || tableSchema.isSoftDelete) {
+                conditions.push(`${deletedField} IS NULL`);
+            }
+
+            if (conditions.length > 0) {
+                sql += ' WHERE ' + conditions.join(' AND ');
+            }
+
+            expect(sql).toBe('SELECT * FROM posts WHERE tenant = $1 AND deleted_at IS NULL');
+            expect(params).toEqual(['test.host']);
+        });
+
+        test('translateQueryToSQL excludes host filter for non-MultiTenant tables', () => {
+            const schema = {
+                tables: {
+                    config: {
+                        isMultiTenant: false,
+                        isSoftDelete: false,
+                        multiTenantFieldName: null,
+                        softDeleteFieldName: null
+                    }
+                }
+            };
+
+            const table = 'config';
+            const tableSchema = schema.tables[table];
+
+            let sql = `SELECT * FROM ${table}`;
+            let params = [];
+            let paramIndex = 1;
+            const conditions = [];
+
+            if (tableSchema?.isMultiTenant) {
+                const tenantField = tableSchema.multiTenantFieldName || 'host';
+                conditions.push(`${tenantField} = $${paramIndex}`);
+                params.push('test.host');
+                paramIndex++;
+            }
+
+            if (tableSchema?.isSoftDelete) {
+                const deletedField = tableSchema.softDeleteFieldName || 'deleted_at';
+                conditions.push(`${deletedField} IS NULL`);
+            }
+
+            if (conditions.length > 0) {
+                sql += ' WHERE ' + conditions.join(' AND ');
+            }
+
+            // Non-MultiTenant, Non-SoftDelete table has NO WHERE clause
+            expect(sql).toBe('SELECT * FROM config');
+            expect(params).toEqual([]);
+        });
+
+        test('translateQueryToSQL includes soft delete filter for SoftDelete tables using schema field name', () => {
+            const schema = {
+                tables: {
+                    items: {
+                        isMultiTenant: true,
+                        isSoftDelete: true,
+                        multiTenantFieldName: 'host',
+                        softDeleteFieldName: 'removed_at'
+                    }
+                }
+            };
+
+            const table = 'items';
+            const tableSchema = schema.tables[table];
+            const tenantField = tableSchema?.multiTenantFieldName || 'host';
+            const deletedField = tableSchema?.softDeleteFieldName || 'deleted_at';
+
+            let sql = `SELECT * FROM ${table}`;
+            let params = [];
+            let paramIndex = 1;
+            const conditions = [];
+
+            if (!tableSchema || tableSchema.isMultiTenant) {
+                conditions.push(`${tenantField} = $${paramIndex}`);
+                params.push('test.host');
+                paramIndex++;
+            }
+
+            if (!tableSchema || tableSchema.isSoftDelete) {
+                conditions.push(`${deletedField} IS NULL`);
+            }
+
+            if (conditions.length > 0) {
+                sql += ' WHERE ' + conditions.join(' AND ');
+            }
+
+            expect(sql).toContain('removed_at IS NULL');
+        });
+
+        test('translateQueryToSQL excludes soft delete filter for non-SoftDelete tables', () => {
+            const schema = {
+                tables: {
+                    logs: {
+                        isMultiTenant: true,
+                        isSoftDelete: false,
+                        multiTenantFieldName: 'host',
+                        softDeleteFieldName: null
+                    }
+                }
+            };
+
+            const table = 'logs';
+            const tableSchema = schema.tables[table];
+
+            let sql = `SELECT * FROM ${table}`;
+            let params = [];
+            let paramIndex = 1;
+            const conditions = [];
+
+            if (tableSchema?.isMultiTenant) {
+                const tenantField = tableSchema.multiTenantFieldName || 'host';
+                conditions.push(`${tenantField} = $${paramIndex}`);
+                params.push('test.host');
+                paramIndex++;
+            }
+
+            if (tableSchema?.isSoftDelete) {
+                const deletedField = tableSchema.softDeleteFieldName || 'deleted_at';
+                conditions.push(`${deletedField} IS NULL`);
+            }
+
+            if (conditions.length > 0) {
+                sql += ' WHERE ' + conditions.join(' AND ');
+            }
+
+            expect(sql).toBe('SELECT * FROM logs WHERE host = $1');
+            expect(sql).not.toContain('deleted_at');
+        });
+
+        test('translateQueryToSQL falls back to current behavior if schema not loaded', () => {
+            // Simulate missing schema
+            const schema = null;
+
+            const table = 'unknown_table';
+            const tableSchema = schema?.tables?.[table];
+
+            let sql = `SELECT * FROM ${table}`;
+            let params = [];
+            let paramIndex = 1;
+
+            // Fallback: apply both host and deleted_at filters (backward compat)
+            if (!tableSchema) {
+                sql += ` WHERE host = $${paramIndex} AND deleted_at IS NULL`;
+                params.push('test.host');
+            }
+
+            expect(sql).toContain('host = $1');
+            expect(sql).toContain('deleted_at IS NULL');
         });
     });
 

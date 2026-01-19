@@ -1,9 +1,8 @@
 /**
  * Elm Service Middleware - Auto-generated with TEA Handler Support
- * 
+ *
  * Executes compiled TEA-based Elm handler functions for business logic.
- * This is where the "Rust once, JSON never" magic happens - 
- * Rust defines the API, Elm implements the business logic using The Elm Architecture.
+ * Elm defines both the API schema and implements the business logic using The Elm Architecture.
  */
 
 import path from 'path';
@@ -723,40 +722,101 @@ function createFallbackService(server) {
     return fallbackService;
 }
 
+// Module-level schema cache for runtime query translation
+let loadedSchema = null;
+
+/**
+ * Load schema.json for runtime query translation
+ */
+async function loadSchemaForQueries() {
+    if (loadedSchema) return loadedSchema;
+
+    try {
+        const possiblePaths = [
+            path.join(process.cwd(), 'server', '.hamlet-gen', 'schema.json'),
+            path.join(process.cwd(), '.hamlet-gen', 'schema.json'),
+            path.join(process.cwd(), 'app', 'horatio', 'server', '.hamlet-gen', 'schema.json')
+        ];
+
+        for (const schemaPath of possiblePaths) {
+            if (fs.existsSync(schemaPath)) {
+                loadedSchema = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
+                console.log(`📋 Loaded schema.json from ${schemaPath}`);
+                return loadedSchema;
+            }
+        }
+
+        console.log('⚠️ schema.json not found, using fallback query behavior');
+    } catch (error) {
+        console.error('❌ Error loading schema.json:', error.message);
+    }
+
+    return null;
+}
+
+// Pre-load schema on module init
+loadSchemaForQueries();
+
 /**
  * Translate Elm query builder to SQL
- * Implements the query translation logic described in TEA Handler Implementation
+ * Implements schema-aware query translation with MultiTenant/SoftDelete support
  */
-function translateQueryToSQL(table, queryObj, host) {
-    let sql = `SELECT * FROM ${table} WHERE host = $1`;
-    let params = [host];
-    let paramIndex = 2;
+function translateQueryToSQL(table, queryObj, host, schema = loadedSchema) {
+    const tableSchema = schema?.tables?.[table];
+
+    // Build base query
+    let sql = `SELECT * FROM ${table}`;
+    let params = [];
+    let paramIndex = 1;
+    const conditions = [];
+
+    // Determine field names from schema, with defaults for backward compat
+    const tenantField = tableSchema?.multiTenantFieldName || 'host';
+    const deletedField = tableSchema?.softDeleteFieldName || 'deleted_at';
+
+    // MultiTenant filtering: apply if schema says so, OR fallback if no schema (backward compat)
+    if (!tableSchema || tableSchema.isMultiTenant !== false) {
+        conditions.push(`${tenantField} = $${paramIndex}`);
+        params.push(host);
+        paramIndex++;
+    }
+
+    // SoftDelete filtering: apply if schema says so, OR fallback if no schema (backward compat)
+    if (!tableSchema || tableSchema.isSoftDelete !== false) {
+        conditions.push(`${deletedField} IS NULL`);
+    }
+
+    // Build WHERE clause from conditions
+    if (conditions.length > 0) {
+        sql += ' WHERE ' + conditions.join(' AND ');
+    }
 
     // Parse query object from Elm
     const query = typeof queryObj === 'string' ? JSON.parse(queryObj) : queryObj;
 
-    // Add filters
+    // Track if we have any WHERE conditions for filter connector logic
+    const hasBaseConditions = conditions.length > 0;
+
+    // Add filters from Elm query
     if (query.filter && Array.isArray(query.filter)) {
-        query.filter.forEach(filter => {
+        query.filter.forEach((filter, index) => {
+            // Use AND if we have base conditions or this isn't the first filter, otherwise add WHERE
+            const needsWhere = !hasBaseConditions && index === 0;
+            const connector = needsWhere ? ' WHERE ' : ' AND ';
             switch (filter.type) {
                 case 'ById':
-                    sql += ` AND id = $${paramIndex}`;
-                    params.push(filter.value);
-                    paramIndex++;
-                    break;
-                case 'BySlug':
-                    sql += ` AND slug = $${paramIndex}`;
-                    params.push(filter.value);
-                    paramIndex++;
-                    break;
-                case 'ByUserId':
-                    sql += ` AND user_id = $${paramIndex}`;
+                    sql += `${connector}id = $${paramIndex}`;
                     params.push(filter.value);
                     paramIndex++;
                     break;
                 case 'ByField':
                     const fieldName = camelToSnake(filter.field);
-                    sql += ` AND ${fieldName} = $${paramIndex}`;
+                    // Validate field name to prevent SQL injection
+                    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(fieldName)) {
+                        console.warn(`Invalid filter field: ${filter.field}`);
+                        break;
+                    }
+                    sql += `${connector}${fieldName} = $${paramIndex}`;
                     params.push(filter.value);
                     paramIndex++;
                     break;
@@ -769,20 +829,31 @@ function translateQueryToSQL(table, queryObj, host) {
     // Add sorting
     if (query.sort && Array.isArray(query.sort) && query.sort.length > 0) {
         sql += ' ORDER BY ';
-        const sortClauses = query.sort.map(sortStr => {
-            switch (sortStr) {
-                case 'created_at_asc':
-                    return 'created_at ASC';
-                case 'created_at_desc':
+        const sortClauses = query.sort.map(sortObj => {
+            // Handle new object format: { field: "created_at", direction: "desc" }
+            if (typeof sortObj === 'object' && sortObj.field) {
+                // Validate field name to prevent SQL injection (only alphanumeric and underscore)
+                if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(sortObj.field)) {
+                    console.warn(`Invalid sort field: ${sortObj.field}`);
                     return 'created_at DESC';
-                case 'title_asc':
-                    return 'title ASC';
-                case 'title_desc':
-                    return 'title DESC';
-                default:
-                    console.warn(`Unknown sort type: ${sortStr}`);
-                    return 'created_at DESC'; // fallback
+                }
+                const direction = sortObj.direction === 'asc' ? 'ASC' : 'DESC';
+                return `${sortObj.field} ${direction}`;
             }
+            // Legacy string format fallback (for backward compat during transition)
+            if (typeof sortObj === 'string') {
+                switch (sortObj) {
+                    case 'created_at_asc': return 'created_at ASC';
+                    case 'created_at_desc': return 'created_at DESC';
+                    case 'title_asc': return 'title ASC';
+                    case 'title_desc': return 'title DESC';
+                    default:
+                        console.warn(`Unknown sort type: ${sortObj}`);
+                        return 'created_at DESC';
+                }
+            }
+            console.warn(`Invalid sort format: ${JSON.stringify(sortObj)}`);
+            return 'created_at DESC';
         });
         sql += sortClauses.join(', ');
     }

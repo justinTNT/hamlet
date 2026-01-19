@@ -2,7 +2,7 @@ module Generated.Config exposing (..)
 
 {-| Generated configuration types for app initialization
 
-These types are generated from Rust models in models/config/*.rs
+These types are generated from Elm models in shared/Config/*.elm
 They define the shape of configuration data passed to Elm via init flags.
 
 @docs GlobalConfig, FeatureFlags
@@ -13,19 +13,19 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 
 
--- CONFIG TYPES (Generated from Rust config models)
+-- CONFIG TYPES
 
 {-| GlobalConfig configuration type
-Generated from global_config.rs
+Generated from GlobalConfig.elm
 -}
 type alias GlobalConfig =
     {     siteName : String
-    , features : FeatureFlagsDb
+    , features : FeatureFlags
     }
 
 
 {-| FeatureFlags configuration type
-Generated from global_config.rs
+Generated from GlobalConfig.elm
 -}
 type alias FeatureFlags =
     {     comments : Bool
@@ -40,7 +40,7 @@ globalConfigDecoder : Decode.Decoder GlobalConfig
 globalConfigDecoder =
     Decode.succeed GlobalConfig
         |> andMap (Decode.field "site_name" Decode.string)
-        |> andMap (Decode.field "features" Decode.string)
+        |> andMap (Decode.field "features" featureFlagsDecoder)
 
 
 featureFlagsDecoder : Decode.Decoder FeatureFlags
@@ -57,7 +57,7 @@ encodeGlobalConfig : GlobalConfig -> Encode.Value
 encodeGlobalConfig config =
     Encode.object
         [ ("site_name", Encode.string config.siteName)
-        , ("features", Encode.string config.features)
+        , ("features", encodeFeatureFlags config.features)
         ]
 
 

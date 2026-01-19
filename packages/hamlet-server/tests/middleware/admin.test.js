@@ -19,12 +19,27 @@ describe('Admin Middleware', () => {
         
         // Mock database service
         mockDb = {
+            // Legacy method-based API (still used by some endpoints)
             getGuestsByHost: jest.fn().mockResolvedValue([
                 { id: 1, name: 'Test Guest' }
             ]),
             getMicroblogItemsByHost: jest.fn().mockResolvedValue([
                 { id: 1, title: 'Test Item' }
-            ])
+            ]),
+            // Direct SQL query API (used by schema-aware list endpoint)
+            query: jest.fn().mockImplementation((sql, params) => {
+                // Return mock data based on SQL pattern
+                if (sql.includes('SELECT COUNT')) {
+                    return Promise.resolve({ rows: [{ total: 1 }] });
+                }
+                if (sql.includes('SELECT * FROM guest')) {
+                    return Promise.resolve({ rows: [{ id: 1, name: 'Test Guest', host: params[0] }] });
+                }
+                if (sql.includes('SELECT * FROM microblog_item')) {
+                    return Promise.resolve({ rows: [{ id: 1, title: 'Test Item', host: params[0] }] });
+                }
+                return Promise.resolve({ rows: [] });
+            })
         };
         
         // Mock server with database service
@@ -155,12 +170,15 @@ describe('Admin Middleware', () => {
                 .get('/admin/api/guest')
                 .set('Authorization', 'Bearer test-token')
                 .set('Host', 'test.com');
-            
+
             expect(response.status).toBe(200);
-            expect(response.body).toEqual([
+            // Response now includes pagination metadata
+            expect(response.body.data).toEqual([
                 { id: 1, name: 'Test Guest' }
             ]);
-            expect(mockDb.getGuestsByHost).toHaveBeenCalledWith('test.com');
+            expect(response.body.total).toBe(1);
+            // Verify query was called with the tenant host
+            expect(mockDb.query).toHaveBeenCalled();
         });
 
         test('rejects requests without authentication', async () => {
@@ -173,14 +191,21 @@ describe('Admin Middleware', () => {
         });
 
         test('handles unknown resources', async () => {
+            // Make the mock throw an error for unknown tables to simulate SQL error
+            mockDb.query = jest.fn().mockImplementation((sql) => {
+                if (sql.includes('FROM UnknownResource') || sql.includes('FROM unknown_resource')) {
+                    return Promise.reject(new Error('relation "unknown_resource" does not exist'));
+                }
+                return Promise.resolve({ rows: [], total: 0 });
+            });
+
             const response = await request(app)
                 .get('/admin/api/UnknownResource')
                 .set('Authorization', 'Bearer test-token')
                 .set('Host', 'test.com');
 
-            expect(response.status).toBe(404);
-            // Generic admin-api uses snakeToPascal and checks if db method exists
-            expect(response.body.error).toContain('not found or not listable');
+            // With direct SQL queries, the response is now a 500 (SQL error on unknown table)
+            expect(response.status).toBe(500);
         });
 
         test('uses tenant isolation', async () => {
@@ -188,9 +213,14 @@ describe('Admin Middleware', () => {
                 .get('/admin/api/guest')
                 .set('Authorization', 'Bearer test-token')
                 .set('X-Forwarded-Host', 'tenant2.com');
-            
+
             expect(response.status).toBe(200);
-            expect(mockDb.getGuestsByHost).toHaveBeenCalledWith('tenant2.com');
+            // Verify query was called with tenant host in params
+            expect(mockDb.query).toHaveBeenCalled();
+            // Check that the query includes the tenant host
+            const calls = mockDb.query.mock.calls;
+            const queryWithHost = calls.find(call => call[1] && call[1].includes('tenant2.com'));
+            expect(queryWithHost).toBeTruthy();
         });
     });
 });

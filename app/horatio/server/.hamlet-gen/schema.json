@@ -1,16 +1,25 @@
 {
-  "generatedAt": "2026-01-18T01:59:54.839Z",
+  "generatedAt": "2026-01-19T10:13:15.930Z",
   "tables": {
     "guest": {
       "structName": "Guest",
       "tableName": "guest",
-      "sourceFile": "guest.rs",
+      "sourceFile": "Guest.elm",
       "fields": {
         "id": {
-          "rustType": "DatabaseId<String>",
+          "rustType": "DatabaseId String",
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": true,
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
+        },
+        "host": {
+          "rustType": "MultiTenant",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
           "isTimestamp": false,
           "isLink": false,
           "isRichContent": false
@@ -50,6 +59,15 @@
           "isTimestamp": true,
           "isLink": false,
           "isRichContent": false
+        },
+        "deleted_at": {
+          "rustType": "SoftDelete",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         }
       },
       "primaryKey": "id",
@@ -60,15 +78,19 @@
           "column": "guest_id"
         }
       ],
+      "isMultiTenant": true,
+      "isSoftDelete": true,
+      "multiTenantFieldName": "host",
+      "softDeleteFieldName": "deleted_at",
       "isJoinTable": false
     },
     "item_comment": {
       "structName": "ItemComment",
       "tableName": "item_comment",
-      "sourceFile": "item_comment.rs",
+      "sourceFile": "ItemComment.elm",
       "fields": {
         "id": {
-          "rustType": "DatabaseId<String>",
+          "rustType": "DatabaseId String",
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": true,
@@ -76,8 +98,17 @@
           "isLink": false,
           "isRichContent": false
         },
+        "host": {
+          "rustType": "MultiTenant",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
+        },
         "item_id": {
-          "rustType": "String",
+          "rustType": "ForeignKey MicroblogItem String",
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": false,
@@ -86,7 +117,7 @@
           "isRichContent": false
         },
         "guest_id": {
-          "rustType": "String",
+          "rustType": "ForeignKey Guest String",
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": false,
@@ -95,7 +126,7 @@
           "isRichContent": false
         },
         "parent_id": {
-          "rustType": "Option<String>",
+          "rustType": "Maybe String",
           "sqlType": "TEXT",
           "nullable": true,
           "isPrimaryKey": false,
@@ -129,6 +160,15 @@
           "isTimestamp": true,
           "isLink": false,
           "isRichContent": false
+        },
+        "deleted_at": {
+          "rustType": "SoftDelete",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         }
       },
       "primaryKey": "id",
@@ -149,15 +189,19 @@
         }
       ],
       "referencedBy": [],
+      "isMultiTenant": true,
+      "isSoftDelete": true,
+      "multiTenantFieldName": "host",
+      "softDeleteFieldName": "deleted_at",
       "isJoinTable": false
     },
     "item_tag": {
       "structName": "ItemTag",
       "tableName": "item_tag",
-      "sourceFile": "item_tag.rs",
+      "sourceFile": "ItemTag.elm",
       "fields": {
         "item_id": {
-          "rustType": "String",
+          "rustType": "ForeignKey MicroblogItem String",
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": false,
@@ -166,7 +210,25 @@
           "isRichContent": false
         },
         "tag_id": {
-          "rustType": "String",
+          "rustType": "ForeignKey Tag String",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
+        },
+        "host": {
+          "rustType": "MultiTenant",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
+        },
+        "deleted_at": {
+          "rustType": "SoftDelete",
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": false,
@@ -193,18 +255,31 @@
         }
       ],
       "referencedBy": [],
+      "isMultiTenant": true,
+      "isSoftDelete": true,
+      "multiTenantFieldName": "host",
+      "softDeleteFieldName": "deleted_at",
       "isJoinTable": true
     },
     "microblog_item": {
       "structName": "MicroblogItem",
       "tableName": "microblog_item",
-      "sourceFile": "microblog_item.rs",
+      "sourceFile": "MicroblogItem.elm",
       "fields": {
         "id": {
-          "rustType": "DatabaseId<String>",
+          "rustType": "DatabaseId String",
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": true,
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
+        },
+        "host": {
+          "rustType": "MultiTenant",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
           "isTimestamp": false,
           "isLink": false,
           "isRichContent": false
@@ -219,7 +294,7 @@
           "isRichContent": false
         },
         "link": {
-          "rustType": "Option<Link<String>>",
+          "rustType": "Maybe Link",
           "sqlType": "TEXT",
           "nullable": true,
           "isPrimaryKey": false,
@@ -228,7 +303,7 @@
           "isRichContent": false
         },
         "image": {
-          "rustType": "Option<Link<String>>",
+          "rustType": "Maybe Link",
           "sqlType": "TEXT",
           "nullable": true,
           "isPrimaryKey": false,
@@ -237,13 +312,13 @@
           "isRichContent": false
         },
         "extract": {
-          "rustType": "Option<RichContent>",
-          "sqlType": "JSONB",
+          "rustType": "Maybe RichContent",
+          "sqlType": "TEXT",
           "nullable": true,
           "isPrimaryKey": false,
           "isTimestamp": false,
           "isLink": false,
-          "isRichContent": true
+          "isRichContent": false
         },
         "owner_comment": {
           "rustType": "RichContent",
@@ -264,8 +339,17 @@
           "isRichContent": false
         },
         "view_count": {
-          "rustType": "i32",
-          "sqlType": "INTEGER",
+          "rustType": "Int",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
+        },
+        "deleted_at": {
+          "rustType": "SoftDelete",
+          "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": false,
           "isTimestamp": false,
@@ -285,15 +369,19 @@
           "column": "item_id"
         }
       ],
+      "isMultiTenant": true,
+      "isSoftDelete": true,
+      "multiTenantFieldName": "host",
+      "softDeleteFieldName": "deleted_at",
       "isJoinTable": false
     },
     "tag": {
       "structName": "Tag",
       "tableName": "tag",
-      "sourceFile": "tag.rs",
+      "sourceFile": "Tag.elm",
       "fields": {
         "id": {
-          "rustType": "DatabaseId<String>",
+          "rustType": "DatabaseId String",
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": true,
@@ -301,8 +389,26 @@
           "isLink": false,
           "isRichContent": false
         },
+        "host": {
+          "rustType": "MultiTenant",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
+        },
         "name": {
           "rustType": "String",
+          "sqlType": "TEXT",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
+        },
+        "deleted_at": {
+          "rustType": "SoftDelete",
           "sqlType": "TEXT",
           "nullable": false,
           "isPrimaryKey": false,
@@ -319,6 +425,10 @@
           "column": "tag_id"
         }
       ],
+      "isMultiTenant": true,
+      "isSoftDelete": true,
+      "multiTenantFieldName": "host",
+      "softDeleteFieldName": "deleted_at",
       "isJoinTable": false
     }
   },
@@ -375,10 +485,13 @@
       "joinTable": "item_tag"
     }
   ],
+  "enumTypes": [],
   "summary": {
     "tableCount": 5,
     "relationshipCount": 4,
     "joinTableCount": 1,
-    "manyToManyCount": 1
+    "manyToManyCount": 1,
+    "enumTypeCount": 0,
+    "enumLikeCount": 0
   }
 }
