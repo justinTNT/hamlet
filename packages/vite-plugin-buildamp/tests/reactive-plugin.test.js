@@ -1,5 +1,4 @@
-import { describe, test, expect, vi } from 'vitest';
-import fs from 'fs';
+import { describe, test, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import path from 'path';
 
@@ -8,28 +7,28 @@ describe('Vite Plugin Reactive Mode', () => {
     // Once refactored, the plugin should export these minimal hooks
     const plugin = await import('../index.js');
     const instance = plugin.default({});
-    
+
     // Should return array with minimal plugin
     expect(Array.isArray(instance)).toBe(true);
-    
+
     const buildampPlugin = instance.find(p => p.name === 'vite-plugin-buildamp-reactive');
     expect(buildampPlugin).toBeDefined();
     expect(buildampPlugin.name).toBe('vite-plugin-buildamp-reactive');
     expect(buildampPlugin.config).toBeDefined();
-    expect(buildampPlugin.configureServer).toBeDefined();
+    // No configureServer - plugin is purely for aliases now
   });
 
-  test('configures aliases to .hamlet-gen directory', async () => {
+  test('configures aliases to .generated directory', async () => {
     const plugin = await import('../index.js');
     const instance = plugin.default({ projectRoot: '/test/project' });
     const buildampPlugin = instance.find(p => p.name === 'vite-plugin-buildamp-reactive');
-    
+
     const config = buildampPlugin.config({}, { command: 'serve' });
-    
-    // Should set up aliases for importing from .hamlet-gen
+
+    // Should set up aliases for importing from .generated
     expect(config.resolve.alias).toBeDefined();
-    expect(config.resolve.alias['@hamlet-gen']).toContain('.hamlet-gen');
-    expect(config.resolve.alias['@generated']).toContain('.hamlet-gen');
+    expect(config.resolve.alias['@generated']).toContain('.generated');
+    expect(config.resolve.alias['@buildamp']).toContain('.generated');
   });
 
   test('does NOT contain file watching logic', async () => {
