@@ -67,12 +67,12 @@ test('Generation pipeline completes successfully', () => {
 test('Generated files exist', () => {
     console.log('\n📁 Testing generated files...');
     const files = [
-        'app/horatio/server/.hamlet-gen/api-routes.js',
-        'app/horatio/server/.hamlet-gen/database-queries.js',
-        'app/horatio/server/.hamlet-gen/kv-store.js',
-        'app/horatio/web/src/.hamlet-gen/browser-storage.js',
-        'app/horatio/web/src/.hamlet-gen/ApiClient.elm',
-        'app/horatio/web/src/.hamlet-gen/StoragePorts.elm'
+        'app/horatio/server/.generated/api-routes.js',
+        'app/horatio/server/.generated/database-queries.js',
+        'app/horatio/server/.generated/kv-store.js',
+        'app/horatio/web/src/.generated/browser-storage.js',
+        'app/horatio/web/src/.generated/ApiClient.elm',
+        'app/horatio/web/src/.generated/StoragePorts.elm'
     ];
     
     let allExist = true;
@@ -88,14 +88,14 @@ test('Generated files exist', () => {
 test('Generated content has expected structure', () => {
     console.log('\n🔍 Testing generated content...');
     
-    const apiRoutes = fs.readFileSync('app/horatio/server/.hamlet-gen/api-routes.js', 'utf-8');
-    const elmClient = fs.readFileSync('app/horatio/web/src/.hamlet-gen/ApiClient.elm', 'utf-8');
-    
+    const apiRoutes = fs.readFileSync('app/horatio/server/.generated/api-routes.js', 'utf-8');
+    const elmClient = fs.readFileSync('app/horatio/web/src/.generated/ApiClient.elm', 'utf-8');
+
     let allValid = true;
-    
+
     allValid &= expect(apiRoutes, 'API routes contains registerApiRoutes').toContain('registerApiRoutes');
     allValid &= expect(apiRoutes, 'API routes contains /api/ endpoints').toContain('/api/');
-    allValid &= expect(elmClient, 'Elm client has module declaration').toContain('module Generated.ApiClient');
+    allValid &= expect(elmClient, 'Elm client has module declaration').toContain('module BuildAmp.ApiClient');
     allValid &= expect(elmClient, 'Elm client has HTTP functions').toContain('Http.post');
     
     return allValid;
@@ -116,7 +116,7 @@ test('Unit tests pass', () => {
 test('No dangerous code patterns', () => {
     console.log('\n🔒 Testing security...');
     
-    const dbQueries = fs.readFileSync('app/horatio/server/.hamlet-gen/database-queries.js', 'utf-8');
+    const dbQueries = fs.readFileSync('app/horatio/server/.generated/database-queries.js', 'utf-8');
     
     let allSafe = true;
     

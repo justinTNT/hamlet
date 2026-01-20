@@ -221,7 +221,7 @@ describe('SSE Generator - Complete Module Generation', () => {
     test('generateSSEModule creates module declaration', () => {
         const result = generateSSEModule(models);
 
-        assert.ok(result.includes('module Generated.ServerSentEvents exposing (..)'));
+        assert.ok(result.includes('module BuildAmp.ServerSentEvents exposing (..)'));
     });
 
     test('generateSSEModule imports Json.Decode', () => {

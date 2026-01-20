@@ -21,11 +21,13 @@ program
     .description('Generate Elm/JS/SQL from models')
     .requiredOption('--src <path>', 'Path to models directory')
     .requiredOption('--dest <path>', 'Path to output directory')
+    .option('--regenerate <handler>', 'Regenerate a specific handler (backs up existing, generates fresh skeleton with TODO)')
     .action(async (options) => {
         try {
             await generate({
                 src: options.src,
-                dest: options.dest
+                dest: options.dest,
+                regenerateHandler: options.regenerate
             });
         } catch (error) {
             console.error('Generation failed:', error.message);

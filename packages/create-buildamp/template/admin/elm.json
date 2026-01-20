@@ -3,7 +3,7 @@
     "source-directories": [
         "web/src",
         "../shared",
-        "web/src/.hamlet-gen"
+        "web/src/.generated"
     ],
     "elm-version": "0.19.1",
     "dependencies": {

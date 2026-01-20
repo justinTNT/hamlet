@@ -20,22 +20,22 @@ const horatioDir = path.join(projectRoot, 'app/horatio');
 const fileMappings = {
     // SQL
     'schema.sql': path.join(horatioDir, 'sql/migrations/schema.sql'),
-    'schema.json': path.join(horatioDir, 'server/.hamlet-gen/schema.json'),
+    'schema.json': path.join(horatioDir, 'server/.generated/schema.json'),
     // Database
-    'database-queries.js': path.join(horatioDir, 'server/.hamlet-gen/database-queries.js'),
-    'Database.elm': path.join(horatioDir, 'server/.hamlet-gen/Generated/Database.elm'),
+    'database-queries.js': path.join(horatioDir, 'server/.generated/database-queries.js'),
+    'Database.elm': path.join(horatioDir, 'server/.generated/BuildAmp/Database.elm'),
     'Backend.elm': path.join(horatioDir, 'server/src/Api/Backend.elm'),
     // API
-    'api-routes.js': path.join(horatioDir, 'server/.hamlet-gen/api-routes.js'),
-    'ApiClient.elm': path.join(horatioDir, 'web/src/.hamlet-gen/ApiClient.elm'),
+    'api-routes.js': path.join(horatioDir, 'server/.generated/api-routes.js'),
+    'ApiClient.elm': path.join(horatioDir, 'web/src/.generated/ApiClient.elm'),
     // KV Store
-    'kv-store.js': path.join(horatioDir, 'server/.hamlet-gen/kv-store.js'),
+    'kv-store.js': path.join(horatioDir, 'server/.generated/kv-store.js'),
     // SSE
-    'sse-connection.js': path.join(horatioDir, 'server/.hamlet-gen/sse-connection.js'),
-    'ServerSentEvents.elm': path.join(horatioDir, 'web/src/.hamlet-gen/ServerSentEvents.elm'),
+    'sse-connection.js': path.join(horatioDir, 'server/.generated/sse-connection.js'),
+    'ServerSentEvents.elm': path.join(horatioDir, 'web/src/.generated/ServerSentEvents.elm'),
     // Browser Storage
-    'browser-storage.js': path.join(horatioDir, 'web/src/.hamlet-gen/browser-storage.js'),
-    'StoragePorts.elm': path.join(horatioDir, 'web/src/.hamlet-gen/StoragePorts.elm'),
+    'browser-storage.js': path.join(horatioDir, 'web/src/.generated/browser-storage.js'),
+    'StoragePorts.elm': path.join(horatioDir, 'web/src/.generated/StoragePorts.elm'),
 };
 
 console.log('📸 Updating golden snapshots...\n');

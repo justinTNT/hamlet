@@ -1,6 +1,8 @@
 module Interface.Schema exposing
     ( DatabaseId
     , Timestamp
+    , CreateTimestamp
+    , UpdateTimestamp
     , Host
     , MultiTenant
     , SoftDelete
@@ -46,6 +48,34 @@ Generates: `created_at INTEGER NOT NULL`
 
 -}
 type alias Timestamp =
+    Int
+
+
+{-| Auto-populated creation timestamp. Set on INSERT.
+
+    type alias Post =
+        { id : DatabaseId String
+        , createdAt : CreateTimestamp
+        }
+
+Generates: `created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()`
+
+-}
+type alias CreateTimestamp =
+    Int
+
+
+{-| Auto-populated update timestamp. Set on INSERT and UPDATE.
+
+    type alias Post =
+        { id : DatabaseId String
+        , updatedAt : UpdateTimestamp
+        }
+
+Generates: `updated_at TIMESTAMP WITH TIME ZONE` (nullable, set by application)
+
+-}
+type alias UpdateTimestamp =
     Int
 
 

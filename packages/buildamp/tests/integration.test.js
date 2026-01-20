@@ -254,11 +254,11 @@ describe('Integration Tests - Database Generation', () => {
             await generateElmSharedModules({ paths });
 
             // Check Elm output
-            const elmFile = path.join(paths.serverGlueDir, 'Generated', 'Database.elm');
+            const elmFile = path.join(paths.serverGlueDir, 'BuildAmp', 'Database.elm');
             assert.ok(fs.existsSync(elmFile), `Database.elm should be created at ${elmFile}`);
 
             const content = fs.readFileSync(elmFile, 'utf-8');
-            assert.ok(content.includes('module Generated.Database'), 'Should have module declaration');
+            assert.ok(content.includes('module BuildAmp.Database'), 'Should have module declaration');
             assert.ok(content.includes('type alias TestItem') || content.includes('TestItem'), 'Should have TestItem type');
             assert.ok(content.includes('type alias TestComment') || content.includes('TestComment'), 'Should have TestComment type');
         } finally {
@@ -350,7 +350,7 @@ describe('Integration Tests - API Generation', () => {
             assert.ok(fs.existsSync(elmFile), 'ApiClient.elm should be created');
 
             const content = fs.readFileSync(elmFile, 'utf-8');
-            assert.ok(content.includes('module Generated.ApiClient'), 'Should have module declaration');
+            assert.ok(content.includes('module BuildAmp.ApiClient'), 'Should have module declaration');
             assert.ok(content.includes('getitems'), 'Should have getitems function');
             assert.ok(content.includes('createitem'), 'Should have createitem function');
             assert.ok(content.includes('Http.post'), 'Should use Http.post');
@@ -425,7 +425,7 @@ describe('Integration Tests - SSE Generation', () => {
             assert.ok(fs.existsSync(elmFile), 'ServerSentEvents.elm should be created');
 
             const content = fs.readFileSync(elmFile, 'utf-8');
-            assert.ok(content.includes('module Generated.ServerSentEvents'), 'Should have module declaration');
+            assert.ok(content.includes('module BuildAmp.ServerSentEvents'), 'Should have module declaration');
             assert.ok(content.includes('type alias ItemCreatedEvent'), 'Should have ItemCreatedEvent type');
             assert.ok(content.includes('type alias ItemDeletedEvent'), 'Should have ItemDeletedEvent type');
             assert.ok(content.includes('decodeItemCreatedEvent'), 'Should have decoder');

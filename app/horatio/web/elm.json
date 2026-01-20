@@ -2,9 +2,9 @@
     "type": "application",
     "source-directories": [
         "src",
-        "src/.hamlet-gen",
+        "src/.generated",
         "../models",
-        "../models/.hamlet-gen",
+        "../models/.generated",
         "../../../packages/buildamp"
     ],
     "elm-version": "0.19.1",

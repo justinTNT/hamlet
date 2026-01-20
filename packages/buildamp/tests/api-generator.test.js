@@ -170,7 +170,7 @@ describe('API Generator - Elm API Client Module', () => {
         const result = generateElmApiClient(apis);
 
         // Module declaration
-        assert.ok(result.includes('module Generated.ApiClient exposing'));
+        assert.ok(result.includes('module BuildAmp.ApiClient exposing'));
         assert.ok(result.includes('getfeed, GetFeedReq, encodeGetFeedReq'));
         assert.ok(result.includes('submititem, SubmitItemReq, encodeSubmitItemReq'));
 
@@ -197,14 +197,14 @@ describe('API Generator - Elm API Client Module', () => {
         const dbReferences = new Set(['User', 'Post']);
         const result = generateElmApiClient(apis, dbReferences);
 
-        assert.ok(result.includes('import Generated.Db exposing (UserDb, PostDb)'));
+        assert.ok(result.includes('import BuildAmp.Db exposing (UserDb, PostDb)'));
     });
 
     test('generateElmApiClient has no cross-model imports when empty', () => {
         const apis = [{ path: 'Test', struct_name: 'TestReq', fields: [] }];
         const result = generateElmApiClient(apis, new Set());
 
-        assert.ok(!result.includes('import Generated.Db'));
+        assert.ok(!result.includes('import BuildAmp.Db'));
     });
 });
 

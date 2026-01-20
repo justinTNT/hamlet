@@ -24,12 +24,12 @@ export async function generateElmSharedModules(config = {}) {
     const isLegacyMode = config.inputBasePath && !config.src;
 
     const serverOutputDir = isLegacyMode
-        ? ensureOutputDir(path.join(paths.elmOutputPath, 'Generated'))
-        : ensureOutputDir(path.join(paths.serverElmDir, 'Generated'));
+        ? ensureOutputDir(path.join(paths.elmOutputPath, 'BuildAmp'))
+        : ensureOutputDir(path.join(paths.serverElmDir, 'BuildAmp'));
 
     const sharedOutputDir = isLegacyMode
-        ? ensureOutputDir(path.join(paths.elmOutputPath, 'Generated'))
-        : ensureOutputDir(path.join(paths.sharedElmDir, 'Generated'));
+        ? ensureOutputDir(path.join(paths.elmOutputPath, 'BuildAmp'))
+        : ensureOutputDir(path.join(paths.sharedElmDir, 'BuildAmp'));
 
     // Server-only modules
     const serverModules = [
@@ -108,14 +108,14 @@ ${elmFieldName} =
     Field "${snakeFieldName}" ${encoder}`;
     }).join('\n\n\n');
 
-    return `module Generated.Database.${modelName} exposing (..)
+    return `module BuildAmp.Database.${modelName} exposing (..)
 
 {-| Type-safe field accessors for ${modelName}
 
 Use these with Interface.Query operators for compile-time safe queries:
 
     import Interface.Query as Q
-    import Generated.Database.${modelName} as ${modelName}
+    import BuildAmp.Database.${modelName} as ${modelName}
 
     -- Filter by field
     ${modelName}.title |> Q.eq "Hello"
@@ -126,7 +126,7 @@ Use these with Interface.Query operators for compile-time safe queries:
 -}
 
 import Interface.Query exposing (Field(..))
-import Generated.Database exposing (${dbTypeName})
+import BuildAmp.Database exposing (${dbTypeName})
 import Json.Encode as Encode
 
 
@@ -144,7 +144,7 @@ function getPhantomType(field) {
     if (elmType === 'MultiTenant' || elmType === 'String') {
         return 'String';
     }
-    if (elmType === 'Int') {
+    if (elmType === 'Int' || elmType === 'Timestamp' || elmType === 'CreateTimestamp' || elmType === 'UpdateTimestamp') {
         return 'Int';
     }
     if (elmType === 'Float') {
@@ -173,7 +173,7 @@ function getPhantomTypeSimple(elmType) {
     if (elmType === 'String' || elmType === 'MultiTenant' || elmType === 'Link' || elmType === 'RichContent') {
         return 'String';
     }
-    if (elmType === 'Int' || elmType === 'Timestamp') {
+    if (elmType === 'Int' || elmType === 'Timestamp' || elmType === 'CreateTimestamp' || elmType === 'UpdateTimestamp') {
         return 'Int';
     }
     if (elmType === 'Float') {
@@ -194,7 +194,7 @@ function getFieldEncoder(field) {
     if (elmType === 'String' || elmType === 'MultiTenant' || elmType === 'Link' || elmType === 'RichContent') {
         return 'Encode.string';
     }
-    if (elmType === 'Int' || elmType === 'Timestamp') {
+    if (elmType === 'Int' || elmType === 'Timestamp' || elmType === 'CreateTimestamp' || elmType === 'UpdateTimestamp') {
         return 'Encode.int';
     }
     if (elmType === 'Float') {
@@ -223,7 +223,7 @@ function getFieldEncoderSimple(elmType) {
     if (elmType === 'String' || elmType === 'Link' || elmType === 'RichContent') {
         return 'Encode.string';
     }
-    if (elmType === 'Int' || elmType === 'Timestamp') {
+    if (elmType === 'Int' || elmType === 'Timestamp' || elmType === 'CreateTimestamp' || elmType === 'UpdateTimestamp') {
         return 'Encode.int';
     }
     if (elmType === 'Float') {
@@ -242,7 +242,7 @@ function generateDatabaseModule(paths, config = {}) {
     // Parse Elm schema models
     const dbModels = parseDbModels(paths, config);
     
-    return `port module Generated.Database exposing (..)
+    return `port module BuildAmp.Database exposing (..)
 
 {-| Generated database interface for TEA handlers
 
@@ -342,6 +342,16 @@ type alias MultiTenant = String
 type alias SoftDelete = Maybe Int
 
 
+{-| Auto-populated creation timestamp. Set on INSERT.
+-}
+type alias CreateTimestamp = Int
+
+
+{-| Auto-populated update timestamp. Set on INSERT and UPDATE.
+-}
+type alias UpdateTimestamp = Int
+
+
 -- QUERY BUILDERS
 
 {-| Empty query - returns all records
@@ -396,7 +406,7 @@ paginate offset limit query =
 Use with operators from Interface.Query:
 
     import Interface.Query as Q
-    import Generated.Database.MicroblogItem as Blog
+    import BuildAmp.Database.MicroblogItem as Blog
 
     DB.findMicroblogItems
         (DB.queryAll
@@ -415,7 +425,7 @@ where_ expr query =
 Use with sort operators from Interface.Query:
 
     import Interface.Query as Q
-    import Generated.Database.MicroblogItem as Blog
+    import BuildAmp.Database.MicroblogItem as Blog
 
     DB.findMicroblogItems
         (DB.queryAll
@@ -606,7 +616,7 @@ function generateEventsModule(paths, config = {}) {
     // Parse Elm event models
     const eventModels = parseEventModels(paths, config);
     
-    return `port module Generated.Events exposing (..)
+    return `port module BuildAmp.Events exposing (..)
 
 {-| Generated events interface for TEA handlers
 
@@ -735,7 +745,7 @@ decode${model.name} =
             return `(Decode.field "${field.name}" ${decoderType})`;
         }).join('\n        ')}`).join('\n');
 
-    return `port module Generated.KV exposing (..)
+    return `port module BuildAmp.KV exposing (..)
 
 {-| Generated KV Store interface for TEA handlers
 
@@ -870,7 +880,7 @@ ${typeHelpers.length > 0 ? '\n-- TYPE HELPERS' + typeHelpers : ''}
  * Generate Services module for external API calls
  */
 function generateServicesModule(config = {}) {
-    return `port module Generated.Services exposing (..)
+    return `port module BuildAmp.Services exposing (..)
 
 {-| Generated services interface for TEA handlers
 
@@ -1034,7 +1044,7 @@ function generateConfigModule(paths, config = {}) {
     const configModels = parseConfigModels(paths, config);
 
     if (configModels.length === 0) {
-        return `module Generated.Config exposing (..)
+        return `module BuildAmp.Config exposing (..)
 
 {-| Generated configuration types
 No config models found in models/config/
@@ -1046,7 +1056,7 @@ type alias EmptyConfig = {}
 `;
     }
 
-    return `module Generated.Config exposing (..)
+    return `module BuildAmp.Config exposing (..)
 
 {-| Generated configuration types for app initialization
 
@@ -1451,13 +1461,19 @@ type alias ${model.name}Db =
 
 /**
  * Generate create type alias (all user-settable fields, excluding framework-managed fields)
- * MultiTenant (host) and SoftDelete (deletedAt) are handled automatically by the runtime.
+ * MultiTenant (host), SoftDelete (deletedAt), CreateTimestamp, and UpdateTimestamp
+ * are handled automatically by the runtime or database.
  * Optional fields are wrapped in Maybe so they can be set during creation.
  */
 function generateCreateTypeAlias(model) {
     const createFields = model.fields
         .filter(field => field.name !== 'id' && field.name !== 'timestamp')
-        .filter(field => field.elmType !== 'MultiTenant' && field.elmType !== 'SoftDelete');
+        .filter(field =>
+            field.elmType !== 'MultiTenant' &&
+            field.elmType !== 'SoftDelete' &&
+            field.elmType !== 'CreateTimestamp' &&
+            field.elmType !== 'UpdateTimestamp'
+        );
 
     if (createFields.length === 0) {
         return `-- No create type needed for ${model.name}`;
@@ -1625,7 +1641,12 @@ encode${modelName}DbCreate item =
     Encode.object
         [ ${model.fields
             .filter(field => field.name !== 'id' && field.name !== 'timestamp')
-            .filter(field => field.elmType !== 'MultiTenant' && field.elmType !== 'SoftDelete')
+            .filter(field =>
+                field.elmType !== 'MultiTenant' &&
+                field.elmType !== 'SoftDelete' &&
+                field.elmType !== 'CreateTimestamp' &&
+                field.elmType !== 'UpdateTimestamp'
+            )
             .map(field => {
                 const snakeFieldName = camelToSnake(field.name);
                 // Optional fields need encodeMaybe wrapper
@@ -1661,7 +1682,8 @@ function generateFieldDecoder(field) {
     }
 
     // Special handling for Timestamp fields - PostgreSQL BIGINT comes as string
-    if (field.rustType === 'Timestamp') {
+    if (field.rustType === 'Timestamp' || field.elmType === 'Timestamp' ||
+        field.elmType === 'CreateTimestamp' || field.elmType === 'UpdateTimestamp') {
         return 'timestampDecoder';
     }
 
@@ -1697,6 +1719,9 @@ function generateBasicDecoder(elmType) {
         case 'Bool': return 'Decode.bool';
         case 'MultiTenant': return 'Decode.string';  // MultiTenant = String
         case 'SoftDelete': return '(Decode.nullable timestampDecoder)';  // SoftDelete = Maybe Int
+        case 'Timestamp':
+        case 'CreateTimestamp':
+        case 'UpdateTimestamp': return 'timestampDecoder';  // Timestamp types
         default: return 'Decode.string'; // Fallback for custom types
     }
 }
@@ -1718,6 +1743,9 @@ function generateFieldEncoder(field, isOptional = false) {
     } else if (field.elmType === 'MultiTenant') {
         // MultiTenant = String
         baseEncoder = 'Encode.string';
+    } else if (field.elmType === 'Timestamp' || field.elmType === 'CreateTimestamp' || field.elmType === 'UpdateTimestamp') {
+        // Timestamp types = Int
+        baseEncoder = 'Encode.int';
     } else if (field.elmType.startsWith('Maybe ')) {
         const innerType = field.elmType.replace('Maybe ', '');
         baseEncoder = `encodeMaybe ${generateBasicEncoder(innerType)}`;
@@ -1750,6 +1778,9 @@ function generateBasicEncoder(elmType) {
             case 'Bool': return 'Encode.bool';
             case 'MultiTenant': return 'Encode.string';  // MultiTenant = String
             case 'SoftDelete': return 'encodeMaybe Encode.int';  // SoftDelete = Maybe Int
+            case 'Timestamp':
+            case 'CreateTimestamp':
+            case 'UpdateTimestamp': return 'Encode.int';  // Timestamp types
             default: return 'Encode.string'; // Fallback for custom types
         }
     }

@@ -183,17 +183,17 @@ export default async function createElmService(server) {
         const appName = server.config.application || 'horatio';
         const handlersPath = path.join(__dirname, `../../../app/${appName}/server`);
 
-        // Auto-discover TEA handler configurations
+        // Auto-discover handler configurations
         const handlerConfigs = [];
         const handlersDir = path.join(handlersPath, 'src/Api/Handlers');
 
         if (fs.existsSync(handlersDir)) {
             const files = fs.readdirSync(handlersDir);
-            const teaFiles = files.filter(file => file.endsWith('TEA.elm'));
+            const handlerFiles = files.filter(file => file.endsWith('Handler.elm'));
 
-            for (const teaFile of teaFiles) {
-                const baseName = path.basename(teaFile, '.elm');
-                const handlerName = baseName.replace('HandlerTEA', ''); // GetFeedHandlerTEA -> GetFeed
+            for (const handlerFile of handlerFiles) {
+                const baseName = path.basename(handlerFile, '.elm');
+                const handlerName = baseName.replace('Handler', ''); // GetFeedHandler -> GetFeed
                 handlerConfigs.push({ name: handlerName, file: baseName });
             }
         }
@@ -336,13 +336,29 @@ export default async function createElmService(server) {
 
                     // Set up database port handlers (using request-scoped context)
 
+                    // Helper function to convert PostgreSQL timestamps to epoch milliseconds
+                    // PostgreSQL TIMESTAMP WITH TIME ZONE comes as JS Date objects or ISO strings
+                    const convertTimestamps = (obj) => {
+                        if (obj === null || obj === undefined) return obj;
+                        if (obj instanceof Date) return obj.getTime();
+                        if (Array.isArray(obj)) return obj.map(convertTimestamps);
+                        if (typeof obj === 'object') {
+                            const result = {};
+                            for (const [key, value] of Object.entries(obj)) {
+                                result[key] = convertTimestamps(value);
+                            }
+                            return result;
+                        }
+                        return obj;
+                    };
+
                     // Helper function to send DB results consistently
                     const sendDbResult = (reqId, success, data = null, error = null) => {
                         if (elmApp.ports.dbResult) {
                             elmApp.ports.dbResult.send({
                                 id: reqId,
                                 success,
-                                data,
+                                data: convertTimestamps(data),
                                 error
                             });
                         }
@@ -736,9 +752,9 @@ async function loadSchemaForQueries() {
 
     try {
         const possiblePaths = [
-            path.join(process.cwd(), 'server', '.hamlet-gen', 'schema.json'),
-            path.join(process.cwd(), '.hamlet-gen', 'schema.json'),
-            path.join(process.cwd(), 'app', 'horatio', 'server', '.hamlet-gen', 'schema.json')
+            path.join(process.cwd(), 'server', '.generated', 'schema.json'),
+            path.join(process.cwd(), '.generated', 'schema.json'),
+            path.join(process.cwd(), 'app', 'horatio', 'server', '.generated', 'schema.json')
         ];
 
         for (const schemaPath of possiblePaths) {

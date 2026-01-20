@@ -45,31 +45,31 @@ function discoverProjectPaths() {
         return {
             modelsDir: 'app/horatio/models',
             dbModelsDir: 'app/horatio/models/db',
-            apiModelsDir: 'app/horatio/models/api', 
+            apiModelsDir: 'app/horatio/models/api',
             storageModelsDir: 'app/horatio/models/storage',
             kvModelsDir: 'app/horatio/models/kv',
             sseModelsDir: 'app/horatio/models/sse',
             eventsModelsDir: 'app/horatio/models/events',
-            elmOutputDir: 'app/generated',
-            jsOutputDir: 'packages/hamlet-server/generated',
+            elmOutputDir: 'app/horatio/web/src/.generated',
+            jsOutputDir: 'app/horatio/server/.generated',
             elmApiDir: 'app/horatio/web/src/Api',
             serverHandlersDir: 'app/horatio/server/src/Api/Handlers'
         };
     }
-    
+
     // Fallback to src/models pattern (simple projects)
     return {
         modelsDir: 'src/models',
         dbModelsDir: 'src/models/db',
         apiModelsDir: 'src/models/api',
-        storageModelsDir: 'src/models/storage', 
+        storageModelsDir: 'src/models/storage',
         kvModelsDir: 'src/models/kv',
         sseModelsDir: 'src/models/sse',
         eventsModelsDir: 'src/models/events',
-        elmOutputDir: 'app/generated',
-        jsOutputDir: 'packages/hamlet-server/generated',
-        elmApiDir: 'app/horatio/web/src/Api',
-        serverHandlersDir: 'app/horatio/server/src/Api/Handlers'
+        elmOutputDir: 'web/src/.generated',
+        jsOutputDir: 'server/.generated',
+        elmApiDir: 'web/src/Api',
+        serverHandlersDir: 'server/src/Api/Handlers'
     };
 }
 

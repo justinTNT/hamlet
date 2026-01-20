@@ -3,11 +3,10 @@
     "version": "0.1.0",
     "type": "module",
     "scripts": {
-        "start": "node server.js"
+        "start": "node server.js",
+        "dev": "node --watch server.js"
     },
     "dependencies": {
-        "@libsql/client": "^0.3.5",
-        "hamlet-server": "^0.1.0",
-        "proto-rust": "file:../pkg-node"
+        "hamlet-server": "^0.1.0"
     }
 }

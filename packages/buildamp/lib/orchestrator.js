@@ -88,9 +88,10 @@ const targetGenerators = {
  * @param {string} options.target - Specific target (js, elm, handlers, etc.) or null for all
  * @param {string} options.modelDir - Model directory (api, db, storage, etc.) or null for all
  * @param {string} options.schemaLang - Schema language: 'rust' (default) or 'elm'
+ * @param {string} options.regenerateHandler - Handler name to regenerate (backs up and recreates)
  */
 export async function generate(options = {}) {
-    const { src, dest, target, modelDir, schemaLang = 'rust' } = options;
+    const { src, dest, target, modelDir, schemaLang = 'rust', regenerateHandler } = options;
 
     // Create paths from explicit src/dest
     const paths = createPaths({ src, dest });
@@ -137,8 +138,8 @@ export async function generate(options = {}) {
         const generator = targetGenerators[gen];
         if (generator) {
             try {
-                // Pass paths, modelDir, and schemaLang to generators
-                const genConfig = { paths, modelDir, schemaLang };
+                // Pass paths, modelDir, schemaLang, and regenerateHandler to generators
+                const genConfig = { paths, modelDir, schemaLang, regenerateHandler };
                 const result = await generator(genConfig);
                 results.push({ generator: gen, success: true, result });
             } catch (error) {

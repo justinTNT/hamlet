@@ -31,8 +31,8 @@ ensure field names and value types are correct.
 ## Example Usage
 
     import Framework.Query as Q
-    import Generated.Database as DB
-    import Generated.Database.MicroblogItem as Blog
+    import BuildAmp.Database as DB
+    import BuildAmp.Database.MicroblogItem as Blog
 
     loadPopularItems : Cmd Msg
     loadPopularItems =

@@ -77,9 +77,9 @@ describe('Core Paths Module', () => {
         assert.strictEqual(typeof result, 'boolean', 'isBuildAmpProject should return boolean');
     });
 
-    test('HAMLET_GEN_DIR constant is correct', async () => {
-        const { HAMLET_GEN_DIR } = await import('../core/paths.js');
+    test('GENERATED_DIR constant is correct', async () => {
+        const { GENERATED_DIR } = await import('../core/paths.js');
 
-        assert.strictEqual(HAMLET_GEN_DIR, '.hamlet-gen', 'HAMLET_GEN_DIR should be .hamlet-gen');
+        assert.strictEqual(GENERATED_DIR, '.generated', 'GENERATED_DIR should be .generated');
     });
 });

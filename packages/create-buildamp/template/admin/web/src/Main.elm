@@ -12,7 +12,7 @@ import Browser
 import Browser.Events
 import Browser.Navigation as Nav
 import Dict exposing (Dict)
-import Generated.Storage.AdminPreferences as Prefs
+import BuildAmp.Storage.AdminPreferences as Prefs
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Attributes as Attr

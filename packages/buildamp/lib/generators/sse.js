@@ -123,7 +123,7 @@ function generateSSEModule(allModels) {
     const decoders = allModels.map(generateElmDecoder).join('\n\n\n');
     const helpers = generateSSEHelpers(allModels);
 
-    return `module Generated.ServerSentEvents exposing (..)
+    return `module BuildAmp.ServerSentEvents exposing (..)
 
 {-| Auto-Generated Server-Sent Events Types and Decoders
 

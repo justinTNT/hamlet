@@ -10,7 +10,6 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs';
 import express from 'express';
-import registerApiRoutes from '../generated/api-routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -50,7 +49,13 @@ export default async function createAPIRoutes(server) {
 
     // Register auto-generated API routes from BuildAmp
     try {
-        registerApiRoutes(server);
+        const apiRoutesPath = path.join(__dirname, `../../../app/${appName}/server/.generated/api-routes.js`);
+        if (fs.existsSync(apiRoutesPath)) {
+            const { default: registerApiRoutes } = await import(apiRoutesPath);
+            registerApiRoutes(server);
+        } else {
+            console.warn('⚠️  No api-routes.js found at', apiRoutesPath);
+        }
     } catch (error) {
         console.warn('⚠️  Auto-generated routes not available:', error.message);
     }

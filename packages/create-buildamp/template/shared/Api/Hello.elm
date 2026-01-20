@@ -5,7 +5,7 @@ module Api.Hello exposing (..)
     A simple example endpoint that greets the user.
 -}
 
-import Interface.Api exposing (..)
+import Framework.Api exposing (..)
 
 
 type alias Request =

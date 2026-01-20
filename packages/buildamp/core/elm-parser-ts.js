@@ -447,6 +447,22 @@ export function elmTypeToSql(fieldType, fieldName) {
         };
     }
 
+    // CreateTimestamp - auto-populated on INSERT
+    if (type === 'CreateTimestamp') {
+        return {
+            sqlType: 'TIMESTAMP WITH TIME ZONE',
+            constraints: ['NOT NULL', 'DEFAULT NOW()']
+        };
+    }
+
+    // UpdateTimestamp - auto-populated on INSERT and UPDATE
+    if (type === 'UpdateTimestamp') {
+        return {
+            sqlType: 'TIMESTAMP WITH TIME ZONE',
+            constraints: [] // nullable, set by application
+        };
+    }
+
     // Maybe a - nullable field
     if (type.startsWith('Maybe ') || type.startsWith('Maybe(')) {
         const innerType = extractInnerType(type, 'Maybe');
@@ -596,6 +612,8 @@ export function parseElmSchemaFile(filePath) {
                     constraints: sqlInfo.constraints,
                     isPrimaryKey: elmType.startsWith('DatabaseId'),
                     isTimestamp: elmType === 'Timestamp',
+                    isCreateTimestamp: elmType === 'CreateTimestamp',
+                    isUpdateTimestamp: elmType === 'UpdateTimestamp',
                     isOptional: elmType.startsWith('Maybe ') || elmType.startsWith('Maybe('),
                     isLink: elmType === 'Link' || elmType.includes('Maybe Link'),
                     isRichContent: elmType === 'RichContent',
@@ -611,6 +629,8 @@ export function parseElmSchemaFile(filePath) {
             // Derive model-level flags from field types
             const multiTenantField = fields.find(f => f.isMultiTenant);
             const softDeleteField = fields.find(f => f.isSoftDelete);
+            const createTimestampField = fields.find(f => f.isCreateTimestamp);
+            const updateTimestampField = fields.find(f => f.isUpdateTimestamp);
 
             return {
                 name: typeAlias.name,
@@ -619,8 +639,12 @@ export function parseElmSchemaFile(filePath) {
                 filename,
                 isMultiTenant: !!multiTenantField,
                 isSoftDelete: !!softDeleteField,
+                hasCreateTimestamp: !!createTimestampField,
+                hasUpdateTimestamp: !!updateTimestampField,
                 multiTenantFieldName: multiTenantField?.name || null,
-                softDeleteFieldName: softDeleteField?.name || null
+                softDeleteFieldName: softDeleteField?.name || null,
+                createTimestampFieldName: createTimestampField?.name || null,
+                updateTimestampFieldName: updateTimestampField?.name || null
             };
         });
 }
@@ -680,6 +704,8 @@ export function parseElmSchemaDirFull(schemaDir) {
                     constraints: sqlInfo.constraints,
                     isPrimaryKey: elmType.startsWith('DatabaseId'),
                     isTimestamp: elmType === 'Timestamp',
+                    isCreateTimestamp: elmType === 'CreateTimestamp',
+                    isUpdateTimestamp: elmType === 'UpdateTimestamp',
                     isOptional: elmType.startsWith('Maybe ') || elmType.startsWith('Maybe('),
                     isLink: elmType === 'Link' || elmType.includes('Maybe Link'),
                     isRichContent: elmType === 'RichContent',
@@ -693,6 +719,8 @@ export function parseElmSchemaDirFull(schemaDir) {
             // Derive model-level flags from field types
             const multiTenantField = fields.find(f => f.isMultiTenant);
             const softDeleteField = fields.find(f => f.isSoftDelete);
+            const createTimestampField = fields.find(f => f.isCreateTimestamp);
+            const updateTimestampField = fields.find(f => f.isUpdateTimestamp);
 
             allRecords.push({
                 name: typeAlias.name,
@@ -701,8 +729,12 @@ export function parseElmSchemaDirFull(schemaDir) {
                 filename,
                 isMultiTenant: !!multiTenantField,
                 isSoftDelete: !!softDeleteField,
+                hasCreateTimestamp: !!createTimestampField,
+                hasUpdateTimestamp: !!updateTimestampField,
                 multiTenantFieldName: multiTenantField?.name || null,
-                softDeleteFieldName: softDeleteField?.name || null
+                softDeleteFieldName: softDeleteField?.name || null,
+                createTimestampFieldName: createTimestampField?.name || null,
+                updateTimestampFieldName: updateTimestampField?.name || null
             });
         }
 

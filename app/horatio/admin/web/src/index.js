@@ -1,5 +1,5 @@
 import { Elm } from './Main.elm';
-import { connectStoragePorts } from './.hamlet-gen/browser-storage.js';
+import { connectStoragePorts } from './.generated/browser-storage.js';
 
 console.log("Horatio Admin v1.0.0");
 

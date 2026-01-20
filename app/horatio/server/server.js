@@ -1,10 +1,14 @@
 import { HamletServer } from '../../../packages/hamlet-server/core/server.js';
 import createAdminApi from '../../../packages/hamlet-server/middleware/admin-api.js';
 import createAdminAuth from '../../../packages/hamlet-server/middleware/admin-auth.js';
-import createDbQueries from './.hamlet-gen/database-queries.js';
+import createDbQueries from './.generated/database-queries.js';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+// Load .env from app root (one level up from server/)
+dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../.env') });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,13 +24,13 @@ const config = {
         sse: true,      // Enable server-sent events  
         wasm: true      // Enable BuildAmp WASM integration
     },
-    // PostgreSQL configuration
+    // PostgreSQL configuration (from .env)
     database: {
-        user: String(process.env.POSTGRES_USER || 'admin'),
-        password: String(process.env.POSTGRES_PASSWORD || 'password'), 
-        host: String(process.env.POSTGRES_HOST || '127.0.0.1'),
-        database: String(process.env.POSTGRES_DB || 'horatio'),
-        port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
+        user: String(process.env.POSTGRES_USER),
+        password: String(process.env.POSTGRES_PASSWORD),
+        host: String(process.env.POSTGRES_HOST),
+        database: String(process.env.POSTGRES_DB),
+        port: parseInt(process.env.POSTGRES_PORT, 10),
         migrations: './migrations'
     }
 };

@@ -4,7 +4,7 @@ import Api
 import Api.Http
 import Api.Schema
 import Browser
-import Generated.Config exposing (GlobalConfig)
+import BuildAmp.Config exposing (GlobalConfig)
 import Browser.Navigation as Nav
 import Html exposing (Html, button, div, h1, h2, h3, h4, p, a, img, text, section, input, textarea, label, span, br)
 import Html.Attributes exposing (src, href, style, class, value, placeholder)

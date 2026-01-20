@@ -7,7 +7,7 @@ on microblog items.
 
 -}
 
-import Interface.Schema exposing (DatabaseId, MultiTenant, SoftDelete, Timestamp)
+import Interface.Schema exposing (CreateTimestamp, DatabaseId, MultiTenant, SoftDelete)
 
 
 type alias Guest =
@@ -16,6 +16,6 @@ type alias Guest =
     , name : String
     , picture : String
     , sessionId : String
-    , createdAt : Timestamp
+    , createdAt : CreateTimestamp
     , deletedAt : SoftDelete
     }

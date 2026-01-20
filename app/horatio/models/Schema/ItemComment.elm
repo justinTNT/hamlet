@@ -6,7 +6,7 @@ Comments can be nested via parentId for threaded discussions.
 
 -}
 
-import Interface.Schema exposing (DatabaseId, ForeignKey, MultiTenant, SoftDelete, Timestamp)
+import Interface.Schema exposing (CreateTimestamp, DatabaseId, ForeignKey, MultiTenant, SoftDelete)
 import Schema.Guest exposing (Guest)
 import Schema.MicroblogItem exposing (MicroblogItem)
 
@@ -19,6 +19,6 @@ type alias ItemComment =
     , parentId : Maybe String
     , authorName : String
     , text : String
-    , createdAt : Timestamp
+    , createdAt : CreateTimestamp
     , deletedAt : SoftDelete
     }

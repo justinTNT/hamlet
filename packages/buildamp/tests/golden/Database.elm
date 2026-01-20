@@ -1,4 +1,4 @@
-port module Generated.Database exposing (..)
+port module BuildAmp.Database exposing (..)
 
 {-| Generated database interface for TEA handlers
 
@@ -152,7 +152,7 @@ paginate offset limit query =
 Use with operators from Interface.Query:
 
     import Interface.Query as Q
-    import Generated.Database.MicroblogItem as Blog
+    import BuildAmp.Database.MicroblogItem as Blog
 
     DB.findMicroblogItems
         (DB.queryAll
@@ -171,7 +171,7 @@ where_ expr query =
 Use with sort operators from Interface.Query:
 
     import Interface.Query as Q
-    import Generated.Database.MicroblogItem as Blog
+    import BuildAmp.Database.MicroblogItem as Blog
 
     DB.findMicroblogItems
         (DB.queryAll

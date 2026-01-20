@@ -1,0 +1,84 @@
+module BuildAmp.Config exposing (..)
+
+{-| Generated configuration types for app initialization
+
+These types are generated from Elm models in shared/Config/*.elm
+They define the shape of configuration data passed to Elm via init flags.
+
+@docs GlobalConfig, FeatureFlags
+
+-}
+
+import Json.Decode as Decode
+import Json.Encode as Encode
+
+
+-- CONFIG TYPES
+
+{-| GlobalConfig configuration type
+Generated from GlobalConfig.elm
+-}
+type alias GlobalConfig =
+    {     siteName : String
+    , features : FeatureFlags
+    }
+
+
+{-| FeatureFlags configuration type
+Generated from GlobalConfig.elm
+-}
+type alias FeatureFlags =
+    {     comments : Bool
+    , submissions : Bool
+    , tags : Bool
+    }
+
+
+-- DECODERS
+
+globalConfigDecoder : Decode.Decoder GlobalConfig
+globalConfigDecoder =
+    Decode.succeed GlobalConfig
+        |> andMap (Decode.field "site_name" Decode.string)
+        |> andMap (Decode.field "features" featureFlagsDecoder)
+
+
+featureFlagsDecoder : Decode.Decoder FeatureFlags
+featureFlagsDecoder =
+    Decode.succeed FeatureFlags
+        |> andMap (Decode.field "comments" Decode.bool)
+        |> andMap (Decode.field "submissions" Decode.bool)
+        |> andMap (Decode.field "tags" Decode.bool)
+
+
+-- ENCODERS
+
+encodeGlobalConfig : GlobalConfig -> Encode.Value
+encodeGlobalConfig config =
+    Encode.object
+        [ ("site_name", Encode.string config.siteName)
+        , ("features", encodeFeatureFlags config.features)
+        ]
+
+
+encodeFeatureFlags : FeatureFlags -> Encode.Value
+encodeFeatureFlags config =
+    Encode.object
+        [ ("comments", Encode.bool config.comments)
+        , ("submissions", Encode.bool config.submissions)
+        , ("tags", Encode.bool config.tags)
+        ]
+
+
+-- HELPERS
+
+encodeMaybe : (a -> Encode.Value) -> Maybe a -> Encode.Value
+encodeMaybe encoder maybeValue =
+    case maybeValue of
+        Nothing -> Encode.null
+        Just value -> encoder value
+
+
+-- Helper for pipeline-style decoding
+andMap : Decode.Decoder a -> Decode.Decoder (a -> b) -> Decode.Decoder b
+andMap = Decode.map2 (|>)

@@ -38,9 +38,9 @@ export default function createAdminApi(server) {
 
             // Try common locations for schema.json
             const possiblePaths = [
-                path.join(process.cwd(), 'server', '.hamlet-gen', 'schema.json'),
-                path.join(process.cwd(), '.hamlet-gen', 'schema.json'),
-                path.join(process.cwd(), 'app', 'horatio', 'server', '.hamlet-gen', 'schema.json')
+                path.join(process.cwd(), 'server', '.generated', 'schema.json'),
+                path.join(process.cwd(), '.generated', 'schema.json'),
+                path.join(process.cwd(), 'app', 'horatio', 'server', '.generated', 'schema.json')
             ];
 
             for (const schemaPath of possiblePaths) {
@@ -68,9 +68,9 @@ export default function createAdminApi(server) {
         const path = await import('path');
 
         const possiblePaths = [
-            path.join(process.cwd(), 'server', '.hamlet-gen', 'schema.json'),
-            path.join(process.cwd(), '.hamlet-gen', 'schema.json'),
-            path.join(process.cwd(), 'app', 'horatio', 'server', '.hamlet-gen', 'schema.json')
+            path.join(process.cwd(), 'server', '.generated', 'schema.json'),
+            path.join(process.cwd(), '.generated', 'schema.json'),
+            path.join(process.cwd(), 'app', 'horatio', 'server', '.generated', 'schema.json')
         ];
 
         for (const schemaPath of possiblePaths) {

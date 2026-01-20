@@ -1,1 +1,0 @@
-/Users/jtnt/Play/hamlet/app/horatio/server/.hamlet-gen/database-queries.js

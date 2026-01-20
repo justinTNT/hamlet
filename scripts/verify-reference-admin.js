@@ -70,7 +70,7 @@ function expect(actual, message) {
 test('Schema.json exists with valid structure', () => {
     console.log('\n📋 Testing schema.json...');
 
-    const schemaPath = path.join(rootDir, 'app/horatio/server/.hamlet-gen/schema.json');
+    const schemaPath = path.join(rootDir, 'app/horatio/server/.generated/schema.json');
     if (!expect(schemaPath, 'schema.json exists').toExist()) {
         return false;
     }

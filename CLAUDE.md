@@ -11,8 +11,8 @@ ask the user if you want a server killed or started.
 - Generated files are marked with comments like "Generated from..." or "Auto-generated"
 - If something doesn't work with generated files, fix the generator or build process, not the output
 - Common generated file patterns:
-  - `.hamlet-gen/` directories (clobberable glue code)
-  - `Generated/` directories
+  - `.generated/` directories (clobberable glue code)
+  - `BuildAmp/` directories (generated Elm modules)
   - Files with "generated" in path or comments
   - `Storage.elm`, `Database.elm`, API files, etc.
 
@@ -49,10 +49,6 @@ buildamp gen db --src ... --dest ...                       # Generate for DB mod
 buildamp status                                            # Check generation status vs source models
 ```
 
-### Contract System
-- Tracks model hashes in `contracts.json` for incremental builds
-- `buildamp status` shows what needs rebuilding with suggested commands
-
 ### Vite Monorepo Structure
 - **Build Tool**: Vite handles bundling and workspace dependency resolution
 - **Framework Packages**: Single source of truth in `/packages/hamlet-server/`
@@ -68,8 +64,8 @@ buildamp status                                            # Check generation st
 
 ### Directory Structure
 - Web app: `/app/horatio/web/`
-- Generated glue: `/app/horatio/web/src/.hamlet-gen/` (Elm) and `/app/horatio/server/.hamlet-gen/` (JS)
-- Shared generated: `/app/horatio/shared/.hamlet-gen/` (Config.elm shared between web/server)
+- Generated glue: `/app/horatio/web/src/.generated/` (Elm) and `/app/horatio/server/.generated/` (JS)
+- Shared generated: `/app/horatio/models/.generated/` (Config.elm shared between web/server)
 - Server handlers: `/app/horatio/server/src/Api/Handlers/`
 - Database migrations: `/app/horatio/sql/migrations/`
 - **Elm models** (source of truth):
@@ -88,9 +84,10 @@ buildamp status                                            # Check generation st
 - SubmitCommentHandlerTEA.elm handles the business logic
 
 ## Recent Fixes
-- Fixed Storage.elm to properly import from Generated.Storage.GuestSession
+- Fixed Storage.elm to properly import from BuildAmp.Storage.GuestSession
 - Added vite-plugin-elm for proper Elm compilation in dev server
 - Implemented auto-generated UUID migration for seamless ID generation
+- Renamed `.hamlet-gen/` to `.generated/` and `Generated/` to `BuildAmp/` for clearer provenance
 
 ## Admin UI
 - Schema-driven admin interface at `app/horatio/admin/`

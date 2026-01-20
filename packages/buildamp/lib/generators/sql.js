@@ -1,145 +1,14 @@
 /**
- * SQL Migration Generation
+ * SQL Schema Generation
  *
  * Generates CREATE TABLE statements from Elm schema models.
+ * Migrations are hand-written - this only generates schema.sql for fresh installs.
  */
 
 import fs from 'fs';
 import path from 'path';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import { getGenerationPaths, ensureOutputDir } from './shared-paths.js';
 import { parseElmSchemaDir, parseElmSchemaDirFull } from '../../core/elm-parser-ts.js';
-
-const execAsync = promisify(exec);
-
-/**
- * Map types to SQL types with constraints
- */
-function rustTypeToSql(fieldType, fieldName) {
-    const type = fieldType.trim();
-
-    // DatabaseId<T> - primary key with UUID generation
-    if (type.includes('DatabaseId')) {
-        return {
-            sqlType: 'TEXT',
-            constraints: ['PRIMARY KEY', "DEFAULT gen_random_uuid()"]
-        };
-    }
-
-    // Timestamp - stored as BIGINT (epoch millis)
-    if (type.includes('Timestamp')) {
-        return {
-            sqlType: 'BIGINT',
-            constraints: ['NOT NULL', "DEFAULT extract(epoch from now())"]
-        };
-    }
-
-    // Option<T> - nullable field
-    if (type.startsWith('Option<')) {
-        const innerType = type.slice(7, -1).trim();
-        const inner = rustTypeToSql(innerType, fieldName);
-        return {
-            sqlType: inner.sqlType,
-            constraints: [] // No NOT NULL for optional
-        };
-    }
-
-    // Vec<T> - stored as JSON array
-    if (type.startsWith('Vec<')) {
-        return {
-            sqlType: 'JSONB',
-            constraints: ['NOT NULL', "DEFAULT '[]'::jsonb"]
-        };
-    }
-
-    // DefaultValue<T> - has a default value
-    if (type.startsWith('DefaultValue<')) {
-        const innerType = type.slice(13, -1).trim();
-        const inner = rustTypeToSql(innerType, fieldName);
-        // Default value would need to be extracted from the actual code
-        // For now, just mark as NOT NULL
-        return {
-            sqlType: inner.sqlType,
-            constraints: ['NOT NULL']
-        };
-    }
-
-    // Link<T> - URL field, stored as TEXT
-    if (type.startsWith('Link<')) {
-        const innerType = type.slice(5, -1).trim();
-        const inner = rustTypeToSql(innerType, fieldName);
-        return {
-            sqlType: inner.sqlType,
-            constraints: inner.constraints
-        };
-    }
-
-    // Basic types
-    if (type === 'String' || type === 'str') {
-        return { sqlType: 'TEXT', constraints: ['NOT NULL'] };
-    }
-
-    if (type === 'i32' || type === 'i16') {
-        return { sqlType: 'INTEGER', constraints: ['NOT NULL', 'DEFAULT 0'] };
-    }
-
-    if (type === 'i64') {
-        return { sqlType: 'BIGINT', constraints: ['NOT NULL', 'DEFAULT 0'] };
-    }
-
-    if (type === 'f32' || type === 'f64') {
-        return { sqlType: 'DOUBLE PRECISION', constraints: ['NOT NULL', 'DEFAULT 0'] };
-    }
-
-    if (type === 'bool') {
-        return { sqlType: 'BOOLEAN', constraints: ['NOT NULL', 'DEFAULT false'] };
-    }
-
-    // RichContent and other custom types - store as JSONB
-    if (type === 'RichContent' || type.includes('::')) {
-        return { sqlType: 'JSONB', constraints: ['NOT NULL'] };
-    }
-
-    // Fallback to TEXT
-    return { sqlType: 'TEXT', constraints: ['NOT NULL'] };
-}
-
-/**
- * Detect foreign key references from field names
- * Returns { referencedTable, referencedColumn } or null
- */
-function detectForeignKey(fieldName, knownTables) {
-    // Skip primary key
-    if (fieldName === 'id') return null;
-
-    // Look for *_id pattern
-    if (!fieldName.endsWith('_id')) return null;
-
-    // Derive table name: item_id → items, guest_id → guests
-    // But also handle: parent_id → same table (self-reference)
-    const prefix = fieldName.slice(0, -3); // Remove '_id'
-
-    // Try direct pluralization first
-    let candidateTable = prefix + 's';
-    if (knownTables.includes(candidateTable)) {
-        return { referencedTable: candidateTable, referencedColumn: 'id' };
-    }
-
-    // Try without 's' (might already be plural or irregular)
-    if (knownTables.includes(prefix)) {
-        return { referencedTable: prefix, referencedColumn: 'id' };
-    }
-
-    // Try finding a table that ends with the prefix (e.g., item_id → microblog_items)
-    const matchingTable = knownTables.find(t => t.endsWith('_' + prefix + 's') || t.endsWith('_' + prefix));
-    if (matchingTable) {
-        return { referencedTable: matchingTable, referencedColumn: 'id' };
-    }
-
-    // No match found - this might be intentional (external reference) or an error
-    return { referencedTable: null, fieldName, warning: `No table found for foreign key: ${fieldName}` };
-}
 
 /**
  * Generate CREATE TABLE statement for a struct
@@ -173,42 +42,41 @@ function generateCreateTable(struct, knownTables = [], unionTypeMap = {}) {
 
     // Check what columns already exist in model fields
     const hasHost = fields.some(f => f.name === 'host');
-    const hasCreatedAt = fields.some(f => f.name === 'created_at');
-    const hasUpdatedAt = fields.some(f => f.name === 'updated_at');
-    const hasDeletedAt = fields.some(f => f.name === 'deleted_at');
 
-    // Check if model has explicit MultiTenant/SoftDelete fields (with any name)
+    // Check if model has explicit MultiTenant field
     const hasMultiTenantField = isMultiTenant || fields.some(f => f.isMultiTenant);
-    const hasSoftDeleteField = isSoftDelete || fields.some(f => f.isSoftDelete);
 
     // Only auto-add host if model doesn't have explicit MultiTenant field and doesn't have a host column
     if (!hasMultiTenantField && !hasHost) {
         columnDefs.push('    host TEXT NOT NULL');
     }
-    if (!hasCreatedAt) {
-        columnDefs.push("    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()");
-    }
-    if (!hasUpdatedAt) {
-        columnDefs.push('    updated_at TIMESTAMP WITH TIME ZONE');
-    }
-    // Only auto-add deleted_at if model doesn't have explicit SoftDelete field and doesn't have deleted_at column
-    if (!hasSoftDeleteField && !hasDeletedAt) {
-        columnDefs.push('    deleted_at TIMESTAMP WITH TIME ZONE');
-    }
 
-    // Detect foreign keys
+    // NOTE: created_at, updated_at, deleted_at are NO LONGER auto-added.
+    // Models must explicitly use CreateTimestamp, UpdateTimestamp, or SoftDelete types.
+
+    // Generate foreign key constraints for explicit ForeignKey fields only
+    // No auto-detection - only fields typed as ForeignKey get FK constraints
     for (const field of fields) {
-        const fk = detectForeignKey(field.name, knownTables);
-        if (fk) {
-            if (fk.referencedTable) {
+        if (!field.isForeignKey) continue;
+
+        if (field.referencedTable) {
+            const refTableLower = field.referencedTable.toLowerCase();
+            // Prioritize exact matches over fuzzy matches
+            const refTable =
+                knownTables.find(t => t === refTableLower) ||
+                knownTables.find(t => t === refTableLower + 's') ||
+                knownTables.find(t => t.endsWith('_' + refTableLower + 's')) ||
+                knownTables.find(t => t.endsWith('_' + refTableLower));
+            if (refTable) {
                 foreignKeys.push({
                     column: field.name,
-                    referencedTable: fk.referencedTable,
-                    referencedColumn: fk.referencedColumn
+                    referencedTable: refTable,
+                    referencedColumn: 'id'
                 });
-                columnDefs.push(`    FOREIGN KEY (${field.name}) REFERENCES ${fk.referencedTable}(${fk.referencedColumn})`);
-            } else if (fk.warning) {
-                warnings.push(fk.warning);
+                columnDefs.push(`    FOREIGN KEY (${field.name}) REFERENCES ${refTable}(id)`);
+            } else {
+                // ForeignKey declared but table not found - this is an error
+                warnings.push(`ERROR: ForeignKey ${field.name} references unknown table: ${field.referencedTable}`);
             }
         }
     }
@@ -278,109 +146,6 @@ function generateSchema(structs, unionTypes = []) {
 }
 
 /**
- * Get next migration number
- */
-function getNextMigrationNumber(migrationsDir) {
-    if (!fs.existsSync(migrationsDir)) {
-        return '001';
-    }
-
-    const files = fs.readdirSync(migrationsDir)
-        .filter(f => f.match(/^\d{3}_.*\.sql$/))
-        .sort();
-
-    if (files.length === 0) {
-        return '001';
-    }
-
-    const lastNum = parseInt(files[files.length - 1].substring(0, 3), 10);
-    return String(lastNum + 1).padStart(3, '0');
-}
-
-/**
- * Check if migra is available
- */
-async function checkMigra() {
-    try {
-        await execAsync('which migra');
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-/**
- * Generate incremental migration using migra
- * Requires: migra installed, PostgreSQL connection
- */
-async function generateMigration(schemaContent, config) {
-    const { databaseUrl, migrationsDir } = config;
-
-    if (!databaseUrl) {
-        console.log('   ℹ️  No DATABASE_URL provided, skipping migration diff');
-        return null;
-    }
-
-    const hasMigra = await checkMigra();
-    if (!hasMigra) {
-        console.log('   ℹ️  migra not installed - generating schema.sql only');
-        console.log('   Install with: pip install migra');
-        return null;
-    }
-
-    // Create temp file with schema
-    const tempSchemaFile = '/tmp/buildamp_schema.sql';
-    fs.writeFileSync(tempSchemaFile, schemaContent);
-
-    try {
-        // Create temp database with new schema
-        console.log('   Creating temporary database for diff...');
-        await execAsync('createdb buildamp_temp_schema');
-        await execAsync(`psql buildamp_temp_schema < ${tempSchemaFile}`);
-
-        // Run migra to generate diff
-        const { stdout } = await execAsync(
-            `migra ${databaseUrl} postgresql:///buildamp_temp_schema`
-        );
-
-        if (stdout.trim()) {
-            // There are changes - write migration file
-            const migrationNum = getNextMigrationNumber(migrationsDir);
-            const migrationFile = path.join(migrationsDir, `${migrationNum}_auto.sql`);
-
-            const migrationContent = `-- Auto-generated migration
--- Generated by BuildAmp from model changes
--- Review before applying!
-
-${stdout}`;
-
-            fs.writeFileSync(migrationFile, migrationContent);
-            console.log(`   ✅ Generated migration: ${migrationFile}`);
-            return migrationFile;
-        } else {
-            console.log('   ✓ Schema is up to date, no migration needed');
-            return null;
-        }
-    } catch (error) {
-        console.log(`   ⚠️  Migration diff failed: ${error.message}`);
-        return null;
-    } finally {
-        // Cleanup temp database
-        try {
-            await execAsync('dropdb buildamp_temp_schema 2>/dev/null');
-        } catch {
-            // Ignore cleanup errors
-        }
-        // Cleanup temp file
-        try {
-            fs.unlinkSync(tempSchemaFile);
-        } catch {
-            // Ignore cleanup errors
-        }
-    }
-}
-
-/**
  * Check if a union type is enum-like (all variants have no arguments)
  */
 function isEnumLike(unionType) {
@@ -417,20 +182,8 @@ function parseDbModels(config = {}) {
         return [];
     }
 
-    const types = parseElmSchemaDir(schemaDir);
-
-    // Add SQL type info to each field
-    return types.map(t => ({
-        ...t,
-        fields: t.fields.map(f => {
-            const sqlInfo = rustTypeToSql(f.rustType, f.name);
-            return {
-                ...f,
-                sqlType: sqlInfo.sqlType,
-                constraints: sqlInfo.constraints
-            };
-        })
-    }));
+    // elm-parser-ts already computes sqlType and constraints via elmTypeToSql
+    return parseElmSchemaDir(schemaDir);
 }
 
 /**
@@ -446,29 +199,16 @@ function parseDbModelsFull(config = {}) {
         return { structs: [], unionTypes: [] };
     }
 
+    // elm-parser-ts already computes sqlType and constraints via elmTypeToSql
     const { records, unionTypes } = parseElmSchemaDirFull(schemaDir);
-
-    // Add SQL type info to each field
-    const structs = records.map(t => ({
-        ...t,
-        fields: t.fields.map(f => {
-            const sqlInfo = rustTypeToSql(f.rustType, f.name);
-            return {
-                ...f,
-                sqlType: sqlInfo.sqlType,
-                constraints: sqlInfo.constraints
-            };
-        })
-    }));
-
-    return { structs, unionTypes };
+    return { structs: records, unionTypes };
 }
 
 /**
- * Main SQL generation function
+ * Main SQL schema generation function
  */
-export async function generateSqlMigrations(config = {}) {
-    console.log('🏗️ Generating SQL migrations...');
+export async function generateSqlSchema(config = {}) {
+    console.log('🏗️ Generating SQL schema...');
 
     const paths = getGenerationPaths(config);
     const { structs: allStructs, unionTypes: allUnionTypes } = parseDbModelsFull(config);
@@ -505,39 +245,30 @@ export async function generateSqlMigrations(config = {}) {
         }
     }
 
-    // Determine output directory - put migrations in sql subdirectory of dest
-    const migrationsDir = path.join(paths.outputDir, 'sql', 'migrations');
+    // Output schema.sql to server/.generated/
+    const schemaDir = paths.serverGlueDir;
 
-    // Ensure migrations directory exists
-    if (!fs.existsSync(migrationsDir)) {
-        fs.mkdirSync(migrationsDir, { recursive: true });
+    // Ensure directory exists
+    if (!fs.existsSync(schemaDir)) {
+        fs.mkdirSync(schemaDir, { recursive: true });
     }
 
     // Write schema.sql
-    const schemaFile = path.join(migrationsDir, 'schema.sql');
+    const schemaFile = path.join(schemaDir, 'schema.sql');
     fs.writeFileSync(schemaFile, schemaContent);
     console.log(`✅ Generated schema: ${schemaFile}`);
 
-    // Optionally generate incremental migration
-    const databaseUrl = config.databaseUrl || process.env.DATABASE_URL;
-    let migrationFile = null;
-
-    if (databaseUrl) {
-        migrationFile = await generateMigration(schemaContent, {
-            databaseUrl,
-            migrationsDir
-        });
-    }
-
     return {
         schemaFile,
-        migrationFile,
         models: allStructs.map(s => s.name),
         tables: allStructs.length,
         foreignKeys,
         warnings
     };
 }
+
+// Legacy alias
+export const generateSqlMigrations = generateSqlSchema;
 
 /**
  * Generate schema introspection JSON
@@ -589,7 +320,7 @@ export async function generateSchemaIntrospection(config = {}) {
                 sqlType: field.sqlType,
                 nullable: field.isOptional,
                 isPrimaryKey: field.isPrimaryKey,
-                isTimestamp: field.isTimestamp,
+                isTimestamp: field.isTimestamp || field.isCreateTimestamp || field.isUpdateTimestamp,
                 isLink: field.isLink,
                 isRichContent: field.isRichContent
             };
@@ -612,34 +343,19 @@ export async function generateSchemaIntrospection(config = {}) {
                 tableInfo.primaryKey = field.name;
             }
 
-            // Detect foreign keys - use explicit FK info from Elm parser, or heuristic fallback
-            let fkTable = null;
-            let fkColumn = 'id';
-
+            // Only create FK relationships for explicit ForeignKey fields
             if (field.isForeignKey && field.referencedTable) {
-                // Explicit FK from Elm ForeignKey type
-                fkTable = field.referencedTable;
-            } else {
-                // Heuristic FK detection (field name pattern)
-                const fk = detectForeignKey(field.name, knownTables);
-                if (fk && fk.referencedTable) {
-                    fkTable = fk.referencedTable;
-                    fkColumn = fk.referencedColumn;
-                }
-            }
-
-            if (fkTable) {
                 tableInfo.foreignKeys.push({
                     column: field.name,
                     references: {
-                        table: fkTable,
-                        column: fkColumn
+                        table: field.referencedTable,
+                        column: 'id'
                     }
                 });
 
                 relationships.push({
                     from: { table: struct.tableName, column: field.name },
-                    to: { table: fkTable, column: fkColumn },
+                    to: { table: field.referencedTable, column: 'id' },
                     type: 'many-to-one'
                 });
             }
@@ -722,7 +438,7 @@ export async function generateSchemaIntrospection(config = {}) {
     };
 }
 
-export default generateSqlMigrations;
+export default generateSqlSchema;
 
 // Test helpers - export internal functions for unit testing
 export const generateCreateTableForTest = generateCreateTable;

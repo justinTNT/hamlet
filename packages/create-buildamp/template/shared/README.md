@@ -32,7 +32,7 @@ shared/
 ```elm
 module Schema.User exposing (..)
 
-import Interface.Schema exposing (..)
+import Framework.Schema exposing (..)
 
 type alias User =
     { id : DatabaseId String       -- Primary key with UUID
@@ -49,7 +49,7 @@ type alias User =
 ```elm
 module Api.CreateUser exposing (..)
 
-import Interface.Api exposing (..)
+import Framework.Api exposing (..)
 
 type alias Request =
     { host : Inject String              -- Server-injected
@@ -80,7 +80,9 @@ type alias UserPrefs =
 ## Generating Code
 
 ```bash
-npx buildamp gen --src models --dest .
+npm run generate
+# or directly:
+npx buildamp gen --src shared --dest .
 ```
 
-This parses all Elm files and generates the corresponding JS/Elm glue code.
+This parses all Elm files and generates the corresponding JS/Elm glue code in `.generated/`.

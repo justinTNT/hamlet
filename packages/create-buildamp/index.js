@@ -278,9 +278,9 @@ async function generateUsingMainScripts(outputDir) {
     const sourceApp = sourcePaths.appName;
 
     // Create proper directory structure matching main project
-    const jsOutputDir = path.join(outputDir, 'packages', 'hamlet-server', 'generated');
-    const elmOutputDir = path.join(outputDir, 'app', 'generated');
-    const sharedElmOutputDir = path.join(outputDir, 'app', sourceApp, 'server', 'generated');
+    const jsOutputDir = path.join(outputDir, 'app', sourceApp, 'server', '.generated');
+    const elmOutputDir = path.join(outputDir, 'app', sourceApp, 'web', 'src', '.generated');
+    const sharedElmOutputDir = path.join(outputDir, 'app', sourceApp, 'shared', '.generated');
     const handlersOutputDir = path.join(outputDir, 'app', sourceApp, 'server', 'src', 'Api', 'Handlers');
     
     // Ensure directories exist
@@ -338,22 +338,22 @@ async function copyGeneratedFiles(outputDir) {
         const sourceApp = sourcePaths.appName;
 
         // Copy JavaScript files
-        const jsSourceDir = 'packages/hamlet-server/generated';
-        const jsTargetDir = path.join(outputDir, 'packages', 'hamlet-server', 'generated');
+        const jsSourceDir = `app/${sourceApp}/server/.generated`;
+        const jsTargetDir = path.join(outputDir, 'app', sourceApp, 'server', '.generated');
         if (fs.existsSync(jsSourceDir)) {
             copyDir(jsSourceDir, jsTargetDir);
         }
 
         // Copy Elm files
-        const elmSourceDir = 'app/generated';
-        const elmTargetDir = path.join(outputDir, 'app', 'generated');
+        const elmSourceDir = `app/${sourceApp}/web/src/.generated`;
+        const elmTargetDir = path.join(outputDir, 'app', sourceApp, 'web', 'src', '.generated');
         if (fs.existsSync(elmSourceDir)) {
             copyDir(elmSourceDir, elmTargetDir);
         }
 
         // Copy shared Elm modules
-        const sharedSourceDir = `app/${sourceApp}/server/generated`;
-        const sharedTargetDir = path.join(outputDir, 'app', sourceApp, 'server', 'generated');
+        const sharedSourceDir = `app/${sourceApp}/shared/.generated`;
+        const sharedTargetDir = path.join(outputDir, 'app', sourceApp, 'shared', '.generated');
         if (fs.existsSync(sharedSourceDir)) {
             copyDir(sharedSourceDir, sharedTargetDir);
         }

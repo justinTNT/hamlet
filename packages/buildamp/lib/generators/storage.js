@@ -115,11 +115,11 @@ port ${varName}Changed : (Json.Decode.Value -> msg) -> Sub msg`.trim();
 // Generate clean Storage.elm wrapper that re-exports storage functions
 function generateStorageWrapper(models) {
     const imports = models.map(model => 
-        `import Generated.Storage.${model.name} exposing (${model.name})`
+        `import BuildAmp.Storage.${model.name} exposing (${model.name})`
     ).join('\n');
     
     const importedFunctions = models.map(model => 
-        `import Generated.Storage.${model.name} as ${model.name}Storage`
+        `import BuildAmp.Storage.${model.name} as ${model.name}Storage`
     ).join('\n');
     
     const functions = models.map(model => {
@@ -159,7 +159,7 @@ on${model.name}Loaded toMsg =
 {-| Clean Storage API for Elm developers
 
 Generated from storage models in app/*/models/storage/
-This provides a clean interface hiding Generated.* implementation details.
+This provides a clean interface hiding BuildAmp.* implementation details.
 
 ${models.map(model => `# ${model.name}\n@docs ${model.name}, load${model.name}, save${model.name}, on${model.name}Loaded`).join('\n\n')}
 
@@ -178,7 +178,7 @@ ${functions}
 // Generate Elm helper module for a model
 function generateElmHelper(model) {
     const { name } = model;
-    const moduleName = `Generated.Storage.${name}`;
+    const moduleName = `BuildAmp.Storage.${name}`;
     const varName = name.toLowerCase();
 
     // Use original Elm field names (camelCase) and types
@@ -459,7 +459,7 @@ ${allPorts}
     // Generate individual Elm helper modules with proper directory structure
     for (const model of allModels) {
         const helperContent = generateElmHelper(model);
-        const helperDir = path.join(elmOutputPath, 'Generated', 'Storage');
+        const helperDir = path.join(elmOutputPath, 'BuildAmp', 'Storage');
         const helperFile = path.join(helperDir, `${model.name}.elm`);
 
         // Ensure directory exists

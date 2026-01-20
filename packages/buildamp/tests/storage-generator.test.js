@@ -125,7 +125,7 @@ describe('Storage Generator - Elm Helper Module', () => {
     test('generateElmHelper creates module with correct name', () => {
         const result = generateElmHelper(sampleModel);
 
-        assert.ok(result.includes('module Generated.Storage.GuestSession exposing'));
+        assert.ok(result.includes('module BuildAmp.Storage.GuestSession exposing'));
     });
 
     test('generateElmHelper includes type definition', () => {
@@ -214,11 +214,11 @@ describe('Storage Generator - Elm Storage Wrapper', () => {
         assert.ok(result.includes('onUserPrefsLoaded'));
     });
 
-    test('generateStorageWrapper imports from Generated modules', () => {
+    test('generateStorageWrapper imports from BuildAmp modules', () => {
         const result = generateStorageWrapper(models);
 
-        assert.ok(result.includes('import Generated.Storage.GuestSession'));
-        assert.ok(result.includes('import Generated.Storage.UserPrefs'));
+        assert.ok(result.includes('import BuildAmp.Storage.GuestSession'));
+        assert.ok(result.includes('import BuildAmp.Storage.UserPrefs'));
     });
 });
 

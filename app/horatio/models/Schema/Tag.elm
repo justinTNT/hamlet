@@ -7,12 +7,13 @@ Buildamp parses this to generate SQL, queries, and admin UI.
 
 -}
 
-import Interface.Schema exposing (DatabaseId, MultiTenant, SoftDelete)
+import Interface.Schema exposing (CreateTimestamp, DatabaseId, MultiTenant, SoftDelete)
 
 
 type alias Tag =
     { id : DatabaseId String
     , host : MultiTenant
     , name : String
+    , createdAt : CreateTimestamp
     , deletedAt : SoftDelete
     }

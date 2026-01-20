@@ -9,6 +9,11 @@
  * - Developer must manually move/delete files to force regeneration
  * - Parse Elm API definitions to find endpoints
  * - Create properly typed Elm handlers with database placeholders
+ *
+ * Regeneration workflow (--regenerate flag):
+ * - Backs up existing handler to .backup file
+ * - Generates fresh skeleton with updated types
+ * - Adds TODO comment pointing to backup for migration
  */
 
 import fs from 'fs';
@@ -17,6 +22,8 @@ import { parseElmApiDir } from '../../core/elm-parser-ts.js';
 
 /**
  * Generate Elm handler scaffolding files (only if they don't exist)
+ * @param {Object} config - Configuration options
+ * @param {string} config.regenerateHandler - Handler name to regenerate (or 'all')
  */
 export async function generateElmHandlers(config = {}) {
     console.log('🔧 Analyzing API definitions...');
@@ -26,6 +33,7 @@ export async function generateElmHandlers(config = {}) {
     const paths = getGenerationPaths(config);
 
     const outputDir = ensureOutputDir(paths.serverHandlersDir);
+    const { regenerateHandler } = config;
 
     // Try Elm API definitions first
     const elmApiDir = paths.elmApiDir;
@@ -47,29 +55,54 @@ export async function generateElmHandlers(config = {}) {
 
     let generatedCount = 0;
     let skippedCount = 0;
+    let regeneratedCount = 0;
     const generatedFiles = [];
 
     // Generate handler for each endpoint
     for (const endpoint of allEndpoints) {
-        const handlerFile = path.join(outputDir, `${endpoint.name}HandlerTEA.elm`);
+        const handlerFile = path.join(outputDir, `${endpoint.name}Handler.elm`);
+        const handlerName = `${endpoint.name}Handler`;
+
+        // Check if this handler should be regenerated
+        const shouldRegenerate = regenerateHandler &&
+            (regenerateHandler === 'all' ||
+             regenerateHandler === endpoint.name ||
+             regenerateHandler === handlerName ||
+             regenerateHandler === `${handlerName}.elm`);
 
         if (fs.existsSync(handlerFile)) {
-            console.log(`   ⏭️  Skipping ${endpoint.name}HandlerTEA.elm (already exists)`);
+            if (shouldRegenerate) {
+                // Backup and regenerate
+                const backupFile = `${handlerFile}.backup`;
+                console.log(`   🔄 Regenerating ${handlerName}.elm`);
+                console.log(`      📦 Backing up to ${path.basename(backupFile)}`);
+
+                fs.copyFileSync(handlerFile, backupFile);
+
+                const handlerContent = generateHandlerContent(endpoint, backupFile);
+                fs.writeFileSync(handlerFile, handlerContent);
+
+                generatedFiles.push(handlerFile);
+                regeneratedCount++;
+                continue;
+            }
+
+            console.log(`   ⏭️  Skipping ${handlerName}.elm (already exists)`);
             skippedCount++;
             continue;
         }
 
         // Check if required shared modules exist before generating new handlers
         // Database.elm is in server elm directory
-        const databaseModulePath = path.join(paths.serverElmDir, 'Generated', 'Database.elm');
+        const databaseModulePath = path.join(paths.serverElmDir, 'BuildAmp', 'Database.elm');
         const databaseModuleExists = fs.existsSync(databaseModulePath);
         if (!databaseModuleExists) {
-            console.log(`   ⚠️  Skipping ${endpoint.name}HandlerTEA.elm (Database.elm not found - run shared module generation first)`);
+            console.log(`   ⚠️  Skipping ${handlerName}.elm (Database.elm not found - run shared module generation first)`);
             skippedCount++;
             continue;
         }
 
-        console.log(`   ✅ Creating ${endpoint.name}HandlerTEA.elm`);
+        console.log(`   ✅ Creating ${handlerName}.elm`);
 
         const handlerContent = generateHandlerContent(endpoint);
         fs.writeFileSync(handlerFile, handlerContent);
@@ -87,30 +120,57 @@ export async function generateElmHandlers(config = {}) {
     
     console.log('📊 Elm Handler Generation Summary:');
     console.log(`   Generated: ${generatedCount} new handlers`);
+    if (regeneratedCount > 0) {
+        console.log(`   Regenerated: ${regeneratedCount} handlers (backups created)`);
+    }
     console.log(`   Skipped: ${skippedCount} existing handlers`);
-    console.log(`   Total endpoints: ${generatedCount + skippedCount}`);
+    console.log(`   Total endpoints: ${generatedCount + regeneratedCount + skippedCount}`);
     console.log(`   ✅ Generated compilation script`);
     console.log(`   ✅ Generated service integration`);
     
     return {
         generated: generatedCount,
+        regenerated: regeneratedCount,
         skipped: skippedCount,
         outputFiles: generatedFiles
     };
 }
 
 /**
- * Generate TEA-based Elm handler content
+ * Generate Elm handler content
+ * @param {Object} endpoint - Endpoint definition
+ * @param {string} backupFile - Path to backup file (if regenerating)
  */
-function generateHandlerContent(endpoint) {
+function generateHandlerContent(endpoint, backupFile = null) {
     const { name, requestType, responseType } = endpoint;
-    
-    return `port module Api.Handlers.${name}HandlerTEA exposing (main)
 
-{-| ${name} Handler - TEA Architecture
+    // Generate TODO header if this is a regeneration
+    const regenerationHeader = backupFile ? `
+{- ═══════════════════════════════════════════════════════════════════════════
+   REGENERATED HANDLER - MIGRATION REQUIRED
 
-This handler implements The Elm Architecture pattern for async request processing.
-It demonstrates the req + state + stage pattern for complex async operations.
+   Your previous implementation has been backed up to:
+   ${backupFile}
+
+   This handler was regenerated because framework types changed.
+   Please migrate your business logic from the backup to this new skeleton.
+
+   Steps:
+   1. Review the backup file for your custom business logic
+   2. Copy the relevant parts to this new handler
+   3. Update any types that have changed (check compile errors)
+   4. Delete the backup file when migration is complete
+   5. Remove this comment block
+
+   ═══════════════════════════════════════════════════════════════════════════ -}
+
+` : '';
+
+    return `port module Api.Handlers.${name}Handler exposing (main)
+${regenerationHeader}
+{-| ${name} Handler
+
+Implements the req + state + stage pattern for async request processing.
 
 Business Logic:
 TODO: Customize the stages and business logic for your specific ${name} endpoint
@@ -120,9 +180,9 @@ TODO: Implement proper error handling and validation
 -}
 
 import Api.Backend exposing (${requestType}, ${responseType})
-import Generated.Database as DB
-import Generated.Events as Events
-import Generated.Services as Services
+import BuildAmp.Database as DB
+import BuildAmp.Events as Events
+import BuildAmp.Services as Services
 import Json.Encode as Encode
 import Json.Decode as Decode
 import Platform
@@ -307,7 +367,7 @@ encodeError error =
         ]
 
 
--- PORTS (TEA Pattern)
+-- PORTS
 
 port handleRequest : (RequestBundle -> msg) -> Sub msg
 port complete : Encode.Value -> Cmd msg
@@ -364,12 +424,12 @@ function shouldRegenerateHandler(handlerFilePath, paths) {
         const handlerContent = fs.readFileSync(handlerFilePath, 'utf-8');
         const handlerStat = fs.statSync(handlerFilePath);
 
-        // Check if handler imports Generated.Database
-        const importsDatabase = /import\s+Generated\.Database/m.test(handlerContent);
+        // Check if handler imports BuildAmp.Database
+        const importsDatabase = /import\s+BuildAmp\.Database/m.test(handlerContent);
 
         if (importsDatabase) {
             // Database.elm is in server elm directory
-            const databaseModulePath = path.join(paths.serverElmDir, 'Generated', 'Database.elm');
+            const databaseModulePath = path.join(paths.serverElmDir, 'BuildAmp', 'Database.elm');
             if (fs.existsSync(databaseModulePath)) {
                 const databaseStat = fs.statSync(databaseModulePath);
 
@@ -391,7 +451,7 @@ function shouldRegenerateHandler(handlerFilePath, paths) {
         
         // Check for missing DB import when it should have one
         const shouldImportDB = /DB\./m.test(handlerContent);
-        const missingDBImport = shouldImportDB && !/import\s+Generated\.Database\s+as\s+DB/m.test(handlerContent);
+        const missingDBImport = shouldImportDB && !/import\s+BuildAmp\.Database\s+as\s+DB/m.test(handlerContent);
         
         if (missingDBImport) {
             return true;
@@ -410,7 +470,7 @@ function shouldRegenerateHandler(handlerFilePath, paths) {
         const hasProperTEAPattern = hasPlatformWorker &&
                                    handlerContent.includes('type Msg') &&
                                    handlerContent.includes('type Stage') &&
-                                   handlerContent.includes('Generated.Database as DB') &&
+                                   handlerContent.includes('BuildAmp.Database as DB') &&
                                    handlerContent.includes('type alias RequestBundle');
         
         if (hasLegacyPattern || hasOldTEAPattern) {
@@ -488,7 +548,7 @@ echo "✅ All handlers compiled successfully!"
  */
 function generateServiceIntegration(endpoints, paths) {
     const handlerConfigs = endpoints.map(endpoint =>
-        `            { name: '${endpoint.name}', file: '${endpoint.name}HandlerTEA', function: 'handle${endpoint.name}' }`
+        `            { name: '${endpoint.name}', file: '${endpoint.name}Handler', function: 'handle${endpoint.name}' }`
     ).join(',\n');
 
     const serviceCode = `/**

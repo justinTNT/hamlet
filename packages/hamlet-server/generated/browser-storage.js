@@ -1,1 +1,0 @@
-/Users/jtnt/Play/hamlet/app/horatio/web/src/.hamlet-gen/browser-storage.js

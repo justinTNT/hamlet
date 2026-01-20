@@ -11,26 +11,43 @@ import { parseElmSchemaDir } from '../../core/elm-parser-ts.js';
 
 // Generate database query functions for a struct
 function generateQueryFunctions(struct) {
-    const { name, tableName, fields, isMultiTenant, isSoftDelete, multiTenantFieldName, softDeleteFieldName } = struct;
+    const { name, tableName, fields, isMultiTenant, isSoftDelete, hasCreateTimestamp, hasUpdateTimestamp,
+            multiTenantFieldName, softDeleteFieldName, createTimestampFieldName, updateTimestampFieldName } = struct;
 
     // Use actual field names or defaults for backward compat
     const tenantField = multiTenantFieldName || 'host';
     const deletedField = softDeleteFieldName || 'deleted_at';
+    const createField = createTimestampFieldName || 'created_at';
+    const updateField = updateTimestampFieldName || 'updated_at';
 
-    // Filter out tenant and deleted fields from insert fields
-    const nonIdFields = fields.filter(f => !f.isPrimaryKey && f.name !== tenantField);
-    const columnNames = nonIdFields.map(f => f.name).join(', ');
-    const columnPlaceholders = nonIdFields.map((_, i) => '$' + (i + 2)).join(', '); // $1 is for tenant
-    const fieldAccess = nonIdFields.map(f => name.toLowerCase() + '.' + f.name).join(', ');
+    // Filter out framework-managed fields from insert fields
+    // - Primary key (auto-generated UUID)
+    // - Tenant field (injected by runtime)
+    // - CreateTimestamp (DB default NOW())
+    // - UpdateTimestamp (set by runtime on update)
+    // - SoftDelete (set by runtime on delete)
+    const insertFields = fields.filter(f =>
+        !f.isPrimaryKey &&
+        f.name !== tenantField &&
+        !f.isCreateTimestamp &&
+        !f.isUpdateTimestamp &&
+        !f.isSoftDelete
+    );
+    const columnNames = insertFields.map(f => f.name).join(', ');
+    const columnPlaceholders = insertFields.map((_, i) => '$' + (i + 2)).join(', '); // $1 is for tenant
+    const fieldAccess = insertFields.map(f => name.toLowerCase() + '.' + f.name).join(', ');
+
+    // Order by clause - only if model has CreateTimestamp
+    const orderByClause = hasCreateTimestamp ? ` ORDER BY ${createField} DESC` : '';
 
     // Build SQL based on model flags
     const insertSql = `INSERT INTO ${tableName} (${columnNames}, ${tenantField}) VALUES (${columnPlaceholders}, $1) RETURNING *`;
-    const selectAllSql = `SELECT * FROM ${tableName} WHERE ${tenantField} = $1 ORDER BY created_at DESC`;
+    const selectAllSql = `SELECT * FROM ${tableName} WHERE ${tenantField} = $1${orderByClause}`;
 
     // Only include soft-delete filter if model has SoftDelete field
     const selectAllLiveSql = isSoftDelete
-        ? `SELECT * FROM ${tableName} WHERE ${tenantField} = $1 AND ${deletedField} IS NULL ORDER BY created_at DESC`
-        : `SELECT * FROM ${tableName} WHERE ${tenantField} = $1 ORDER BY created_at DESC`;
+        ? `SELECT * FROM ${tableName} WHERE ${tenantField} = $1 AND ${deletedField} IS NULL${orderByClause}`
+        : `SELECT * FROM ${tableName} WHERE ${tenantField} = $1${orderByClause}`;
 
     const selectByIdSql = `SELECT * FROM ${tableName} WHERE id = $1 AND ${tenantField} = $2`;
 
@@ -115,7 +132,9 @@ async function find${name}ById(id, host) {
  * Update ${name} with tenant isolation
  */
 async function update${name}(id, updates, host) {
-    const updateFields = Object.keys(updates).filter(key => key !== 'id' && key !== 'host');
+    // Filter out framework-managed fields
+    const frameworkFields = ['id', 'host', 'updated_at', 'created_at', 'deleted_at'];
+    const updateFields = Object.keys(updates).filter(key => !frameworkFields.includes(key));
     const setClause = updateFields.map((field, i) => field + ' = $' + (i + 3)).join(', ');
     const values = updateFields.map(field => updates[field]);
 
@@ -123,7 +142,9 @@ async function update${name}(id, updates, host) {
         return get${name}ById(id, host);
     }
 
-    const sql = 'UPDATE ${tableName} SET ' + setClause + ', updated_at = NOW() WHERE id = $1 AND host = $2 RETURNING *';
+    // Only add updated_at = NOW() if model has UpdateTimestamp field
+    const updateTimestampClause = ${hasUpdateTimestamp ? `', ${updateField} = NOW()'` : `''`};
+    const sql = 'UPDATE ${tableName} SET ' + setClause + updateTimestampClause + ' WHERE id = $1 AND ${tenantField} = $2 RETURNING *';
     const result = await pool.query(sql, [id, host, ...values]);
     return result.rows[0] || null;
 }

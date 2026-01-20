@@ -26,22 +26,22 @@ const horatioDir = path.join(projectRoot, 'app/horatio');
 const generatedPaths = {
     // SQL
     'schema.sql': path.join(horatioDir, 'sql/migrations/schema.sql'),
-    'schema.json': path.join(horatioDir, 'server/.hamlet-gen/schema.json'),
+    'schema.json': path.join(horatioDir, 'server/.generated/schema.json'),
     // Database
-    'database-queries.js': path.join(horatioDir, 'server/.hamlet-gen/database-queries.js'),
-    'Database.elm': path.join(horatioDir, 'server/.hamlet-gen/Generated/Database.elm'),
+    'database-queries.js': path.join(horatioDir, 'server/.generated/database-queries.js'),
+    'Database.elm': path.join(horatioDir, 'server/.generated/Generated/Database.elm'),
     'Backend.elm': path.join(horatioDir, 'server/src/Api/Backend.elm'),
     // API
-    'api-routes.js': path.join(horatioDir, 'server/.hamlet-gen/api-routes.js'),
-    'ApiClient.elm': path.join(horatioDir, 'web/src/.hamlet-gen/ApiClient.elm'),
+    'api-routes.js': path.join(horatioDir, 'server/.generated/api-routes.js'),
+    'ApiClient.elm': path.join(horatioDir, 'web/src/.generated/ApiClient.elm'),
     // KV Store
-    'kv-store.js': path.join(horatioDir, 'server/.hamlet-gen/kv-store.js'),
+    'kv-store.js': path.join(horatioDir, 'server/.generated/kv-store.js'),
     // SSE
-    'sse-connection.js': path.join(horatioDir, 'server/.hamlet-gen/sse-connection.js'),
-    'ServerSentEvents.elm': path.join(horatioDir, 'web/src/.hamlet-gen/ServerSentEvents.elm'),
+    'sse-connection.js': path.join(horatioDir, 'server/.generated/sse-connection.js'),
+    'ServerSentEvents.elm': path.join(horatioDir, 'web/src/.generated/ServerSentEvents.elm'),
     // Browser Storage
-    'browser-storage.js': path.join(horatioDir, 'web/src/.hamlet-gen/browser-storage.js'),
-    'StoragePorts.elm': path.join(horatioDir, 'web/src/.hamlet-gen/StoragePorts.elm'),
+    'browser-storage.js': path.join(horatioDir, 'web/src/.generated/browser-storage.js'),
+    'StoragePorts.elm': path.join(horatioDir, 'web/src/.generated/StoragePorts.elm'),
 };
 
 /**
@@ -354,7 +354,7 @@ describe('Golden Snapshot Tests', () => {
         test('ApiClient.elm has expected structure', () => {
             const content = fs.readFileSync(generatedPaths['ApiClient.elm'], 'utf-8');
 
-            // Module declaration (may be Generated.ApiClient)
+            // Module declaration (BuildAmp.ApiClient)
             assert.ok(content.includes('module') && content.includes('ApiClient'), 'Should have module declaration');
 
             // HTTP functions
@@ -423,7 +423,7 @@ describe('Golden Snapshot Tests', () => {
         test('ServerSentEvents.elm has expected structure', () => {
             const content = fs.readFileSync(generatedPaths['ServerSentEvents.elm'], 'utf-8');
 
-            // Module declaration (may be Generated.ServerSentEvents)
+            // Module declaration (BuildAmp.ServerSentEvents)
             assert.ok(content.includes('module') && content.includes('ServerSentEvents'), 'Should have module declaration');
 
             // Type definitions or decoders for SSE events

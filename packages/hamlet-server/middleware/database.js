@@ -3,7 +3,7 @@
  * Provides PostgreSQL connection pooling, migrations, and tenant-scoped queries
  *
  * This is FRAMEWORK code - generic database infrastructure only.
- * Model-specific queries are generated per-app in .hamlet-gen/database-queries.js
+ * Model-specific queries are generated per-app in .generated/database-queries.js
  */
 
 import pg from 'pg';

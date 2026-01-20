@@ -76,17 +76,13 @@ export function discoverProjectPaths(rootDir = process.cwd()) {
             configModelsDir: `app/${activeApp}/models/config`,
 
             // Output paths - UPDATED for new architecture
-            // Glue (clobberable) - goes in .hamlet-gen
-            elmGlueDir: `app/${activeApp}/web/src/.hamlet-gen`,
-            jsGlueDir: `app/${activeApp}/server/.hamlet-gen`,
+            // Glue (clobberable) - goes in .generated
+            elmGlueDir: `app/${activeApp}/web/src/.generated`,
+            jsGlueDir: `app/${activeApp}/server/.generated`,
 
             // Skeletons (owned) - stays in app src
             elmApiDir: `app/${activeApp}/web/src/Api`,
-            serverHandlersDir: `app/${activeApp}/server/src/Api/Handlers`,
-
-            // Legacy paths (for migration)
-            legacyElmOutputDir: 'app/generated',
-            legacyJsOutputDir: 'packages/hamlet-server/generated'
+            serverHandlersDir: `app/${activeApp}/server/src/Api/Handlers`
         };
     }
 
@@ -107,27 +103,22 @@ export function discoverProjectPaths(rootDir = process.cwd()) {
 
         // Output paths - UPDATED for new architecture
         // Glue (clobberable)
-        elmGlueDir: 'src/.hamlet-gen',
-        jsGlueDir: '.hamlet-gen',
+        elmGlueDir: 'src/.generated',
+        jsGlueDir: '.generated',
 
         // Skeletons (owned)
         elmApiDir: 'src/Api',
-        serverHandlersDir: 'src/Api/Handlers',
-
-        // Legacy paths (for migration)
-        legacyElmOutputDir: 'app/generated',
-        legacyJsOutputDir: 'packages/hamlet-server/generated'
+        serverHandlersDir: 'src/Api/Handlers'
     };
 }
 
 /**
  * Path constants for BuildAmp-generated code
- * Uses .hamlet-gen to indicate these are generated for Hamlet apps
  */
-export const HAMLET_GEN_DIR = '.hamlet-gen';
+export const GENERATED_DIR = '.generated';
 
 /**
- * Ensure .hamlet-gen directories exist
+ * Ensure .generated directories exist
  */
 export function ensureGlueDirs(projectPaths) {
     const dirs = [projectPaths.elmGlueDir, projectPaths.jsGlueDir];

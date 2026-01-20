@@ -6,14 +6,14 @@ module Storage exposing
 {-| Clean Storage API for Elm developers
 
 Generated from storage models in app/*/models/storage/
-This provides a clean interface hiding Generated.* implementation details.
+This provides a clean interface hiding BuildAmp.* implementation details.
 
 # GuestSession
 @docs GuestSession, loadGuestSession, saveGuestSession, onGuestSessionLoaded
 
 -}
 
-import Generated.Storage.GuestSession as GuestSessionStorage
+import BuildAmp.Storage.GuestSession as GuestSessionStorage
 
 
 -- TYPES

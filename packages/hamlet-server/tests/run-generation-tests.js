@@ -161,13 +161,13 @@ async function runTestsWithCoverage() {
  */
 async function validateGeneratedCode() {
     console.log('🔍 Validating generated code...');
-    
+
     const generatedFiles = [
-        'packages/hamlet-server/generated/database-queries.js',
-        'packages/hamlet-server/generated/api-routes.js',
-        'packages/hamlet-server/generated/browser-storage.js',
-        'packages/hamlet-server/generated/kv-store.js',
-        'app/generated/StoragePorts.elm'
+        'app/horatio/server/.generated/database-queries.js',
+        'app/horatio/server/.generated/api-routes.js',
+        'app/horatio/server/.generated/browser-storage.js',
+        'app/horatio/server/.generated/kv-store.js',
+        'app/horatio/web/src/.generated/BuildAmp/StoragePorts.elm'
     ];
     
     const missingFiles = [];

@@ -43,22 +43,22 @@ describe('Handlers Generator - Handler Content', () => {
         assert.ok(result.includes('import Api.Backend exposing (GetFeedReq, GetFeedRes)'));
     });
 
-    test('generateHandlerContent imports Generated.Database', () => {
+    test('generateHandlerContent imports BuildAmp.Database', () => {
         const result = generateHandlerContent(sampleEndpoint);
 
-        assert.ok(result.includes('import Generated.Database as DB'));
+        assert.ok(result.includes('import BuildAmp.Database as DB'));
     });
 
-    test('generateHandlerContent imports Generated.Events', () => {
+    test('generateHandlerContent imports BuildAmp.Events', () => {
         const result = generateHandlerContent(sampleEndpoint);
 
-        assert.ok(result.includes('import Generated.Events as Events'));
+        assert.ok(result.includes('import BuildAmp.Events as Events'));
     });
 
-    test('generateHandlerContent imports Generated.Services', () => {
+    test('generateHandlerContent imports BuildAmp.Services', () => {
         const result = generateHandlerContent(sampleEndpoint);
 
-        assert.ok(result.includes('import Generated.Services as Services'));
+        assert.ok(result.includes('import BuildAmp.Services as Services'));
     });
 
     test('generateHandlerContent includes Model type', () => {
@@ -293,7 +293,7 @@ describe('Handlers Generator - Regeneration Logic', () => {
         fs.writeFileSync(handlerPath, `
             -- Uses DB but doesn't import it correctly
             DB.findItems query
-            import Generated.Database
+            import BuildAmp.Database
         `);
 
         const result = shouldRegenerateHandler(handlerPath, mockPaths);

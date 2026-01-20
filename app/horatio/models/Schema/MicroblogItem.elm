@@ -7,7 +7,7 @@ with optional link, image, and extract.
 
 -}
 
-import Interface.Schema exposing (DatabaseId, Link, MultiTenant, RichContent, SoftDelete, Timestamp)
+import Interface.Schema exposing (CreateTimestamp, DatabaseId, Link, MultiTenant, RichContent, SoftDelete, UpdateTimestamp)
 
 
 type alias MicroblogItem =
@@ -18,7 +18,8 @@ type alias MicroblogItem =
     , image : Maybe Link
     , extract : Maybe RichContent
     , ownerComment : RichContent
-    , createdAt : Timestamp
+    , createdAt : CreateTimestamp
+    , updatedAt : UpdateTimestamp
     , viewCount : Int
     , deletedAt : SoftDelete
     }

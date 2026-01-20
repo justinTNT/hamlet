@@ -12,7 +12,7 @@ import Browser
 import Browser.Events
 import Browser.Navigation as Nav
 import Dict exposing (Dict)
-import Generated.Storage.AdminPreferences as Prefs
+import BuildAmp.Storage.AdminPreferences as Prefs
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Attributes as Attr
@@ -547,7 +547,7 @@ update msg model =
         PreferencesLoaded maybePrefs ->
             case maybePrefs of
                 Just prefs ->
-                    ( { model | columnWidths = decodeColumnWidths prefs.column_widths_json }
+                    ( { model | columnWidths = decodeColumnWidths prefs.columnWidthsJson }
                     , Cmd.none
                     )
 
@@ -1511,26 +1511,6 @@ viewDataTable model tableName tableSchema =
                     , resizeHandle
                     ]
 
-        actionsWidth =
-            getColumnWidth tableName "_actions" model.columnWidths
-                |> Maybe.withDefault 100
-
-        actionsWidthPx =
-            String.fromInt actionsWidth ++ "px"
-
-        actionsHeader =
-            th
-                [ style "width" actionsWidthPx
-                , style "min-width" actionsWidthPx
-                , attribute "data-column-name" "_actions"
-                ]
-                [ text "Actions"
-                , span
-                    [ class "resize-handle"
-                    , onMouseDownWithPosition (\x -> StartResize tableName "_actions" x actionsWidth)
-                    ]
-                    []
-                ]
     in
     div []
         [ table
@@ -1540,7 +1520,7 @@ viewDataTable model tableName tableSchema =
             ]
             [ thead []
                 [ tr []
-                    (List.map viewColumnHeader fieldNames ++ [ actionsHeader ])
+                    (List.map viewColumnHeader fieldNames)
                 ]
             , tbody []
                 (List.map (viewDataRow model tableName fieldNames tableSchema) model.records)
@@ -1607,13 +1587,9 @@ viewPagination model =
 viewDataRow : Model -> String -> List String -> TableSchema -> Encode.Value -> Html Msg
 viewDataRow model tableName fieldNames tableSchema record =
     let
-        -- Get all field names from the record
-        allFieldNames =
-            fieldNames
-
         -- Find FK-like columns (ending in _id but not just "id")
         fkColumnNames =
-            allFieldNames
+            fieldNames
                 |> List.filter (\name -> String.endsWith "_id" name)
 
         recordId =
@@ -1649,15 +1625,12 @@ viewDataRow model tableName fieldNames tableSchema record =
         isCompositeKey =
             String.contains ":" recordId && String.contains "," recordId
 
-        hasValidId =
+        canEdit =
             recordId /= "" && not isCompositeKey
 
-        -- Can delete if we have a valid ID OR a valid composite key
-        canEdit =
-            hasValidId
-
-        canDelete =
-            recordId /= ""
+        -- Primary key field name
+        pkField =
+            tableSchema.primaryKey |> Maybe.withDefault "id"
     in
     tr []
         (List.map
@@ -1668,38 +1641,31 @@ viewDataRow model tableName fieldNames tableSchema record =
 
                     fieldSchema =
                         Dict.get fieldName tableSchema.fields
+
+                    -- Is this the primary key field?
+                    isPkField =
+                        fieldName == pkField
                 in
                 td []
-                    [ case fieldSchema of
-                        Just fs ->
-                            viewFieldValue fs fieldName value tableSchema
+                    [ if isPkField && canEdit then
+                        -- Primary key is clickable link to edit form
+                        a
+                            [ href "#"
+                            , onClick (NavigateToEdit tableName recordId)
+                            , class "pk-link"
+                            ]
+                            [ text value ]
 
-                        Nothing ->
-                            text value
+                      else
+                        case fieldSchema of
+                            Just fs ->
+                                viewFieldValue fs fieldName value tableSchema
+
+                            Nothing ->
+                                text value
                     ]
             )
             fieldNames
-            ++ [ td [ class "actions" ]
-                    [ if canEdit then
-                        button
-                            [ class "btn btn-sm"
-                            , onClick (NavigateToEdit tableName recordId)
-                            ]
-                            [ text "Edit" ]
-
-                      else
-                        text ""
-                    , if canDelete then
-                        button
-                            [ class "btn btn-sm btn-danger"
-                            , onClick (DeleteRecord tableName recordId)
-                            ]
-                            [ text "Delete" ]
-
-                      else
-                        text ""
-                    ]
-               ]
         )
 
 
@@ -1784,6 +1750,17 @@ viewRecordForm model tableName maybeRecordId =
                                 , div [ class "form-actions" ]
                                     [ button [ type_ "submit", class "btn btn-primary" ] [ text "Save" ]
                                     , button [ type_ "button", class "btn", onClick CancelForm ] [ text "Cancel" ]
+                                    , case maybeRecordId of
+                                        Just recordId ->
+                                            button
+                                                [ type_ "button"
+                                                , class "btn btn-danger"
+                                                , onClick (DeleteRecord tableName recordId)
+                                                ]
+                                                [ text "Delete" ]
+
+                                        Nothing ->
+                                            text ""
                                     ]
                                 ]
                         , case maybeRecordId of
@@ -2096,7 +2073,7 @@ encodeColumnWidths widths =
 
 saveColumnWidths : Dict String Int -> Cmd msg
 saveColumnWidths widths =
-    Prefs.save { column_widths_json = encodeColumnWidths widths }
+    Prefs.save { columnWidthsJson = encodeColumnWidths widths }
 
 
 getColumnWidth : String -> String -> Dict String Int -> Maybe Int
