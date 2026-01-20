@@ -594,6 +594,15 @@ stringToInt str =
         Nothing -> Decode.fail ("Could not parse timestamp: " ++ str)
 
 
+-- RichContent decoder (handles JSONB object -> JSON string)
+richContentDecoder : Decode.Decoder String
+richContentDecoder =
+    Decode.oneOf
+        [ Decode.string  -- Already a string (legacy)
+        , Decode.value |> Decode.map (Encode.encode 0)  -- JSONB object -> JSON string
+        ]
+
+
 -- UTILITY FUNCTIONS
 
 hashString : String -> Int
@@ -1286,7 +1295,8 @@ function parseDbModels(paths, config = {}) {
             isTimestamp: f.isTimestamp,
             isOptional: f.isOptional,
             isForeignKey: f.isForeignKey,
-            referencedTable: f.referencedTable
+            referencedTable: f.referencedTable,
+            isRichContent: f.isRichContent
         })),
         tableName: t.tableName,
         isMainModel: true,
@@ -1351,6 +1361,7 @@ function elmTypeToElmType(elmType) {
         return 'String';
     }
     // RichContent -> String (stored as TEXT/JSONB in database)
+    // Decoder uses richContentDecoder via field.isRichContent flag
     if (elmType === 'RichContent') {
         return 'String';
     }
@@ -1697,6 +1708,14 @@ function generateFieldDecoder(field) {
         return 'Decode.string';
     }
 
+    // Special handling for RichContent - JSONB -> String via custom decoder
+    if (field.isRichContent) {
+        if (field.isOptional || field.elmType.startsWith('Maybe ')) {
+            return '(Decode.nullable richContentDecoder)';
+        }
+        return 'richContentDecoder';
+    }
+
     if (field.elmType.startsWith('Maybe ')) {
         const innerType = field.elmType.replace('Maybe ', '');
         return `(Decode.nullable ${generateBasicDecoder(innerType)})`;
@@ -1718,6 +1737,7 @@ function generateBasicDecoder(elmType) {
         case 'Float': return 'Decode.float';
         case 'Bool': return 'Decode.bool';
         case 'MultiTenant': return 'Decode.string';  // MultiTenant = String
+        case 'RichContent': return 'richContentDecoder';  // RichContent = JSONB -> String
         case 'SoftDelete': return '(Decode.nullable timestampDecoder)';  // SoftDelete = Maybe Int
         case 'Timestamp':
         case 'CreateTimestamp':

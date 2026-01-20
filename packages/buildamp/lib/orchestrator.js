@@ -87,11 +87,10 @@ const targetGenerators = {
  * @param {string} options.dest - Destination output directory (required)
  * @param {string} options.target - Specific target (js, elm, handlers, etc.) or null for all
  * @param {string} options.modelDir - Model directory (api, db, storage, etc.) or null for all
- * @param {string} options.schemaLang - Schema language: 'rust' (default) or 'elm'
  * @param {string} options.regenerateHandler - Handler name to regenerate (backs up and recreates)
  */
 export async function generate(options = {}) {
-    const { src, dest, target, modelDir, schemaLang = 'rust', regenerateHandler } = options;
+    const { src, dest, target, modelDir, regenerateHandler } = options;
 
     // Create paths from explicit src/dest
     const paths = createPaths({ src, dest });
@@ -102,7 +101,6 @@ export async function generate(options = {}) {
     console.log(`   Destination: ${paths.outputDir}`);
     console.log(`   Target: ${target || 'all'}`);
     console.log(`   Model dir: ${modelDir || 'all'}`);
-    console.log(`   Schema lang: ${schemaLang}`);
     console.log('');
 
     const results = [];
@@ -138,8 +136,8 @@ export async function generate(options = {}) {
         const generator = targetGenerators[gen];
         if (generator) {
             try {
-                // Pass paths, modelDir, schemaLang, and regenerateHandler to generators
-                const genConfig = { paths, modelDir, schemaLang, regenerateHandler };
+                // Pass paths, modelDir and regenerateHandler to generators
+                const genConfig = { paths, modelDir, regenerateHandler };
                 const result = await generator(genConfig);
                 results.push({ generator: gen, success: true, result });
             } catch (error) {

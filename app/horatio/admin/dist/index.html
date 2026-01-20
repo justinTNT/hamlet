@@ -575,10 +575,14 @@
 
       .related-item {
         display: flex;
-        justify-content: space-between;
         align-items: center;
+        gap: 0.5rem;
         padding: 0.5rem 0;
         border-bottom: 1px solid #e9ecef;
+      }
+
+      .related-item a:first-child {
+        flex: 1;
       }
 
       .related-item:last-child {
@@ -591,6 +595,27 @@
         border-radius: 10px;
         font-size: 0.75rem;
         color: #495057;
+      }
+
+      .add-related {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: #3498db;
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 14px;
+        line-height: 1;
+        margin-left: 0.5rem;
+      }
+
+      .add-related:hover {
+        background: #2980b9;
       }
 
       /* M2M multi-select */
@@ -637,6 +662,20 @@
 
       .m2m-option input {
         margin: 0;
+      }
+
+      .m2m-sections h3 {
+        margin-top: 1.5rem;
+        margin-bottom: 0.5rem;
+        color: #495057;
+        font-size: 1rem;
+      }
+
+      .m2m-dirty {
+        color: #e67e22;
+        font-size: 0.85rem;
+        font-weight: normal;
+        font-style: italic;
       }
 
       /* Admin container and header */
@@ -778,8 +817,90 @@
         opacity: 0.5;
         cursor: not-allowed;
       }
+
+      /* RichContent editor */
+      .rich-content-field {
+        position: relative;
+      }
+
+      .rich-content-editor {
+        min-height: 100px;
+        padding: 0.5rem;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        background: white;
+        font-size: 1rem;
+        line-height: 1.5;
+        overflow-y: auto;
+        max-height: 300px;
+      }
+
+      .rich-content-editor:focus {
+        border-color: #80bdff;
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+      }
+
+      .rich-content-editor p {
+        margin: 0 0 0.5rem 0;
+      }
+
+      .rich-content-editor p:last-child {
+        margin-bottom: 0;
+      }
+
+      .rich-content-editor ul,
+      .rich-content-editor ol {
+        margin: 0.5rem 0;
+        padding-left: 1.5rem;
+      }
+
+      .rich-content-editor blockquote {
+        margin: 0.5rem 0;
+        padding-left: 1rem;
+        border-left: 3px solid #ced4da;
+        color: #6c757d;
+      }
+
+      .rich-content-editor code {
+        background: #f8f9fa;
+        padding: 0.125rem 0.25rem;
+        border-radius: 2px;
+        font-family: monospace;
+        font-size: 0.9em;
+      }
+
+      .rich-content-editor a {
+        color: #3498db;
+        text-decoration: underline;
+      }
+
+      .field-hint {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 0.75rem;
+        color: #6c757d;
+      }
+
+      .rich-content-preview {
+        max-height: 3em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .rich-content-display {
+        line-height: 1.5;
+      }
+
+      .rich-content-display p {
+        margin: 0 0 0.5rem 0;
+      }
+
+      .rich-content-display p:last-child {
+        margin-bottom: 0;
+      }
     </style>
-    <script type="module" crossorigin src="/admin/ui/assets/index-kC5T8YV-.js"></script>
+    <script type="module" crossorigin src="/admin/ui/assets/index-BH_S_oJ7.js"></script>
   </head>
   <body>
     <div id="app"></div>

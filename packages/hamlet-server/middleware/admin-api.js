@@ -509,19 +509,15 @@ export default function createAdminApi(server) {
             const host = rawHost ? rawHost.split(':')[0] : 'localhost';
             const data = req.body;
             
-            console.log('🔍 Update Debug - rawHost:', rawHost);
-            console.log('🔍 Update Debug - host:', host);
-            console.log('🔍 Update Debug - data:', data);
-
             // Convert snake_case resource to PascalCase for method dispatch
             const methodResource = snakeToPascal(resource);
             const methodName = `update${methodResource}`;
 
             if (typeof db[methodName] === 'function') {
-                // Remove host from form data to avoid duplication, then add it back
+                // Remove host from form data - pass it as separate third argument
                 const { host: _, ...cleanData } = data;
-                const result = await db[methodName](id, { ...cleanData, host });
-                
+                const result = await db[methodName](id, cleanData, host);
+
                 if (!result) {
                     return res.status(404).json({ error: `${methodResource} not found` });
                 }

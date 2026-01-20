@@ -67,49 +67,26 @@ Use the BuildAmp CLI to generate code from Elm models:
 buildamp gen --src app/horatio/models --dest app/horatio
 
 # Generate for specific model directory
-buildamp gen api --src ... --dest ...    # API routes, JS handlers
+buildamp gen api --src ... --dest ...    # API routes, handlers
 buildamp gen db --src ... --dest ...     # Database queries, SQL schema
 
 # Check generation status
 buildamp status
 ```
 
-### Handler Safety Scripts
+### Handler Safety
 
-When working with TEA handlers, use these scripts to prevent losing business logic during regeneration:
+`buildamp gen api --src ... --dest ...`
+will not over-write existing handlers
 
-#### Safe Handler Regeneration
+for that, we have:
+
 ```bash
-./shared/generation/regenerate-handlers.sh
-```
-- Automatically backs up ALL handlers before regenerating
-- Creates timestamped backup directories
-- Includes a restore script with each backup
-- Keeps only the last 5 backups
-- Asks for confirmation before proceeding
-
-#### Merge Business Logic
-```bash
-./shared/generation/merge-handler-logic.sh <backup-dir> [handler-name]
-```
-- Helps merge business logic from backups into newly generated skeletons
-- Extracts key sections (Model, update, business logic, decoders)
-- Creates a merge guide for manual integration
-
-Examples:
-```bash
-# Safe regeneration with automatic backup
-./shared/generation/regenerate-handlers.sh
-
-# Merge all handlers from a specific backup
-./shared/generation/merge-handler-logic.sh .backups/20240111_120000
-
-# Merge just one handler
-./shared/generation/merge-handler-logic.sh .backups/20240111_120000 GetFeedHandlerTEA
-
-# Restore from backup
-.backups/20240111_120000/restore.sh
+buildamp gen api --src ... --dest ... --regenerate ...
 ```
 
-This workflow ensures handler implementations are never lost when regenerating from templates.
+which regenerates the specified handler - or all handlers, for 'all'
+
+buildamp backs up the existing handler, generates a fresh skeleton with // TODO cut-n-paste business logic from old version
+
 

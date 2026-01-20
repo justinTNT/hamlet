@@ -17,6 +17,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Attributes as Attr
 import Html.Events exposing (..)
+import Html.Keyed as Keyed
 import Http
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
@@ -35,6 +36,43 @@ port adminApiResponse : (AdminApiResponse -> msg) -> Sub msg
 
 
 port debugLog : String -> Cmd msg
+
+
+port parseHtmlToRichContent : { fieldName : String, html : String } -> Cmd msg
+
+
+port richContentParsed : ({ fieldName : String, json : String } -> msg) -> Sub msg
+
+
+
+-- RICHCONTENT TYPES
+
+
+type alias RichContentDoc =
+    { content : List RichContentNode
+    }
+
+
+type RichContentNode
+    = ParagraphNode (List RichContentInline)
+    | BulletListNode (List RichContentNode)
+    | OrderedListNode (List RichContentNode)
+    | ListItemNode (List RichContentNode)
+    | BlockquoteNode (List RichContentNode)
+    | HeadingNode Int (List RichContentInline)
+
+
+type alias RichContentInline =
+    { text : String
+    , marks : List RichContentMark
+    }
+
+
+type RichContentMark
+    = BoldMark
+    | ItalicMark
+    | LinkMark String
+    | CodeMark
 
 
 
@@ -160,6 +198,8 @@ type alias Model =
     , relatedRecords : Dict String (List Encode.Value)
     , m2mLinkedIds : Dict String (List String)
     , m2mOptions : Dict String (List FkOption)
+    , m2mDirty : Bool
+    , formDirty : Bool
     , loading : Bool
     , error : Maybe String
     , correlationCounter : Int
@@ -211,6 +251,8 @@ init flags url key =
             , relatedRecords = Dict.empty
             , m2mLinkedIds = Dict.empty
             , m2mOptions = Dict.empty
+            , m2mDirty = False
+            , formDirty = False
             , loading = True
             , error = Nothing
             , correlationCounter = 0
@@ -245,9 +287,10 @@ routeParser : Parser (Route -> a) a
 routeParser =
     Parser.oneOf
         [ Parser.map Home Parser.top
-        , Parser.map TableList (Parser.s "table" </> Parser.string)
+        -- More specific routes first
         , Parser.map (\t -> RecordCreate t) (Parser.s "table" </> Parser.string </> Parser.s "new")
         , Parser.map RecordEdit (Parser.s "table" </> Parser.string </> Parser.string)
+        , Parser.map TableList (Parser.s "table" </> Parser.string)
         ]
 
 
@@ -304,6 +347,7 @@ type Msg
     | ApiResponseReceived AdminApiResponse
     | NavigateToTable String
     | NavigateToCreate String
+    | NavigateToCreateWithPrefill String (List ( String, String ))
     | NavigateToEdit String String
     | UpdateFormField String String
     | ToggleM2M String String
@@ -319,6 +363,8 @@ type Msg
     | StartResize String String Float Int
     | Resize Float
     | StopResize
+    | RichContentEdited String String
+    | RichContentParsed { fieldName : String, json : String }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -366,13 +412,17 @@ update msg model =
                                 | formData = Dict.empty
                                 , m2mLinkedIds = Dict.empty
                                 , m2mOptions = Dict.empty
+                                , m2mDirty = False
+                                , formDirty = False
                             }
 
                         RecordCreate _ ->
+                            -- Don't clear formData - it may contain prefilled values from NavigateToCreateWithPrefill
                             { model
-                                | formData = Dict.empty
-                                , m2mLinkedIds = Dict.empty
+                                | m2mLinkedIds = Dict.empty
                                 , m2mOptions = Dict.empty
+                                , m2mDirty = False
+                                , formDirty = False
                             }
 
                         TableList tableName ->
@@ -415,6 +465,15 @@ update msg model =
             , Nav.pushUrl model.key (routeToPath model.basePath (RecordCreate tableName))
             )
 
+        NavigateToCreateWithPrefill tableName prefillData ->
+            ( { model
+                | currentTable = Just tableName
+                , currentRecordId = Nothing
+                , formData = Dict.fromList prefillData
+              }
+            , Nav.pushUrl model.key (routeToPath model.basePath (RecordCreate tableName))
+            )
+
         NavigateToEdit tableName recordId ->
             ( { model
                 | loading = True
@@ -423,6 +482,8 @@ update msg model =
                 , formData = Dict.empty
                 , m2mLinkedIds = Dict.empty
                 , m2mOptions = Dict.empty
+                , m2mDirty = False
+                , formDirty = False
               }
             , Nav.pushUrl model.key (routeToPath model.basePath (RecordEdit tableName recordId))
             )
@@ -444,9 +505,28 @@ update msg model =
 
                     else
                         optionId :: currentIds
+
+                -- Immediately save the M2M change
+                saveCmd =
+                    case ( model.currentTable, model.currentRecordId ) of
+                        ( Just tableName, Just recordId ) ->
+                            let
+                                body =
+                                    Encode.object
+                                        [ ( "linkedIds", Encode.list Encode.string newIds ) ]
+                            in
+                            adminApiRequest
+                                { method = "PUT"
+                                , endpoint = tableName ++ "/" ++ recordId ++ "/m2m/" ++ relatedTable
+                                , body = Just body
+                                , correlationId = "m2msave-" ++ relatedTable
+                                }
+
+                        _ ->
+                            Cmd.none
             in
             ( { model | m2mLinkedIds = Dict.insert relatedTable newIds model.m2mLinkedIds }
-            , Cmd.none
+            , saveCmd
             )
 
         SubmitForm ->
@@ -590,6 +670,21 @@ update msg model =
         StopResize ->
             ( { model | resizing = Nothing }
             , saveColumnWidths model.columnWidths
+            )
+
+        RichContentEdited fieldName html ->
+            -- Send HTML to JS for parsing back to RichContent JSON
+            ( model
+            , parseHtmlToRichContent { fieldName = fieldName, html = html }
+            )
+
+        RichContentParsed { fieldName, json } ->
+            -- Received parsed RichContent JSON from JS
+            ( { model
+                | formData = Dict.insert fieldName json model.formData
+                , formDirty = True
+              }
+            , Cmd.none
             )
 
 
@@ -761,8 +856,11 @@ handleApiResponse model response =
                 ( model, Cmd.none )
 
     else if String.startsWith "m2msave-" response.correlationId then
-        -- M2M save response - just ignore
-        ( model, Cmd.none )
+        -- M2M save response - clear dirty flag on success
+        if response.success then
+            ( { model | m2mDirty = False }, Cmd.none )
+        else
+            ( model, Cmd.none )
 
     else if String.startsWith "list-" response.correlationId then
         -- Paginated list response: {data: [...], total: N, offset: N, limit: N}
@@ -794,34 +892,16 @@ handleApiResponse model response =
             Just data ->
                 -- Try single object (record response)
                 case Decode.decodeValue Decode.value data of
-                    Ok record ->
-                        case model.route of
-                            RecordEdit _ _ ->
-                                -- Populate form from record
-                                ( { model
-                                    | loading = False
-                                    , formData = extractFormData record
-                                    , error = Nothing
-                                  }
-                                , Cmd.none
-                                )
-
-                            RecordCreate tableName ->
-                                -- Successful create - go back to list
+                    Ok _ ->
+                        -- Successful save - always navigate back to list
+                        case model.currentTable of
+                            Just tableName ->
                                 ( { model | loading = False, formData = Dict.empty, currentRecordId = Nothing }
                                 , Nav.pushUrl model.key (routeToPath model.basePath (TableList tableName))
                                 )
 
-                            _ ->
-                                -- Successful update - go back to list
-                                case model.currentTable of
-                                    Just tableName ->
-                                        ( { model | loading = False, formData = Dict.empty }
-                                        , Nav.pushUrl model.key (routeToPath model.basePath (TableList tableName))
-                                        )
-
-                                    Nothing ->
-                                        ( { model | loading = False, records = [ record ] }, Cmd.none )
+                            Nothing ->
+                                ( { model | loading = False }, Cmd.none )
 
                     Err err ->
                         ( { model | error = Just ("Decode error: " ++ Decode.errorToString err), loading = False }
@@ -940,25 +1020,13 @@ submitForm model tableName =
 
                 Nothing ->
                     ( "POST", tableName )
-
-        formSubmitCmd =
-            adminApiRequest
-                { method = method
-                , endpoint = endpoint
-                , body = Just body
-                , correlationId = "submit-" ++ tableName
-                }
-
-        -- Also save M2M changes if editing an existing record
-        m2mCmd =
-            case model.currentRecordId of
-                Just recordId ->
-                    saveM2MChanges model tableName recordId
-
-                Nothing ->
-                    Cmd.none
     in
-    Cmd.batch [ formSubmitCmd, m2mCmd ]
+    adminApiRequest
+        { method = method
+        , endpoint = endpoint
+        , body = Just body
+        , correlationId = "submit-" ++ tableName
+        }
 
 
 deleteRecord : Model -> String -> String -> Cmd Msg
@@ -1052,51 +1120,6 @@ loadAllM2MDataForTable model schema tableName recordId =
             )
             relevantM2Ms
         )
-
-
-saveM2MChanges : Model -> String -> String -> Cmd Msg
-saveM2MChanges model tableName recordId =
-    case model.schema of
-        Just schema ->
-            let
-                relevantM2Ms =
-                    schema.manyToManyRelationships
-                        |> List.filterMap
-                            (\m2m ->
-                                if m2m.table1 == tableName then
-                                    Just m2m.table2
-
-                                else if m2m.table2 == tableName then
-                                    Just m2m.table1
-
-                                else
-                                    Nothing
-                            )
-            in
-            Cmd.batch
-                (List.map
-                    (\relatedTable ->
-                        let
-                            linkedIds =
-                                Dict.get relatedTable model.m2mLinkedIds
-                                    |> Maybe.withDefault []
-
-                            body =
-                                Encode.object
-                                    [ ( "linkedIds", Encode.list Encode.string linkedIds ) ]
-                        in
-                        adminApiRequest
-                            { method = "PUT"
-                            , endpoint = tableName ++ "/" ++ recordId ++ "/m2m/" ++ relatedTable
-                            , body = Just body
-                            , correlationId = "m2msave-" ++ relatedTable
-                            }
-                    )
-                    relevantM2Ms
-                )
-
-        Nothing ->
-            Cmd.none
 
 
 
@@ -1707,6 +1730,11 @@ viewFieldValue fieldSchema fieldName value tableSchema =
                         ]
                         [ text (truncateUrl 40 value) ]
 
+            else if fieldSchema.isRichContent then
+                -- Display formatted RichContent (truncated for table view)
+                div [ class "rich-content-preview" ]
+                    [ text (truncate 100 (extractRichContentText value)) ]
+
             else if String.contains "JSONB" fieldSchema.sqlType then
                 code [ class "json-preview" ] [ text (truncate 50 value) ]
 
@@ -1805,7 +1833,7 @@ viewM2MSections model tableName =
                 text ""
 
             else
-                div []
+                div [ class "m2m-sections" ]
                     (List.map (viewM2MSection model) relevantM2Ms)
 
         Nothing ->
@@ -1874,6 +1902,20 @@ viewRelatedTable model ref =
             Dict.get ref.table model.relatedRecords
                 |> Maybe.map List.length
                 |> Maybe.withDefault 0
+
+        -- Create prefill data for the FK field
+        addButton =
+            case model.currentRecordId of
+                Just recordId ->
+                    button
+                        [ class "add-related"
+                        , onClick (NavigateToCreateWithPrefill ref.table [ ( ref.column, recordId ) ])
+                        , title ("Add new " ++ snakeToTitle ref.table)
+                        ]
+                        [ text "+" ]
+
+                Nothing ->
+                    text ""
     in
     div [ class "related-item" ]
         [ a
@@ -1883,6 +1925,7 @@ viewRelatedTable model ref =
             [ text (snakeToTitle ref.table) ]
         , span [ class "related-count" ]
             [ text (String.fromInt relatedCount ++ " record" ++ (if relatedCount /= 1 then "s" else "")) ]
+        , addButton
         ]
 
 
@@ -1978,6 +2021,20 @@ viewFormField model tableSchema ( fieldName, fieldSchema ) =
                                 )
                                 fieldSchema.enumValues
                         )
+
+                else if fieldSchema.isRichContent then
+                    -- RichContent field - use contenteditable for rich editing
+                    -- Use Keyed to prevent Elm from diffing contenteditable children
+                    div [ class "rich-content-field" ]
+                        [ Keyed.node "div"
+                            [ id fieldName
+                            , contenteditable True
+                            , class "rich-content-editor"
+                            , onBlurWithHtml (RichContentEdited fieldName)
+                            ]
+                            [ ( currentValue, viewRichContentChildren currentValue ) ]
+                        , small [ class "field-hint" ] [ text "Rich text - ⌘/Ctrl+B for bold, ⌘/Ctrl+I for italic" ]
+                        ]
 
                 else
                     viewInputByType inputType fieldName currentValue isRequired fieldSchema
@@ -2103,6 +2160,351 @@ capitalize str =
             str
 
 
+{-| Extract plain text from RichContent JSON string.
+RichContent format: {"type":"doc","content":[{"type":"paragraph","content":[{"text":"actual text","type":"text"}]}]}
+-}
+extractRichContentText : String -> String
+extractRichContentText jsonStr =
+    -- Handle empty/null values gracefully
+    if String.isEmpty jsonStr || jsonStr == "null" then
+        ""
+    else
+        -- Try to decode and extract text, fall back to original if it fails
+        case Decode.decodeString richContentTextDecoder jsonStr of
+            Ok textContent ->
+                textContent
+
+            Err _ ->
+                -- Not valid RichContent JSON, return as-is
+                jsonStr
+
+
+richContentTextDecoder : Decoder String
+richContentTextDecoder =
+    Decode.oneOf
+        [ Decode.field "content" (Decode.list paragraphDecoder)
+            |> Decode.map (String.join "\n")
+        , Decode.succeed ""
+        ]
+
+
+paragraphDecoder : Decoder String
+paragraphDecoder =
+    Decode.oneOf
+        [ Decode.field "content" (Decode.list textNodeDecoder)
+            |> Decode.map String.concat
+        , Decode.succeed ""
+        ]
+
+
+textNodeDecoder : Decoder String
+textNodeDecoder =
+    Decode.oneOf
+        [ Decode.field "text" Decode.string
+        , Decode.succeed ""
+        ]
+
+
+{-| Wrap plain text in RichContent JSON format.
+-}
+wrapInRichContent : String -> String
+wrapInRichContent plainText =
+    let
+        paragraphs =
+            String.split "\n" plainText
+                |> List.map
+                    (\line ->
+                        Encode.object
+                            [ ( "type", Encode.string "paragraph" )
+                            , ( "content"
+                              , Encode.list identity
+                                    [ Encode.object
+                                        [ ( "type", Encode.string "text" )
+                                        , ( "text", Encode.string line )
+                                        ]
+                                    ]
+                              )
+                            ]
+                    )
+    in
+    Encode.object
+        [ ( "type", Encode.string "doc" )
+        , ( "content", Encode.list identity paragraphs )
+        ]
+        |> Encode.encode 0
+
+
+{-| Decode RichContent JSON string into a structured document.
+-}
+decodeRichContentDoc : String -> Maybe RichContentDoc
+decodeRichContentDoc jsonStr =
+    Decode.decodeString richContentDocDecoder jsonStr
+        |> Result.toMaybe
+
+
+richContentDocDecoder : Decoder RichContentDoc
+richContentDocDecoder =
+    Decode.field "content" (Decode.list richContentNodeDecoder)
+        |> Decode.map RichContentDoc
+
+
+richContentNodeDecoder : Decoder RichContentNode
+richContentNodeDecoder =
+    Decode.field "type" Decode.string
+        |> Decode.andThen
+            (\nodeType ->
+                case nodeType of
+                    "paragraph" ->
+                        Decode.field "content" (Decode.list richContentInlineDecoder)
+                            |> Decode.map ParagraphNode
+                            |> withDefault (ParagraphNode [])
+
+                    "bulletList" ->
+                        Decode.field "content" (Decode.list (Decode.lazy (\_ -> richContentNodeDecoder)))
+                            |> Decode.map BulletListNode
+                            |> withDefault (BulletListNode [])
+
+                    "orderedList" ->
+                        Decode.field "content" (Decode.list (Decode.lazy (\_ -> richContentNodeDecoder)))
+                            |> Decode.map OrderedListNode
+                            |> withDefault (OrderedListNode [])
+
+                    "listItem" ->
+                        Decode.field "content" (Decode.list (Decode.lazy (\_ -> richContentNodeDecoder)))
+                            |> Decode.map ListItemNode
+                            |> withDefault (ListItemNode [])
+
+                    "blockquote" ->
+                        Decode.field "content" (Decode.list (Decode.lazy (\_ -> richContentNodeDecoder)))
+                            |> Decode.map BlockquoteNode
+                            |> withDefault (BlockquoteNode [])
+
+                    "heading" ->
+                        Decode.map2 HeadingNode
+                            (Decode.field "attrs" (Decode.field "level" Decode.int) |> withDefault 1)
+                            (Decode.field "content" (Decode.list richContentInlineDecoder) |> withDefault [])
+
+                    _ ->
+                        -- Unknown node type, treat as empty paragraph
+                        Decode.succeed (ParagraphNode [])
+            )
+
+
+richContentInlineDecoder : Decoder RichContentInline
+richContentInlineDecoder =
+    Decode.map2 RichContentInline
+        (Decode.field "text" Decode.string |> withDefault "")
+        (Decode.field "marks" (Decode.list richContentMarkDecoder) |> withDefault [])
+
+
+richContentMarkDecoder : Decoder RichContentMark
+richContentMarkDecoder =
+    Decode.field "type" Decode.string
+        |> Decode.andThen
+            (\markType ->
+                case markType of
+                    "bold" ->
+                        Decode.succeed BoldMark
+
+                    "strong" ->
+                        Decode.succeed BoldMark
+
+                    "italic" ->
+                        Decode.succeed ItalicMark
+
+                    "em" ->
+                        Decode.succeed ItalicMark
+
+                    "code" ->
+                        Decode.succeed CodeMark
+
+                    "link" ->
+                        Decode.field "attrs" (Decode.field "href" Decode.string)
+                            |> Decode.map LinkMark
+                            |> withDefault (LinkMark "#")
+
+                    _ ->
+                        Decode.fail ("Unknown mark type: " ++ markType)
+            )
+
+
+withDefault : a -> Decoder a -> Decoder a
+withDefault default decoder =
+    Decode.oneOf [ decoder, Decode.succeed default ]
+
+
+{-| Render RichContent JSON as formatted HTML.
+-}
+viewRichContentHtml : String -> Html msg
+viewRichContentHtml jsonStr =
+    case decodeRichContentDoc jsonStr of
+        Just doc ->
+            div [ class "rich-content-display" ]
+                (List.map viewRichContentNode doc.content)
+
+        Nothing ->
+            -- Fallback to plain text display
+            div [ class "rich-content-display" ]
+                [ text jsonStr ]
+
+
+{-| Render RichContent children for contenteditable div.
+Returns the formatted content as a span wrapper (for keyed rendering).
+-}
+viewRichContentChildren : String -> Html msg
+viewRichContentChildren jsonStr =
+    if String.isEmpty jsonStr || jsonStr == "null" then
+        span [] [ text "" ]
+    else
+        case decodeRichContentDoc jsonStr of
+            Just doc ->
+                span []
+                    (List.map viewRichContentNode doc.content)
+
+            Nothing ->
+                -- Fallback: if decoding fails, show debug info
+                span []
+                    [ p [] [ text ("(decode failed for: " ++ String.left 50 jsonStr ++ "...)") ]
+                    ]
+
+
+viewRichContentNode : RichContentNode -> Html msg
+viewRichContentNode node =
+    case node of
+        ParagraphNode inlines ->
+            p [] (List.map viewRichContentInline inlines)
+
+        BulletListNode items ->
+            ul [] (List.map viewRichContentNode items)
+
+        OrderedListNode items ->
+            ol [] (List.map viewRichContentNode items)
+
+        ListItemNode children ->
+            li [] (List.map viewRichContentNode children)
+
+        BlockquoteNode children ->
+            blockquote [] (List.map viewRichContentNode children)
+
+        HeadingNode level inlines ->
+            let
+                headingTag =
+                    case level of
+                        1 -> h1
+                        2 -> h2
+                        3 -> h3
+                        4 -> h4
+                        5 -> h5
+                        _ -> h6
+            in
+            headingTag [] (List.map viewRichContentInline inlines)
+
+
+viewRichContentInline : RichContentInline -> Html msg
+viewRichContentInline inline =
+    let
+        baseElement =
+            text inline.text
+
+        applyMark mark content =
+            case mark of
+                BoldMark ->
+                    strong [] [ content ]
+
+                ItalicMark ->
+                    em [] [ content ]
+
+                CodeMark ->
+                    code [] [ content ]
+
+                LinkMark href ->
+                    a [ Attr.href href, Attr.target "_blank" ] [ content ]
+    in
+    List.foldl applyMark baseElement inline.marks
+
+
+{-| Convert RichContent JSON to an HTML string for contenteditable.
+-}
+richContentToHtmlString : String -> String
+richContentToHtmlString jsonStr =
+    -- Handle empty/null values gracefully
+    if String.isEmpty jsonStr || jsonStr == "null" then
+        "<p></p>"
+    else
+        case decodeRichContentDoc jsonStr of
+            Just doc ->
+                doc.content
+                    |> List.map nodeToHtmlString
+                    |> String.join ""
+
+            Nothing ->
+                -- Fallback: wrap plain text in a paragraph
+                "<p>" ++ escapeHtml jsonStr ++ "</p>"
+
+
+nodeToHtmlString : RichContentNode -> String
+nodeToHtmlString node =
+    case node of
+        ParagraphNode inlines ->
+            "<p>" ++ String.concat (List.map inlineToHtmlString inlines) ++ "</p>"
+
+        BulletListNode items ->
+            "<ul>" ++ String.concat (List.map nodeToHtmlString items) ++ "</ul>"
+
+        OrderedListNode items ->
+            "<ol>" ++ String.concat (List.map nodeToHtmlString items) ++ "</ol>"
+
+        ListItemNode children ->
+            "<li>" ++ String.concat (List.map nodeToHtmlString children) ++ "</li>"
+
+        BlockquoteNode children ->
+            "<blockquote>" ++ String.concat (List.map nodeToHtmlString children) ++ "</blockquote>"
+
+        HeadingNode level inlines ->
+            let
+                tag = "h" ++ String.fromInt (clamp 1 6 level)
+            in
+            "<" ++ tag ++ ">" ++ String.concat (List.map inlineToHtmlString inlines) ++ "</" ++ tag ++ ">"
+
+
+inlineToHtmlString : RichContentInline -> String
+inlineToHtmlString inline =
+    let
+        escapedText = escapeHtml inline.text
+
+        applyMarkString mark content =
+            case mark of
+                BoldMark ->
+                    "<strong>" ++ content ++ "</strong>"
+
+                ItalicMark ->
+                    "<em>" ++ content ++ "</em>"
+
+                CodeMark ->
+                    "<code>" ++ content ++ "</code>"
+
+                LinkMark href ->
+                    "<a href=\"" ++ escapeHtml href ++ "\">" ++ content ++ "</a>"
+    in
+    List.foldl applyMarkString escapedText inline.marks
+
+
+escapeHtml : String -> String
+escapeHtml str =
+    str
+        |> String.replace "&" "&amp;"
+        |> String.replace "<" "&lt;"
+        |> String.replace ">" "&gt;"
+        |> String.replace "\"" "&quot;"
+
+
+{-| Custom event handler to capture innerHTML on blur.
+-}
+onBlurWithHtml : (String -> msg) -> Attribute msg
+onBlurWithHtml tagger =
+    on "blur" (Decode.at [ "target", "innerHTML" ] Decode.string |> Decode.map tagger)
+
+
 truncate : Int -> String -> String
 truncate maxLen str =
     if String.length str > maxLen then
@@ -2192,6 +2594,7 @@ subscriptions _ =
         , Prefs.onLoad PreferencesLoaded
         , Browser.Events.onMouseMove (Decode.map Resize (Decode.field "pageX" Decode.float))
         , Browser.Events.onMouseUp (Decode.succeed StopResize)
+        , richContentParsed RichContentParsed
         ]
 
 

@@ -91,10 +91,8 @@ update msg model =
             case decodeRequest bundle of
                 Ok ( req, ctx ) ->
                     let
-                        _ = Debug.log "🐛 SubmitComment: Received request" req
-                        
-                        updatedModel = 
-                            { model 
+                        updatedModel =
+                            { model
                             | stage = Processing
                             , request = Just req
                             , context = Just ctx
@@ -108,9 +106,6 @@ update msg model =
                     ( { model | stage = Failed error }, Cmd.none )
         
         CommentCreated dbResponse ->
-            let
-                _ = Debug.log "🐛 SubmitComment: CommentCreated dbResponse" dbResponse
-            in
             if dbResponse.success then
                 -- Database operation succeeded, extract real data from response
                 case dbResponse.data of
@@ -151,14 +146,10 @@ update msg model =
                                 ( { model | stage = Complete response }, Cmd.none )
                     
                     Nothing ->
-                        let
-                            _ = Debug.log "🐛 SubmitComment: No data returned from database" ()
-                        in
                         ( { model | stage = Failed "No data returned from database" }, Cmd.none )
             else
                 let
                     error = Maybe.withDefault "Database operation failed" dbResponse.error
-                    _ = Debug.log "🐛 SubmitComment: DB Error" error
                 in
                 ( { model | stage = Failed error }, Cmd.none )
 
@@ -173,26 +164,71 @@ getServerTimestamp config =
     config.serverNow
 
 
+{-| Convert text to RichContent format for storage.
+If the text is already valid RichContent JSON (starts with {"type":"doc"), use it directly.
+Otherwise, wrap plain text in RichContent structure.
+-}
+textToRichContent : String -> Encode.Value
+textToRichContent textValue =
+    -- Check if it's already RichContent JSON
+    if String.startsWith "{\"type\":\"doc\"" textValue then
+        -- Already RichContent - parse and use directly
+        case Decode.decodeString Decode.value textValue of
+            Ok jsonValue -> jsonValue
+            Err _ -> wrapPlainText textValue
+    else
+        wrapPlainText textValue
+
+
+{-| Wrap plain text in RichContent (ProseMirror doc) format.
+-}
+wrapPlainText : String -> Encode.Value
+wrapPlainText plainText =
+    Encode.object
+        [ ( "type", Encode.string "doc" )
+        , ( "content"
+          , Encode.list identity
+                [ Encode.object
+                    [ ( "type", Encode.string "paragraph" )
+                    , ( "content"
+                      , Encode.list identity
+                            [ Encode.object
+                                [ ( "type", Encode.string "text" )
+                                , ( "text", Encode.string plainText )
+                                ]
+                            ]
+                      )
+                    ]
+                ]
+          )
+        ]
+
+
 processRequest : SubmitCommentReq -> Model -> Cmd Msg
 processRequest request model =
     let
         currentTimestamp = getServerTimestamp model.globalConfig
 
-        -- Use type-safe DbCreate encoder
+        -- Encode comment with RichContent for text field
         -- Framework fields (host, deletedAt, createdAt) are injected automatically by the runtime/DB
-        commentData : DB.ItemCommentDbCreate
+        encodeOptionalString maybeStr =
+            case maybeStr of
+                Just str -> Encode.string str
+                Nothing -> Encode.null
+
         commentData =
-            { itemId = request.itemId
-            , guestId = Maybe.withDefault "guest_anonymous" request.authorName
-            , parentId = request.parentId
-            , authorName = Maybe.withDefault "Anonymous" request.authorName
-            , text = request.text
-            }
+            Encode.object
+                [ ( "item_id", Encode.string request.itemId )
+                , ( "guest_id", Encode.string (Maybe.withDefault "guest_anonymous" request.authorName) )
+                , ( "parent_id", encodeOptionalString request.parentId )
+                , ( "author_name", Encode.string (Maybe.withDefault "Anonymous" request.authorName) )
+                , ( "text", textToRichContent request.text )
+                ]
     in
     DB.dbCreate
         { id = "create_comment_" ++ String.fromInt currentTimestamp
         , table = "item_comment"
-        , data = DB.encodeItemCommentDbCreate commentData
+        , data = commentData
         }
 
 

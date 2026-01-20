@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-01-20T01:06:15.909Z",
+  "generatedAt": "2026-01-20T04:40:13.047Z",
   "tables": {
     "guest": {
       "structName": "Guest",
@@ -144,13 +144,13 @@
           "isRichContent": false
         },
         "text": {
-          "rustType": "String",
-          "sqlType": "TEXT",
+          "rustType": "RichContent",
+          "sqlType": "JSONB",
           "nullable": false,
           "isPrimaryKey": false,
           "isTimestamp": false,
           "isLink": false,
-          "isRichContent": false
+          "isRichContent": true
         },
         "created_at": {
           "rustType": "CreateTimestamp",
@@ -318,7 +318,7 @@
           "isPrimaryKey": false,
           "isTimestamp": false,
           "isLink": false,
-          "isRichContent": false
+          "isRichContent": true
         },
         "owner_comment": {
           "rustType": "RichContent",

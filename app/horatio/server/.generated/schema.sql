@@ -29,7 +29,7 @@ CREATE TABLE item_comment (
     guest_id TEXT NOT NULL,
     parent_id TEXT,
     author_name TEXT NOT NULL,
-    text TEXT NOT NULL,
+    text JSONB NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     deleted_at BIGINT,
     FOREIGN KEY (item_id) REFERENCES microblog_item(id),

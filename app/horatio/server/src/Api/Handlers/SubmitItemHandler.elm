@@ -285,11 +285,42 @@ completeWithItem model req =
             )
 
 
+{-| Wrap plain text in RichContent (ProseMirror doc) format.
+This creates the JSON structure: {type: "doc", content: [{type: "paragraph", content: [{type: "text", text: "..."}]}]}
+-}
+wrapInRichContent : String -> Encode.Value
+wrapInRichContent plainText =
+    Encode.object
+        [ ( "type", Encode.string "doc" )
+        , ( "content"
+          , Encode.list identity
+                [ Encode.object
+                    [ ( "type", Encode.string "paragraph" )
+                    , ( "content"
+                      , Encode.list identity
+                            [ Encode.object
+                                [ ( "type", Encode.string "text" )
+                                , ( "text", Encode.string plainText )
+                                ]
+                            ]
+                      )
+                    ]
+                ]
+          )
+        ]
+
+
 createMicroblogItem : String -> SubmitItemReq -> Int -> Cmd Msg
 createMicroblogItem itemId req timestamp =
     let
         -- Encode fields matching the flat database schema
-        -- Optional fields encoded as null if empty
+        -- Optional RichContent fields encoded as null if empty
+        encodeOptionalRichContent str =
+            if String.isEmpty str then
+                Encode.null
+            else
+                wrapInRichContent str
+
         encodeOptional str =
             if String.isEmpty str then
                 Encode.null
@@ -302,8 +333,8 @@ createMicroblogItem itemId req timestamp =
                 , ( "title", Encode.string req.title )
                 , ( "link", encodeOptional req.link )
                 , ( "image", encodeOptional req.image )
-                , ( "extract", encodeOptional req.extract )
-                , ( "owner_comment", Encode.string req.ownerComment )
+                , ( "extract", encodeOptionalRichContent req.extract )
+                , ( "owner_comment", wrapInRichContent req.ownerComment )
                 , ( "created_at", Encode.int timestamp )
                 , ( "view_count", Encode.int 0 )
                 ]

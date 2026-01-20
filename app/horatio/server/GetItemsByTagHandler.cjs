@@ -3084,6 +3084,15 @@ var $author$project$BuildAmp$Database$MicroblogItemDb = function (id) {
 		};
 	};
 };
+var $author$project$BuildAmp$Database$richContentDecoder = $elm$json$Json$Decode$oneOf(
+	_List_fromArray(
+		[
+			$elm$json$Json$Decode$string,
+			A2(
+			$elm$json$Json$Decode$map,
+			$elm$json$Json$Encode$encode(0),
+			$elm$json$Json$Decode$value)
+		]));
 var $author$project$BuildAmp$Database$microblogitemDbDecoder = A3(
 	$author$project$BuildAmp$Database$decodeField,
 	'deleted_at',
@@ -3103,11 +3112,11 @@ var $author$project$BuildAmp$Database$microblogitemDbDecoder = A3(
 				A3(
 					$author$project$BuildAmp$Database$decodeField,
 					'owner_comment',
-					$elm$json$Json$Decode$string,
+					$author$project$BuildAmp$Database$richContentDecoder,
 					A3(
 						$author$project$BuildAmp$Database$decodeField,
 						'extract',
-						$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
+						$elm$json$Json$Decode$nullable($author$project$BuildAmp$Database$richContentDecoder),
 						A3(
 							$author$project$BuildAmp$Database$decodeField,
 							'image',

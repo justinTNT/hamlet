@@ -7,16 +7,250 @@ import Browser
 import BuildAmp.Config exposing (GlobalConfig)
 import Browser.Navigation as Nav
 import Html exposing (Html, button, div, h1, h2, h3, h4, p, a, img, text, section, input, textarea, label, span, br)
-import Html.Attributes exposing (src, href, style, class, value, placeholder)
+import Html.Attributes exposing (src, href, style, class, value, placeholder, id, type_)
+import Json.Encode as Encode
 import Html.Events exposing (onClick, onInput, onMouseEnter, onMouseLeave)
 import Http
 import Random
 import Storage
 import Url
 import Dict exposing (Dict)
+import Json.Decode as Decode
+import Set
 import Task
 
 port log : String -> Cmd msg
+
+
+-- Tiptap editor ports
+port initCommentEditor : String -> Cmd msg
+port getCommentEditorContent : () -> Cmd msg
+port commentEditorContent : (String -> msg) -> Sub msg
+port clearCommentEditor : () -> Cmd msg
+port commentEditorCommand : Encode.Value -> Cmd msg
+
+
+-- RICH CONTENT TYPES
+
+type alias RichContentDoc =
+    { docType : String
+    , content : List RichContentNode
+    }
+
+type RichContentNode
+    = ParagraphNode (List RichContentInline)
+    | HeadingNode Int (List RichContentInline)
+    | BulletListNode (List RichContentNode)
+    | OrderedListNode (List RichContentNode)
+    | ListItemNode (List RichContentNode)
+    | BlockquoteNode (List RichContentNode)
+
+type RichContentInline
+    = TextNode String (List RichContentMark)
+
+type RichContentMark
+    = BoldMark
+    | ItalicMark
+    | CodeMark
+    | LinkMark String
+
+
+-- RICH CONTENT DECODERS
+
+richContentDocDecoder : Decode.Decoder RichContentDoc
+richContentDocDecoder =
+    Decode.map2 RichContentDoc
+        (Decode.field "type" Decode.string)
+        (Decode.field "content" (Decode.list richContentNodeDecoder))
+
+richContentNodeDecoder : Decode.Decoder RichContentNode
+richContentNodeDecoder =
+    Decode.field "type" Decode.string
+        |> Decode.andThen (\nodeType ->
+            case nodeType of
+                "paragraph" ->
+                    Decode.map ParagraphNode
+                        (Decode.oneOf
+                            [ Decode.field "content" (Decode.list richContentInlineDecoder)
+                            , Decode.succeed []
+                            ]
+                        )
+
+                "heading" ->
+                    Decode.map2 HeadingNode
+                        (Decode.at ["attrs", "level"] Decode.int)
+                        (Decode.oneOf
+                            [ Decode.field "content" (Decode.list richContentInlineDecoder)
+                            , Decode.succeed []
+                            ]
+                        )
+
+                "bulletList" ->
+                    Decode.map BulletListNode
+                        (Decode.field "content" (Decode.list (Decode.lazy (\_ -> richContentNodeDecoder))))
+
+                "orderedList" ->
+                    Decode.map OrderedListNode
+                        (Decode.field "content" (Decode.list (Decode.lazy (\_ -> richContentNodeDecoder))))
+
+                "listItem" ->
+                    Decode.map ListItemNode
+                        (Decode.field "content" (Decode.list (Decode.lazy (\_ -> richContentNodeDecoder))))
+
+                "blockquote" ->
+                    Decode.map BlockquoteNode
+                        (Decode.field "content" (Decode.list (Decode.lazy (\_ -> richContentNodeDecoder))))
+
+                _ ->
+                    -- Fallback: treat unknown as empty paragraph
+                    Decode.succeed (ParagraphNode [])
+        )
+
+richContentInlineDecoder : Decode.Decoder RichContentInline
+richContentInlineDecoder =
+    Decode.oneOf
+        [ -- Text node with optional marks
+          Decode.map2 TextNode
+            (Decode.field "text" Decode.string)
+            (Decode.oneOf
+                [ Decode.field "marks" (Decode.list richContentMarkDecoder)
+                    |> Decode.map (List.filterMap identity)
+                , Decode.succeed []
+                ]
+            )
+        , -- Hard break -> newline
+          Decode.field "type" Decode.string
+            |> Decode.andThen (\t ->
+                if t == "hardBreak" then
+                    Decode.succeed (TextNode "\n" [])
+                else
+                    Decode.fail "not a hardBreak"
+            )
+        , -- Fallback for other inline nodes
+          Decode.succeed (TextNode "" [])
+        ]
+
+richContentMarkDecoder : Decode.Decoder (Maybe RichContentMark)
+richContentMarkDecoder =
+    Decode.field "type" Decode.string
+        |> Decode.andThen (\markType ->
+            case markType of
+                "bold" -> Decode.succeed (Just BoldMark)
+                "italic" -> Decode.succeed (Just ItalicMark)
+                "code" -> Decode.succeed (Just CodeMark)
+                "link" ->
+                    Decode.oneOf
+                        [ Decode.map (\href -> Just (LinkMark href)) (Decode.at ["attrs", "href"] Decode.string)
+                        , Decode.succeed Nothing  -- Skip if href missing
+                        ]
+                _ -> Decode.succeed Nothing  -- Skip unknown marks
+        )
+
+decodeRichContentDoc : String -> Maybe RichContentDoc
+decodeRichContentDoc jsonStr =
+    if String.isEmpty jsonStr || jsonStr == "null" then
+        Nothing
+    else
+        case Decode.decodeString richContentDocDecoder jsonStr of
+            Ok doc -> Just doc
+            Err _ -> Nothing
+
+
+-- RICH CONTENT RENDERING
+
+viewRichContent : String -> Html msg
+viewRichContent jsonStr =
+    if String.isEmpty jsonStr || jsonStr == "null" then
+        text ""
+    else
+        case decodeRichContentDoc jsonStr of
+            Just doc ->
+                span [] (List.map viewRichContentNode doc.content)
+            Nothing ->
+                -- Fallback: just show as plain text
+                text jsonStr
+
+viewRichContentNode : RichContentNode -> Html msg
+viewRichContentNode node =
+    case node of
+        ParagraphNode inlines ->
+            p [] (List.map viewRichContentInline inlines)
+
+        HeadingNode level inlines ->
+            let
+                headingTag = case level of
+                    1 -> h1
+                    2 -> h2
+                    3 -> h3
+                    4 -> h4
+                    _ -> h4
+            in
+            headingTag [] (List.map viewRichContentInline inlines)
+
+        BulletListNode items ->
+            Html.ul [] (List.map viewRichContentNode items)
+
+        OrderedListNode items ->
+            Html.ol [] (List.map viewRichContentNode items)
+
+        ListItemNode content ->
+            Html.li [] (List.map viewRichContentNode content)
+
+        BlockquoteNode content ->
+            Html.blockquote [] (List.map viewRichContentNode content)
+
+viewRichContentInline : RichContentInline -> Html msg
+viewRichContentInline inline =
+    case inline of
+        TextNode txt marks ->
+            List.foldl applyMark (text txt) marks
+
+applyMark : RichContentMark -> Html msg -> Html msg
+applyMark mark content =
+    case mark of
+        BoldMark -> Html.strong [] [ content ]
+        ItalicMark -> Html.em [] [ content ]
+        CodeMark -> Html.code [] [ content ]
+        LinkMark href -> a [ Html.Attributes.href href ] [ content ]
+
+extractRichContentText : String -> String
+extractRichContentText jsonStr =
+    if String.isEmpty jsonStr || jsonStr == "null" then
+        ""
+    else
+        case decodeRichContentDoc jsonStr of
+            Just doc ->
+                doc.content
+                    |> List.map extractNodeText
+                    |> String.join " "
+            Nothing ->
+                jsonStr
+
+extractNodeText : RichContentNode -> String
+extractNodeText node =
+    case node of
+        ParagraphNode inlines ->
+            List.map extractInlineText inlines |> String.join ""
+
+        HeadingNode _ inlines ->
+            List.map extractInlineText inlines |> String.join ""
+
+        BulletListNode items ->
+            List.map extractNodeText items |> String.join " "
+
+        OrderedListNode items ->
+            List.map extractNodeText items |> String.join " "
+
+        ListItemNode content ->
+            List.map extractNodeText content |> String.join " "
+
+        BlockquoteNode content ->
+            List.map extractNodeText content |> String.join " "
+
+extractInlineText : RichContentInline -> String
+extractInlineText inline =
+    case inline of
+        TextNode txt _ -> txt
 
 -- MODEL
 
@@ -32,6 +266,7 @@ type alias Model =
     , hoveredTag : Maybe String
     , itemDetails : Dict String ItemState
     , tagItems : Dict String TagItemsState
+    , collapsedComments : Set.Set String
     }
 
 type TagItemsState
@@ -81,6 +316,7 @@ init config url key =
       , hoveredTag = Nothing
       , itemDetails = Dict.empty
       , tagItems = Dict.empty
+      , collapsedComments = Set.empty
       }
     , Cmd.batch [ initialCmd, Storage.loadGuestSession () ]
     )
@@ -145,9 +381,27 @@ submitComment model =
                 , authorName = Maybe.map .displayName model.guestSession
                 }
                 |> Api.Http.send SubmittedComment
-        
+
         Nothing ->
             Cmd.none
+
+
+submitCommentWithContent : Model -> String -> Cmd Msg
+submitCommentWithContent model content =
+    case model.replyingTo of
+        Just { itemId, parentId } ->
+            Api.submitComment
+                { host = "localhost"
+                , itemId = itemId
+                , parentId = parentId
+                , text = content
+                , authorName = Maybe.map .displayName model.guestSession
+                }
+                |> Api.Http.send SubmittedComment
+
+        Nothing ->
+            Cmd.none
+
 
 -- UPDATE
 
@@ -170,6 +424,11 @@ type Msg
     | GotItem String (Result Http.Error Api.Schema.GetItemRes)
     | LoadTagItems String
     | GotTagItems String (Result Http.Error Api.Schema.GetItemsByTagRes)
+    | EditorCommand String
+    | EditorLinkPrompt
+    | GotEditorContent String
+    | RequestSubmitComment
+    | ToggleCollapse String
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -191,7 +450,9 @@ update msg model =
             ( { model | feed = Errored ("Failed to submit item: " ++ httpErrorToString err) }, Cmd.none )
 
         SetReplyTo itemId parentId ->
-            ( { model | replyingTo = Just { itemId = itemId, parentId = parentId }, newComment = "" }, Cmd.none )
+            ( { model | replyingTo = Just { itemId = itemId, parentId = parentId }, newComment = "" }
+            , initCommentEditor "comment-editor"
+            )
 
         SetCommentText text ->
             ( { model | newComment = text }, Cmd.none )
@@ -212,7 +473,9 @@ update msg model =
             ( model, submitComment model )
 
         SubmittedComment (Ok _) ->
-            ( { model | replyingTo = Nothing, newComment = "", feed = Loading }, getFeed ) -- Refresh feed to show new comment
+            ( { model | replyingTo = Nothing, newComment = "", feed = Loading }
+            , Cmd.batch [ getFeed, clearCommentEditor () ]
+            )
 
         SubmittedComment (Err err) ->
             ( { model | feed = Errored ("Failed to submit comment: " ++ httpErrorToString err) }, Cmd.none )
@@ -286,6 +549,45 @@ update msg model =
             ( { model | tagItems = Dict.insert tagName (TagItemsFailed "Could not load items for this tag") model.tagItems }
             , Cmd.none
             )
+
+        EditorCommand action ->
+            ( model
+            , commentEditorCommand (Encode.object [ ( "action", Encode.string action ) ])
+            )
+
+        EditorLinkPrompt ->
+            -- For now, use a simple prompt. Could be enhanced with a modal later.
+            ( model
+            , commentEditorCommand
+                (Encode.object
+                    [ ( "action", Encode.string "link" )
+                    , ( "url", Encode.string "" )  -- Will prompt in JS
+                    ]
+                )
+            )
+
+        GotEditorContent jsonContent ->
+            -- Received content from editor, now submit
+            if String.isEmpty jsonContent then
+                ( model, Cmd.none )
+            else
+                ( { model | newComment = jsonContent }
+                , submitCommentWithContent model jsonContent
+                )
+
+        RequestSubmitComment ->
+            -- Request content from editor, will trigger GotEditorContent
+            ( model, getCommentEditorContent () )
+
+        ToggleCollapse commentId ->
+            let
+                newCollapsed =
+                    if Set.member commentId model.collapsedComments then
+                        Set.remove commentId model.collapsedComments
+                    else
+                        Set.insert commentId model.collapsedComments
+            in
+            ( { model | collapsedComments = newCollapsed }, Cmd.none )
 
 httpErrorToString : Http.Error -> String
 httpErrorToString err =
@@ -426,18 +728,18 @@ viewFeedItem model item =
                 , h2 [ style "margin-top" "0" ] [ text item.title ]
                 , case item.extract of
                     Just extractText ->
-                        p [ style "color" "#333" ] [ text extractText ]
+                        div [ style "color" "#333" ] [ viewRichContent extractText ]
                     Nothing ->
                         text ""
                 ]
-            , div 
+            , div
                 [ style "background" "#f0f0f0"
                 , style "padding" "10px"
                 , style "border-radius" "5px"
                 , style "margin-top" "10px"
                 , style "clear" "both"
                 ]
-                [ text item.ownerComment ]
+                [ viewRichContent item.ownerComment ]
             ]
         ]
 
@@ -455,16 +757,16 @@ viewItemDetail model item =
         , a [ href item.link, style "color" "blue", style "text-decoration" "underline" ] [ text item.link ]
         , div [ style "margin" "15px 0" ] 
             [ img [ src item.image, style "max-width" "100%", style "height" "auto" ] [] ]
-        , p [] [ text item.extract ]
+        , div [] [ viewRichContent item.extract ]
         , div [ style "margin-bottom" "15px" ]
             (List.map (viewTag model) item.tags)
         , div [ style "background" "#f9f9f9", style "padding" "15px", style "font-style" "italic", style "border-radius" "5px" ]
-            [ text ("Owner: " ++ item.ownerComment) ]
+            [ text "Owner: ", viewRichContent item.ownerComment ]
         
         -- Comments Section
         , div [ style "margin-top" "30px", style "border-top" "2px solid #eee", style "padding-top" "20px" ]
             [ h3 [] [ text "Comments" ]
-            , div [] (List.map (viewComment model item.id item.comments) (filterRootComments item.comments))
+            , div [] (List.map (viewComment model item.id item.comments 0) (filterRootComments item.comments))
             , viewReplyButton model item.id Nothing
             ]
         ]
@@ -473,20 +775,153 @@ filterRootComments : List Api.Schema.CommentItem -> List Api.Schema.CommentItem
 filterRootComments comments =
     List.filter (\c -> c.parentId == Nothing) comments
 
-viewComment : Model -> String -> List Api.Schema.CommentItem -> Api.Schema.CommentItem -> Html Msg
-viewComment model itemId allComments comment =
-    div [ style "margin-left" "20px", style "margin-top" "10px", style "border-left" "2px solid #eee", style "padding-left" "10px" ]
-        [ div [ style "font-weight" "bold", style "font-size" "0.9em" ] [ text comment.authorName ]
-        , div [] [ text comment.text ]
-        , viewReplyButton model itemId (Just comment.id)
-        
-        -- Nested Comments (Recursive)
-        , div [] (List.map (viewComment model itemId allComments) (filterChildComments comment.id allComments))
+viewComment : Model -> String -> List Api.Schema.CommentItem -> Int -> Api.Schema.CommentItem -> Html Msg
+viewComment model itemId allComments depth comment =
+    let
+        children = filterChildComments comment.id allComments
+        hasChildren = not (List.isEmpty children)
+        isCollapsed = Set.member comment.id model.collapsedComments
+        depthClass = "depth-" ++ String.fromInt (modBy 12 depth)
+        isRoot = depth == 0
+        threadClasses =
+            "comment-thread " ++ depthClass
+                ++ (if isRoot then " root-comment" else "")
+                ++ (if isCollapsed then " collapsed" else "")
+    in
+    div [ class threadClasses ]
+        [ -- Clickable collapse line (not shown for root comments)
+          if not isRoot then
+            div
+                [ class "comment-collapse-line"
+                , onClick (ToggleCollapse comment.id)
+                ]
+                []
+          else
+            text ""
+
+        -- Comment content
+        , div [ class "comment-content" ]
+            [ div [ class "comment-author" ] [ text comment.authorName ]
+            , div [ class "comment-body" ] [ viewRichContent comment.text ]
+            , div [ class "comment-meta" ]
+                [ if hasChildren then
+                        span [][
+                    button
+                        [ class "comment-collapse-toggle-inline"
+                        , onClick (ToggleCollapse comment.id)
+                        , style "margin-right" "8px"
+                        ]
+                        [ text (if isCollapsed then "+" else "−") ]
+                        , if isCollapsed then
+                            span [ style "color" "#888" ]
+                                [ text ( "(" ++ String.fromInt (countAllReplies comment.id allComments) ++ ")" ) ]
+                          else
+                            text ""
+                        ]
+                  else
+                    text ""
+                , if isCollapsed then 
+                        text ""
+                  else
+                        viewInlineReplyButton model itemId (Just comment.id)
+                ]
+            , viewReplyForm model itemId (Just comment.id)
+            ]
+
+        -- Nested Comments (Recursive) - hidden when collapsed via CSS
+        , div [ class "comment-children" ]
+            (List.map (viewComment model itemId allComments (depth + 1)) children)
         ]
 
 filterChildComments : String -> List Api.Schema.CommentItem -> List Api.Schema.CommentItem
 filterChildComments parentId allComments =
     List.filter (\c -> c.parentId == Just parentId) allComments
+
+
+{-| Count all replies (including nested) to a comment -}
+countAllReplies : String -> List Api.Schema.CommentItem -> Int
+countAllReplies parentId allComments =
+    let
+        directChildren = filterChildComments parentId allComments
+        childCount = List.length directChildren
+        nestedCount = List.sum (List.map (\c -> countAllReplies c.id allComments) directChildren)
+    in
+    childCount + nestedCount
+
+
+{-| Inline reply button shown in comment meta section -}
+viewInlineReplyButton : Model -> String -> Maybe String -> Html Msg
+viewInlineReplyButton model itemId parentId =
+    -- Only show button if we're not already replying to this comment
+    case model.replyingTo of
+        Just activeReply ->
+            if activeReply.itemId == itemId && activeReply.parentId == parentId then
+                text ""  -- Hide button when form is shown
+            else
+                button
+                    [ class "comment-reply-btn"
+                    , onClick (SetReplyTo itemId parentId)
+                    ]
+                    [ text "Reply" ]
+
+        Nothing ->
+            button
+                [ class "comment-reply-btn"
+                , onClick (SetReplyTo itemId parentId)
+                ]
+                [ text "Reply" ]
+
+
+{-| Reply form shown below comment when user is replying to it -}
+viewReplyForm : Model -> String -> Maybe String -> Html Msg
+viewReplyForm model itemId parentId =
+    case model.replyingTo of
+        Just activeReply ->
+            if activeReply.itemId == itemId && activeReply.parentId == parentId then
+                div [ class "comment-form", style "margin-top" "10px" ]
+                    [ div [ style "margin-bottom" "8px", style "font-size" "0.9em", style "color" "#666" ]
+                        [ text ("Commenting as: " ++ (Maybe.map .displayName model.guestSession |> Maybe.withDefault "Guest")) ]
+                    , viewEditorToolbar
+                    , div
+                        [ id "comment-editor"
+                        , class "comment-editor"
+                        , style "border" "1px solid #ccc"
+                        , style "border-top" "none"
+                        , style "border-radius" "0 0 4px 4px"
+                        , style "min-height" "80px"
+                        , style "padding" "10px"
+                        , style "background" "white"
+                        ]
+                        []
+                    , div [ style "margin-top" "10px", style "display" "flex", style "gap" "8px" ]
+                        [ button
+                            [ onClick RequestSubmitComment
+                            , class "btn-primary"
+                            , style "padding" "8px 16px"
+                            , style "background" "#007bff"
+                            , style "color" "white"
+                            , style "border" "none"
+                            , style "border-radius" "4px"
+                            , style "cursor" "pointer"
+                            ]
+                            [ text "Submit" ]
+                        , button
+                            [ onClick CancelReply
+                            , style "padding" "8px 16px"
+                            , style "background" "#f0f0f0"
+                            , style "border" "1px solid #ccc"
+                            , style "border-radius" "4px"
+                            , style "cursor" "pointer"
+                            ]
+                            [ text "Cancel" ]
+                        ]
+                    ]
+            else
+                text ""
+
+        Nothing ->
+            text ""
+
 
 viewReplyButton : Model -> String -> Maybe String -> Html Msg
 viewReplyButton model itemId parentId =
@@ -499,29 +934,96 @@ viewReplyButton model itemId parentId =
     case model.replyingTo of
         Just activeReply ->
             if activeReply.itemId == itemId && activeReply.parentId == parentId then
-                div [ style "margin-top" "5px", style "background" "#f0f0f0", style "padding" "10px" ]
-                    [ div [ style "margin-bottom" "5px", style "font-size" "0.9em", style "color" "#666" ]
+                div [ class "comment-form", style "margin-top" "10px" ]
+                    [ div [ style "margin-bottom" "8px", style "font-size" "0.9em", style "color" "#666" ]
                         [ text ("Commenting as: " ++ (Maybe.map .displayName model.guestSession |> Maybe.withDefault "Guest")) ]
-                    , textarea 
-                        [ placeholder "Write a reply..."
-                        , value model.newComment
-                        , onInput SetCommentText
-                        , style "width" "100%"
-                        , style "height" "60px"
-                        ] []
-                    , div [ style "margin-top" "5px" ]
-                        [ button [ onClick PerformSubmitComment, style "margin-right" "5px" ] [ text "Submit" ]
-                        , button [ onClick CancelReply ] [ text "Cancel" ]
+                    , viewEditorToolbar
+                    , div
+                        [ id "comment-editor"
+                        , class "comment-editor"
+                        , style "border" "1px solid #ccc"
+                        , style "border-top" "none"
+                        , style "border-radius" "0 0 4px 4px"
+                        , style "min-height" "80px"
+                        , style "padding" "10px"
+                        , style "background" "white"
+                        ]
+                        []
+                    , div [ style "margin-top" "10px", style "display" "flex", style "gap" "8px" ]
+                        [ button
+                            [ onClick RequestSubmitComment
+                            , class "btn-primary"
+                            , style "padding" "8px 16px"
+                            , style "background" "#007bff"
+                            , style "color" "white"
+                            , style "border" "none"
+                            , style "border-radius" "4px"
+                            , style "cursor" "pointer"
+                            ]
+                            [ text "Submit" ]
+                        , button
+                            [ onClick CancelReply
+                            , style "padding" "8px 16px"
+                            , style "background" "#f0f0f0"
+                            , style "border" "1px solid #ccc"
+                            , style "border-radius" "4px"
+                            , style "cursor" "pointer"
+                            ]
+                            [ text "Cancel" ]
                         ]
                     ]
             else
                 button [ onClick (SetReplyTo itemId parentId), style "font-size" "0.8em", style "color" "gray", style "background" "none", style "border" "none", style "cursor" "pointer", style "text-decoration" "underline" ] [ text "Respond" ]
-        
+
         Nothing ->
             div []
-                [ br [] [],
-                button [ onClick (SetReplyTo itemId parentId), style "font-size" "0.8em", style "color" "gray", style "background" "none", style "border" "none", style "cursor" "pointer", style "text-decoration" "underline" ] [ text action ]
+                [ br [] []
+                , button [ onClick (SetReplyTo itemId parentId), style "font-size" "0.8em", style "color" "gray", style "background" "none", style "border" "none", style "cursor" "pointer", style "text-decoration" "underline" ] [ text action ]
                 ]
+
+
+viewEditorToolbar : Html Msg
+viewEditorToolbar =
+    div
+        [ class "editor-toolbar"
+        , style "display" "flex"
+        , style "gap" "2px"
+        , style "padding" "6px"
+        , style "background" "#f5f5f5"
+        , style "border" "1px solid #ccc"
+        , style "border-radius" "4px 4px 0 0"
+        ]
+        [ toolbarButton "B" "bold" [ style "font-weight" "bold" ]
+        , toolbarButton "I" "italic" [ style "font-style" "italic" ]
+        , toolbarButton "</>" "code" [ style "font-family" "monospace", style "font-size" "0.9em" ]
+        , toolbarSeparator
+        , toolbarButton "🔗" "link" []
+        , toolbarSeparator
+        , toolbarButton "•" "bulletList" []
+        , toolbarButton "❝" "blockquote" []
+        ]
+
+
+toolbarButton : String -> String -> List (Html.Attribute Msg) -> Html Msg
+toolbarButton label action extraStyles =
+    button
+        ([ onClick (EditorCommand action)
+         , type_ "button"
+         , style "padding" "4px 8px"
+         , style "background" "white"
+         , style "border" "1px solid #ddd"
+         , style "border-radius" "3px"
+         , style "cursor" "pointer"
+         , style "min-width" "28px"
+         ]
+            ++ extraStyles
+        )
+        [ text label ]
+
+
+toolbarSeparator : Html Msg
+toolbarSeparator =
+    span [ style "width" "1px", style "background" "#ddd", style "margin" "0 4px" ] []
 
 viewTag : Model -> String -> Html Msg
 viewTag model tag =
@@ -604,5 +1106,8 @@ main =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Storage.onGuestSessionLoaded GuestSessionLoaded
+    Sub.batch
+        [ Storage.onGuestSessionLoaded GuestSessionLoaded
+        , commentEditorContent GotEditorContent
+        ]
 

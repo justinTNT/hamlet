@@ -3168,7 +3168,6 @@ var $author$project$Api$Handlers$SubmitCommentHandler$decodeRequest = function (
 			$elm$json$Json$Decode$errorToString,
 			A2($elm$json$Json$Decode$decodeValue, $author$project$Api$Handlers$SubmitCommentHandler$contextDecoder, bundle.context)));
 };
-var $elm$core$Debug$log = _Debug_log;
 var $author$project$BuildAmp$Database$dbCreate = _Platform_outgoingPort(
 	'dbCreate',
 	function ($) {
@@ -3186,52 +3185,110 @@ var $author$project$BuildAmp$Database$dbCreate = _Platform_outgoingPort(
 					$elm$json$Json$Encode$string($.table))
 				]));
 	});
-var $author$project$BuildAmp$Database$encodeMaybe = F2(
-	function (encoder, maybeValue) {
-		if (maybeValue.$ === 'Nothing') {
-			return $elm$json$Json$Encode$null;
-		} else {
-			var value = maybeValue.a;
-			return encoder(value);
-		}
+var $author$project$Api$Handlers$SubmitCommentHandler$getServerTimestamp = function (config) {
+	return config.serverNow;
+};
+var $elm$json$Json$Decode$decodeString = _Json_runOnString;
+var $elm$core$String$startsWith = _String_startsWith;
+var $elm$json$Json$Encode$list = F2(
+	function (func, entries) {
+		return _Json_wrap(
+			A3(
+				$elm$core$List$foldl,
+				_Json_addEntry(func),
+				_Json_emptyArray(_Utils_Tuple0),
+				entries));
 	});
-var $author$project$BuildAmp$Database$encodeItemCommentDbCreate = function (item) {
+var $author$project$Api$Handlers$SubmitCommentHandler$wrapPlainText = function (plainText) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
 				_Utils_Tuple2(
-				'item_id',
-				$elm$json$Json$Encode$string(item.itemId)),
+				'type',
+				$elm$json$Json$Encode$string('doc')),
 				_Utils_Tuple2(
-				'guest_id',
-				$elm$json$Json$Encode$string(item.guestId)),
-				_Utils_Tuple2(
-				'parent_id',
-				A2($author$project$BuildAmp$Database$encodeMaybe, $elm$json$Json$Encode$string, item.parentId)),
-				_Utils_Tuple2(
-				'author_name',
-				$elm$json$Json$Encode$string(item.authorName)),
-				_Utils_Tuple2(
-				'text',
-				$elm$json$Json$Encode$string(item.text))
+				'content',
+				A2(
+					$elm$json$Json$Encode$list,
+					$elm$core$Basics$identity,
+					_List_fromArray(
+						[
+							$elm$json$Json$Encode$object(
+							_List_fromArray(
+								[
+									_Utils_Tuple2(
+									'type',
+									$elm$json$Json$Encode$string('paragraph')),
+									_Utils_Tuple2(
+									'content',
+									A2(
+										$elm$json$Json$Encode$list,
+										$elm$core$Basics$identity,
+										_List_fromArray(
+											[
+												$elm$json$Json$Encode$object(
+												_List_fromArray(
+													[
+														_Utils_Tuple2(
+														'type',
+														$elm$json$Json$Encode$string('text')),
+														_Utils_Tuple2(
+														'text',
+														$elm$json$Json$Encode$string(plainText))
+													]))
+											])))
+								]))
+						])))
 			]));
 };
-var $author$project$Api$Handlers$SubmitCommentHandler$getServerTimestamp = function (config) {
-	return config.serverNow;
+var $author$project$Api$Handlers$SubmitCommentHandler$textToRichContent = function (textValue) {
+	if (A2($elm$core$String$startsWith, '{\"type\":\"doc\"', textValue)) {
+		var _v0 = A2($elm$json$Json$Decode$decodeString, $elm$json$Json$Decode$value, textValue);
+		if (_v0.$ === 'Ok') {
+			var jsonValue = _v0.a;
+			return jsonValue;
+		} else {
+			return $author$project$Api$Handlers$SubmitCommentHandler$wrapPlainText(textValue);
+		}
+	} else {
+		return $author$project$Api$Handlers$SubmitCommentHandler$wrapPlainText(textValue);
+	}
 };
 var $author$project$Api$Handlers$SubmitCommentHandler$processRequest = F2(
 	function (request, model) {
-		var currentTimestamp = $author$project$Api$Handlers$SubmitCommentHandler$getServerTimestamp(model.globalConfig);
-		var commentData = {
-			authorName: A2($elm$core$Maybe$withDefault, 'Anonymous', request.authorName),
-			guestId: A2($elm$core$Maybe$withDefault, 'guest_anonymous', request.authorName),
-			itemId: request.itemId,
-			parentId: request.parentId,
-			text: request.text
+		var encodeOptionalString = function (maybeStr) {
+			if (maybeStr.$ === 'Just') {
+				var str = maybeStr.a;
+				return $elm$json$Json$Encode$string(str);
+			} else {
+				return $elm$json$Json$Encode$null;
+			}
 		};
+		var currentTimestamp = $author$project$Api$Handlers$SubmitCommentHandler$getServerTimestamp(model.globalConfig);
+		var commentData = $elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'item_id',
+					$elm$json$Json$Encode$string(request.itemId)),
+					_Utils_Tuple2(
+					'guest_id',
+					$elm$json$Json$Encode$string(
+						A2($elm$core$Maybe$withDefault, 'guest_anonymous', request.authorName))),
+					_Utils_Tuple2(
+					'parent_id',
+					encodeOptionalString(request.parentId)),
+					_Utils_Tuple2(
+					'author_name',
+					$elm$json$Json$Encode$string(
+						A2($elm$core$Maybe$withDefault, 'Anonymous', request.authorName))),
+					_Utils_Tuple2(
+					'text',
+					$author$project$Api$Handlers$SubmitCommentHandler$textToRichContent(request.text))
+				]));
 		return $author$project$BuildAmp$Database$dbCreate(
 			{
-				data: $author$project$BuildAmp$Database$encodeItemCommentDbCreate(commentData),
+				data: commentData,
 				id: 'create_comment_' + $elm$core$String$fromInt(currentTimestamp),
 				table: 'item_comment'
 			});
@@ -3252,7 +3309,6 @@ var $author$project$Api$Handlers$SubmitCommentHandler$update = F2(
 						request: $elm$core$Maybe$Just(req),
 						stage: $author$project$Api$Handlers$SubmitCommentHandler$Processing
 					});
-				var _v3 = A2($elm$core$Debug$log, '🐛 SubmitComment: Received request', req);
 				return _Utils_Tuple2(
 					updatedModel,
 					A2($author$project$Api$Handlers$SubmitCommentHandler$processRequest, req, updatedModel));
@@ -3268,17 +3324,16 @@ var $author$project$Api$Handlers$SubmitCommentHandler$update = F2(
 			}
 		} else {
 			var dbResponse = msg.a;
-			var _v4 = A2($elm$core$Debug$log, '🐛 SubmitComment: CommentCreated dbResponse', dbResponse);
 			if (dbResponse.success) {
-				var _v5 = dbResponse.data;
-				if (_v5.$ === 'Just') {
-					var returnedData = _v5.a;
-					var _v6 = A2(
+				var _v3 = dbResponse.data;
+				if (_v3.$ === 'Just') {
+					var returnedData = _v3.a;
+					var _v4 = A2(
 						$elm$json$Json$Decode$decodeValue,
 						A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string),
 						returnedData);
-					if (_v6.$ === 'Ok') {
-						var generatedId = _v6.a;
+					if (_v4.$ === 'Ok') {
+						var generatedId = _v4.a;
 						var apiComment = {
 							authorName: A2(
 								$elm$core$Maybe$withDefault,
@@ -3390,7 +3445,6 @@ var $author$project$Api$Handlers$SubmitCommentHandler$update = F2(
 							$elm$core$Platform$Cmd$none);
 					}
 				} else {
-					var _v7 = A2($elm$core$Debug$log, '🐛 SubmitComment: No data returned from database', _Utils_Tuple0);
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
@@ -3401,7 +3455,6 @@ var $author$project$Api$Handlers$SubmitCommentHandler$update = F2(
 				}
 			} else {
 				var error = A2($elm$core$Maybe$withDefault, 'Database operation failed', dbResponse.error);
-				var _v8 = A2($elm$core$Debug$log, '🐛 SubmitComment: DB Error', error);
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,

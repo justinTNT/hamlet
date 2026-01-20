@@ -3137,8 +3137,53 @@ var $author$project$BuildAmp$Database$dbCreate = _Platform_outgoingPort(
 var $elm$core$String$isEmpty = function (string) {
 	return string === '';
 };
+var $author$project$Api$Handlers$SubmitItemHandler$wrapInRichContent = function (plainText) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'type',
+				$elm$json$Json$Encode$string('doc')),
+				_Utils_Tuple2(
+				'content',
+				A2(
+					$elm$json$Json$Encode$list,
+					$elm$core$Basics$identity,
+					_List_fromArray(
+						[
+							$elm$json$Json$Encode$object(
+							_List_fromArray(
+								[
+									_Utils_Tuple2(
+									'type',
+									$elm$json$Json$Encode$string('paragraph')),
+									_Utils_Tuple2(
+									'content',
+									A2(
+										$elm$json$Json$Encode$list,
+										$elm$core$Basics$identity,
+										_List_fromArray(
+											[
+												$elm$json$Json$Encode$object(
+												_List_fromArray(
+													[
+														_Utils_Tuple2(
+														'type',
+														$elm$json$Json$Encode$string('text')),
+														_Utils_Tuple2(
+														'text',
+														$elm$json$Json$Encode$string(plainText))
+													]))
+											])))
+								]))
+						])))
+			]));
+};
 var $author$project$Api$Handlers$SubmitItemHandler$createMicroblogItem = F3(
 	function (itemId, req, timestamp) {
+		var encodeOptionalRichContent = function (str) {
+			return $elm$core$String$isEmpty(str) ? $elm$json$Json$Encode$null : $author$project$Api$Handlers$SubmitItemHandler$wrapInRichContent(str);
+		};
 		var encodeOptional = function (str) {
 			return $elm$core$String$isEmpty(str) ? $elm$json$Json$Encode$null : $elm$json$Json$Encode$string(str);
 		};
@@ -3159,10 +3204,10 @@ var $author$project$Api$Handlers$SubmitItemHandler$createMicroblogItem = F3(
 					encodeOptional(req.image)),
 					_Utils_Tuple2(
 					'extract',
-					encodeOptional(req.extract)),
+					encodeOptionalRichContent(req.extract)),
 					_Utils_Tuple2(
 					'owner_comment',
-					$elm$json$Json$Encode$string(req.ownerComment)),
+					$author$project$Api$Handlers$SubmitItemHandler$wrapInRichContent(req.ownerComment)),
 					_Utils_Tuple2(
 					'created_at',
 					$elm$json$Json$Encode$int(timestamp)),

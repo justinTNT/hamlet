@@ -3035,6 +3035,15 @@ var $author$project$BuildAmp$Database$ItemCommentDb = F9(
 	function (id, host, itemId, guestId, parentId, authorName, text, createdAt, deletedAt) {
 		return {authorName: authorName, createdAt: createdAt, deletedAt: deletedAt, guestId: guestId, host: host, id: id, itemId: itemId, parentId: parentId, text: text};
 	});
+var $author$project$BuildAmp$Database$richContentDecoder = $elm$json$Json$Decode$oneOf(
+	_List_fromArray(
+		[
+			$elm$json$Json$Decode$string,
+			A2(
+			$elm$json$Json$Decode$map,
+			$elm$json$Json$Encode$encode(0),
+			$elm$json$Json$Decode$value)
+		]));
 var $author$project$BuildAmp$Database$itemcommentDbDecoder = A3(
 	$author$project$BuildAmp$Database$decodeField,
 	'deleted_at',
@@ -3046,7 +3055,7 @@ var $author$project$BuildAmp$Database$itemcommentDbDecoder = A3(
 		A3(
 			$author$project$BuildAmp$Database$decodeField,
 			'text',
-			$elm$json$Json$Decode$string,
+			$author$project$BuildAmp$Database$richContentDecoder,
 			A3(
 				$author$project$BuildAmp$Database$decodeField,
 				'author_name',
@@ -3163,11 +3172,11 @@ var $author$project$BuildAmp$Database$microblogitemDbDecoder = A3(
 				A3(
 					$author$project$BuildAmp$Database$decodeField,
 					'owner_comment',
-					$elm$json$Json$Decode$string,
+					$author$project$BuildAmp$Database$richContentDecoder,
 					A3(
 						$author$project$BuildAmp$Database$decodeField,
 						'extract',
-						$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
+						$elm$json$Json$Decode$nullable($author$project$BuildAmp$Database$richContentDecoder),
 						A3(
 							$author$project$BuildAmp$Database$decodeField,
 							'image',

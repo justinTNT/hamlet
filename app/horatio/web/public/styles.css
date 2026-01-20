@@ -9,3 +9,193 @@
     font-size: 12px;
     text-align: center;
 }
+
+/* Tiptap Comment Editor Styles */
+.comment-editor {
+    font-family: inherit;
+    line-height: 1.5;
+}
+
+.comment-editor:focus-within {
+    outline: none !important;
+}
+
+.comment-editor .ProseMirror {
+    outline: none;
+    min-height: 60px;
+}
+
+/* Remove ProseMirror focus outline */
+.ProseMirror-focused {
+    outline: none !important;
+}
+
+.comment-editor .ProseMirror p {
+    margin: 0 0 0.5em 0;
+}
+
+.comment-editor .ProseMirror p:last-child {
+    margin-bottom: 0;
+}
+
+.comment-editor .ProseMirror ul,
+.comment-editor .ProseMirror ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+}
+
+.comment-editor .ProseMirror blockquote {
+    border-left: 3px solid #ccc;
+    margin: 0.5em 0;
+    padding-left: 1em;
+    color: #666;
+}
+
+.comment-editor .ProseMirror code {
+    background: #f0f0f0;
+    padding: 0.1em 0.3em;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+.comment-editor .ProseMirror a {
+    color: #007bff;
+    text-decoration: underline;
+}
+
+/* Placeholder text */
+.comment-editor .ProseMirror p.is-editor-empty:first-child::before {
+    content: 'Write your comment...';
+    color: #aaa;
+    float: left;
+    pointer-events: none;
+    height: 0;
+}
+
+/* Toolbar button hover */
+.editor-toolbar button:hover {
+    background: #e9e9e9 !important;
+}
+
+/* Comment Thread Styling */
+.comment-thread {
+    position: relative;
+    margin-left: 32px;
+    padding-left: 20px;
+    margin-top: 16px;
+}
+
+/* Clickable collapse line */
+.comment-collapse-line {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 8px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+}
+
+.comment-collapse-line::before {
+    content: '';
+    width: 2px;
+    height: 100%;
+    background: #ccc;
+    border-radius: 1px;
+}
+
+.comment-collapse-line:hover::before {
+    width: 4px;
+}
+
+/* Rainbow colors cycling through ROYGBIV based on depth */
+.comment-thread.depth-0 > .comment-collapse-line::before { background: #e74c3c; } /* Red */
+.comment-thread.depth-1 > .comment-collapse-line::before { background: #e67e22; } /* Orange */
+.comment-thread.depth-2 > .comment-collapse-line::before { background: #f1c40f; } /* Yellow */
+.comment-thread.depth-3 > .comment-collapse-line::before { background: #2ecc71; } /* Green */
+.comment-thread.depth-4 > .comment-collapse-line::before { background: #3498db; } /* Blue */
+.comment-thread.depth-5 > .comment-collapse-line::before { background: #9b59b6; } /* Indigo/Violet */
+.comment-thread.depth-6 > .comment-collapse-line::before { background: #e74c3c; } /* Red (cycle) */
+.comment-thread.depth-7 > .comment-collapse-line::before { background: #e67e22; } /* Orange */
+.comment-thread.depth-8 > .comment-collapse-line::before { background: #f1c40f; } /* Yellow */
+.comment-thread.depth-9 > .comment-collapse-line::before { background: #2ecc71; } /* Green */
+.comment-thread.depth-10 > .comment-collapse-line::before { background: #3498db; } /* Blue */
+.comment-thread.depth-11 > .comment-collapse-line::before { background: #9b59b6; } /* Violet */
+
+/* Comment content */
+.comment-content {
+    padding: 8px 0;
+}
+
+.comment-author {
+    font-weight: 600;
+    font-size: 0.9em;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.comment-body {
+    color: #444;
+    line-height: 1.5;
+}
+
+.comment-body p {
+    margin: 0 0 0.5em 0;
+}
+
+.comment-body p:last-child {
+    margin-bottom: 0;
+}
+
+.comment-meta {
+    font-size: 0.8em;
+    color: #888;
+    margin-top: 6px;
+}
+
+/* Inline collapse toggle (next to Reply) */
+.comment-collapse-toggle-inline {
+    font-size: 0.8em;
+    color: #666;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+}
+
+.comment-collapse-toggle-inline:hover {
+    color: #333;
+}
+
+/* Collapsed state */
+.comment-thread.collapsed > .comment-children {
+    display: none;
+}
+
+/* Reply button */
+.comment-reply-btn {
+    font-size: 0.8em;
+    color: #666;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+}
+
+.comment-reply-btn:hover {
+    color: #333;
+}
+
+/* Root level comments (no indent) */
+.comment-thread.root-comment {
+    margin-left: 0;
+    padding-left: 0;
+}
+
+.comment-thread.root-comment::before {
+    display: none;
+}

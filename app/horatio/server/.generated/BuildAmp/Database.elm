@@ -453,7 +453,7 @@ type alias ItemCommentDb =
     , guestId : String -- ForeignKey Guest String
     , parentId : Maybe String -- Maybe String
     , authorName : String -- String
-    , text : String -- String
+    , text : String -- RichContent
     , createdAt : CreateTimestamp -- CreateTimestamp
     , deletedAt : SoftDelete -- SoftDelete
     }
@@ -554,7 +554,7 @@ itemcommentDbDecoder =
         |> decodeField "guest_id" Decode.string
         |> decodeField "parent_id" (Decode.nullable Decode.string)
         |> decodeField "author_name" Decode.string
-        |> decodeField "text" Decode.string
+        |> decodeField "text" richContentDecoder
         |> decodeField "created_at" timestampDecoder
         |> decodeField "deleted_at" (Decode.nullable timestampDecoder)
 
@@ -816,8 +816,8 @@ microblogitemDbDecoder =
         |> decodeField "title" Decode.string
         |> decodeField "link" (Decode.nullable Decode.string)
         |> decodeField "image" (Decode.nullable Decode.string)
-        |> decodeField "extract" (Decode.nullable Decode.string)
-        |> decodeField "owner_comment" Decode.string
+        |> decodeField "extract" (Decode.nullable richContentDecoder)
+        |> decodeField "owner_comment" richContentDecoder
         |> decodeField "created_at" timestampDecoder
         |> decodeField "updated_at" timestampDecoder
         |> decodeField "view_count" Decode.int
@@ -1001,6 +1001,15 @@ stringToInt str =
     case String.toInt str of
         Just int -> Decode.succeed int
         Nothing -> Decode.fail ("Could not parse timestamp: " ++ str)
+
+
+-- RichContent decoder (handles JSONB object -> JSON string)
+richContentDecoder : Decode.Decoder String
+richContentDecoder =
+    Decode.oneOf
+        [ Decode.string  -- Already a string (legacy)
+        , Decode.value |> Decode.map (Encode.encode 0)  -- JSONB object -> JSON string
+        ]
 
 
 -- UTILITY FUNCTIONS
