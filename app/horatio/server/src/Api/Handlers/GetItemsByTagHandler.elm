@@ -6,7 +6,7 @@ Returns feed items filtered by a specific tag.
 
 -}
 
-import Api.Backend exposing (GetItemsByTagReq, GetItemsByTagRes, FeedItem)
+import BuildAmp.Api exposing (GetItemsByTagReq, GetItemsByTagRes, FeedItem)
 import BuildAmp.Database as DB
 import Json.Encode as Encode
 import Json.Decode as Decode
@@ -305,7 +305,7 @@ andMap = Decode.map2 (|>)
 decodeRequest : RequestBundle -> Result String ( GetItemsByTagReq, Context )
 decodeRequest bundle =
     Result.map2 Tuple.pair
-        (Decode.decodeValue Api.Backend.getItemsByTagReqDecoder bundle.request |> Result.mapError Decode.errorToString)
+        (Decode.decodeValue BuildAmp.Api.getItemsByTagReqDecoder bundle.request |> Result.mapError Decode.errorToString)
         (Decode.decodeValue contextDecoder bundle.context |> Result.mapError Decode.errorToString)
 
 
@@ -321,7 +321,7 @@ contextDecoder =
 
 encodeGetItemsByTagRes : GetItemsByTagRes -> Encode.Value
 encodeGetItemsByTagRes response =
-    Api.Backend.getItemsByTagResEncoder response
+    BuildAmp.Api.getItemsByTagResEncoder response
 
 
 encodeError : String -> Encode.Value

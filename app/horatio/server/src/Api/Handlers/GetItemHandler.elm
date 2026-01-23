@@ -13,7 +13,7 @@ Business Logic:
 
 -}
 
-import Api.Backend exposing (GetItemReq, GetItemRes)
+import BuildAmp.Api exposing (GetItemReq, GetItemRes)
 import BuildAmp.Database as DB
 import BuildAmp.Events as Events
 import BuildAmp.Services as Services
@@ -324,7 +324,7 @@ decodeComments data =
 
 {-| Transform a MicroblogItemDb with all its relations to the API MicroblogItem format
 -}
-transformToMicroblogItem : DB.MicroblogItemDb -> List DB.TagDb -> List DB.ItemTagDb -> List DB.ItemCommentDb -> Api.Backend.MicroblogItem
+transformToMicroblogItem : DB.MicroblogItemDb -> List DB.TagDb -> List DB.ItemTagDb -> List DB.ItemCommentDb -> BuildAmp.Api.MicroblogItem
 transformToMicroblogItem dbItem allTags itemTags comments =
     let
         -- Filter item tags for this specific item
@@ -358,15 +358,20 @@ transformToMicroblogItem dbItem allTags itemTags comments =
 
 
 {-| Transform a database comment to API format
+Replaces text with moderation message for removed comments
 -}
-transformCommentToApi : DB.ItemCommentDb -> Api.Backend.CommentItem
+transformCommentToApi : DB.ItemCommentDb -> BuildAmp.Api.CommentItem
 transformCommentToApi dbComment =
     { id = dbComment.id
     , itemId = dbComment.itemId
     , guestId = dbComment.guestId
     , parentId = dbComment.parentId
     , authorName = dbComment.authorName
-    , text = dbComment.text
+    , text =
+        if dbComment.removed then
+            "[removed by moderation]"
+        else
+            dbComment.text
     , timestamp = dbComment.createdAt
     }
 
@@ -405,7 +410,7 @@ andMap = Decode.map2 (|>)
 decodeRequest : RequestBundle -> Result String ( GetItemReq, Context )
 decodeRequest bundle =
     Result.map2 Tuple.pair
-        (Decode.decodeValue Api.Backend.getItemReqDecoder bundle.request |> Result.mapError Decode.errorToString)
+        (Decode.decodeValue BuildAmp.Api.getItemReqDecoder bundle.request |> Result.mapError Decode.errorToString)
         (Decode.decodeValue contextDecoder bundle.context |> Result.mapError Decode.errorToString)
 
 
@@ -421,7 +426,7 @@ contextDecoder =
 
 encodeGetItemRes : GetItemRes -> Encode.Value
 encodeGetItemRes response =
-    Api.Backend.getItemResEncoder response
+    BuildAmp.Api.getItemResEncoder response
 
 
 encodeError : String -> Encode.Value

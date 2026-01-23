@@ -126,8 +126,8 @@ async function deleteGuest(id, host) {
  */
 async function insertItemComment(itemcomment, host) {
     const result = await pool.query(
-        'INSERT INTO item_comment (item_id, guest_id, parent_id, author_name, text, created_at, host) VALUES ($2, $3, $4, $5, $6, $7, $1) RETURNING *',
-        [host, itemcomment.item_id, itemcomment.guest_id, itemcomment.parent_id, itemcomment.author_name, itemcomment.text, itemcomment.created_at]
+        'INSERT INTO item_comment (item_id, guest_id, parent_id, author_name, text, removed, created_at, host) VALUES ($2, $3, $4, $5, $6, $7, $8, $1) RETURNING *',
+        [host, itemcomment.item_id, itemcomment.guest_id, itemcomment.parent_id, itemcomment.author_name, itemcomment.text, itemcomment.removed, itemcomment.created_at]
     );
     return result.rows[0];
 }

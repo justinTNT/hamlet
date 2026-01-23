@@ -5,7 +5,7 @@ module BuildAmp.Config exposing (..)
 These types are generated from Elm models in shared/Config/*.elm
 They define the shape of configuration data passed to Elm via init flags.
 
-@docs Cron, CronEvent, GlobalConfig, FeatureFlags
+@docs AdminHooks, AdminHook, Cron, CronEvent, GlobalConfig, FeatureFlags
 
 -}
 
@@ -14,6 +14,26 @@ import Json.Encode as Encode
 
 
 -- CONFIG TYPES
+
+{-| AdminHooks configuration type
+Generated from AdminHooks.elm
+-}
+type alias AdminHooks =
+    {     table : String
+    , field : String
+    , event : String
+    }
+
+
+{-| AdminHook configuration type
+Generated from AdminHooks.elm
+-}
+type alias AdminHook =
+    {     table : String
+    , field : String
+    , event : String
+    }
+
 
 {-| Cron configuration type
 Generated from Cron.elm
@@ -54,6 +74,22 @@ type alias FeatureFlags =
 
 -- DECODERS
 
+adminHooksDecoder : Decode.Decoder AdminHooks
+adminHooksDecoder =
+    Decode.succeed AdminHooks
+        |> andMap (Decode.field "table" Decode.string)
+        |> andMap (Decode.field "field" Decode.string)
+        |> andMap (Decode.field "event" Decode.string)
+
+
+adminHookDecoder : Decode.Decoder AdminHook
+adminHookDecoder =
+    Decode.succeed AdminHook
+        |> andMap (Decode.field "table" Decode.string)
+        |> andMap (Decode.field "field" Decode.string)
+        |> andMap (Decode.field "event" Decode.string)
+
+
 cronDecoder : Decode.Decoder Cron
 cronDecoder =
     Decode.succeed Cron
@@ -84,6 +120,24 @@ featureFlagsDecoder =
 
 
 -- ENCODERS
+
+encodeAdminHooks : AdminHooks -> Encode.Value
+encodeAdminHooks config =
+    Encode.object
+        [ ("table", Encode.string config.table)
+        , ("field", Encode.string config.field)
+        , ("event", Encode.string config.event)
+        ]
+
+
+encodeAdminHook : AdminHook -> Encode.Value
+encodeAdminHook config =
+    Encode.object
+        [ ("table", Encode.string config.table)
+        , ("field", Encode.string config.field)
+        , ("event", Encode.string config.event)
+        ]
+
 
 encodeCron : Cron -> Encode.Value
 encodeCron config =

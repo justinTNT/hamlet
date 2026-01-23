@@ -54,8 +54,8 @@ export default async function createEventService(server) {
 
         for (const config of handlerConfigs) {
             try {
-                // Look for compiled handler in src/Events/Handlers/
-                const handlerPath = path.join(handlersDir, `${config.file}.cjs`);
+                // Look for compiled handler in server/ (same pattern as elm-service.js)
+                const handlerPath = path.join(handlersPath, `${config.file}.cjs`);
 
                 if (fs.existsSync(handlerPath)) {
                     // Load the compiled handler module
@@ -192,6 +192,27 @@ export default async function createEventService(server) {
 
                     // Set up database port handlers
                     setupDatabasePorts(elmApp, handlerInstance, eventSubscriptions, eventContext, server);
+
+                    // Set up SSE broadcast port handler
+                    if (elmApp.ports.sseBroadcast) {
+                        const sseBroadcastUnsubscribe = elmApp.ports.sseBroadcast.subscribe(async (request) => {
+                            try {
+                                const sseService = server.getService('sse');
+                                const host = eventContext.host;
+
+                                if (sseService && sseService.broadcast) {
+                                    await sseService.broadcast(host, request.eventType, request.data);
+                                    console.log(`📡 SSE broadcast [${eventContext.eventId}]: ${request.eventType} to host ${host}`);
+                                } else {
+                                    console.warn(`⚠️ SSE service not available for broadcast: ${request.eventType}`);
+                                }
+                            } catch (error) {
+                                console.error(`❌ SSE broadcast failed [${eventContext.eventId}]: ${error.message}`);
+                            }
+                        });
+                        handlerInstance.addSubscription(sseBroadcastUnsubscribe);
+                        eventSubscriptions.add(sseBroadcastUnsubscribe);
+                    }
 
                     // Send event to Elm in TEA format
                     if (elmApp.ports && elmApp.ports.handleEvent) {

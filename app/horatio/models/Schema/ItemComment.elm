@@ -19,6 +19,7 @@ type alias ItemComment =
     , parentId : Maybe String
     , authorName : String
     , text : RichContent
+    , removed : Bool -- Set by admin moderation
     , createdAt : CreateTimestamp
     , deletedAt : SoftDelete
     }

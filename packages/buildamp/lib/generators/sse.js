@@ -12,7 +12,7 @@ import { parseElmSseDir } from '../../core/elm-parser-ts.js';
 // Generate Elm type alias for an SSE event
 function generateElmType(model) {
     const { name, fields } = model;
-    
+
     const elmFields = fields.map(field => {
         let elmType;
         if (field.type === 'String') {
@@ -30,16 +30,18 @@ function generateElmType(model) {
         } else {
             elmType = 'String'; // Default fallback
         }
-        
+
         if (field.isOptional) {
             // Wrap compound types in parentheses when used with Maybe
             const needsParens = elmType.includes(' ');
             elmType = needsParens ? `Maybe (${elmType})` : `Maybe ${elmType}`;
         }
 
-        return `    ${field.name} : ${elmType}`;
+        // Use camelCase for idiomatic Elm field names
+        const elmFieldName = field.camelName || field.name;
+        return `    ${elmFieldName} : ${elmType}`;
     });
-    
+
     return `type alias ${name} =
     { ${elmFields.join('\n    , ')}
     }`;
@@ -49,7 +51,7 @@ function generateElmType(model) {
 function generateElmDecoder(model) {
     const { name, fields } = model;
     const decoderName = `decode${name}`;
-    
+
     const fieldDecoders = fields.map(field => {
         let decoder;
         if (field.type === 'String') {
@@ -67,18 +69,68 @@ function generateElmDecoder(model) {
         } else {
             decoder = 'Decode.string'; // Default fallback
         }
-        
+
         if (field.isOptional) {
             decoder = `(Decode.maybe ${decoder})`;
         }
-        
-        return `        |> andMap (Decode.field "${field.name}" ${decoder})`;
+
+        // Use snake_case for JSON field names (wire format)
+        const jsonFieldName = field.name;
+        return `        |> andMap (Decode.field "${jsonFieldName}" ${decoder})`;
     });
-    
+
     return `${decoderName} : Decode.Decoder ${name}
 ${decoderName} =
     Decode.succeed ${name}
 ${fieldDecoders.join('\n')}`;
+}
+
+// Generate Elm encoder for an SSE event (server-side)
+function generateElmEncoder(model) {
+    const { name, fields } = model;
+    const encoderName = `encode${name}`;
+    const paramName = name.charAt(0).toLowerCase() + name.slice(1);
+
+    const fieldEncoders = fields.map(field => {
+        let encoder;
+        if (field.type === 'String') {
+            encoder = 'Encode.string';
+        } else if (field.type === 'i64' || field.type === 'i32') {
+            encoder = 'Encode.int';
+        } else if (field.type === 'f64' || field.type === 'f32') {
+            encoder = 'Encode.float';
+        } else if (field.type === 'bool') {
+            encoder = 'Encode.bool';
+        } else if (field.type.includes('Vec<String>')) {
+            encoder = '(Encode.list Encode.string)';
+        } else if (field.type.includes('Vec<')) {
+            encoder = '(Encode.list Encode.string)';
+        } else {
+            encoder = 'Encode.string';
+        }
+
+        // Use camelCase for Elm record field access (idiomatic Elm)
+        // Use snake_case for JSON output (wire format)
+        const elmFieldName = field.camelName || field.name;
+        const jsonKey = field.name; // snake_case for wire format
+
+        if (field.isOptional) {
+            return `        , ( "${jsonKey}", Maybe.withDefault Encode.null (Maybe.map ${encoder} ${paramName}.${elmFieldName}) )`;
+        }
+
+        return `        , ( "${jsonKey}", ${encoder} ${paramName}.${elmFieldName} )`;
+    });
+
+    // First field without leading comma
+    const firstField = fieldEncoders[0].replace('        , ', '          ');
+    const restFields = fieldEncoders.slice(1);
+
+    return `${encoderName} : ${name} -> Encode.Value
+${encoderName} ${paramName} =
+    Encode.object
+        [ ${firstField.trim()}
+${restFields.join('\n')}
+        ]`;
 }
 
 // Generate SSE connection helpers
@@ -96,32 +148,19 @@ type SSEEvent
     = UnknownEvent String${eventTypes}
 
 
--- SSE Event Decoder
-decodeSSEEvent : String -> String -> Result Decode.Error SSEEvent
+-- SSE Event Decoder (use with raw JSON from port)
+decodeSSEEvent : String -> Decode.Value -> Result Decode.Error SSEEvent
 decodeSSEEvent eventType jsonData =
     case eventType of
 ${eventDecoders}
-        _ -> Ok (UnknownEvent eventType)
-
-
--- SSE Connection Helpers
-
-{-| Subscribe to server-sent events
--}
-subscribeToSSE : String -> (SSEEvent -> msg) -> Sub msg
-subscribeToSSE url toMsg =
-    sseSubscription { url = url, onEvent = toMsg }
-
-{-| Port for SSE subscription - implement in JavaScript
--}
-port sseSubscription : { url : String, onEvent : SSEEvent -> msg } -> Sub msg`;
+            |> (\\decoder -> Decode.decodeValue decoder jsonData)
+        _ -> Ok (UnknownEvent eventType)`;
 }
 
 // Generate complete SSE Elm module
 function generateSSEModule(allModels) {
     const types = allModels.map(generateElmType).join('\n\n\n');
     const decoders = allModels.map(generateElmDecoder).join('\n\n\n');
-    const helpers = generateSSEHelpers(allModels);
 
     return `module BuildAmp.ServerSentEvents exposing (..)
 
@@ -132,7 +171,6 @@ DO NOT EDIT - Changes will be overwritten
 -}
 
 import Json.Decode as Decode exposing (Decoder)
-import Json.Decode.Pipeline exposing (required, optional, hardcoded)
 
 
 -- Helper for pipeline decoding
@@ -149,11 +187,39 @@ ${types}
 -- EVENT DECODERS
 
 ${decoders}
+`;
+}
+
+// Generate server-side SSE module with encoders
+function generateSSEServerModule(allModels) {
+    const types = allModels.map(generateElmType).join('\n\n\n');
+    const encoders = allModels.map(generateElmEncoder).join('\n\n\n');
+
+    return `module BuildAmp.Sse exposing (..)
+
+{-| Auto-Generated Server-Sent Events Types and Encoders
+
+Use these types and encoders when broadcasting SSE events from handlers.
+
+Example:
+    Services.broadcast "new_comment_event" (Sse.encodeNewCommentEvent event)
+
+DO NOT EDIT - Changes will be overwritten
+
+-}
+
+import Json.Encode as Encode
 
 
--- SSE HELPERS
+-- EVENT TYPES
 
-${helpers}`;
+${types}
+
+
+-- EVENT ENCODERS
+
+${encoders}
+`;
 }
 
 // Generate JavaScript SSE connection handler
@@ -249,13 +315,19 @@ export function generateSSEEvents(config = {}) {
     console.log(`📦 Using Elm SSE models from ${elmSseDir}`);
     console.log(`🔍 Found ${allModels.length} SSE models: ${allModels.map(m => m.name).join(', ')}`);
 
-    const elmOutputPath = ensureOutputDir(paths.webGlueDir);
+    const elmOutputPath = ensureOutputDir(path.join(paths.webGlueDir, 'BuildAmp'));
     const jsOutputPath = ensureOutputDir(paths.serverGlueDir);
+    const serverElmOutputPath = ensureOutputDir(path.join(paths.serverGlueDir, 'BuildAmp'));
 
-    // Generate Elm module
+    // Generate Elm module for web (decoders)
     const elmContent = generateSSEModule(allModels);
     const elmOutputFile = path.join(elmOutputPath, 'ServerSentEvents.elm');
     fs.writeFileSync(elmOutputFile, elmContent);
+
+    // Generate Elm module for server (encoders)
+    const serverElmContent = generateSSEServerModule(allModels);
+    const serverElmOutputFile = path.join(serverElmOutputPath, 'Sse.elm');
+    fs.writeFileSync(serverElmOutputFile, serverElmContent);
 
     // Generate JavaScript helper
     const jsContent = generateSSEJavaScript(allModels);
@@ -263,12 +335,12 @@ export function generateSSEEvents(config = {}) {
     fs.writeFileSync(jsOutputFile, jsContent);
 
     console.log(`✅ Generated ${allModels.length} SSE event types`);
-    console.log(`📁 Output: ${elmOutputFile}`);
+    console.log(`📁 Output: ${elmOutputFile} (web), ${serverElmOutputFile} (server)`);
 
     return {
         models: allModels.length,
         generated: true,
-        outputFiles: [elmOutputFile, jsOutputFile]
+        outputFiles: [elmOutputFile, serverElmOutputFile, jsOutputFile]
     };
 }
 
@@ -276,7 +348,9 @@ export function generateSSEEvents(config = {}) {
 export const _test = {
     generateElmType,
     generateElmDecoder,
+    generateElmEncoder,
     generateSSEHelpers,
     generateSSEModule,
+    generateSSEServerModule,
     generateSSEJavaScript
 };

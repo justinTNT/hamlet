@@ -3031,10 +3031,27 @@ var $author$project$Api$Handlers$GetFeedHandler$decodeAllTags = function (data) 
 			'Failed to decode tags: ' + $elm$json$Json$Decode$errorToString(error));
 	}
 };
-var $author$project$BuildAmp$Database$ItemCommentDb = F9(
-	function (id, host, itemId, guestId, parentId, authorName, text, createdAt, deletedAt) {
-		return {authorName: authorName, createdAt: createdAt, deletedAt: deletedAt, guestId: guestId, host: host, id: id, itemId: itemId, parentId: parentId, text: text};
-	});
+var $author$project$BuildAmp$Database$ItemCommentDb = function (id) {
+	return function (host) {
+		return function (itemId) {
+			return function (guestId) {
+				return function (parentId) {
+					return function (authorName) {
+						return function (text) {
+							return function (removed) {
+								return function (createdAt) {
+									return function (deletedAt) {
+										return {authorName: authorName, createdAt: createdAt, deletedAt: deletedAt, guestId: guestId, host: host, id: id, itemId: itemId, parentId: parentId, removed: removed, text: text};
+									};
+								};
+							};
+						};
+					};
+				};
+			};
+		};
+	};
+};
 var $author$project$BuildAmp$Database$richContentDecoder = $elm$json$Json$Decode$oneOf(
 	_List_fromArray(
 		[
@@ -3054,33 +3071,37 @@ var $author$project$BuildAmp$Database$itemcommentDbDecoder = A3(
 		$author$project$BuildAmp$Database$timestampDecoder,
 		A3(
 			$author$project$BuildAmp$Database$decodeField,
-			'text',
-			$author$project$BuildAmp$Database$richContentDecoder,
+			'removed',
+			$elm$json$Json$Decode$bool,
 			A3(
 				$author$project$BuildAmp$Database$decodeField,
-				'author_name',
-				$elm$json$Json$Decode$string,
+				'text',
+				$author$project$BuildAmp$Database$richContentDecoder,
 				A3(
 					$author$project$BuildAmp$Database$decodeField,
-					'parent_id',
-					$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
+					'author_name',
+					$elm$json$Json$Decode$string,
 					A3(
 						$author$project$BuildAmp$Database$decodeField,
-						'guest_id',
-						$elm$json$Json$Decode$string,
+						'parent_id',
+						$elm$json$Json$Decode$nullable($elm$json$Json$Decode$string),
 						A3(
 							$author$project$BuildAmp$Database$decodeField,
-							'item_id',
+							'guest_id',
 							$elm$json$Json$Decode$string,
 							A3(
 								$author$project$BuildAmp$Database$decodeField,
-								'host',
+								'item_id',
 								$elm$json$Json$Decode$string,
 								A3(
 									$author$project$BuildAmp$Database$decodeField,
-									'id',
+									'host',
 									$elm$json$Json$Decode$string,
-									$elm$json$Json$Decode$succeed($author$project$BuildAmp$Database$ItemCommentDb))))))))));
+									A3(
+										$author$project$BuildAmp$Database$decodeField,
+										'id',
+										$elm$json$Json$Decode$string,
+										$elm$json$Json$Decode$succeed($author$project$BuildAmp$Database$ItemCommentDb)))))))))));
 var $author$project$Api$Handlers$GetFeedHandler$decodeComments = function (data) {
 	var _v0 = A2(
 		$elm$json$Json$Decode$decodeValue,
@@ -3234,10 +3255,10 @@ var $author$project$Api$Handlers$GetFeedHandler$contextDecoder = A4(
 		A2($elm$json$Json$Decode$field, 'userId', $elm$json$Json$Decode$string)),
 	$elm$json$Json$Decode$maybe(
 		A2($elm$json$Json$Decode$field, 'sessionId', $elm$json$Json$Decode$string)));
-var $author$project$Api$Backend$GetFeedReq = function (host) {
+var $author$project$BuildAmp$Api$GetFeedReq = function (host) {
 	return {host: host};
 };
-var $author$project$Api$Backend$getFeedReqDecoder = A2(
+var $author$project$BuildAmp$Api$getFeedReqDecoder = A2(
 	$elm$json$Json$Decode$andThen,
 	function (x) {
 		return A2(
@@ -3245,7 +3266,7 @@ var $author$project$Api$Backend$getFeedReqDecoder = A2(
 			x,
 			A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
 	},
-	$elm$json$Json$Decode$succeed($author$project$Api$Backend$GetFeedReq));
+	$elm$json$Json$Decode$succeed($author$project$BuildAmp$Api$GetFeedReq));
 var $elm$core$Result$map2 = F3(
 	function (func, ra, rb) {
 		if (ra.$ === 'Err') {
@@ -3285,7 +3306,7 @@ var $author$project$Api$Handlers$GetFeedHandler$decodeRequest = function (bundle
 		A2(
 			$elm$core$Result$mapError,
 			$elm$json$Json$Decode$errorToString,
-			A2($elm$json$Json$Decode$decodeValue, $author$project$Api$Backend$getFeedReqDecoder, bundle.request)),
+			A2($elm$json$Json$Decode$decodeValue, $author$project$BuildAmp$Api$getFeedReqDecoder, bundle.request)),
 		A2(
 			$elm$core$Result$mapError,
 			$elm$json$Json$Decode$errorToString,
@@ -3340,7 +3361,7 @@ var $elm$core$Maybe$withDefault = F2(
 			return _default;
 		}
 	});
-var $author$project$Api$Backend$feedItemEncoder = function (struct) {
+var $author$project$BuildAmp$Api$feedItemEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
@@ -3379,17 +3400,17 @@ var $elm$json$Json$Encode$list = F2(
 				_Json_emptyArray(_Utils_Tuple0),
 				entries));
 	});
-var $author$project$Api$Backend$getFeedResEncoder = function (struct) {
+var $author$project$BuildAmp$Api$getFeedResEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
 				_Utils_Tuple2(
 				'items',
-				$elm$json$Json$Encode$list($author$project$Api$Backend$feedItemEncoder)(struct.items))
+				$elm$json$Json$Encode$list($author$project$BuildAmp$Api$feedItemEncoder)(struct.items))
 			]));
 };
 var $author$project$Api$Handlers$GetFeedHandler$encodeGetFeedRes = function (response) {
-	return $author$project$Api$Backend$getFeedResEncoder(response);
+	return $author$project$BuildAmp$Api$getFeedResEncoder(response);
 };
 var $author$project$Api$Handlers$GetFeedHandler$handleDbResponse = function (response) {
 	if (response.success) {

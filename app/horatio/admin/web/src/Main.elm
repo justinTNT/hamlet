@@ -862,6 +862,20 @@ handleApiResponse model response =
         else
             ( model, Cmd.none )
 
+    else if String.startsWith "get-" response.correlationId then
+        -- Single record response for edit form
+        case response.data of
+            Just data ->
+                let
+                    formData = extractFormData data
+                in
+                ( { model | loading = False, formData = formData, error = Nothing }
+                , Cmd.none
+                )
+
+            Nothing ->
+                ( { model | error = Just "No data in get response", loading = False }, Cmd.none )
+
     else if String.startsWith "list-" response.correlationId then
         -- Paginated list response: {data: [...], total: N, offset: N, limit: N}
         case response.data of
@@ -887,40 +901,37 @@ handleApiResponse model response =
             Nothing ->
                 ( { model | error = Just "No data in list response", loading = False }, Cmd.none )
 
-    else if response.success then
-        case response.data of
-            Just data ->
-                -- Try single object (record response)
-                case Decode.decodeValue Decode.value data of
-                    Ok _ ->
-                        -- Successful save - always navigate back to list
-                        case model.currentTable of
-                            Just tableName ->
-                                ( { model | loading = False, formData = Dict.empty, currentRecordId = Nothing }
-                                , Nav.pushUrl model.key (routeToPath model.basePath (TableList tableName))
-                                )
+    else if String.startsWith "submit-" response.correlationId then
+        -- Submit (create/update) response
+        if response.success then
+            case model.currentTable of
+                Just tableName ->
+                    ( { model | loading = False, formData = Dict.empty, currentRecordId = Nothing }
+                    , Nav.pushUrl model.key (routeToPath model.basePath (TableList tableName))
+                    )
 
-                            Nothing ->
-                                ( { model | loading = False }, Cmd.none )
+                Nothing ->
+                    ( { model | loading = False }, Cmd.none )
+        else
+            ( { model | error = response.error, loading = False }, Cmd.none )
 
-                    Err err ->
-                        ( { model | error = Just ("Decode error: " ++ Decode.errorToString err), loading = False }
-                        , Cmd.none
-                        )
+    else if String.startsWith "delete-" response.correlationId then
+        -- Delete response
+        if response.success then
+            case model.currentTable of
+                Just tableName ->
+                    ( { model | loading = False }
+                    , loadRecords model tableName
+                    )
 
-            Nothing ->
-                -- Successful delete (no content)
-                case model.currentTable of
-                    Just tableName ->
-                        ( { model | loading = False }
-                        , loadRecords model tableName
-                        )
-
-                    Nothing ->
-                        ( { model | loading = False }, Cmd.none )
+                Nothing ->
+                    ( { model | loading = False }, Cmd.none )
+        else
+            ( { model | error = response.error, loading = False }, Cmd.none )
 
     else
-        ( { model | error = response.error, loading = False }, Cmd.none )
+        -- Unknown correlation ID - log it and ignore
+        ( { model | loading = False }, Cmd.none )
 
 
 extractFormData : Encode.Value -> Dict String String
@@ -935,31 +946,37 @@ extractFormData value =
 
 valueToString : Encode.Value -> String
 valueToString value =
-    case Decode.decodeValue Decode.string value of
-        Ok s ->
-            s
+    -- Check for null first - convert to empty string
+    case Decode.decodeValue (Decode.null "") value of
+        Ok emptyStr ->
+            emptyStr
 
         Err _ ->
-            case Decode.decodeValue Decode.int value of
-                Ok i ->
-                    String.fromInt i
+            case Decode.decodeValue Decode.string value of
+                Ok s ->
+                    s
 
                 Err _ ->
-                    case Decode.decodeValue Decode.float value of
-                        Ok f ->
-                            String.fromFloat f
+                    case Decode.decodeValue Decode.int value of
+                        Ok i ->
+                            String.fromInt i
 
                         Err _ ->
-                            case Decode.decodeValue Decode.bool value of
-                                Ok b ->
-                                    if b then
-                                        "true"
-
-                                    else
-                                        "false"
+                            case Decode.decodeValue Decode.float value of
+                                Ok f ->
+                                    String.fromFloat f
 
                                 Err _ ->
-                                    Encode.encode 0 value
+                                    case Decode.decodeValue Decode.bool value of
+                                        Ok b ->
+                                            if b then
+                                                "true"
+
+                                            else
+                                                "false"
+
+                                        Err _ ->
+                                            Encode.encode 0 value
 
 
 

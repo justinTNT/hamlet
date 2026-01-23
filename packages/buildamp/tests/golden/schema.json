@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-01-23T05:57:19.932Z",
+  "generatedAt": "2026-01-23T13:04:48.385Z",
   "tables": {
     "guest": {
       "structName": "Guest",
@@ -151,6 +151,15 @@
           "isTimestamp": false,
           "isLink": false,
           "isRichContent": true
+        },
+        "removed": {
+          "rustType": "Bool",
+          "sqlType": "BOOLEAN",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": false,
+          "isLink": false,
+          "isRichContent": false
         },
         "created_at": {
           "rustType": "CreateTimestamp",

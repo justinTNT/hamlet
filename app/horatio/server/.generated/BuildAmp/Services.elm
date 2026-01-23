@@ -138,7 +138,7 @@ httpMethodToString : HttpMethod -> String
 httpMethodToString method =
     case method of
         GET -> "GET"
-        POST -> "POST"  
+        POST -> "POST"
         PUT -> "PUT"
         DELETE -> "DELETE"
         PATCH -> "PATCH"
@@ -151,3 +151,30 @@ toString = httpMethodToString
 hashString : String -> Int
 hashString str =
     String.foldl (\char acc -> acc * 31 + Char.toCode char) 0 str
+
+
+-- SSE INTERFACE (Server-Sent Events)
+
+{-| Broadcast an SSE event to all connected clients.
+The event type should be snake_case (e.g., "new_comment_event").
+
+Usage:
+    Services.broadcast "new_comment_event" (encodeComment comment)
+-}
+broadcast : String -> Encode.Value -> Cmd msg
+broadcast eventType data =
+    sseBroadcast
+        { eventType = eventType
+        , data = data
+        }
+
+
+-- SSE PORT INTERFACE (Internal - used by runtime)
+
+port sseBroadcast : SseBroadcastPort -> Cmd msg
+
+
+type alias SseBroadcastPort =
+    { eventType : String
+    , data : Encode.Value
+    }

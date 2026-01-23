@@ -12,7 +12,7 @@ TODO: Implement proper error handling and validation
 
 -}
 
-import Api.Backend exposing (GetFeedReq, GetFeedRes)
+import BuildAmp.Api exposing (GetFeedReq, GetFeedRes)
 import BuildAmp.Database as DB
 import BuildAmp.Events as Events
 import BuildAmp.Services as Services
@@ -318,14 +318,14 @@ decodeComments data =
 
 {-| Transform items with their related data to API format
 -}
-transformToApiWithRelations : List DB.MicroblogItemDb -> List DB.TagDb -> List DB.ItemTagDb -> List DB.ItemCommentDb -> List Api.Backend.FeedItem
+transformToApiWithRelations : List DB.MicroblogItemDb -> List DB.TagDb -> List DB.ItemTagDb -> List DB.ItemCommentDb -> List BuildAmp.Api.FeedItem
 transformToApiWithRelations items allTags itemTags comments =
     List.map (transformDbItemToApiWithRelations allTags itemTags comments) items
 
 
 {-| Transform a single item with its related data to FeedItem format
 -}
-transformDbItemToApiWithRelations : List DB.TagDb -> List DB.ItemTagDb -> List DB.ItemCommentDb -> DB.MicroblogItemDb -> Api.Backend.FeedItem
+transformDbItemToApiWithRelations : List DB.TagDb -> List DB.ItemTagDb -> List DB.ItemCommentDb -> DB.MicroblogItemDb -> BuildAmp.Api.FeedItem
 transformDbItemToApiWithRelations allTags itemTags comments dbItem =
     { id = dbItem.id
     , title = dbItem.title
@@ -370,7 +370,7 @@ andMap = Decode.map2 (|>)
 decodeRequest : RequestBundle -> Result String ( GetFeedReq, Context )
 decodeRequest bundle =
     Result.map2 Tuple.pair
-        (Decode.decodeValue Api.Backend.getFeedReqDecoder bundle.request |> Result.mapError Decode.errorToString)
+        (Decode.decodeValue BuildAmp.Api.getFeedReqDecoder bundle.request |> Result.mapError Decode.errorToString)
         (Decode.decodeValue contextDecoder bundle.context |> Result.mapError Decode.errorToString)
 
 
@@ -386,7 +386,7 @@ contextDecoder =
 
 encodeGetFeedRes : GetFeedRes -> Encode.Value
 encodeGetFeedRes response =
-    Api.Backend.getFeedResEncoder response
+    BuildAmp.Api.getFeedResEncoder response
 
 
 encodeError : String -> Encode.Value

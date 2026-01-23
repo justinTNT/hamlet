@@ -438,11 +438,59 @@ function parseModuleName(tree, sourceCode) {
 }
 
 /**
+ * Extract module-level doc comment (first block comment after module declaration)
+ */
+function parseModuleDocComment(tree, sourceCode) {
+    const moduleNodes = findAllOfType(tree, 'module_declaration');
+    if (moduleNodes.length === 0) return null;
+
+    const moduleNode = moduleNodes[0];
+
+    // Look for block comment following the module declaration
+    let sibling = moduleNode.nextSibling;
+    while (sibling) {
+        if (sibling.type === 'block_comment') {
+            const text = getText(sibling, sourceCode);
+            if (text.startsWith('{-|')) {
+                // Extract content between {-| and -}
+                let content = text.slice(3, -2).trim();
+                return content;
+            }
+        }
+        // Stop if we hit a non-comment node (like import or type declaration)
+        if (sibling.type !== 'block_comment' && sibling.type !== 'line_comment') {
+            break;
+        }
+        sibling = sibling.nextSibling;
+    }
+    return null;
+}
+
+/**
+ * Parse SSE annotations from module doc comment
+ * Format: @sse EventTypeName responseField
+ * Example: @sse NewCommentEvent comment
+ * Returns: { eventType: 'NewCommentEvent', responseField: 'comment' } or null
+ */
+function parseSseAnnotation(docComment) {
+    if (!docComment) return null;
+
+    const match = docComment.match(/@sse\s+(\w+)(?:\s+(\w+))?/i);
+    if (!match) return null;
+
+    return {
+        eventType: match[1],
+        responseField: match[2] || null  // Field from response to broadcast, or entire response
+    };
+}
+
+/**
  * Parse all type definitions from an Elm source file
  */
 export function parseElmSource(sourceCode) {
     const tree = parser.parse(sourceCode);
     const moduleName = parseModuleName(tree, sourceCode);
+    const moduleDocComment = parseModuleDocComment(tree, sourceCode);
 
     const typeAliases = [];
     const unionTypes = [];
@@ -467,6 +515,7 @@ export function parseElmSource(sourceCode) {
 
     return {
         moduleName,
+        moduleDocComment,
         typeAliases,
         unionTypes
     };
@@ -951,6 +1000,9 @@ export function parseApiModule(content, filename) {
 
     if (!moduleName.startsWith('Api.')) return null;
 
+    // Parse SSE annotation from module doc comment
+    const sseConfig = parseSseAnnotation(parsed.moduleDocComment);
+
     const result = {
         name: endpointName,
         moduleName,
@@ -959,7 +1011,9 @@ export function parseApiModule(content, filename) {
         response: null,
         serverContext: null,
         helperTypes: [],
-        unionTypes: parsed.unionTypes // Include union types!
+        unionTypes: parsed.unionTypes, // Include union types!
+        moduleDocComment: parsed.moduleDocComment,
+        sse: sseConfig  // SSE configuration if present
     };
 
     for (const typeAlias of parsed.typeAliases) {
@@ -1184,6 +1238,42 @@ export function parseCronConfig(configDir) {
 }
 
 /**
+ * Parse Config/AdminHooks.elm to extract admin hook configurations
+ * Returns: [{ table: "item_comment", field: "removed", event: "CommentModerated" }, ...]
+ */
+export function parseAdminHooksConfig(configDir) {
+    const hooksPath = path.join(configDir, 'AdminHooks.elm');
+    if (!fs.existsSync(hooksPath)) {
+        return [];
+    }
+
+    const sourceCode = fs.readFileSync(hooksPath, 'utf-8');
+    const tree = parser.parse(sourceCode);
+
+    // Find the adminHooks value declaration
+    const valueDeclarations = findAllOfType(tree, 'value_declaration');
+
+    for (const decl of valueDeclarations) {
+        const funcDeclLeft = findChildByType(decl, 'function_declaration_left');
+        if (!funcDeclLeft) continue;
+
+        const nameNode = findChildByType(funcDeclLeft, 'lower_case_identifier');
+        if (!nameNode) continue;
+
+        const name = getText(nameNode, sourceCode);
+        if (name !== 'adminHooks') continue;
+
+        // Found adminHooks, now extract the list
+        const body = findDescendantByType(decl, 'list_expr');
+        if (!body) continue;
+
+        return parseListOfRecords(body, sourceCode);
+    }
+
+    return [];
+}
+
+/**
  * Parse a list expression containing record literals
  * Handles: [ { event = "X", schedule = "Y" }, ... ]
  */
@@ -1252,6 +1342,7 @@ export const _test = {
     extractForeignKeyTable,
     unwrapApiAnnotations,
     parseValidationTags,
+    parseSseAnnotation,
     parseApiModule,
     parseGenericModule,
     elmTypeToSchemaFormat
@@ -1269,5 +1360,6 @@ export default {
     parseElmModelDir,
     parseElmSource,
     parseCronConfig,
+    parseAdminHooksConfig,
     _test
 };

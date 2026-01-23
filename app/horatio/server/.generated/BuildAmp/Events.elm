@@ -41,7 +41,17 @@ scheduleEvent delaySeconds payload =
 
 -- EVENT PAYLOAD TYPES (Generated from src/models/events/*.rs)
 
-type EventPayload = NoEvents -- No events found
+type EventPayload
+    = CommentModerated CommentModeratedData
+
+
+type alias CommentModeratedData =
+    {    recordId : String
+    , table : String
+    , field : String
+    , oldValue : String
+    , newValue : String
+    }
 
 
 -- PORT INTERFACE (Internal - used by runtime)
@@ -60,7 +70,23 @@ type alias EventRequest =
 encodeEventPayload : EventPayload -> Encode.Value
 encodeEventPayload payload =
     case payload of
-        NoEvents -> Encode.object []
+        CommentModerated data ->
+            Encode.object
+                [ ("type", Encode.string "CommentModerated")
+                , ("data", encodeCommentModerated data)
+                ]
+
+
+encodeCommentModerated : CommentModeratedData -> Encode.Value
+encodeCommentModerated data =
+    Encode.object
+        [ -- Generated from event model fields
+        ("recordId", Encode.string data.recordId)
+        , ("table", Encode.string data.table)
+        , ("field", Encode.string data.field)
+        , ("oldValue", Encode.string data.oldValue)
+        , ("newValue", Encode.string data.newValue)
+        ]
 
 
 encodeMaybe : (a -> Encode.Value) -> Maybe a -> Encode.Value

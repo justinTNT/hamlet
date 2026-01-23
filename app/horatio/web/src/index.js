@@ -70,6 +70,37 @@ async function run() {
         });
     }
 
+    // Connect to Server-Sent Events for real-time updates
+    if (app.ports && app.ports.sseEvent) {
+        console.log('📡 Setting up SSE connection...');
+        const eventSource = new EventSource('/events');
+
+        eventSource.onopen = function() {
+            console.log('📡 SSE connection opened');
+        };
+
+        eventSource.onerror = function(error) {
+            console.error('📡 SSE connection error:', error);
+        };
+
+        eventSource.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                console.log('📡 SSE event received:', data);
+
+                // Send to Elm via port
+                app.ports.sseEvent.send(data);
+            } catch (error) {
+                console.error('📡 Error parsing SSE event:', error);
+            }
+        };
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            eventSource.close();
+        });
+    }
+
     if (app.ports && app.ports.rpcRequest) {
         app.ports.rpcRequest.subscribe(async ({ endpoint, body, correlationId }) => {
             try {

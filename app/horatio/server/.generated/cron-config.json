@@ -1,9 +1,9 @@
 {
-  "generated": "2026-01-23T06:10:44.103Z",
+  "generated": "2026-01-23T13:31:50.882Z",
   "events": [
     {
       "event": "HardDeletes",
-      "schedule": "* * * * *"
+      "schedule": "23 * * * *"
     }
   ]
 }

@@ -7,7 +7,7 @@ Multi-stage: CreateItem → LoadTags → CreateMissingTags → LinkTags → Comp
 
 -}
 
-import Api.Backend exposing (SubmitItemReq, SubmitItemRes, MicroblogItem)
+import BuildAmp.Api exposing (SubmitItemReq, SubmitItemRes, MicroblogItem)
 import BuildAmp.Database as DB
 import Json.Encode as Encode
 import Json.Decode as Decode
@@ -409,7 +409,7 @@ handleDbResponse response =
 decodeRequest : RequestBundle -> Result String ( SubmitItemReq, Context )
 decodeRequest bundle =
     Result.map2 Tuple.pair
-        (Decode.decodeValue Api.Backend.submitItemReqDecoder bundle.request |> Result.mapError Decode.errorToString)
+        (Decode.decodeValue BuildAmp.Api.submitItemReqDecoder bundle.request |> Result.mapError Decode.errorToString)
         (Decode.decodeValue contextDecoder bundle.context |> Result.mapError Decode.errorToString)
 
 
@@ -425,7 +425,7 @@ contextDecoder =
 
 encodeSubmitItemRes : SubmitItemRes -> Encode.Value
 encodeSubmitItemRes response =
-    Api.Backend.submitItemResEncoder response
+    BuildAmp.Api.submitItemResEncoder response
 
 
 encodeError : String -> Encode.Value

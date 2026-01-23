@@ -37,10 +37,10 @@ describe('Handlers Generator - Handler Content', () => {
         assert.ok(result.includes('Business Logic:'));
     });
 
-    test('generateHandlerContent imports Api.Backend', () => {
+    test('generateHandlerContent imports BuildAmp.Api', () => {
         const result = generateHandlerContent(sampleEndpoint);
 
-        assert.ok(result.includes('import Api.Backend exposing (GetFeedReq, GetFeedRes)'));
+        assert.ok(result.includes('import BuildAmp.Api exposing (GetFeedReq, GetFeedRes)'));
     });
 
     test('generateHandlerContent imports BuildAmp.Database', () => {
@@ -210,7 +210,7 @@ describe('Handlers Generator - Response Encoder', () => {
     test('generateResponseEncoder uses Backend encoder', () => {
         const result = generateResponseEncoder(sampleEndpoint);
 
-        assert.ok(result.includes('Api.Backend.getFeedResEncoder response'));
+        assert.ok(result.includes('BuildAmp.Api.getFeedResEncoder response'));
     });
 
     test('generateResponseEncoder uses correct encoder name case', () => {
@@ -321,7 +321,7 @@ describe('Handlers Generator - Different Endpoints', () => {
         const result = generateHandlerContent(endpoint);
 
         assert.ok(result.includes('port module Api.Handlers.SubmitItemHandlerTEA'));
-        assert.ok(result.includes('import Api.Backend exposing (SubmitItemReq, SubmitItemRes)'));
+        assert.ok(result.includes('import BuildAmp.Api exposing (SubmitItemReq, SubmitItemRes)'));
         assert.ok(result.includes('request : Maybe SubmitItemReq'));
         assert.ok(result.includes('| Complete SubmitItemRes'));
     });

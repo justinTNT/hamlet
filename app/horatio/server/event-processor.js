@@ -166,8 +166,12 @@ async function processEvent(event) {
             }
         } else {
             // Fall back to JavaScript handler
-            const handler = eventHandlers[event_type] || eventHandlers.default;
-            result = await handler(eventPayload, enrichedContext);
+            const handler = eventHandlers[event_type];
+            if (handler) {
+                result = await handler(eventPayload, enrichedContext);
+            } else {
+                result = await eventHandlers.default(event_type, eventPayload, enrichedContext);
+            }
         }
         
         if (result.success) {

@@ -140,13 +140,13 @@ import Interface.Api exposing (..)
 
 type alias Request =
     { host : Inject String
-    , title : String
-    , content : Maybe String
+    , itemName : String
+    , itemContent : Maybe String
     }
 
 type alias Response =
-    { id : String
-    , success : Bool
+    { itemId : String
+    , wasSuccessful : Bool
     }
 `);
 
@@ -354,6 +354,90 @@ describe('Integration Tests - API Generation', () => {
             assert.ok(content.includes('getitems'), 'Should have getitems function');
             assert.ok(content.includes('createitem'), 'Should have createitem function');
             assert.ok(content.includes('Http.post'), 'Should use Http.post');
+        } finally {
+            cleanup();
+            restore();
+        }
+    });
+
+    test('generates BuildAmp.Api module with types, encoders, and decoders', async () => {
+        const restore = suppressConsole();
+        setup();
+        try {
+            const paths = createTestConfig();
+            await generateApiRoutes({ paths });
+
+            // Check BuildAmp/Api.elm output
+            const apiFile = path.join(paths.serverElmDir, 'BuildAmp', 'Api.elm');
+            assert.ok(fs.existsSync(apiFile), 'BuildAmp/Api.elm should be created');
+
+            const content = fs.readFileSync(apiFile, 'utf-8');
+
+            // Module declaration
+            assert.ok(content.includes('module BuildAmp.Api exposing'), 'Should have correct module name');
+
+            // Types with correct naming convention
+            assert.ok(content.includes('type alias GetItemsReq'), 'Should have GetItemsReq type');
+            assert.ok(content.includes('type alias GetItemsRes'), 'Should have GetItemsRes type');
+            assert.ok(content.includes('type alias CreateItemReq'), 'Should have CreateItemReq type');
+            assert.ok(content.includes('type alias CreateItemRes'), 'Should have CreateItemRes type');
+
+            // Encoders
+            assert.ok(content.includes('getItemsReqEncoder :'), 'Should have request encoder');
+            assert.ok(content.includes('getItemsResEncoder :'), 'Should have response encoder');
+            assert.ok(content.includes('createItemReqEncoder :'), 'Should have create request encoder');
+
+            // Decoders
+            assert.ok(content.includes('getItemsReqDecoder :'), 'Should have request decoder');
+            assert.ok(content.includes('getItemsResDecoder :'), 'Should have response decoder');
+            assert.ok(content.includes('createItemReqDecoder :'), 'Should have create request decoder');
+
+            // Helper functions
+            assert.ok(content.includes('resultEncoder'), 'Should have resultEncoder helper');
+            assert.ok(content.includes('resultDecoder'), 'Should have resultDecoder helper');
+        } finally {
+            cleanup();
+            restore();
+        }
+    });
+
+    test('BuildAmp.Api encoders use snake_case JSON keys', async () => {
+        const restore = suppressConsole();
+        setup();
+        try {
+            const paths = createTestConfig();
+            await generateApiRoutes({ paths });
+
+            const apiFile = path.join(paths.serverElmDir, 'BuildAmp', 'Api.elm');
+            const content = fs.readFileSync(apiFile, 'utf-8');
+
+            // CreateItemReq has field 'itemName' which should encode to 'item_name'
+            // The test API model has: itemName : String
+            assert.ok(content.includes('"item_name"'), 'Should use snake_case JSON key for itemName');
+
+            // Check that camelCase is used in Elm field access
+            assert.ok(content.includes('struct.itemName'), 'Should use camelCase for Elm field access');
+        } finally {
+            cleanup();
+            restore();
+        }
+    });
+
+    test('BuildAmp.Api decoders use snake_case JSON keys', async () => {
+        const restore = suppressConsole();
+        setup();
+        try {
+            const paths = createTestConfig();
+            await generateApiRoutes({ paths });
+
+            const apiFile = path.join(paths.serverElmDir, 'BuildAmp', 'Api.elm');
+            const content = fs.readFileSync(apiFile, 'utf-8');
+
+            // Decoders should use Json.Decode.field with snake_case keys
+            assert.ok(content.includes('Json.Decode.field "item_name"'), 'Decoder should use snake_case JSON key');
+
+            // Should use andThen pattern
+            assert.ok(content.includes('Json.Decode.andThen'), 'Should use andThen decoder pattern');
         } finally {
             cleanup();
             restore();

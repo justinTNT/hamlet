@@ -60,6 +60,56 @@ export default function createAdminApi(server) {
     // Cache for loaded schema
     let cachedSchema = null;
 
+    // Cache for admin hooks
+    let cachedAdminHooks = null;
+
+    // Helper to load admin hooks
+    const loadAdminHooks = async () => {
+        if (cachedAdminHooks) return cachedAdminHooks;
+
+        const fs = await import('fs');
+        const path = await import('path');
+
+        const possiblePaths = [
+            path.join(process.cwd(), 'server', '.generated', 'admin-hooks.json'),
+            path.join(process.cwd(), '.generated', 'admin-hooks.json'),
+            path.join(process.cwd(), 'app', 'horatio', 'server', '.generated', 'admin-hooks.json')
+        ];
+
+        for (const hooksPath of possiblePaths) {
+            if (fs.existsSync(hooksPath)) {
+                cachedAdminHooks = JSON.parse(fs.readFileSync(hooksPath, 'utf-8'));
+                return cachedAdminHooks;
+            }
+        }
+        return null;
+    };
+
+    // Helper to publish admin hook event
+    const publishHookEvent = async (hook, recordId, oldValue, newValue, host) => {
+        try {
+            // Insert event into buildamp_events table
+            // Use snake_case keys to match Elm decoder conventions
+            const eventPayload = {
+                record_id: recordId,
+                table: hook.table,
+                field: hook.field,
+                old_value: oldValue !== undefined ? String(oldValue) : '',
+                new_value: newValue !== undefined ? String(newValue) : ''
+            };
+
+            await db.query(
+                `INSERT INTO buildamp_events (host, event_type, payload, status, created_at)
+                 VALUES ($1, $2, $3, 'pending', NOW())`,
+                [host, hook.event, JSON.stringify(eventPayload)]
+            );
+
+            console.log(`📣 Admin hook triggered: ${hook.event} for ${hook.table}.${hook.field} change`);
+        } catch (error) {
+            console.error('Failed to publish admin hook event:', error);
+        }
+    };
+
     // Helper to load schema
     const loadSchema = async () => {
         if (cachedSchema) return cachedSchema;
@@ -109,6 +159,24 @@ export default function createAdminApi(server) {
 
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
         return { whereClause, params, nextParamIndex, tenantField };
+    };
+
+    /**
+     * Normalize request data based on schema:
+     * - Convert empty strings to null for nullable fields
+     */
+    const normalizeRequestData = (data, tableSchema) => {
+        if (!tableSchema || !tableSchema.fields) {
+            return data;
+        }
+
+        const normalized = { ...data };
+        for (const [fieldName, fieldSchema] of Object.entries(tableSchema.fields)) {
+            if (fieldSchema.nullable && normalized[fieldName] === '') {
+                normalized[fieldName] = null;
+            }
+        }
+        return normalized;
     };
 
     // Options endpoint - returns id/label pairs for FK dropdowns
@@ -471,23 +539,24 @@ export default function createAdminApi(server) {
     server.app.post('/admin/api/:resource', requireAdmin, async (req, res) => {
         try {
             const resource = req.params.resource;
-            const rawHost = req.get('X-Forwarded-Host') || req.get('Host'); 
+            const rawHost = req.get('X-Forwarded-Host') || req.get('Host');
             const host = rawHost ? rawHost.split(':')[0] : 'localhost';
             const data = req.body;
-            
-            console.log('🔍 Create Debug - rawHost:', rawHost);
-            console.log('🔍 Create Debug - host:', host);
-            console.log('🔍 Create Debug - data:', data);
+
+            // Load schema for data normalization
+            const schema = await loadSchema();
+            const tableSchema = schema?.tables?.[resource];
 
             // Convert snake_case resource to PascalCase for method dispatch
             const methodResource = snakeToPascal(resource);
             const methodName = `create${methodResource}`;
 
             if (typeof db[methodName] === 'function') {
-                // Remove host from form data to avoid duplication, then add it back
+                // Remove host from form data, normalize, then add host back
                 const { host: _, ...cleanData } = data;
-                const result = await db[methodName]({ ...cleanData, host });
-                
+                const normalizedData = normalizeRequestData(cleanData, tableSchema);
+                const result = await db[methodName]({ ...normalizedData, host });
+
                 // Remove the host field from result
                 const { host: __, ...cleanResult } = result;
                 res.status(201).json(cleanResult);
@@ -505,23 +574,57 @@ export default function createAdminApi(server) {
         try {
             const resource = req.params.resource;
             const id = req.params.id;
-            const rawHost = req.get('X-Forwarded-Host') || req.get('Host'); 
+            const rawHost = req.get('X-Forwarded-Host') || req.get('Host');
             const host = rawHost ? rawHost.split(':')[0] : 'localhost';
             const data = req.body;
-            
+
+            // Load schema for data normalization
+            const schema = await loadSchema();
+            const tableSchema = schema?.tables?.[resource];
+
             // Convert snake_case resource to PascalCase for method dispatch
             const methodResource = snakeToPascal(resource);
             const methodName = `update${methodResource}`;
+            const getMethodName = `find${methodResource}ById`;
+            const altGetMethodName = `get${methodResource}ById`;
 
             if (typeof db[methodName] === 'function') {
-                // Remove host from form data - pass it as separate third argument
+                // Fetch old record for hook comparison
+                let oldRecord = null;
+                const adminHooks = await loadAdminHooks();
+                const relevantHooks = adminHooks?.hooks?.filter(h => h.table === resource) || [];
+
+                if (relevantHooks.length > 0) {
+                    // We have hooks for this table, fetch old record
+                    const getter = typeof db[getMethodName] === 'function' ? db[getMethodName] : db[altGetMethodName];
+                    if (typeof getter === 'function') {
+                        oldRecord = await getter(id, host);
+                    }
+                }
+
+                // Remove host from form data, normalize, then pass to update
                 const { host: _, ...cleanData } = data;
-                const result = await db[methodName](id, cleanData, host);
+                const normalizedData = normalizeRequestData(cleanData, tableSchema);
+                const result = await db[methodName](id, normalizedData, host);
 
                 if (!result) {
                     return res.status(404).json({ error: `${methodResource} not found` });
                 }
-                
+
+                // Check admin hooks for field changes
+                if (oldRecord && relevantHooks.length > 0) {
+                    for (const hook of relevantHooks) {
+                        const fieldName = hook.field;
+                        const oldValue = oldRecord[fieldName];
+                        const newValue = result[fieldName];
+
+                        // Check if the field changed
+                        if (oldValue !== newValue) {
+                            await publishHookEvent(hook, id, oldValue, newValue, host);
+                        }
+                    }
+                }
+
                 // Remove the host field from result
                 const { host: __, ...cleanResult } = result;
                 res.json(cleanResult);

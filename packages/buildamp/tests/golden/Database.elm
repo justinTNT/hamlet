@@ -454,6 +454,7 @@ type alias ItemCommentDb =
     , parentId : Maybe String -- Maybe String
     , authorName : String -- String
     , text : String -- RichContent
+    , removed : Bool -- Bool
     , createdAt : CreateTimestamp -- CreateTimestamp
     , deletedAt : SoftDelete -- SoftDelete
     }
@@ -467,6 +468,7 @@ type alias ItemCommentDbCreate =
     , parentId : Maybe String
     , authorName : String
     , text : String
+    , removed : Bool
     }
 
 {-| Database entity for updating existing ItemComment
@@ -479,6 +481,7 @@ type alias ItemCommentDbUpdate =
     , parentId : Maybe String
     , authorName : Maybe String
     , text : Maybe String
+    , removed : Maybe Bool
     , createdAt : Maybe CreateTimestamp
     , deletedAt : SoftDelete
     }
@@ -555,6 +558,7 @@ itemcommentDbDecoder =
         |> decodeField "parent_id" (Decode.nullable Decode.string)
         |> decodeField "author_name" Decode.string
         |> decodeField "text" richContentDecoder
+        |> decodeField "removed" Decode.bool
         |> decodeField "created_at" timestampDecoder
         |> decodeField "deleted_at" (Decode.nullable timestampDecoder)
 
@@ -567,6 +571,7 @@ encodeItemCommentDbCreate item =
         , ("parent_id", encodeMaybe Encode.string item.parentId)
         , ("author_name", Encode.string item.authorName)
         , ("text", Encode.string item.text)
+        , ("removed", Encode.bool item.removed)
         ]
 
 
@@ -579,6 +584,7 @@ encodeItemCommentDbUpdate item =
         , ("parent_id", encodeMaybe Encode.string item.parentId)
         , ("author_name", encodeMaybe Encode.string item.authorName)
         , ("text", encodeMaybe Encode.string item.text)
+        , ("removed", encodeMaybe Encode.bool item.removed)
         , ("created_at", encodeMaybe Encode.int item.createdAt)
         , ("deleted_at", encodeMaybe Encode.int item.deletedAt)
         ]

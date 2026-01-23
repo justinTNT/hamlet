@@ -185,7 +185,9 @@ function generateElmTypeDefinition(api) {
     }
 
     const fields = api.fields.map(field => {
-        return `    ${field.name} : ${field.elmType || field.type}`;
+        // Use camelCase for idiomatic Elm field names
+        const elmFieldName = field.camelName || field.name;
+        return `    ${elmFieldName} : ${field.elmType || field.type}`;
     }).join('\n');
 
     return `type alias ${api.struct_name} =\n{\n${fields}\n}`;
@@ -206,6 +208,9 @@ ${functionName} _ =
 
     const encoderFields = api.fields.map(field => {
         const elmType = field.elmType || field.type;
+        // Use camelCase for Elm record access, snake_case for JSON keys
+        const elmFieldName = field.camelName || field.name;
+        const jsonKey = field.name; // snake_case for wire format
         let encoder;
         if (elmType === 'String') {
             encoder = 'Json.Encode.string';
@@ -222,7 +227,7 @@ ${functionName} _ =
         } else {
             encoder = 'Json.Encode.string'; // Fallback
         }
-        return `        ( "${field.name}", ${encoder} ${paramName}.${field.name} )`;
+        return `        ( "${jsonKey}", ${encoder} ${paramName}.${elmFieldName} )`;
     }).join('\n');
 
     return `${functionName} : ${api.struct_name} -> Json.Encode.Value
@@ -302,6 +307,429 @@ ${encoders}
 -- HTTP FUNCTIONS
 
 ${httpFunctions}
+`;
+}
+
+// =============================================================================
+// BACKEND API MODULE GENERATION
+// =============================================================================
+
+/**
+ * Convert camelCase to snake_case for JSON keys
+ */
+function camelToSnake(str) {
+    return str.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '');
+}
+
+/**
+ * Convert a type name to its first-char-lowercase version for function names
+ */
+function lcFirst(str) {
+    return str.charAt(0).toLowerCase() + str.slice(1);
+}
+
+/**
+ * Generate Elm encoder expression for a field type
+ */
+function generateFieldEncoder(elmType, accessor) {
+    const type = elmType.trim();
+
+    // Maybe type
+    if (type.startsWith('Maybe ') || type.startsWith('Maybe(')) {
+        const inner = type.startsWith('Maybe ')
+            ? type.slice(6).trim()
+            : type.slice(6, -1).trim();
+        const innerEncoder = generateFieldEncoderSimple(inner);
+        return `(Maybe.withDefault Json.Encode.null << Maybe.map (${innerEncoder})) ${accessor}`;
+    }
+
+    // List type
+    if (type.startsWith('List ') || type.startsWith('List(')) {
+        const inner = type.startsWith('List ')
+            ? type.slice(5).trim()
+            : type.slice(5, -1).trim();
+        const innerEncoder = generateFieldEncoderSimple(inner);
+        return `(Json.Encode.list (${innerEncoder})) ${accessor}`;
+    }
+
+    // Simple encoder
+    const encoder = generateFieldEncoderSimple(type);
+    return `(${encoder}) ${accessor}`;
+}
+
+/**
+ * Generate simple encoder function name for a type
+ */
+function generateFieldEncoderSimple(elmType) {
+    const type = elmType.trim();
+
+    // Remove parentheses if wrapping
+    let cleanType = type;
+    if (cleanType.startsWith('(') && cleanType.endsWith(')')) {
+        cleanType = cleanType.slice(1, -1).trim();
+    }
+
+    switch (cleanType) {
+        case 'String': return 'Json.Encode.string';
+        case 'Int': return 'Json.Encode.int';
+        case 'Float': return 'Json.Encode.float';
+        case 'Bool': return 'Json.Encode.bool';
+        default:
+            // Custom type - use lowercase encoder name
+            return lcFirst(cleanType) + 'Encoder';
+    }
+}
+
+/**
+ * Generate Elm decoder expression for a field type
+ */
+function generateFieldDecoder(elmType) {
+    const type = elmType.trim();
+
+    // Maybe type - use nullable
+    if (type.startsWith('Maybe ') || type.startsWith('Maybe(')) {
+        const inner = type.startsWith('Maybe ')
+            ? type.slice(6).trim()
+            : type.slice(6, -1).trim();
+        const innerDecoder = generateFieldDecoderSimple(inner);
+        return `(Json.Decode.nullable (${innerDecoder}))`;
+    }
+
+    // List type
+    if (type.startsWith('List ') || type.startsWith('List(')) {
+        const inner = type.startsWith('List ')
+            ? type.slice(5).trim()
+            : type.slice(5, -1).trim();
+        const innerDecoder = generateFieldDecoderSimple(inner);
+        return `(Json.Decode.list (${innerDecoder}))`;
+    }
+
+    // Simple decoder
+    const decoder = generateFieldDecoderSimple(type);
+    return `(${decoder})`;
+}
+
+/**
+ * Generate simple decoder function name for a type
+ */
+function generateFieldDecoderSimple(elmType) {
+    const type = elmType.trim();
+
+    // Remove parentheses if wrapping
+    let cleanType = type;
+    if (cleanType.startsWith('(') && cleanType.endsWith(')')) {
+        cleanType = cleanType.slice(1, -1).trim();
+    }
+
+    switch (cleanType) {
+        case 'String': return 'Json.Decode.string';
+        case 'Int': return 'Json.Decode.int';
+        case 'Float': return 'Json.Decode.float';
+        case 'Bool': return 'Json.Decode.bool';
+        default:
+            // Custom type - use lowercase decoder name
+            return lcFirst(cleanType) + 'Decoder';
+    }
+}
+
+/**
+ * Generate a type alias for the backend module
+ */
+function generateBackendTypeAlias(typeName, fields) {
+    if (!fields || fields.length === 0) {
+        return `type alias ${typeName} =\n    {}`;
+    }
+
+    const firstField = fields[0];
+    const firstFieldName = firstField.camelName || firstField.name;
+    const restFields = fields.slice(1);
+
+    const restFieldLines = restFields.map(f => {
+        const fieldName = f.camelName || f.name;
+        return `    , ${fieldName} : ${f.elmType}`;
+    });
+
+    // Use multi-line record format matching elm_rs style
+    if (restFieldLines.length === 0) {
+        return `type alias ${typeName} =\n    { ${firstFieldName} : ${firstField.elmType}\n    }`;
+    }
+
+    return `type alias ${typeName} =\n    { ${firstFieldName} : ${firstField.elmType}\n${restFieldLines.join('\n')}\n    }`;
+}
+
+/**
+ * Generate an encoder for a type
+ */
+function generateBackendEncoder(typeName, fields) {
+    const encoderName = lcFirst(typeName) + 'Encoder';
+
+    if (!fields || fields.length === 0) {
+        return `${encoderName} : ${typeName} -> Json.Encode.Value
+${encoderName} _ =
+    Json.Encode.object []`;
+    }
+
+    const firstField = fields[0];
+    const firstFieldName = firstField.camelName || firstField.name;
+    const firstJsonKey = camelToSnake(firstFieldName);
+    const firstEncoder = generateFieldEncoder(firstField.elmType, `struct.${firstFieldName}`);
+
+    const restFields = fields.slice(1);
+    const restFieldEncodings = restFields.map(f => {
+        const fieldName = f.camelName || f.name;
+        const jsonKey = camelToSnake(fieldName);
+        const encoder = generateFieldEncoder(f.elmType, `struct.${fieldName}`);
+        return `        , ( "${jsonKey}", ${encoder} )`;
+    });
+
+    if (restFieldEncodings.length === 0) {
+        return `${encoderName} : ${typeName} -> Json.Encode.Value
+${encoderName} struct =
+    Json.Encode.object
+        [ ( "${firstJsonKey}", ${firstEncoder} )
+        ]`;
+    }
+
+    return `${encoderName} : ${typeName} -> Json.Encode.Value
+${encoderName} struct =
+    Json.Encode.object
+        [ ( "${firstJsonKey}", ${firstEncoder} )
+${restFieldEncodings.join('\n')}
+        ]`;
+}
+
+/**
+ * Generate a decoder for a type using the andThen pattern
+ */
+function generateBackendDecoder(typeName, fields) {
+    const decoderName = lcFirst(typeName) + 'Decoder';
+
+    if (!fields || fields.length === 0) {
+        return `${decoderName} : Json.Decode.Decoder ${typeName}
+${decoderName} =
+    Json.Decode.succeed ${typeName}`;
+    }
+
+    const fieldDecodings = fields.map(f => {
+        const fieldName = f.camelName || f.name;
+        const jsonKey = camelToSnake(fieldName);
+        const decoder = generateFieldDecoder(f.elmType);
+        return `        |> Json.Decode.andThen (\\x -> Json.Decode.map x (Json.Decode.field "${jsonKey}" ${decoder}))`;
+    });
+
+    return `${decoderName} : Json.Decode.Decoder ${typeName}
+${decoderName} =
+    Json.Decode.succeed ${typeName}
+${fieldDecodings.join('\n')}`;
+}
+
+/**
+ * Collect all types from API modules, renaming Request/Response/ServerContext appropriately
+ * @param {Array} allElmApis - Raw parsed API modules from parseElmApiDir
+ * @returns {Map} Map of type name to type definition
+ */
+function collectBackendTypes(allElmApis) {
+    const types = new Map();
+
+    for (const api of allElmApis) {
+        const endpointName = api.name; // e.g., "SubmitComment"
+
+        // Request -> {Endpoint}Req
+        if (api.request) {
+            const typeName = `${endpointName}Req`;
+            types.set(typeName, {
+                name: typeName,
+                fields: api.request.fields,
+                source: api.name,
+                kind: 'request'
+            });
+        }
+
+        // Response -> {Endpoint}Res
+        if (api.response) {
+            const typeName = `${endpointName}Res`;
+            types.set(typeName, {
+                name: typeName,
+                fields: api.response.fields,
+                source: api.name,
+                kind: 'response'
+            });
+        }
+
+        // ServerContext -> {Endpoint}Data
+        if (api.serverContext) {
+            const typeName = `${endpointName}Data`;
+            types.set(typeName, {
+                name: typeName,
+                fields: api.serverContext.fields,
+                source: api.name,
+                kind: 'serverContext'
+            });
+        }
+
+        // Helper types - keep original name (dedupe by name)
+        for (const helper of api.helperTypes || []) {
+            if (!types.has(helper.name)) {
+                types.set(helper.name, {
+                    name: helper.name,
+                    fields: helper.fields,
+                    source: api.name,
+                    kind: 'helper'
+                });
+            }
+        }
+    }
+
+    return types;
+}
+
+/**
+ * Topologically sort types so dependencies come before dependents
+ */
+function sortTypesByDependency(types) {
+    const typeNames = new Set(types.keys());
+    const sorted = [];
+    const visited = new Set();
+    const visiting = new Set();
+
+    function getDependencies(typeInfo) {
+        const deps = new Set();
+        for (const field of typeInfo.fields || []) {
+            const elmType = field.elmType;
+            // Extract type references from the field type
+            const matches = elmType.match(/[A-Z][a-zA-Z0-9]*/g) || [];
+            for (const match of matches) {
+                if (typeNames.has(match) && match !== typeInfo.name) {
+                    deps.add(match);
+                }
+            }
+        }
+        return deps;
+    }
+
+    function visit(typeName) {
+        if (visited.has(typeName)) return;
+        if (visiting.has(typeName)) {
+            // Circular dependency - just continue
+            return;
+        }
+
+        visiting.add(typeName);
+        const typeInfo = types.get(typeName);
+        const deps = getDependencies(typeInfo);
+
+        for (const dep of deps) {
+            visit(dep);
+        }
+
+        visiting.delete(typeName);
+        visited.add(typeName);
+        sorted.push(typeInfo);
+    }
+
+    for (const typeName of typeNames) {
+        visit(typeName);
+    }
+
+    return sorted;
+}
+
+/**
+ * Generate the complete BuildAmp.Api Elm module
+ * @param {Array} allElmApis - Raw parsed API modules from parseElmApiDir
+ */
+function generateElmBackend(allElmApis) {
+    // Collect and sort types
+    const typesMap = collectBackendTypes(allElmApis);
+    const sortedTypes = sortTypesByDependency(typesMap);
+
+    // Generate type aliases
+    const typeAliases = sortedTypes.map(t =>
+        generateBackendTypeAlias(t.name, t.fields)
+    ).join('\n\n\n');
+
+    // Generate encoders
+    const encoders = sortedTypes.map(t =>
+        generateBackendEncoder(t.name, t.fields)
+    ).join('\n\n\n');
+
+    // Generate decoders
+    const decoders = sortedTypes.map(t =>
+        generateBackendDecoder(t.name, t.fields)
+    ).join('\n\n\n');
+
+    // Build exports list
+    const typeExports = sortedTypes.map(t => t.name);
+    const encoderExports = sortedTypes.map(t => lcFirst(t.name) + 'Encoder');
+    const decoderExports = sortedTypes.map(t => lcFirst(t.name) + 'Decoder');
+
+    const allExports = [
+        'resultEncoder',
+        'resultDecoder',
+        ...typeExports,
+        ...encoderExports,
+        ...decoderExports
+    ].join('\n    , ');
+
+    return `-- Auto-Generated Backend API Types
+-- Generated from Elm API definitions in models/Api/
+--
+-- DO NOT EDIT THIS FILE MANUALLY
+-- Changes will be overwritten during next generation
+
+module BuildAmp.Api exposing
+    ( ${allExports}
+    )
+
+import Dict exposing (Dict)
+import Json.Decode
+import Json.Encode
+
+
+-- =============================================================================
+-- HELPER FUNCTIONS
+-- =============================================================================
+
+
+resultEncoder : (e -> Json.Encode.Value) -> (t -> Json.Encode.Value) -> (Result e t -> Json.Encode.Value)
+resultEncoder errEncoder okEncoder enum =
+    case enum of
+        Ok inner ->
+            Json.Encode.object [ ( "Ok", okEncoder inner ) ]
+        Err inner ->
+            Json.Encode.object [ ( "Err", errEncoder inner ) ]
+
+
+resultDecoder : Json.Decode.Decoder e -> Json.Decode.Decoder t -> Json.Decode.Decoder (Result e t)
+resultDecoder errDecoder okDecoder =
+    Json.Decode.oneOf
+        [ Json.Decode.map Ok (Json.Decode.field "Ok" okDecoder)
+        , Json.Decode.map Err (Json.Decode.field "Err" errDecoder)
+        ]
+
+
+-- =============================================================================
+-- TYPE ALIASES
+-- =============================================================================
+
+
+${typeAliases}
+
+
+-- =============================================================================
+-- ENCODERS
+-- =============================================================================
+
+
+${encoders}
+
+
+-- =============================================================================
+-- DECODERS
+-- =============================================================================
+
+
+${decoders}
 `;
 }
 
@@ -415,7 +843,7 @@ ${functionName} =
     }).join('\n');
 
     return `-- AUTO-GENERATED BACKEND TYPES
--- Add these to your Api.Backend module
+-- Legacy BackendTypes for web frontend (see BuildAmp.Api for server)
 
 -- Updated BackendAction type:
 type BackendAction
@@ -478,7 +906,7 @@ function convertElmApiToGeneratorFormat(elmApi) {
             docComment: f.docComment
         })),
         filename: elmApi.filename,
-        // Keep Elm-specific data for enhanced generation
+        // Keep Elm-specific data for enhanced generation (includes sse config)
         _elm: elmApi
     };
 }
@@ -492,11 +920,13 @@ function generateApiRoutes(config = {}) {
     const allApis = [];
     const allDbReferences = new Set(); // Track cross-model DB references
     const allUnionTypes = []; // Collect union types from all API modules
+    let rawElmApis = []; // Keep raw parsed APIs for backend generation
 
     // Parse Elm API schemas
     const elmApiDir = paths.elmApiDir || path.join(paths.outputDir, 'models/Api');
     if (fs.existsSync(elmApiDir)) {
         const elmApis = parseElmApiDir(elmApiDir);
+        rawElmApis = elmApis; // Store for backend generation
         if (elmApis.length > 0) {
             console.log(`🌳 Parsing Elm API schemas from ${elmApiDir}`);
             for (const elmApi of elmApis) {
@@ -567,11 +997,21 @@ ${allRoutes}
     const elmOutputFile = path.join(elmOutputPath, 'ApiClient.elm');
     fs.writeFileSync(elmOutputFile, elmClientCode);
 
-    // Write Elm backend types file
+    // Write Elm backend types file (legacy - BackendTypes.elm)
     // BackendTypes.elm goes to elm/backend subdirectory of dest
     const backendOutputPath = ensureOutputDir(path.join(paths.elmOutputPath, 'backend'));
     const backendOutputFile = path.join(backendOutputPath, 'BackendTypes.elm');
     fs.writeFileSync(backendOutputFile, elmBackendCode);
+
+    // Generate BuildAmp.Api module for server-side handlers
+    // This replaces the manually-maintained Api.Backend module
+    if (rawElmApis.length > 0) {
+        const backendApiCode = generateElmBackend(rawElmApis);
+        const serverElmBuildAmpDir = ensureOutputDir(path.join(paths.serverElmDir, 'BuildAmp'));
+        const backendApiFile = path.join(serverElmBuildAmpDir, 'Api.elm');
+        fs.writeFileSync(backendApiFile, backendApiCode);
+        console.log(`✅ Generated BuildAmp.Api module: ${backendApiFile}`);
+    }
 
     console.log(`✅ Generated API routes: ${jsOutputFile}`);
     console.log(`✅ Generated Elm API client: ${elmOutputFile}`);
@@ -609,5 +1049,16 @@ export const _test = {
     generateElmApiClient,
     generateElmBackendTypes,
     generateUnionTypesCode,
-    convertElmApiToGeneratorFormat
+    convertElmApiToGeneratorFormat,
+    // Backend API module generation
+    generateElmBackend,
+    generateBackendTypeAlias,
+    generateBackendEncoder,
+    generateBackendDecoder,
+    collectBackendTypes,
+    sortTypesByDependency,
+    generateFieldEncoder,
+    generateFieldDecoder,
+    camelToSnake,
+    lcFirst
 };

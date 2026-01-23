@@ -2935,7 +2935,6 @@ var $author$project$Api$Handlers$SubmitCommentHandler$subscriptions = function (
 var $elm$core$Basics$identity = function (x) {
 	return x;
 };
-var $author$project$Api$Handlers$SubmitCommentHandler$complete = _Platform_outgoingPort('complete', $elm$core$Basics$identity);
 var $elm$json$Json$Encode$object = function (pairs) {
 	return _Json_wrap(
 		A3(
@@ -2950,15 +2949,25 @@ var $elm$json$Json$Encode$object = function (pairs) {
 			pairs));
 };
 var $elm$json$Json$Encode$string = _Json_wrap;
-var $author$project$Api$Handlers$SubmitCommentHandler$encodeError = function (error) {
-	return $elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'error',
-				$elm$json$Json$Encode$string(error))
-			]));
-};
+var $author$project$BuildAmp$Services$sseBroadcast = _Platform_outgoingPort(
+	'sseBroadcast',
+	function ($) {
+		return $elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'data',
+					$elm$core$Basics$identity($.data)),
+					_Utils_Tuple2(
+					'eventType',
+					$elm$json$Json$Encode$string($.eventType))
+				]));
+	});
+var $author$project$BuildAmp$Services$broadcast = F2(
+	function (eventType, data) {
+		return $author$project$BuildAmp$Services$sseBroadcast(
+			{data: data, eventType: eventType});
+	});
 var $elm$core$Basics$composeL = F3(
 	function (g, f, x) {
 		return g(
@@ -2985,7 +2994,7 @@ var $elm$core$Maybe$withDefault = F2(
 			return _default;
 		}
 	});
-var $author$project$Api$Backend$commentItemEncoder = function (struct) {
+var $author$project$BuildAmp$Api$commentItemEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
@@ -3015,17 +3024,27 @@ var $author$project$Api$Backend$commentItemEncoder = function (struct) {
 				$elm$json$Json$Encode$int(struct.timestamp))
 			]));
 };
-var $author$project$Api$Backend$submitCommentResEncoder = function (struct) {
+var $author$project$Api$Handlers$SubmitCommentHandler$complete = _Platform_outgoingPort('complete', $elm$core$Basics$identity);
+var $author$project$Api$Handlers$SubmitCommentHandler$encodeError = function (error) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'error',
+				$elm$json$Json$Encode$string(error))
+			]));
+};
+var $author$project$BuildAmp$Api$submitCommentResEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
 				_Utils_Tuple2(
 				'comment',
-				$author$project$Api$Backend$commentItemEncoder(struct.comment))
+				$author$project$BuildAmp$Api$commentItemEncoder(struct.comment))
 			]));
 };
 var $author$project$Api$Handlers$SubmitCommentHandler$encodeSubmitCommentRes = function (response) {
-	return $author$project$Api$Backend$submitCommentResEncoder(response);
+	return $author$project$BuildAmp$Api$submitCommentResEncoder(response);
 };
 var $author$project$Api$Handlers$SubmitCommentHandler$Complete = function (a) {
 	return {$: 'Complete', a: a};
@@ -3096,7 +3115,7 @@ var $elm$core$Tuple$pair = F2(
 	function (a, b) {
 		return _Utils_Tuple2(a, b);
 	});
-var $author$project$Api$Backend$SubmitCommentReq = F5(
+var $author$project$BuildAmp$Api$SubmitCommentReq = F5(
 	function (host, itemId, parentId, text, authorName) {
 		return {authorName: authorName, host: host, itemId: itemId, parentId: parentId, text: text};
 	});
@@ -3108,7 +3127,7 @@ var $elm$json$Json$Decode$nullable = function (decoder) {
 				A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, decoder)
 			]));
 };
-var $author$project$Api$Backend$submitCommentReqDecoder = A2(
+var $author$project$BuildAmp$Api$submitCommentReqDecoder = A2(
 	$elm$json$Json$Decode$andThen,
 	function (x) {
 		return A2(
@@ -3154,7 +3173,7 @@ var $author$project$Api$Backend$submitCommentReqDecoder = A2(
 							x,
 							A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
 					},
-					$elm$json$Json$Decode$succeed($author$project$Api$Backend$SubmitCommentReq))))));
+					$elm$json$Json$Decode$succeed($author$project$BuildAmp$Api$SubmitCommentReq))))));
 var $author$project$Api$Handlers$SubmitCommentHandler$decodeRequest = function (bundle) {
 	return A3(
 		$elm$core$Result$map2,
@@ -3162,7 +3181,7 @@ var $author$project$Api$Handlers$SubmitCommentHandler$decodeRequest = function (
 		A2(
 			$elm$core$Result$mapError,
 			$elm$json$Json$Decode$errorToString,
-			A2($elm$json$Json$Decode$decodeValue, $author$project$Api$Backend$submitCommentReqDecoder, bundle.request)),
+			A2($elm$json$Json$Decode$decodeValue, $author$project$BuildAmp$Api$submitCommentReqDecoder, bundle.request)),
 		A2(
 			$elm$core$Result$mapError,
 			$elm$json$Json$Decode$errorToString,
@@ -3481,6 +3500,10 @@ var $author$project$Api$Handlers$SubmitCommentHandler$updateWithResponse = F2(
 							[
 								$author$project$Api$Handlers$SubmitCommentHandler$complete(
 								$author$project$Api$Handlers$SubmitCommentHandler$encodeSubmitCommentRes(response)),
+								A2(
+								$author$project$BuildAmp$Services$broadcast,
+								'new_comment_event',
+								$author$project$BuildAmp$Api$commentItemEncoder(response.comment)),
 								cmd
 							])));
 			case 'Failed':

@@ -180,7 +180,7 @@ describe('SSE Generator - SSE Helpers Generation', () => {
     test('generateSSEHelpers creates decodeSSEEvent function', () => {
         const result = generateSSEHelpers(models);
 
-        assert.ok(result.includes('decodeSSEEvent : String -> String -> Result Decode.Error SSEEvent'));
+        assert.ok(result.includes('decodeSSEEvent : String -> Decode.Value -> Result Decode.Error SSEEvent'));
     });
 
     test('generateSSEHelpers includes event type cases', () => {
@@ -196,17 +196,6 @@ describe('SSE Generator - SSE Helpers Generation', () => {
         assert.ok(result.includes('_ -> Ok (UnknownEvent eventType)'));
     });
 
-    test('generateSSEHelpers creates subscribeToSSE function', () => {
-        const result = generateSSEHelpers(models);
-
-        assert.ok(result.includes('subscribeToSSE : String -> (SSEEvent -> msg) -> Sub msg'));
-    });
-
-    test('generateSSEHelpers declares port', () => {
-        const result = generateSSEHelpers(models);
-
-        assert.ok(result.includes('port sseSubscription'));
-    });
 });
 
 describe('SSE Generator - Complete Module Generation', () => {
@@ -251,12 +240,6 @@ describe('SSE Generator - Complete Module Generation', () => {
         assert.ok(result.includes('decodeTestEvent'));
     });
 
-    test('generateSSEModule includes helpers section', () => {
-        const result = generateSSEModule(models);
-
-        assert.ok(result.includes('-- SSE HELPERS'));
-        assert.ok(result.includes('type SSEEvent'));
-    });
 });
 
 describe('SSE Generator - JavaScript Generation', () => {

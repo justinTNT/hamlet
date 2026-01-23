@@ -8,7 +8,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getGenerationPaths, ensureOutputDir } from './shared-paths.js';
-import { parseElmSchemaDir, parseElmConfigDir, parseElmEventsDir, parseElmKvDir, parseCronConfig } from '../../core/elm-parser-ts.js';
+import { parseElmSchemaDir, parseElmConfigDir, parseElmEventsDir, parseElmKvDir, parseCronConfig, parseAdminHooksConfig } from '../../core/elm-parser-ts.js';
 
 /**
  * Generate all shared Elm modules (configurable version)
@@ -39,11 +39,11 @@ export async function generateElmSharedModules(config = {}) {
         { name: 'Services.elm', content: generateServicesModule(config) }
     ];
 
-    // Events backend module for event handlers
-    const eventsBackendDir = ensureOutputDir(path.join(paths.outputDir, 'server', 'src', 'Events'));
+    // Events backend module for event handlers (in .generated with other BuildAmp modules)
     const eventsBackendContent = generateEventsBackendModule(paths, config);
-    fs.writeFileSync(path.join(eventsBackendDir, 'Backend.elm'), eventsBackendContent);
-    console.log(`   ✅ Generated Events/Backend.elm (event handler support)`);
+    const eventsBackendDir = ensureOutputDir(path.join(paths.serverGlueDir, 'BuildAmp'));
+    fs.writeFileSync(path.join(eventsBackendDir, 'Events.elm'), eventsBackendContent);
+    console.log(`   ✅ Generated .generated/BuildAmp/Events.elm (event handler support)`);
 
     // Shared modules (used by both web and server)
     const sharedModules = [
@@ -71,6 +71,12 @@ export async function generateElmSharedModules(config = {}) {
     const cronConfigResult = generateCronConfig(paths, config);
     if (cronConfigResult.generated) {
         console.log(`   ✅ Generated cron-config.json (${cronConfigResult.events.length} scheduled events)`);
+    }
+
+    // Generate admin hooks config
+    const adminHooksResult = generateAdminHooksConfig(paths, config);
+    if (adminHooksResult.generated) {
+        console.log(`   ✅ Generated admin-hooks.json (${adminHooksResult.hooks.length} admin hooks)`);
     }
 
     const allModules = [...serverModules, ...sharedModules, ...fieldModules.map(f => `Database/${f}`)];
@@ -1028,7 +1034,7 @@ httpMethodToString : HttpMethod -> String
 httpMethodToString method =
     case method of
         GET -> "GET"
-        POST -> "POST"  
+        POST -> "POST"
         PUT -> "PUT"
         DELETE -> "DELETE"
         PATCH -> "PATCH"
@@ -1041,6 +1047,33 @@ toString = httpMethodToString
 hashString : String -> Int
 hashString str =
     String.foldl (\\char acc -> acc * 31 + Char.toCode char) 0 str
+
+
+-- SSE INTERFACE (Server-Sent Events)
+
+{-| Broadcast an SSE event to all connected clients.
+The event type should be snake_case (e.g., "new_comment_event").
+
+Usage:
+    Services.broadcast "new_comment_event" (encodeComment comment)
+-}
+broadcast : String -> Encode.Value -> Cmd msg
+broadcast eventType data =
+    sseBroadcast
+        { eventType = eventType
+        , data = data
+        }
+
+
+-- SSE PORT INTERFACE (Internal - used by runtime)
+
+port sseBroadcast : SseBroadcastPort -> Cmd msg
+
+
+type alias SseBroadcastPort =
+    { eventType : String
+    , data : Encode.Value
+    }
 `;
 }
 
@@ -1944,7 +1977,7 @@ export function generateEventsBackendModule(paths, config = {}) {
     }
 
     if (allEventModels.length === 0) {
-        return `module Events.Backend exposing (..)
+        return `module BuildAmp.Events exposing (..)
 
 {-| Generated Events Backend Module
 No event models found in models/Events/
@@ -2004,7 +2037,7 @@ encodeEventResult result =
     const exposedTypes = allEventModels.map(m => `${m.name}Payload`).join(', ');
     const exposedDecoders = allEventModels.map(m => `${lowerFirst(m.name)}PayloadDecoder`).join(', ');
 
-    return `module Events.Backend exposing (${exposedTypes}, ${exposedDecoders}, EventContext, EventResult(..), eventContextDecoder, encodeEventResult)
+    return `module BuildAmp.Events exposing (${exposedTypes}, ${exposedDecoders}, EventContext, EventResult(..), eventContextDecoder, encodeEventResult)
 
 {-| Generated Events Backend Module
 
@@ -2274,5 +2307,80 @@ function generateCronConfig(paths, config = {}) {
     fs.writeFileSync(outputPath, JSON.stringify(configOutput, null, 2));
 
     return { generated: true, events: validatedEvents, errors };
+}
+
+// =============================================================================
+// ADMIN HOOKS CONFIG GENERATION
+// =============================================================================
+
+/**
+ * Generate admin-hooks.json from Config/AdminHooks.elm
+ * Admin hooks trigger events when specific fields are updated via admin API
+ */
+function generateAdminHooksConfig(paths, config = {}) {
+    const hooksConfig = parseAdminHooksConfig(paths.elmConfigDir);
+
+    if (hooksConfig.length === 0) {
+        return { generated: false, hooks: [] };
+    }
+
+    // Validate hook entries
+    const errors = [];
+    const validatedHooks = [];
+
+    for (const hook of hooksConfig) {
+        if (!hook.table || !hook.field || !hook.event) {
+            errors.push(`Invalid admin hook entry: ${JSON.stringify(hook)}`);
+            continue;
+        }
+
+        // Validate event name is PascalCase
+        if (!/^[A-Z][a-zA-Z0-9]*$/.test(hook.event)) {
+            errors.push(`Invalid event name "${hook.event}" - must be PascalCase`);
+            continue;
+        }
+
+        // Validate table name is snake_case
+        if (!/^[a-z][a-z0-9_]*$/.test(hook.table)) {
+            errors.push(`Invalid table name "${hook.table}" - must be snake_case`);
+            continue;
+        }
+
+        // Validate field name is snake_case
+        if (!/^[a-z][a-z0-9_]*$/.test(hook.field)) {
+            errors.push(`Invalid field name "${hook.field}" - must be snake_case`);
+            continue;
+        }
+
+        validatedHooks.push({
+            table: hook.table,
+            field: hook.field,
+            event: hook.event
+        });
+    }
+
+    // Report errors
+    if (errors.length > 0) {
+        console.error('   ❌ Admin hooks config validation errors:');
+        for (const error of errors) {
+            console.error(`      - ${error}`);
+        }
+        if (validatedHooks.length === 0) {
+            return { generated: false, hooks: [], errors };
+        }
+    }
+
+    // Write admin-hooks.json to server/.generated/
+    const outputDir = ensureOutputDir(paths.serverGlueDir);
+    const outputPath = path.join(outputDir, 'admin-hooks.json');
+
+    const configOutput = {
+        generated: new Date().toISOString(),
+        hooks: validatedHooks
+    };
+
+    fs.writeFileSync(outputPath, JSON.stringify(configOutput, null, 2));
+
+    return { generated: true, hooks: validatedHooks, errors };
 }
 

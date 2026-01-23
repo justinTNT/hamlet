@@ -10,7 +10,7 @@ records that have been soft-deleted and are past the retention period.
 
 -}
 
-import Events.Backend exposing (EventContext, EventResult(..))
+import BuildAmp.Events exposing (EventContext, EventResult(..))
 import BuildAmp.Database as DB
 import Json.Encode as Encode
 import Json.Decode as Decode
@@ -301,7 +301,7 @@ handleDeleteResponse response toMsg model =
 
 decodeEventBundle : EventBundle -> Result String EventContext
 decodeEventBundle bundle =
-    Decode.decodeValue Events.Backend.eventContextDecoder bundle.context
+    Decode.decodeValue BuildAmp.Events.eventContextDecoder bundle.context
         |> Result.mapError Decode.errorToString
 
 
@@ -309,7 +309,7 @@ decodeEventBundle bundle =
 
 encodeEventResult : EventResult -> Encode.Value
 encodeEventResult result =
-    Events.Backend.encodeEventResult result
+    BuildAmp.Events.encodeEventResult result
 
 
 -- PORTS

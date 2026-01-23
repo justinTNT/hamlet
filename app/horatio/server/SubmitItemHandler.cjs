@@ -3007,7 +3007,7 @@ var $elm$core$Maybe$withDefault = F2(
 			return _default;
 		}
 	});
-var $author$project$Api$Backend$commentItemEncoder = function (struct) {
+var $author$project$BuildAmp$Api$commentItemEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
@@ -3046,7 +3046,7 @@ var $elm$json$Json$Encode$list = F2(
 				_Json_emptyArray(_Utils_Tuple0),
 				entries));
 	});
-var $author$project$Api$Backend$microblogItemEncoder = function (struct) {
+var $author$project$BuildAmp$Api$microblogItemEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
@@ -3073,23 +3073,23 @@ var $author$project$Api$Backend$microblogItemEncoder = function (struct) {
 				$elm$json$Json$Encode$list($elm$json$Json$Encode$string)(struct.tags)),
 				_Utils_Tuple2(
 				'comments',
-				$elm$json$Json$Encode$list($author$project$Api$Backend$commentItemEncoder)(struct.comments)),
+				$elm$json$Json$Encode$list($author$project$BuildAmp$Api$commentItemEncoder)(struct.comments)),
 				_Utils_Tuple2(
 				'timestamp',
 				$elm$json$Json$Encode$int(struct.timestamp))
 			]));
 };
-var $author$project$Api$Backend$submitItemResEncoder = function (struct) {
+var $author$project$BuildAmp$Api$submitItemResEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
 				_Utils_Tuple2(
 				'item',
-				$author$project$Api$Backend$microblogItemEncoder(struct.item))
+				$author$project$BuildAmp$Api$microblogItemEncoder(struct.item))
 			]));
 };
 var $author$project$Api$Handlers$SubmitItemHandler$encodeSubmitItemRes = function (response) {
-	return $author$project$Api$Backend$submitItemResEncoder(response);
+	return $author$project$BuildAmp$Api$submitItemResEncoder(response);
 };
 var $author$project$Api$Handlers$SubmitItemHandler$completeWithItem = F2(
 	function (model, req) {
@@ -3305,12 +3305,12 @@ var $elm$core$Tuple$pair = F2(
 	function (a, b) {
 		return _Utils_Tuple2(a, b);
 	});
-var $author$project$Api$Backend$SubmitItemReq = F7(
+var $author$project$BuildAmp$Api$SubmitItemReq = F7(
 	function (host, title, link, image, extract, ownerComment, tags) {
 		return {extract: extract, host: host, image: image, link: link, ownerComment: ownerComment, tags: tags, title: title};
 	});
 var $elm$json$Json$Decode$list = _Json_decodeList;
-var $author$project$Api$Backend$submitItemReqDecoder = A2(
+var $author$project$BuildAmp$Api$submitItemReqDecoder = A2(
 	$elm$json$Json$Decode$andThen,
 	function (x) {
 		return A2(
@@ -3369,7 +3369,7 @@ var $author$project$Api$Backend$submitItemReqDecoder = A2(
 									x,
 									A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
 							},
-							$elm$json$Json$Decode$succeed($author$project$Api$Backend$SubmitItemReq))))))));
+							$elm$json$Json$Decode$succeed($author$project$BuildAmp$Api$SubmitItemReq))))))));
 var $author$project$Api$Handlers$SubmitItemHandler$decodeRequest = function (bundle) {
 	return A3(
 		$elm$core$Result$map2,
@@ -3377,7 +3377,7 @@ var $author$project$Api$Handlers$SubmitItemHandler$decodeRequest = function (bun
 		A2(
 			$elm$core$Result$mapError,
 			$elm$json$Json$Decode$errorToString,
-			A2($elm$json$Json$Decode$decodeValue, $author$project$Api$Backend$submitItemReqDecoder, bundle.request)),
+			A2($elm$json$Json$Decode$decodeValue, $author$project$BuildAmp$Api$submitItemReqDecoder, bundle.request)),
 		A2(
 			$elm$core$Result$mapError,
 			$elm$json$Json$Decode$errorToString,

@@ -10,7 +10,7 @@ Handles comment submission by creating new comment records in the database.
 
 -}
 
-import Api.Backend exposing (SubmitCommentReq, SubmitCommentRes, CommentItem)
+import BuildAmp.Api exposing (SubmitCommentReq, SubmitCommentRes, CommentItem)
 import BuildAmp.Database as DB
 import BuildAmp.Events as Events
 import BuildAmp.Services as Services
@@ -237,7 +237,7 @@ processRequest request model =
 decodeRequest : RequestBundle -> Result String ( SubmitCommentReq, Context )
 decodeRequest bundle =
     Result.map2 Tuple.pair
-        (Decode.decodeValue Api.Backend.submitCommentReqDecoder bundle.request |> Result.mapError Decode.errorToString)
+        (Decode.decodeValue BuildAmp.Api.submitCommentReqDecoder bundle.request |> Result.mapError Decode.errorToString)
         (Decode.decodeValue contextDecoder bundle.context |> Result.mapError Decode.errorToString)
 
 
@@ -253,7 +253,7 @@ contextDecoder =
 
 encodeSubmitCommentRes : SubmitCommentRes -> Encode.Value
 encodeSubmitCommentRes response =
-    Api.Backend.submitCommentResEncoder response
+    BuildAmp.Api.submitCommentResEncoder response
 
 
 encodeError : String -> Encode.Value
@@ -290,6 +290,7 @@ updateWithResponse msg model =
             ( newModel
             , Cmd.batch
                 [ complete (encodeSubmitCommentRes response)
+                , Services.broadcast "new_comment_event" (BuildAmp.Api.commentItemEncoder response.comment)
                 , cmd
                 ]
             )

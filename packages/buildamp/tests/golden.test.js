@@ -30,7 +30,7 @@ const generatedPaths = {
     // Database
     'database-queries.js': path.join(horatioDir, 'server/.generated/database-queries.js'),
     'Database.elm': path.join(horatioDir, 'server/.generated/BuildAmp/Database.elm'),
-    'Backend.elm': path.join(horatioDir, 'server/src/Api/Backend.elm'),
+    'Api.elm': path.join(horatioDir, 'server/.generated/BuildAmp/Api.elm'),
     // API
     'api-routes.js': path.join(horatioDir, 'server/.generated/api-routes.js'),
     'ApiClient.elm': path.join(horatioDir, 'web/src/.generated/ApiClient.elm'),
@@ -38,7 +38,7 @@ const generatedPaths = {
     'kv-store.js': path.join(horatioDir, 'server/.generated/kv-store.js'),
     // SSE
     'sse-connection.js': path.join(horatioDir, 'server/.generated/sse-connection.js'),
-    'ServerSentEvents.elm': path.join(horatioDir, 'web/src/.generated/ServerSentEvents.elm'),
+    'ServerSentEvents.elm': path.join(horatioDir, 'web/src/.generated/BuildAmp/ServerSentEvents.elm'),
     // Browser Storage
     'browser-storage.js': path.join(horatioDir, 'web/src/.generated/browser-storage.js'),
     'StoragePorts.elm': path.join(horatioDir, 'web/src/.generated/StoragePorts.elm'),
@@ -284,20 +284,23 @@ describe('Golden Snapshot Tests', () => {
         });
     });
 
-    describe('elm-rs Backend Types', () => {
-        test('Backend.elm matches golden snapshot', () => {
-            const goldenPath = path.join(goldenDir, 'Backend.elm');
-            const currentPath = generatedPaths['Backend.elm'];
+    describe('BuildAmp.Api Backend Types', () => {
+        test('Api.elm matches golden snapshot', () => {
+            const goldenPath = path.join(goldenDir, 'Api.elm');
+            const currentPath = generatedPaths['Api.elm'];
 
             assert.ok(fs.existsSync(goldenPath), 'Golden snapshot should exist');
             assert.ok(fs.existsSync(currentPath), 'Generated file should exist');
 
-            const result = compareFiles(goldenPath, currentPath, 'Backend.elm');
-            assert.ok(result.match, `Backend.elm differs from golden:\n${result.message}`);
+            const result = compareFiles(goldenPath, currentPath, 'Api.elm');
+            assert.ok(result.match, `Api.elm differs from golden:\n${result.message}`);
         });
 
-        test('Backend.elm has expected types and codecs', () => {
-            const content = fs.readFileSync(generatedPaths['Backend.elm'], 'utf-8');
+        test('Api.elm has expected types and codecs', () => {
+            const content = fs.readFileSync(generatedPaths['Api.elm'], 'utf-8');
+
+            // Module declaration
+            assert.ok(content.includes('module BuildAmp.Api exposing'), 'Should have correct module name');
 
             // Types
             assert.ok(content.includes('type alias MicroblogItem ='), 'Should have MicroblogItem type');
@@ -487,7 +490,7 @@ describe('Golden Snapshot Utilities', () => {
             // Database
             'database-queries.js',
             'Database.elm',
-            'Backend.elm',
+            'Api.elm',
             // API
             'api-routes.js',
             'ApiClient.elm',

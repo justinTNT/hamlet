@@ -179,7 +179,7 @@ TODO: Implement proper error handling and validation
 
 -}
 
-import Api.Backend exposing (${requestType}, ${responseType})
+import BuildAmp.Api exposing (${requestType}, ${responseType})
 import BuildAmp.Database as DB
 import BuildAmp.Events as Events
 import BuildAmp.Services as Services
@@ -341,7 +341,7 @@ processRequest request =
 decodeRequest : RequestBundle -> Result String ( ${requestType}, Context )
 decodeRequest bundle =
     Result.map2 Tuple.pair
-        (Decode.decodeValue Api.Backend.${requestType.charAt(0).toLowerCase() + requestType.slice(1)}Decoder bundle.request |> Result.mapError Decode.errorToString)
+        (Decode.decodeValue BuildAmp.Api.${requestType.charAt(0).toLowerCase() + requestType.slice(1)}Decoder bundle.request |> Result.mapError Decode.errorToString)
         (Decode.decodeValue contextDecoder bundle.context |> Result.mapError Decode.errorToString)
 
 
@@ -507,7 +507,7 @@ function generateResponseEncoder(endpoint) {
     
     // Use the auto-generated encoder from Backend.elm which handles field name mapping
     const encoderName = responseType.charAt(0).toLowerCase() + responseType.slice(1) + 'Encoder';
-    return `Api.Backend.${encoderName} response`;
+    return `BuildAmp.Api.${encoderName} response`;
 }
 
 /**

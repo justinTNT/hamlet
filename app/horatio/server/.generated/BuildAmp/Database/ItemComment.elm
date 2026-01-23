@@ -69,6 +69,13 @@ text =
     Field "text" Encode.string
 
 
+{-| Field accessor for removed
+-}
+removed : Field ItemCommentDb Bool
+removed =
+    Field "removed" Encode.bool
+
+
 {-| Field accessor for created_at
 -}
 createdAt : Field ItemCommentDb Int

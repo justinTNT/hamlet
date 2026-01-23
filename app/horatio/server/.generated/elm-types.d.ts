@@ -33,6 +33,7 @@ export interface ItemComment {
     parentId?: string;
     authorName: string;
     text: object;
+    removed: boolean;
     createdAt: number;
     deletedAt: number;
 }
@@ -192,8 +193,31 @@ export interface GuestSession {
     createdAt: number;
 }
 
+export interface CommentModeratedEvent {
+    commentId: string;
+    removed: boolean;
+}
+
 export interface CommentRemovedEvent {
     commentId: string;
     postId: string;
     timestamp: number;
+}
+
+export interface NewCommentEvent {
+    id: string;
+    itemId: string;
+    guestId: string;
+    parentId?: string;
+    authorName: string;
+    text: string;
+    timestamp: number;
+}
+
+export interface CommentModerated {
+    recordId: string;
+    table: string;
+    field: string;
+    oldValue: string;
+    newValue: string;
 }

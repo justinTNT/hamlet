@@ -2838,76 +2838,25 @@ var $elm$core$Result$isOk = function (result) {
 var $elm$json$Json$Decode$andThen = _Json_andThen;
 var $elm$json$Json$Decode$bool = _Json_decodeBool;
 var $elm$json$Json$Decode$field = _Json_decodeField;
-var $author$project$Events$Handlers$HardDeletesHandler$Idle = {$: 'Idle'};
+var $author$project$Events$Handlers$CommentModeratedHandler$Idle = {$: 'Idle'};
 var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
-var $author$project$Events$Handlers$HardDeletesHandler$init = function (flags) {
+var $author$project$Events$Handlers$CommentModeratedHandler$init = function (flags) {
 	return _Utils_Tuple2(
-		{
-			context: $elm$core$Maybe$Nothing,
-			deleteCounts: {comments: 0, guests: 0, items: 0, tags: 0},
-			globalConfig: flags.globalConfig,
-			globalState: flags.globalState,
-			pendingRequests: 0,
-			stage: $author$project$Events$Handlers$HardDeletesHandler$Idle
-		},
+		{context: $elm$core$Maybe$Nothing, globalConfig: flags.globalConfig, globalState: flags.globalState, payload: $elm$core$Maybe$Nothing, stage: $author$project$Events$Handlers$CommentModeratedHandler$Idle},
 		$elm$core$Platform$Cmd$none);
 };
 var $elm$json$Json$Decode$int = _Json_decodeInt;
 var $elm$json$Json$Decode$string = _Json_decodeString;
-var $author$project$Events$Handlers$HardDeletesHandler$DbResult = function (a) {
-	return {$: 'DbResult', a: a};
+var $elm$core$Basics$identity = function (x) {
+	return x;
 };
-var $author$project$Events$Handlers$HardDeletesHandler$HandleEvent = function (a) {
+var $author$project$Events$Handlers$CommentModeratedHandler$HandleEvent = function (a) {
 	return {$: 'HandleEvent', a: a};
 };
-var $elm$core$Platform$Sub$batch = _Platform_batch;
-var $elm$json$Json$Decode$map = _Json_map1;
-var $elm$json$Json$Decode$null = _Json_decodeNull;
-var $elm$json$Json$Decode$oneOf = _Json_oneOf;
 var $elm$json$Json$Decode$succeed = _Json_succeed;
 var $elm$json$Json$Decode$value = _Json_decodeValue;
-var $author$project$Events$Handlers$HardDeletesHandler$dbResult = _Platform_incomingPort(
-	'dbResult',
-	A2(
-		$elm$json$Json$Decode$andThen,
-		function (success) {
-			return A2(
-				$elm$json$Json$Decode$andThen,
-				function (id) {
-					return A2(
-						$elm$json$Json$Decode$andThen,
-						function (error) {
-							return A2(
-								$elm$json$Json$Decode$andThen,
-								function (data) {
-									return $elm$json$Json$Decode$succeed(
-										{data: data, error: error, id: id, success: success});
-								},
-								A2(
-									$elm$json$Json$Decode$field,
-									'data',
-									$elm$json$Json$Decode$oneOf(
-										_List_fromArray(
-											[
-												$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
-												A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$json$Json$Decode$value)
-											]))));
-						},
-						A2(
-							$elm$json$Json$Decode$field,
-							'error',
-							$elm$json$Json$Decode$oneOf(
-								_List_fromArray(
-									[
-										$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
-										A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$json$Json$Decode$string)
-									]))));
-				},
-				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string));
-		},
-		A2($elm$json$Json$Decode$field, 'success', $elm$json$Json$Decode$bool)));
-var $author$project$Events$Handlers$HardDeletesHandler$handleEvent = _Platform_incomingPort(
+var $author$project$Events$Handlers$CommentModeratedHandler$handleEvent = _Platform_incomingPort(
 	'handleEvent',
 	A2(
 		$elm$json$Json$Decode$andThen,
@@ -2931,19 +2880,11 @@ var $author$project$Events$Handlers$HardDeletesHandler$handleEvent = _Platform_i
 				A2($elm$json$Json$Decode$field, 'globalState', $elm$json$Json$Decode$value));
 		},
 		A2($elm$json$Json$Decode$field, 'payload', $elm$json$Json$Decode$value)));
-var $author$project$Events$Handlers$HardDeletesHandler$subscriptions = function (_v0) {
-	return $elm$core$Platform$Sub$batch(
-		_List_fromArray(
-			[
-				$author$project$Events$Handlers$HardDeletesHandler$handleEvent($author$project$Events$Handlers$HardDeletesHandler$HandleEvent),
-				$author$project$Events$Handlers$HardDeletesHandler$dbResult($author$project$Events$Handlers$HardDeletesHandler$DbResult)
-			]));
+var $author$project$Events$Handlers$CommentModeratedHandler$subscriptions = function (_v0) {
+	return $author$project$Events$Handlers$CommentModeratedHandler$handleEvent($author$project$Events$Handlers$CommentModeratedHandler$HandleEvent);
 };
 var $elm$json$Json$Encode$bool = _Json_wrap;
-var $elm$core$Basics$identity = function (x) {
-	return x;
-};
-var $author$project$Events$Handlers$HardDeletesHandler$complete = _Platform_outgoingPort('complete', $elm$core$Basics$identity);
+var $author$project$Events$Handlers$CommentModeratedHandler$complete = _Platform_outgoingPort('complete', $elm$core$Basics$identity);
 var $elm$json$Json$Encode$int = _Json_wrap;
 var $elm$json$Json$Encode$object = function (pairs) {
 	return _Json_wrap(
@@ -2959,7 +2900,7 @@ var $elm$json$Json$Encode$object = function (pairs) {
 			pairs));
 };
 var $elm$json$Json$Encode$string = _Json_wrap;
-var $author$project$Events$Backend$encodeEventResult = function (result) {
+var $author$project$BuildAmp$Events$encodeEventResult = function (result) {
 	if (result.$ === 'Success') {
 		var data = result.a;
 		return $elm$json$Json$Encode$object(
@@ -2989,40 +2930,36 @@ var $author$project$Events$Backend$encodeEventResult = function (result) {
 				]));
 	}
 };
-var $author$project$Events$Handlers$HardDeletesHandler$encodeEventResult = function (result) {
-	return $author$project$Events$Backend$encodeEventResult(result);
-};
-var $author$project$Events$Handlers$HardDeletesHandler$CommentsDeleted = function (a) {
-	return {$: 'CommentsDeleted', a: a};
-};
-var $author$project$Events$Handlers$HardDeletesHandler$Complete = function (a) {
+var $author$project$Events$Handlers$CommentModeratedHandler$Complete = function (a) {
 	return {$: 'Complete', a: a};
 };
-var $author$project$Events$Handlers$HardDeletesHandler$DeletingComments = {$: 'DeletingComments'};
-var $author$project$Events$Handlers$HardDeletesHandler$DeletingGuests = {$: 'DeletingGuests'};
-var $author$project$Events$Handlers$HardDeletesHandler$DeletingItems = {$: 'DeletingItems'};
-var $author$project$Events$Handlers$HardDeletesHandler$DeletingTags = {$: 'DeletingTags'};
-var $author$project$Events$Handlers$HardDeletesHandler$Failed = function (a) {
+var $author$project$Events$Handlers$CommentModeratedHandler$Failed = function (a) {
 	return {$: 'Failed', a: a};
 };
-var $author$project$Events$Handlers$HardDeletesHandler$GuestsDeleted = function (a) {
-	return {$: 'GuestsDeleted', a: a};
-};
-var $author$project$Events$Handlers$HardDeletesHandler$ItemsDeleted = function (a) {
-	return {$: 'ItemsDeleted', a: a};
-};
-var $author$project$Events$Backend$Success = function (a) {
+var $author$project$BuildAmp$Events$Success = function (a) {
 	return {$: 'Success', a: a};
 };
-var $author$project$Events$Handlers$HardDeletesHandler$TagsDeleted = function (a) {
-	return {$: 'TagsDeleted', a: a};
-};
+var $author$project$BuildAmp$Events$CommentModeratedPayload = F5(
+	function (recordId, table, field, oldValue, newValue) {
+		return {field: field, newValue: newValue, oldValue: oldValue, recordId: recordId, table: table};
+	});
+var $elm$json$Json$Decode$map5 = _Json_map5;
+var $author$project$BuildAmp$Events$commentModeratedPayloadDecoder = A6(
+	$elm$json$Json$Decode$map5,
+	$author$project$BuildAmp$Events$CommentModeratedPayload,
+	A2($elm$json$Json$Decode$field, 'record_id', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'table', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'field', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'old_value', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'new_value', $elm$json$Json$Decode$string));
 var $elm$json$Json$Decode$decodeValue = _Json_run;
-var $author$project$Events$Backend$EventContext = F6(
+var $author$project$BuildAmp$Events$EventContext = F6(
 	function (host, sessionId, correlationId, attempt, scheduledAt, executedAt) {
 		return {attempt: attempt, correlationId: correlationId, executedAt: executedAt, host: host, scheduledAt: scheduledAt, sessionId: sessionId};
 	});
 var $elm$json$Json$Decode$map6 = _Json_map6;
+var $elm$json$Json$Decode$map = _Json_map1;
+var $elm$json$Json$Decode$oneOf = _Json_oneOf;
 var $elm$json$Json$Decode$maybe = function (decoder) {
 	return $elm$json$Json$Decode$oneOf(
 		_List_fromArray(
@@ -3031,9 +2968,9 @@ var $elm$json$Json$Decode$maybe = function (decoder) {
 				$elm$json$Json$Decode$succeed($elm$core$Maybe$Nothing)
 			]));
 };
-var $author$project$Events$Backend$eventContextDecoder = A7(
+var $author$project$BuildAmp$Events$eventContextDecoder = A7(
 	$elm$json$Json$Decode$map6,
-	$author$project$Events$Backend$EventContext,
+	$author$project$BuildAmp$Events$EventContext,
 	A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string),
 	$elm$json$Json$Decode$maybe(
 		A2($elm$json$Json$Decode$field, 'sessionId', $elm$json$Json$Decode$string)),
@@ -3042,6 +2979,23 @@ var $author$project$Events$Backend$eventContextDecoder = A7(
 	A2($elm$json$Json$Decode$field, 'attempt', $elm$json$Json$Decode$int),
 	A2($elm$json$Json$Decode$field, 'scheduledAt', $elm$json$Json$Decode$int),
 	A2($elm$json$Json$Decode$field, 'executedAt', $elm$json$Json$Decode$int));
+var $elm$core$Result$map2 = F3(
+	function (func, ra, rb) {
+		if (ra.$ === 'Err') {
+			var x = ra.a;
+			return $elm$core$Result$Err(x);
+		} else {
+			var a = ra.a;
+			if (rb.$ === 'Err') {
+				var x = rb.a;
+				return $elm$core$Result$Err(x);
+			} else {
+				var b = rb.a;
+				return $elm$core$Result$Ok(
+					A2(func, a, b));
+			}
+		}
+	});
 var $elm$core$Result$mapError = F2(
 	function (f, result) {
 		if (result.$ === 'Ok') {
@@ -3053,296 +3007,82 @@ var $elm$core$Result$mapError = F2(
 				f(e));
 		}
 	});
-var $author$project$Events$Handlers$HardDeletesHandler$decodeEventBundle = function (bundle) {
-	return A2(
-		$elm$core$Result$mapError,
-		$elm$json$Json$Decode$errorToString,
-		A2($elm$json$Json$Decode$decodeValue, $author$project$Events$Backend$eventContextDecoder, bundle.context));
-};
-var $elm$json$Json$Encode$list = F2(
-	function (func, entries) {
-		return _Json_wrap(
-			A3(
-				$elm$core$List$foldl,
-				_Json_addEntry(func),
-				_Json_emptyArray(_Utils_Tuple0),
-				entries));
+var $elm$core$Tuple$pair = F2(
+	function (a, b) {
+		return _Utils_Tuple2(a, b);
 	});
-var $author$project$Events$Handlers$HardDeletesHandler$dbKill = _Platform_outgoingPort(
-	'dbKill',
+var $author$project$Events$Handlers$CommentModeratedHandler$decodeEventBundle = function (bundle) {
+	return A3(
+		$elm$core$Result$map2,
+		$elm$core$Tuple$pair,
+		A2(
+			$elm$core$Result$mapError,
+			$elm$json$Json$Decode$errorToString,
+			A2($elm$json$Json$Decode$decodeValue, $author$project$BuildAmp$Events$commentModeratedPayloadDecoder, bundle.payload)),
+		A2(
+			$elm$core$Result$mapError,
+			$elm$json$Json$Decode$errorToString,
+			A2($elm$json$Json$Decode$decodeValue, $author$project$BuildAmp$Events$eventContextDecoder, bundle.context)));
+};
+var $author$project$Events$Handlers$CommentModeratedHandler$sseBroadcast = _Platform_outgoingPort(
+	'sseBroadcast',
 	function ($) {
 		return $elm$json$Json$Encode$object(
 			_List_fromArray(
 				[
 					_Utils_Tuple2(
-					'id',
-					$elm$json$Json$Encode$string($.id)),
+					'data',
+					$elm$core$Basics$identity($.data)),
 					_Utils_Tuple2(
-					'params',
-					$elm$json$Json$Encode$list($elm$json$Json$Encode$string)($.params)),
-					_Utils_Tuple2(
-					'table',
-					$elm$json$Json$Encode$string($.table)),
-					_Utils_Tuple2(
-					'whereClause',
-					$elm$json$Json$Encode$string($.whereClause))
+					'eventType',
+					$elm$json$Json$Encode$string($.eventType))
 				]));
 	});
-var $author$project$Events$Handlers$HardDeletesHandler$deleteOldComments = function (cutoffMs) {
-	return $author$project$Events$Handlers$HardDeletesHandler$dbKill(
-		{
-			id: 'delete_old_comments',
-			params: _List_fromArray(
-				[
-					$elm$core$String$fromInt(cutoffMs)
-				]),
-			table: 'item_comment',
-			whereClause: 'deleted_at IS NOT NULL AND deleted_at < to_timestamp($1::bigint / 1000.0)'
-		});
-};
-var $author$project$Events$Handlers$HardDeletesHandler$deleteOldGuests = function (cutoffMs) {
-	return $author$project$Events$Handlers$HardDeletesHandler$dbKill(
-		{
-			id: 'delete_old_guests',
-			params: _List_fromArray(
-				[
-					$elm$core$String$fromInt(cutoffMs)
-				]),
-			table: 'guest',
-			whereClause: 'deleted_at IS NOT NULL AND deleted_at < to_timestamp($1::bigint / 1000.0)'
-		});
-};
-var $author$project$Events$Handlers$HardDeletesHandler$deleteOldItems = function (cutoffMs) {
-	return $author$project$Events$Handlers$HardDeletesHandler$dbKill(
-		{
-			id: 'delete_old_items',
-			params: _List_fromArray(
-				[
-					$elm$core$String$fromInt(cutoffMs)
-				]),
-			table: 'microblog_item',
-			whereClause: 'deleted_at IS NOT NULL AND deleted_at < to_timestamp($1::bigint / 1000.0)'
-		});
-};
-var $author$project$Events$Handlers$HardDeletesHandler$deleteOldTags = function (cutoffMs) {
-	return $author$project$Events$Handlers$HardDeletesHandler$dbKill(
-		{
-			id: 'delete_old_tags',
-			params: _List_fromArray(
-				[
-					$elm$core$String$fromInt(cutoffMs)
-				]),
-			table: 'item_tag',
-			whereClause: 'deleted_at IS NOT NULL AND deleted_at < to_timestamp($1::bigint / 1000.0)'
-		});
-};
-var $author$project$Events$Handlers$HardDeletesHandler$retention_days = 3;
-var $author$project$Events$Handlers$HardDeletesHandler$getCutoff = function (model) {
-	var _v0 = model.context;
-	if (_v0.$ === 'Just') {
-		var ctx = _v0.a;
-		return ctx.executedAt - (((($author$project$Events$Handlers$HardDeletesHandler$retention_days * 24) * 60) * 60) * 1000);
-	} else {
-		return model.globalConfig.serverNow - (((($author$project$Events$Handlers$HardDeletesHandler$retention_days * 24) * 60) * 60) * 1000);
-	}
-};
-var $elm$core$Maybe$withDefault = F2(
-	function (_default, maybe) {
-		if (maybe.$ === 'Just') {
-			var value = maybe.a;
-			return value;
+var $author$project$Events$Handlers$CommentModeratedHandler$update = F2(
+	function (msg, model) {
+		var bundle = msg.a;
+		var _v1 = $author$project$Events$Handlers$CommentModeratedHandler$decodeEventBundle(bundle);
+		if (_v1.$ === 'Ok') {
+			var _v2 = _v1.a;
+			var payload = _v2.a;
+			var ctx = _v2.b;
+			var result = $author$project$BuildAmp$Events$Success(
+				{message: 'CommentModerated SSE broadcast', recordsAffected: 1});
+			var removed = payload.newValue === 'true';
+			var ssePayload = $elm$json$Json$Encode$object(
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						'commentId',
+						$elm$json$Json$Encode$string(payload.recordId)),
+						_Utils_Tuple2(
+						'removed',
+						$elm$json$Json$Encode$bool(removed))
+					]));
+			return _Utils_Tuple2(
+				_Utils_update(
+					model,
+					{
+						context: $elm$core$Maybe$Just(ctx),
+						payload: $elm$core$Maybe$Just(payload),
+						stage: $author$project$Events$Handlers$CommentModeratedHandler$Complete(result)
+					}),
+				$author$project$Events$Handlers$CommentModeratedHandler$sseBroadcast(
+					{data: ssePayload, eventType: 'comment_moderated'}));
 		} else {
-			return _default;
+			var error = _v1.a;
+			return _Utils_Tuple2(
+				_Utils_update(
+					model,
+					{
+						stage: $author$project$Events$Handlers$CommentModeratedHandler$Failed(error)
+					}),
+				$elm$core$Platform$Cmd$none);
 		}
 	});
-var $author$project$Events$Handlers$HardDeletesHandler$handleDeleteResponse = F3(
-	function (response, toMsg, model) {
-		var result = function () {
-			if (response.success) {
-				var _v7 = response.data;
-				if (_v7.$ === 'Just') {
-					var data = _v7.a;
-					var _v8 = A2(
-						$elm$json$Json$Decode$decodeValue,
-						A2($elm$json$Json$Decode$field, 'rowCount', $elm$json$Json$Decode$int),
-						data);
-					if (_v8.$ === 'Ok') {
-						var count = _v8.a;
-						return $elm$core$Result$Ok(count);
-					} else {
-						return $elm$core$Result$Ok(0);
-					}
-				} else {
-					return $elm$core$Result$Ok(0);
-				}
-			} else {
-				return $elm$core$Result$Err(
-					A2($elm$core$Maybe$withDefault, 'Unknown error', response.error));
-			}
-		}();
-		return A2(
-			$author$project$Events$Handlers$HardDeletesHandler$update,
-			toMsg(result),
-			model);
-	});
-var $author$project$Events$Handlers$HardDeletesHandler$update = F2(
+var $author$project$Events$Handlers$CommentModeratedHandler$updateWithResponse = F2(
 	function (msg, model) {
-		switch (msg.$) {
-			case 'HandleEvent':
-				var bundle = msg.a;
-				var _v1 = $author$project$Events$Handlers$HardDeletesHandler$decodeEventBundle(bundle);
-				if (_v1.$ === 'Ok') {
-					var ctx = _v1.a;
-					var cutoffMs = ctx.executedAt - (((($author$project$Events$Handlers$HardDeletesHandler$retention_days * 24) * 60) * 60) * 1000);
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								context: $elm$core$Maybe$Just(ctx),
-								pendingRequests: 1,
-								stage: $author$project$Events$Handlers$HardDeletesHandler$DeletingComments
-							}),
-						$author$project$Events$Handlers$HardDeletesHandler$deleteOldComments(cutoffMs));
-				} else {
-					var error = _v1.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								stage: $author$project$Events$Handlers$HardDeletesHandler$Failed(error)
-							}),
-						$elm$core$Platform$Cmd$none);
-				}
-			case 'CommentsDeleted':
-				var result = msg.a;
-				if (result.$ === 'Ok') {
-					var count = result.a;
-					var cutoffMs = $author$project$Events$Handlers$HardDeletesHandler$getCutoff(model);
-					var counts = model.deleteCounts;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								deleteCounts: _Utils_update(
-									counts,
-									{comments: count}),
-								stage: $author$project$Events$Handlers$HardDeletesHandler$DeletingTags
-							}),
-						$author$project$Events$Handlers$HardDeletesHandler$deleteOldTags(cutoffMs));
-				} else {
-					var error = result.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								stage: $author$project$Events$Handlers$HardDeletesHandler$Failed('Comments delete failed: ' + error)
-							}),
-						$elm$core$Platform$Cmd$none);
-				}
-			case 'TagsDeleted':
-				var result = msg.a;
-				if (result.$ === 'Ok') {
-					var count = result.a;
-					var cutoffMs = $author$project$Events$Handlers$HardDeletesHandler$getCutoff(model);
-					var counts = model.deleteCounts;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								deleteCounts: _Utils_update(
-									counts,
-									{tags: count}),
-								stage: $author$project$Events$Handlers$HardDeletesHandler$DeletingItems
-							}),
-						$author$project$Events$Handlers$HardDeletesHandler$deleteOldItems(cutoffMs));
-				} else {
-					var error = result.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								stage: $author$project$Events$Handlers$HardDeletesHandler$Failed('Tags delete failed: ' + error)
-							}),
-						$elm$core$Platform$Cmd$none);
-				}
-			case 'ItemsDeleted':
-				var result = msg.a;
-				if (result.$ === 'Ok') {
-					var count = result.a;
-					var cutoffMs = $author$project$Events$Handlers$HardDeletesHandler$getCutoff(model);
-					var counts = model.deleteCounts;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								deleteCounts: _Utils_update(
-									counts,
-									{items: count}),
-								stage: $author$project$Events$Handlers$HardDeletesHandler$DeletingGuests
-							}),
-						$author$project$Events$Handlers$HardDeletesHandler$deleteOldGuests(cutoffMs));
-				} else {
-					var error = result.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								stage: $author$project$Events$Handlers$HardDeletesHandler$Failed('Items delete failed: ' + error)
-							}),
-						$elm$core$Platform$Cmd$none);
-				}
-			case 'GuestsDeleted':
-				var result = msg.a;
-				if (result.$ === 'Ok') {
-					var count = result.a;
-					var counts = model.deleteCounts;
-					var newCounts = _Utils_update(
-						counts,
-						{guests: count});
-					var totalDeleted = ((newCounts.comments + newCounts.tags) + newCounts.items) + newCounts.guests;
-					var successResult = $author$project$Events$Backend$Success(
-						{
-							message: 'Hard delete completed: ' + ($elm$core$String$fromInt(totalDeleted) + ' records removed'),
-							recordsAffected: totalDeleted
-						});
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								deleteCounts: newCounts,
-								stage: $author$project$Events$Handlers$HardDeletesHandler$Complete(successResult)
-							}),
-						$elm$core$Platform$Cmd$none);
-				} else {
-					var error = result.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								stage: $author$project$Events$Handlers$HardDeletesHandler$Failed('Guests delete failed: ' + error)
-							}),
-						$elm$core$Platform$Cmd$none);
-				}
-			default:
-				var response = msg.a;
-				var _v6 = model.stage;
-				switch (_v6.$) {
-					case 'DeletingComments':
-						return A3($author$project$Events$Handlers$HardDeletesHandler$handleDeleteResponse, response, $author$project$Events$Handlers$HardDeletesHandler$CommentsDeleted, model);
-					case 'DeletingTags':
-						return A3($author$project$Events$Handlers$HardDeletesHandler$handleDeleteResponse, response, $author$project$Events$Handlers$HardDeletesHandler$TagsDeleted, model);
-					case 'DeletingItems':
-						return A3($author$project$Events$Handlers$HardDeletesHandler$handleDeleteResponse, response, $author$project$Events$Handlers$HardDeletesHandler$ItemsDeleted, model);
-					case 'DeletingGuests':
-						return A3($author$project$Events$Handlers$HardDeletesHandler$handleDeleteResponse, response, $author$project$Events$Handlers$HardDeletesHandler$GuestsDeleted, model);
-					default:
-						return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
-				}
-		}
-	});
-var $author$project$Events$Handlers$HardDeletesHandler$updateWithResponse = F2(
-	function (msg, model) {
-		var _v0 = A2($author$project$Events$Handlers$HardDeletesHandler$update, msg, model);
+		var _v0 = A2($author$project$Events$Handlers$CommentModeratedHandler$update, msg, model);
 		var newModel = _v0.a;
 		var cmd = _v0.b;
 		var _v1 = newModel.stage;
@@ -3354,8 +3094,8 @@ var $author$project$Events$Handlers$HardDeletesHandler$updateWithResponse = F2(
 					$elm$core$Platform$Cmd$batch(
 						_List_fromArray(
 							[
-								$author$project$Events$Handlers$HardDeletesHandler$complete(
-								$author$project$Events$Handlers$HardDeletesHandler$encodeEventResult(result)),
+								$author$project$Events$Handlers$CommentModeratedHandler$complete(
+								$author$project$BuildAmp$Events$encodeEventResult(result)),
 								cmd
 							])));
 			case 'Failed':
@@ -3365,7 +3105,7 @@ var $author$project$Events$Handlers$HardDeletesHandler$updateWithResponse = F2(
 					$elm$core$Platform$Cmd$batch(
 						_List_fromArray(
 							[
-								$author$project$Events$Handlers$HardDeletesHandler$complete(
+								$author$project$Events$Handlers$CommentModeratedHandler$complete(
 								$elm$json$Json$Encode$object(
 									_List_fromArray(
 										[
@@ -3383,9 +3123,9 @@ var $author$project$Events$Handlers$HardDeletesHandler$updateWithResponse = F2(
 		}
 	});
 var $elm$core$Platform$worker = _Platform_worker;
-var $author$project$Events$Handlers$HardDeletesHandler$main = $elm$core$Platform$worker(
-	{init: $author$project$Events$Handlers$HardDeletesHandler$init, subscriptions: $author$project$Events$Handlers$HardDeletesHandler$subscriptions, update: $author$project$Events$Handlers$HardDeletesHandler$updateWithResponse});
-_Platform_export({'Events':{'Handlers':{'HardDeletesHandler':{'init':$author$project$Events$Handlers$HardDeletesHandler$main(
+var $author$project$Events$Handlers$CommentModeratedHandler$main = $elm$core$Platform$worker(
+	{init: $author$project$Events$Handlers$CommentModeratedHandler$init, subscriptions: $author$project$Events$Handlers$CommentModeratedHandler$subscriptions, update: $author$project$Events$Handlers$CommentModeratedHandler$updateWithResponse});
+_Platform_export({'Events':{'Handlers':{'CommentModeratedHandler':{'init':$author$project$Events$Handlers$CommentModeratedHandler$main(
 	A2(
 		$elm$json$Json$Decode$andThen,
 		function (globalState) {

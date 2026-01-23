@@ -30,6 +30,7 @@ CREATE TABLE item_comment (
     parent_id TEXT,
     author_name TEXT NOT NULL,
     text JSONB NOT NULL,
+    removed BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     deleted_at BIGINT,
     FOREIGN KEY (item_id) REFERENCES microblog_item(id),

@@ -12,7 +12,7 @@ TODO: Implement proper error handling and validation
 
 -}
 
-import Api.Backend exposing (GetTagsReq, GetTagsRes)
+import BuildAmp.Api exposing (GetTagsReq, GetTagsRes)
 import BuildAmp.Database as DB
 import BuildAmp.Events as Events
 import BuildAmp.Services as Services
@@ -174,7 +174,7 @@ processRequest request =
 decodeRequest : RequestBundle -> Result String ( GetTagsReq, Context )
 decodeRequest bundle =
     Result.map2 Tuple.pair
-        (Decode.decodeValue Api.Backend.getTagsReqDecoder bundle.request |> Result.mapError Decode.errorToString)
+        (Decode.decodeValue BuildAmp.Api.getTagsReqDecoder bundle.request |> Result.mapError Decode.errorToString)
         (Decode.decodeValue contextDecoder bundle.context |> Result.mapError Decode.errorToString)
 
 
@@ -190,7 +190,7 @@ contextDecoder =
 
 encodeGetTagsRes : GetTagsRes -> Encode.Value
 encodeGetTagsRes response =
-    Api.Backend.getTagsResEncoder response
+    BuildAmp.Api.getTagsResEncoder response
 
 
 encodeError : String -> Encode.Value

@@ -3174,11 +3174,11 @@ var $author$project$Api$Handlers$GetItemsByTagHandler$contextDecoder = A4(
 		A2($elm$json$Json$Decode$field, 'userId', $elm$json$Json$Decode$string)),
 	$elm$json$Json$Decode$maybe(
 		A2($elm$json$Json$Decode$field, 'sessionId', $elm$json$Json$Decode$string)));
-var $author$project$Api$Backend$GetItemsByTagReq = F2(
+var $author$project$BuildAmp$Api$GetItemsByTagReq = F2(
 	function (host, tag) {
 		return {host: host, tag: tag};
 	});
-var $author$project$Api$Backend$getItemsByTagReqDecoder = A2(
+var $author$project$BuildAmp$Api$getItemsByTagReqDecoder = A2(
 	$elm$json$Json$Decode$andThen,
 	function (x) {
 		return A2(
@@ -3194,7 +3194,7 @@ var $author$project$Api$Backend$getItemsByTagReqDecoder = A2(
 				x,
 				A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
 		},
-		$elm$json$Json$Decode$succeed($author$project$Api$Backend$GetItemsByTagReq)));
+		$elm$json$Json$Decode$succeed($author$project$BuildAmp$Api$GetItemsByTagReq)));
 var $elm$core$Result$map2 = F3(
 	function (func, ra, rb) {
 		if (ra.$ === 'Err') {
@@ -3234,7 +3234,7 @@ var $author$project$Api$Handlers$GetItemsByTagHandler$decodeRequest = function (
 		A2(
 			$elm$core$Result$mapError,
 			$elm$json$Json$Decode$errorToString,
-			A2($elm$json$Json$Decode$decodeValue, $author$project$Api$Backend$getItemsByTagReqDecoder, bundle.request)),
+			A2($elm$json$Json$Decode$decodeValue, $author$project$BuildAmp$Api$getItemsByTagReqDecoder, bundle.request)),
 		A2(
 			$elm$core$Result$mapError,
 			$elm$json$Json$Decode$errorToString,
@@ -3289,7 +3289,7 @@ var $elm$core$Maybe$withDefault = F2(
 			return _default;
 		}
 	});
-var $author$project$Api$Backend$feedItemEncoder = function (struct) {
+var $author$project$BuildAmp$Api$feedItemEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
@@ -3328,7 +3328,7 @@ var $elm$json$Json$Encode$list = F2(
 				_Json_emptyArray(_Utils_Tuple0),
 				entries));
 	});
-var $author$project$Api$Backend$getItemsByTagResEncoder = function (struct) {
+var $author$project$BuildAmp$Api$getItemsByTagResEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
@@ -3337,11 +3337,11 @@ var $author$project$Api$Backend$getItemsByTagResEncoder = function (struct) {
 				$elm$json$Json$Encode$string(struct.tag)),
 				_Utils_Tuple2(
 				'items',
-				$elm$json$Json$Encode$list($author$project$Api$Backend$feedItemEncoder)(struct.items))
+				$elm$json$Json$Encode$list($author$project$BuildAmp$Api$feedItemEncoder)(struct.items))
 			]));
 };
 var $author$project$Api$Handlers$GetItemsByTagHandler$encodeGetItemsByTagRes = function (response) {
-	return $author$project$Api$Backend$getItemsByTagResEncoder(response);
+	return $author$project$BuildAmp$Api$getItemsByTagResEncoder(response);
 };
 var $elm$core$List$foldrHelper = F4(
 	function (fn, acc, ctr, ls) {

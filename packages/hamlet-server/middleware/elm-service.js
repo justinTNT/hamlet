@@ -503,6 +503,32 @@ export default async function createElmService(server) {
                         requestSubscriptions.add(httpRequestUnsubscribe);
                     }
 
+                    // Set up SSE broadcast port handler
+                    if (elmApp.ports.sseBroadcast) {
+                        const sseBroadcastUnsubscribe = elmApp.ports.sseBroadcast.subscribe(async (request) => {
+                            try {
+                                const sseService = server.getService('sse');
+                                const host = requestContext.host;
+
+                                console.log(`📡 SSE Broadcast [${requestId}]:`, {
+                                    eventType: request.eventType,
+                                    host: host
+                                });
+
+                                if (sseService) {
+                                    sseService.broadcast(host, request.eventType, request.data);
+                                    console.log(`✅ SSE event '${request.eventType}' broadcast to ${host}`);
+                                } else {
+                                    console.warn('⚠️ SSE service not available');
+                                }
+                            } catch (error) {
+                                console.error(`❌ SSE broadcast failed: ${error.message}`);
+                            }
+                        });
+                        handlerInstance.addSubscription(sseBroadcastUnsubscribe);
+                        requestSubscriptions.add(sseBroadcastUnsubscribe);
+                    }
+
                     // Send request to Elm in TEA format
                     if (elmApp.ports && elmApp.ports.handleRequest) {
                         const requestBundle = {

@@ -170,7 +170,7 @@ Use context.executedAt for timing and context.host for tenant isolation.
 
 -}
 
-import Events.Backend exposing (EventContext, EventResult(..))
+import BuildAmp.Events exposing (EventContext, EventResult(..))
 import BuildAmp.Database as DB
 import Json.Encode as Encode
 import Json.Decode as Decode
@@ -285,7 +285,7 @@ processEvent context config =
 
 decodeContext : EventBundle -> Result String EventContext
 decodeContext bundle =
-    Decode.decodeValue Events.Backend.eventContextDecoder bundle.context
+    Decode.decodeValue BuildAmp.Events.eventContextDecoder bundle.context
         |> Result.mapError Decode.errorToString
 
 
@@ -293,7 +293,7 @@ decodeContext bundle =
 
 encodeEventResult : EventResult -> Encode.Value
 encodeEventResult =
-    Events.Backend.encodeEventResult
+    BuildAmp.Events.encodeEventResult
 
 
 -- PORTS
@@ -355,7 +355,7 @@ This event has a payload - triggered from code via:
 
 -}
 
-import Events.Backend exposing (${name}Payload, EventContext, EventResult(..))
+import BuildAmp.Events exposing (${name}Payload, EventContext, EventResult(..))
 import BuildAmp.Database as DB
 import Json.Encode as Encode
 import Json.Decode as Decode
@@ -470,15 +470,15 @@ ${fields && fields.length > 0 ? fields.map(f => `    --   payload.${snakeToCamel
 decodeEventBundle : EventBundle -> Result String ( ${name}Payload, EventContext )
 decodeEventBundle bundle =
     Result.map2 Tuple.pair
-        (Decode.decodeValue Events.Backend.${lowerFirst(name)}PayloadDecoder bundle.payload |> Result.mapError Decode.errorToString)
-        (Decode.decodeValue Events.Backend.eventContextDecoder bundle.context |> Result.mapError Decode.errorToString)
+        (Decode.decodeValue BuildAmp.Events.${lowerFirst(name)}PayloadDecoder bundle.payload |> Result.mapError Decode.errorToString)
+        (Decode.decodeValue BuildAmp.Events.eventContextDecoder bundle.context |> Result.mapError Decode.errorToString)
 
 
 -- ENCODING
 
 encodeEventResult : EventResult -> Encode.Value
 encodeEventResult =
-    Events.Backend.encodeEventResult
+    BuildAmp.Events.encodeEventResult
 
 
 -- PORTS

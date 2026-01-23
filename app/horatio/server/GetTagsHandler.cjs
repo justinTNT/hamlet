@@ -2916,7 +2916,7 @@ var $elm$json$Json$Encode$list = F2(
 				_Json_emptyArray(_Utils_Tuple0),
 				entries));
 	});
-var $author$project$Api$Backend$getTagsResEncoder = function (struct) {
+var $author$project$BuildAmp$Api$getTagsResEncoder = function (struct) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
@@ -2926,7 +2926,7 @@ var $author$project$Api$Backend$getTagsResEncoder = function (struct) {
 			]));
 };
 var $author$project$Api$Handlers$GetTagsHandler$encodeGetTagsRes = function (response) {
-	return $author$project$Api$Backend$getTagsResEncoder(response);
+	return $author$project$BuildAmp$Api$getTagsResEncoder(response);
 };
 var $author$project$Api$Handlers$GetTagsHandler$Complete = function (a) {
 	return {$: 'Complete', a: a};
@@ -2959,10 +2959,10 @@ var $author$project$Api$Handlers$GetTagsHandler$contextDecoder = A4(
 	$elm$json$Json$Decode$maybe(
 		A2($elm$json$Json$Decode$field, 'sessionId', $elm$json$Json$Decode$string)));
 var $elm$json$Json$Decode$decodeValue = _Json_run;
-var $author$project$Api$Backend$GetTagsReq = function (host) {
+var $author$project$BuildAmp$Api$GetTagsReq = function (host) {
 	return {host: host};
 };
-var $author$project$Api$Backend$getTagsReqDecoder = A2(
+var $author$project$BuildAmp$Api$getTagsReqDecoder = A2(
 	$elm$json$Json$Decode$andThen,
 	function (x) {
 		return A2(
@@ -2970,7 +2970,7 @@ var $author$project$Api$Backend$getTagsReqDecoder = A2(
 			x,
 			A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
 	},
-	$elm$json$Json$Decode$succeed($author$project$Api$Backend$GetTagsReq));
+	$elm$json$Json$Decode$succeed($author$project$BuildAmp$Api$GetTagsReq));
 var $elm$core$Result$map2 = F3(
 	function (func, ra, rb) {
 		if (ra.$ === 'Err') {
@@ -3010,7 +3010,7 @@ var $author$project$Api$Handlers$GetTagsHandler$decodeRequest = function (bundle
 		A2(
 			$elm$core$Result$mapError,
 			$elm$json$Json$Decode$errorToString,
-			A2($elm$json$Json$Decode$decodeValue, $author$project$Api$Backend$getTagsReqDecoder, bundle.request)),
+			A2($elm$json$Json$Decode$decodeValue, $author$project$BuildAmp$Api$getTagsReqDecoder, bundle.request)),
 		A2(
 			$elm$core$Result$mapError,
 			$elm$json$Json$Decode$errorToString,

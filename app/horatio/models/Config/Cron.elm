@@ -11,7 +11,7 @@ BuildAmp validates these at build time and generates the scheduler config.
 
 cronEvents : List CronEvent
 cronEvents =
-    [ { event = "HardDeletes", schedule = "* * * * *" }
+    [ { event = "HardDeletes", schedule = "23 * * * *" }
     ]
 
 

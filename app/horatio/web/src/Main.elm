@@ -5,6 +5,7 @@ import Api.Http
 import Api.Schema
 import Browser
 import BuildAmp.Config exposing (GlobalConfig)
+import BuildAmp.ServerSentEvents as SSE
 import Browser.Navigation as Nav
 import Html exposing (Html, button, div, h1, h2, h3, h4, p, a, img, text, section, input, textarea, label, span, br)
 import Html.Attributes exposing (src, href, style, class, value, placeholder, id, type_)
@@ -28,6 +29,10 @@ port getCommentEditorContent : () -> Cmd msg
 port commentEditorContent : (String -> msg) -> Sub msg
 port clearCommentEditor : () -> Cmd msg
 port commentEditorCommand : Encode.Value -> Cmd msg
+
+
+-- SSE ports for real-time updates
+port sseEvent : (Encode.Value -> msg) -> Sub msg
 
 
 -- RICH CONTENT TYPES
@@ -267,6 +272,7 @@ type alias Model =
     , itemDetails : Dict String ItemState
     , tagItems : Dict String TagItemsState
     , collapsedComments : Set.Set String
+    , moderatedComments : Set.Set String -- Comment IDs that have been removed by moderation
     }
 
 type TagItemsState
@@ -317,6 +323,7 @@ init config url key =
       , itemDetails = Dict.empty
       , tagItems = Dict.empty
       , collapsedComments = Set.empty
+      , moderatedComments = Set.empty
       }
     , Cmd.batch [ initialCmd, Storage.loadGuestSession () ]
     )
@@ -429,6 +436,7 @@ type Msg
     | GotEditorContent String
     | RequestSubmitComment
     | ToggleCollapse String
+    | ReceivedSseEvent Encode.Value
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -589,6 +597,50 @@ update msg model =
             in
             ( { model | collapsedComments = newCollapsed }, Cmd.none )
 
+        ReceivedSseEvent eventJson ->
+            -- Handle incoming SSE events
+            case Decode.decodeValue sseEventDecoder eventJson of
+                Ok (NewCommentSseEvent sseComment) ->
+                    -- Add the new comment to the item's comments list
+                    let
+                        comment = sseEventToComment sseComment
+                        updatedItemDetails =
+                            Dict.map
+                                (\itemId itemState ->
+                                    case itemState of
+                                        ItemLoaded item ->
+                                            if item.id == comment.itemId then
+                                                ItemLoaded { item | comments = item.comments ++ [ comment ] }
+                                            else
+                                                itemState
+                                        _ ->
+                                            itemState
+                                )
+                                model.itemDetails
+                    in
+                    ( { model | itemDetails = updatedItemDetails }, Cmd.none )
+
+                Ok (CommentModeratedSseEvent data) ->
+                    -- Update moderated comments set
+                    let
+                        newModeratedComments =
+                            if data.removed then
+                                Set.insert data.commentId model.moderatedComments
+                            else
+                                Set.remove data.commentId model.moderatedComments
+                    in
+                    ( { model | moderatedComments = newModeratedComments }
+                    , log ("Comment moderated: " ++ data.commentId ++ " removed=" ++ (if data.removed then "true" else "false"))
+                    )
+
+                Ok (UnknownSseEvent eventType) ->
+                    -- Unknown event type, log and ignore
+                    ( model, log ("Unknown SSE event: " ++ eventType) )
+
+                Err _ ->
+                    -- Failed to decode, ignore
+                    ( model, Cmd.none )
+
 httpErrorToString : Http.Error -> String
 httpErrorToString err =
     case err of
@@ -597,6 +649,47 @@ httpErrorToString err =
         Http.NetworkError -> "Network Error"
         Http.BadStatus status -> "Bad Status: " ++ String.fromInt status
         Http.BadBody body -> "Bad Body: " ++ body
+
+
+-- SSE EVENT HANDLING
+-- Uses generated types and decoders from BuildAmp.ServerSentEvents
+
+type SseEvent
+    = NewCommentSseEvent SSE.NewCommentEvent
+    | CommentModeratedSseEvent SSE.CommentModeratedEvent
+    | UnknownSseEvent String
+
+
+sseEventDecoder : Decode.Decoder SseEvent
+sseEventDecoder =
+    Decode.field "type" Decode.string
+        |> Decode.andThen (\eventType ->
+            case eventType of
+                "new_comment_event" ->
+                    Decode.field "data" SSE.decodeNewCommentEvent
+                        |> Decode.map NewCommentSseEvent
+
+                "comment_moderated" ->
+                    Decode.field "data" SSE.decodeCommentModeratedEvent
+                        |> Decode.map CommentModeratedSseEvent
+
+                _ ->
+                    Decode.succeed (UnknownSseEvent eventType)
+        )
+
+
+{-| Convert SSE event to Api.Schema.CommentItem for storage in model
+-}
+sseEventToComment : SSE.NewCommentEvent -> Api.Schema.CommentItem
+sseEventToComment evt =
+    { id = evt.id
+    , itemId = evt.itemId
+    , guestId = evt.guestId
+    , parentId = evt.parentId
+    , authorName = evt.authorName
+    , text = evt.text
+    , timestamp = evt.timestamp
+    }
 
 -- VIEW
 
@@ -802,7 +895,11 @@ viewComment model itemId allComments depth comment =
         -- Comment content
         , div [ class "comment-content" ]
             [ div [ class "comment-author" ] [ text comment.authorName ]
-            , div [ class "comment-body" ] [ viewRichContent comment.text ]
+            , if Set.member comment.id model.moderatedComments then
+                div [ class "comment-body", style "color" "#999", style "font-style" "italic" ]
+                    [ text "[removed by moderation]" ]
+              else
+                div [ class "comment-body" ] [ viewRichContent comment.text ]
             , div [ class "comment-meta" ]
                 [ if hasChildren then
                         span [][
@@ -1109,5 +1206,6 @@ subscriptions _ =
     Sub.batch
         [ Storage.onGuestSessionLoaded GuestSessionLoaded
         , commentEditorContent GotEditorContent
+        , sseEvent ReceivedSseEvent
         ]
 
