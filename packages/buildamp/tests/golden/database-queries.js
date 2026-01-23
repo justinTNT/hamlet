@@ -18,8 +18,8 @@ export default function createDbQueries(pool) {
  */
 async function insertGuest(guest, host) {
     const result = await pool.query(
-        'INSERT INTO guest (name, picture, session_id, created_at, deleted_at, host) VALUES ($2, $3, $4, $5, $6, $1) RETURNING *',
-        [host, guest.name, guest.picture, guest.session_id, guest.created_at, guest.deleted_at]
+        'INSERT INTO guest (name, picture, session_id, created_at, host) VALUES ($2, $3, $4, $5, $1) RETURNING *',
+        [host, guest.name, guest.picture, guest.session_id, guest.created_at]
     );
     return result.rows[0];
 }
@@ -37,7 +37,7 @@ async function createGuest(data) {
  */
 async function getGuestsByHost(host) {
     const result = await pool.query(
-        'SELECT * FROM guest WHERE host = $1 ORDER BY created_at DESC',
+        'SELECT * FROM guest WHERE host = $1',
         [host]
     );
     return result.rows;
@@ -48,7 +48,7 @@ async function getGuestsByHost(host) {
  */
 async function findGuestsByHost(host) {
     const result = await pool.query(
-        'SELECT * FROM guest WHERE host = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
+        'SELECT * FROM guest WHERE host = $1 AND deleted_at IS NULL',
         [host]
     );
     return result.rows;
@@ -80,7 +80,9 @@ async function findGuestById(id, host) {
  * Update Guest with tenant isolation
  */
 async function updateGuest(id, updates, host) {
-    const updateFields = Object.keys(updates).filter(key => key !== 'id' && key !== 'host');
+    // Filter out framework-managed fields
+    const frameworkFields = ['id', 'host', 'updated_at', 'created_at', 'deleted_at'];
+    const updateFields = Object.keys(updates).filter(key => !frameworkFields.includes(key));
     const setClause = updateFields.map((field, i) => field + ' = $' + (i + 3)).join(', ');
     const values = updateFields.map(field => updates[field]);
 
@@ -88,7 +90,9 @@ async function updateGuest(id, updates, host) {
         return getGuestById(id, host);
     }
 
-    const sql = 'UPDATE guest SET ' + setClause + ', updated_at = NOW() WHERE id = $1 AND host = $2 RETURNING *';
+    // Only add updated_at = NOW() if model has UpdateTimestamp field
+    const updateTimestampClause = '';
+    const sql = 'UPDATE guest SET ' + setClause + updateTimestampClause + ' WHERE id = $1 AND host = $2 RETURNING *';
     const result = await pool.query(sql, [id, host, ...values]);
     return result.rows[0] || null;
 }
@@ -122,8 +126,8 @@ async function deleteGuest(id, host) {
  */
 async function insertItemComment(itemcomment, host) {
     const result = await pool.query(
-        'INSERT INTO item_comment (item_id, guest_id, parent_id, author_name, text, created_at, deleted_at, host) VALUES ($2, $3, $4, $5, $6, $7, $8, $1) RETURNING *',
-        [host, itemcomment.item_id, itemcomment.guest_id, itemcomment.parent_id, itemcomment.author_name, itemcomment.text, itemcomment.created_at, itemcomment.deleted_at]
+        'INSERT INTO item_comment (item_id, guest_id, parent_id, author_name, text, created_at, host) VALUES ($2, $3, $4, $5, $6, $7, $1) RETURNING *',
+        [host, itemcomment.item_id, itemcomment.guest_id, itemcomment.parent_id, itemcomment.author_name, itemcomment.text, itemcomment.created_at]
     );
     return result.rows[0];
 }
@@ -141,7 +145,7 @@ async function createItemComment(data) {
  */
 async function getItemCommentsByHost(host) {
     const result = await pool.query(
-        'SELECT * FROM item_comment WHERE host = $1 ORDER BY created_at DESC',
+        'SELECT * FROM item_comment WHERE host = $1',
         [host]
     );
     return result.rows;
@@ -152,7 +156,7 @@ async function getItemCommentsByHost(host) {
  */
 async function findItemCommentsByHost(host) {
     const result = await pool.query(
-        'SELECT * FROM item_comment WHERE host = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
+        'SELECT * FROM item_comment WHERE host = $1 AND deleted_at IS NULL',
         [host]
     );
     return result.rows;
@@ -184,7 +188,9 @@ async function findItemCommentById(id, host) {
  * Update ItemComment with tenant isolation
  */
 async function updateItemComment(id, updates, host) {
-    const updateFields = Object.keys(updates).filter(key => key !== 'id' && key !== 'host');
+    // Filter out framework-managed fields
+    const frameworkFields = ['id', 'host', 'updated_at', 'created_at', 'deleted_at'];
+    const updateFields = Object.keys(updates).filter(key => !frameworkFields.includes(key));
     const setClause = updateFields.map((field, i) => field + ' = $' + (i + 3)).join(', ');
     const values = updateFields.map(field => updates[field]);
 
@@ -192,7 +198,9 @@ async function updateItemComment(id, updates, host) {
         return getItemCommentById(id, host);
     }
 
-    const sql = 'UPDATE item_comment SET ' + setClause + ', updated_at = NOW() WHERE id = $1 AND host = $2 RETURNING *';
+    // Only add updated_at = NOW() if model has UpdateTimestamp field
+    const updateTimestampClause = '';
+    const sql = 'UPDATE item_comment SET ' + setClause + updateTimestampClause + ' WHERE id = $1 AND host = $2 RETURNING *';
     const result = await pool.query(sql, [id, host, ...values]);
     return result.rows[0] || null;
 }
@@ -226,8 +234,8 @@ async function deleteItemComment(id, host) {
  */
 async function insertItemTag(itemtag, host) {
     const result = await pool.query(
-        'INSERT INTO item_tag (item_id, tag_id, deleted_at, host) VALUES ($2, $3, $4, $1) RETURNING *',
-        [host, itemtag.item_id, itemtag.tag_id, itemtag.deleted_at]
+        'INSERT INTO item_tag (item_id, tag_id, host) VALUES ($2, $3, $1) RETURNING *',
+        [host, itemtag.item_id, itemtag.tag_id]
     );
     return result.rows[0];
 }
@@ -245,7 +253,7 @@ async function createItemTag(data) {
  */
 async function getItemTagsByHost(host) {
     const result = await pool.query(
-        'SELECT * FROM item_tag WHERE host = $1 ORDER BY created_at DESC',
+        'SELECT * FROM item_tag WHERE host = $1',
         [host]
     );
     return result.rows;
@@ -256,7 +264,7 @@ async function getItemTagsByHost(host) {
  */
 async function findItemTagsByHost(host) {
     const result = await pool.query(
-        'SELECT * FROM item_tag WHERE host = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
+        'SELECT * FROM item_tag WHERE host = $1 AND deleted_at IS NULL',
         [host]
     );
     return result.rows;
@@ -288,7 +296,9 @@ async function findItemTagById(id, host) {
  * Update ItemTag with tenant isolation
  */
 async function updateItemTag(id, updates, host) {
-    const updateFields = Object.keys(updates).filter(key => key !== 'id' && key !== 'host');
+    // Filter out framework-managed fields
+    const frameworkFields = ['id', 'host', 'updated_at', 'created_at', 'deleted_at'];
+    const updateFields = Object.keys(updates).filter(key => !frameworkFields.includes(key));
     const setClause = updateFields.map((field, i) => field + ' = $' + (i + 3)).join(', ');
     const values = updateFields.map(field => updates[field]);
 
@@ -296,7 +306,9 @@ async function updateItemTag(id, updates, host) {
         return getItemTagById(id, host);
     }
 
-    const sql = 'UPDATE item_tag SET ' + setClause + ', updated_at = NOW() WHERE id = $1 AND host = $2 RETURNING *';
+    // Only add updated_at = NOW() if model has UpdateTimestamp field
+    const updateTimestampClause = '';
+    const sql = 'UPDATE item_tag SET ' + setClause + updateTimestampClause + ' WHERE id = $1 AND host = $2 RETURNING *';
     const result = await pool.query(sql, [id, host, ...values]);
     return result.rows[0] || null;
 }
@@ -330,8 +342,8 @@ async function deleteItemTag(id, host) {
  */
 async function insertMicroblogItem(microblogitem, host) {
     const result = await pool.query(
-        'INSERT INTO microblog_item (title, link, image, extract, owner_comment, created_at, view_count, deleted_at, host) VALUES ($2, $3, $4, $5, $6, $7, $8, $9, $1) RETURNING *',
-        [host, microblogitem.title, microblogitem.link, microblogitem.image, microblogitem.extract, microblogitem.owner_comment, microblogitem.created_at, microblogitem.view_count, microblogitem.deleted_at]
+        'INSERT INTO microblog_item (title, link, image, extract, owner_comment, created_at, updated_at, view_count, host) VALUES ($2, $3, $4, $5, $6, $7, $8, $9, $1) RETURNING *',
+        [host, microblogitem.title, microblogitem.link, microblogitem.image, microblogitem.extract, microblogitem.owner_comment, microblogitem.created_at, microblogitem.updated_at, microblogitem.view_count]
     );
     return result.rows[0];
 }
@@ -349,7 +361,7 @@ async function createMicroblogItem(data) {
  */
 async function getMicroblogItemsByHost(host) {
     const result = await pool.query(
-        'SELECT * FROM microblog_item WHERE host = $1 ORDER BY created_at DESC',
+        'SELECT * FROM microblog_item WHERE host = $1',
         [host]
     );
     return result.rows;
@@ -360,7 +372,7 @@ async function getMicroblogItemsByHost(host) {
  */
 async function findMicroblogItemsByHost(host) {
     const result = await pool.query(
-        'SELECT * FROM microblog_item WHERE host = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
+        'SELECT * FROM microblog_item WHERE host = $1 AND deleted_at IS NULL',
         [host]
     );
     return result.rows;
@@ -392,7 +404,9 @@ async function findMicroblogItemById(id, host) {
  * Update MicroblogItem with tenant isolation
  */
 async function updateMicroblogItem(id, updates, host) {
-    const updateFields = Object.keys(updates).filter(key => key !== 'id' && key !== 'host');
+    // Filter out framework-managed fields
+    const frameworkFields = ['id', 'host', 'updated_at', 'created_at', 'deleted_at'];
+    const updateFields = Object.keys(updates).filter(key => !frameworkFields.includes(key));
     const setClause = updateFields.map((field, i) => field + ' = $' + (i + 3)).join(', ');
     const values = updateFields.map(field => updates[field]);
 
@@ -400,7 +414,9 @@ async function updateMicroblogItem(id, updates, host) {
         return getMicroblogItemById(id, host);
     }
 
-    const sql = 'UPDATE microblog_item SET ' + setClause + ', updated_at = NOW() WHERE id = $1 AND host = $2 RETURNING *';
+    // Only add updated_at = NOW() if model has UpdateTimestamp field
+    const updateTimestampClause = '';
+    const sql = 'UPDATE microblog_item SET ' + setClause + updateTimestampClause + ' WHERE id = $1 AND host = $2 RETURNING *';
     const result = await pool.query(sql, [id, host, ...values]);
     return result.rows[0] || null;
 }
@@ -434,8 +450,8 @@ async function deleteMicroblogItem(id, host) {
  */
 async function insertTag(tag, host) {
     const result = await pool.query(
-        'INSERT INTO tag (name, deleted_at, host) VALUES ($2, $3, $1) RETURNING *',
-        [host, tag.name, tag.deleted_at]
+        'INSERT INTO tag (name, created_at, host) VALUES ($2, $3, $1) RETURNING *',
+        [host, tag.name, tag.created_at]
     );
     return result.rows[0];
 }
@@ -453,7 +469,7 @@ async function createTag(data) {
  */
 async function getTagsByHost(host) {
     const result = await pool.query(
-        'SELECT * FROM tag WHERE host = $1 ORDER BY created_at DESC',
+        'SELECT * FROM tag WHERE host = $1',
         [host]
     );
     return result.rows;
@@ -464,7 +480,7 @@ async function getTagsByHost(host) {
  */
 async function findTagsByHost(host) {
     const result = await pool.query(
-        'SELECT * FROM tag WHERE host = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
+        'SELECT * FROM tag WHERE host = $1 AND deleted_at IS NULL',
         [host]
     );
     return result.rows;
@@ -496,7 +512,9 @@ async function findTagById(id, host) {
  * Update Tag with tenant isolation
  */
 async function updateTag(id, updates, host) {
-    const updateFields = Object.keys(updates).filter(key => key !== 'id' && key !== 'host');
+    // Filter out framework-managed fields
+    const frameworkFields = ['id', 'host', 'updated_at', 'created_at', 'deleted_at'];
+    const updateFields = Object.keys(updates).filter(key => !frameworkFields.includes(key));
     const setClause = updateFields.map((field, i) => field + ' = $' + (i + 3)).join(', ');
     const values = updateFields.map(field => updates[field]);
 
@@ -504,7 +522,9 @@ async function updateTag(id, updates, host) {
         return getTagById(id, host);
     }
 
-    const sql = 'UPDATE tag SET ' + setClause + ', updated_at = NOW() WHERE id = $1 AND host = $2 RETURNING *';
+    // Only add updated_at = NOW() if model has UpdateTimestamp field
+    const updateTimestampClause = '';
+    const sql = 'UPDATE tag SET ' + setClause + updateTimestampClause + ' WHERE id = $1 AND host = $2 RETURNING *';
     const result = await pool.query(sql, [id, host, ...values]);
     return result.rows[0] || null;
 }

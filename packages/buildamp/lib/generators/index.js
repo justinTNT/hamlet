@@ -11,3 +11,4 @@ export { generateSSEEvents } from './sse.js';
 export { generateElmSharedModules } from './elm.js';
 export { generateElmHandlers } from './handlers.js';
 export { generateSqlMigrations, generateSchemaIntrospection } from './sql.js';
+export { generateTypeScriptDefinitions } from './ts.js';

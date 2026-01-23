@@ -14,9 +14,8 @@ CREATE TABLE guest (
     name TEXT NOT NULL,
     picture TEXT NOT NULL,
     session_id TEXT NOT NULL,
-    created_at BIGINT NOT NULL DEFAULT extract(epoch from now()),
-    deleted_at TEXT NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    deleted_at BIGINT
 );
 
 -- Index for tenant isolation
@@ -28,12 +27,11 @@ CREATE TABLE item_comment (
     host TEXT NOT NULL,
     item_id TEXT NOT NULL,
     guest_id TEXT NOT NULL,
-    parent_id TEXT NOT NULL,
+    parent_id TEXT,
     author_name TEXT NOT NULL,
-    text TEXT NOT NULL,
-    created_at BIGINT NOT NULL DEFAULT extract(epoch from now()),
-    deleted_at TEXT NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE,
+    text JSONB NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    deleted_at BIGINT,
     FOREIGN KEY (item_id) REFERENCES microblog_item(id),
     FOREIGN KEY (guest_id) REFERENCES guest(id)
 );
@@ -46,9 +44,7 @@ CREATE TABLE item_tag (
     item_id TEXT NOT NULL,
     tag_id TEXT NOT NULL,
     host TEXT NOT NULL,
-    deleted_at TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE,
+    deleted_at BIGINT,
     FOREIGN KEY (item_id) REFERENCES microblog_item(id),
     FOREIGN KEY (tag_id) REFERENCES tag(id)
 );
@@ -61,14 +57,14 @@ CREATE TABLE microblog_item (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
     host TEXT NOT NULL,
     title TEXT NOT NULL,
-    link TEXT NOT NULL,
-    image TEXT NOT NULL,
-    extract TEXT NOT NULL,
+    link TEXT,
+    image TEXT,
+    extract JSONB,
     owner_comment JSONB NOT NULL,
-    created_at BIGINT NOT NULL DEFAULT extract(epoch from now()),
-    view_count TEXT NOT NULL,
-    deleted_at TEXT NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE,
+    view_count INTEGER NOT NULL DEFAULT 0,
+    deleted_at BIGINT
 );
 
 -- Index for tenant isolation
@@ -79,9 +75,8 @@ CREATE TABLE tag (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
     host TEXT NOT NULL,
     name TEXT NOT NULL,
-    deleted_at TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE
+    deleted_at BIGINT
 );
 
 -- Index for tenant isolation

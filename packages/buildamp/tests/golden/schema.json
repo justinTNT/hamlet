@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-01-19T09:58:47.149Z",
+  "generatedAt": "2026-01-23T05:57:19.932Z",
   "tables": {
     "guest": {
       "structName": "Guest",
@@ -52,8 +52,8 @@
           "isRichContent": false
         },
         "created_at": {
-          "rustType": "Timestamp",
-          "sqlType": "BIGINT",
+          "rustType": "CreateTimestamp",
+          "sqlType": "TIMESTAMP WITH TIME ZONE",
           "nullable": false,
           "isPrimaryKey": false,
           "isTimestamp": true,
@@ -62,7 +62,7 @@
         },
         "deleted_at": {
           "rustType": "SoftDelete",
-          "sqlType": "TEXT",
+          "sqlType": "BIGINT",
           "nullable": false,
           "isPrimaryKey": false,
           "isTimestamp": false,
@@ -144,17 +144,17 @@
           "isRichContent": false
         },
         "text": {
-          "rustType": "String",
-          "sqlType": "TEXT",
+          "rustType": "RichContent",
+          "sqlType": "JSONB",
           "nullable": false,
           "isPrimaryKey": false,
           "isTimestamp": false,
           "isLink": false,
-          "isRichContent": false
+          "isRichContent": true
         },
         "created_at": {
-          "rustType": "Timestamp",
-          "sqlType": "BIGINT",
+          "rustType": "CreateTimestamp",
+          "sqlType": "TIMESTAMP WITH TIME ZONE",
           "nullable": false,
           "isPrimaryKey": false,
           "isTimestamp": true,
@@ -163,7 +163,7 @@
         },
         "deleted_at": {
           "rustType": "SoftDelete",
-          "sqlType": "TEXT",
+          "sqlType": "BIGINT",
           "nullable": false,
           "isPrimaryKey": false,
           "isTimestamp": false,
@@ -229,7 +229,7 @@
         },
         "deleted_at": {
           "rustType": "SoftDelete",
-          "sqlType": "TEXT",
+          "sqlType": "BIGINT",
           "nullable": false,
           "isPrimaryKey": false,
           "isTimestamp": false,
@@ -313,12 +313,12 @@
         },
         "extract": {
           "rustType": "Maybe RichContent",
-          "sqlType": "TEXT",
+          "sqlType": "JSONB",
           "nullable": true,
           "isPrimaryKey": false,
           "isTimestamp": false,
           "isLink": false,
-          "isRichContent": false
+          "isRichContent": true
         },
         "owner_comment": {
           "rustType": "RichContent",
@@ -330,8 +330,17 @@
           "isRichContent": true
         },
         "created_at": {
-          "rustType": "Timestamp",
-          "sqlType": "BIGINT",
+          "rustType": "CreateTimestamp",
+          "sqlType": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": true,
+          "isLink": false,
+          "isRichContent": false
+        },
+        "updated_at": {
+          "rustType": "UpdateTimestamp",
+          "sqlType": "TIMESTAMP WITH TIME ZONE",
           "nullable": false,
           "isPrimaryKey": false,
           "isTimestamp": true,
@@ -340,7 +349,7 @@
         },
         "view_count": {
           "rustType": "Int",
-          "sqlType": "TEXT",
+          "sqlType": "INTEGER",
           "nullable": false,
           "isPrimaryKey": false,
           "isTimestamp": false,
@@ -349,7 +358,7 @@
         },
         "deleted_at": {
           "rustType": "SoftDelete",
-          "sqlType": "TEXT",
+          "sqlType": "BIGINT",
           "nullable": false,
           "isPrimaryKey": false,
           "isTimestamp": false,
@@ -407,9 +416,18 @@
           "isLink": false,
           "isRichContent": false
         },
+        "created_at": {
+          "rustType": "CreateTimestamp",
+          "sqlType": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "isTimestamp": true,
+          "isLink": false,
+          "isRichContent": false
+        },
         "deleted_at": {
           "rustType": "SoftDelete",
-          "sqlType": "TEXT",
+          "sqlType": "BIGINT",
           "nullable": false,
           "isPrimaryKey": false,
           "isTimestamp": false,

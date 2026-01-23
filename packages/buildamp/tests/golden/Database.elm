@@ -98,6 +98,16 @@ type alias MultiTenant = String
 type alias SoftDelete = Maybe Int
 
 
+{-| Auto-populated creation timestamp. Set on INSERT.
+-}
+type alias CreateTimestamp = Int
+
+
+{-| Auto-populated update timestamp. Set on INSERT and UPDATE.
+-}
+type alias UpdateTimestamp = Int
+
+
 -- QUERY BUILDERS
 
 {-| Empty query - returns all records
@@ -313,7 +323,7 @@ type alias GuestDb =
     , name : String -- String
     , picture : String -- String
     , sessionId : String -- String
-    , createdAt : Int -- Timestamp
+    , createdAt : CreateTimestamp -- CreateTimestamp
     , deletedAt : SoftDelete -- SoftDelete
     }
 
@@ -324,7 +334,6 @@ type alias GuestDbCreate =
     {     name : String
     , picture : String
     , sessionId : String
-    , createdAt : Int
     }
 
 {-| Database entity for updating existing Guest
@@ -335,7 +344,7 @@ type alias GuestDbUpdate =
     , name : Maybe String
     , picture : Maybe String
     , sessionId : Maybe String
-    , createdAt : Maybe Int
+    , createdAt : Maybe CreateTimestamp
     , deletedAt : SoftDelete
     }
 
@@ -419,7 +428,6 @@ encodeGuestDbCreate item =
         [ ("name", Encode.string item.name)
         , ("picture", Encode.string item.picture)
         , ("session_id", Encode.string item.sessionId)
-        , ("created_at", Encode.int item.createdAt)
         ]
 
 
@@ -445,8 +453,8 @@ type alias ItemCommentDb =
     , guestId : String -- ForeignKey Guest String
     , parentId : Maybe String -- Maybe String
     , authorName : String -- String
-    , text : String -- String
-    , createdAt : Int -- Timestamp
+    , text : String -- RichContent
+    , createdAt : CreateTimestamp -- CreateTimestamp
     , deletedAt : SoftDelete -- SoftDelete
     }
 
@@ -459,7 +467,6 @@ type alias ItemCommentDbCreate =
     , parentId : Maybe String
     , authorName : String
     , text : String
-    , createdAt : Int
     }
 
 {-| Database entity for updating existing ItemComment
@@ -472,7 +479,7 @@ type alias ItemCommentDbUpdate =
     , parentId : Maybe String
     , authorName : Maybe String
     , text : Maybe String
-    , createdAt : Maybe Int
+    , createdAt : Maybe CreateTimestamp
     , deletedAt : SoftDelete
     }
 
@@ -547,7 +554,7 @@ itemcommentDbDecoder =
         |> decodeField "guest_id" Decode.string
         |> decodeField "parent_id" (Decode.nullable Decode.string)
         |> decodeField "author_name" Decode.string
-        |> decodeField "text" Decode.string
+        |> decodeField "text" richContentDecoder
         |> decodeField "created_at" timestampDecoder
         |> decodeField "deleted_at" (Decode.nullable timestampDecoder)
 
@@ -560,7 +567,6 @@ encodeItemCommentDbCreate item =
         , ("parent_id", encodeMaybe Encode.string item.parentId)
         , ("author_name", Encode.string item.authorName)
         , ("text", Encode.string item.text)
-        , ("created_at", Encode.int item.createdAt)
         ]
 
 
@@ -706,7 +712,8 @@ type alias MicroblogItemDb =
     , image : Maybe String -- Maybe Link
     , extract : Maybe String -- Maybe RichContent
     , ownerComment : String -- RichContent
-    , createdAt : Int -- Timestamp
+    , createdAt : CreateTimestamp -- CreateTimestamp
+    , updatedAt : UpdateTimestamp -- UpdateTimestamp
     , viewCount : Int -- Int
     , deletedAt : SoftDelete -- SoftDelete
     }
@@ -720,7 +727,6 @@ type alias MicroblogItemDbCreate =
     , image : Maybe String
     , extract : Maybe String
     , ownerComment : String
-    , createdAt : Int
     , viewCount : Int
     }
 
@@ -734,7 +740,8 @@ type alias MicroblogItemDbUpdate =
     , image : Maybe String
     , extract : Maybe String
     , ownerComment : Maybe String
-    , createdAt : Maybe Int
+    , createdAt : Maybe CreateTimestamp
+    , updatedAt : Maybe UpdateTimestamp
     , viewCount : Maybe Int
     , deletedAt : SoftDelete
     }
@@ -809,9 +816,10 @@ microblogitemDbDecoder =
         |> decodeField "title" Decode.string
         |> decodeField "link" (Decode.nullable Decode.string)
         |> decodeField "image" (Decode.nullable Decode.string)
-        |> decodeField "extract" (Decode.nullable Decode.string)
-        |> decodeField "owner_comment" Decode.string
+        |> decodeField "extract" (Decode.nullable richContentDecoder)
+        |> decodeField "owner_comment" richContentDecoder
         |> decodeField "created_at" timestampDecoder
+        |> decodeField "updated_at" timestampDecoder
         |> decodeField "view_count" Decode.int
         |> decodeField "deleted_at" (Decode.nullable timestampDecoder)
 
@@ -824,7 +832,6 @@ encodeMicroblogItemDbCreate item =
         , ("image", encodeMaybe Encode.string item.image)
         , ("extract", encodeMaybe Encode.string item.extract)
         , ("owner_comment", Encode.string item.ownerComment)
-        , ("created_at", Encode.int item.createdAt)
         , ("view_count", Encode.int item.viewCount)
         ]
 
@@ -839,6 +846,7 @@ encodeMicroblogItemDbUpdate item =
         , ("extract", encodeMaybe Encode.string item.extract)
         , ("owner_comment", encodeMaybe Encode.string item.ownerComment)
         , ("created_at", encodeMaybe Encode.int item.createdAt)
+        , ("updated_at", encodeMaybe Encode.int item.updatedAt)
         , ("view_count", encodeMaybe Encode.int item.viewCount)
         , ("deleted_at", encodeMaybe Encode.int item.deletedAt)
         ]
@@ -851,6 +859,7 @@ type alias TagDb =
     {     id : String -- DatabaseId String
     , host : MultiTenant -- MultiTenant
     , name : String -- String
+    , createdAt : CreateTimestamp -- CreateTimestamp
     , deletedAt : SoftDelete -- SoftDelete
     }
 
@@ -867,6 +876,7 @@ All fields optional to support partial updates
 type alias TagDbUpdate =
     {     host : Maybe MultiTenant
     , name : Maybe String
+    , createdAt : Maybe CreateTimestamp
     , deletedAt : SoftDelete
     }
 
@@ -938,6 +948,7 @@ tagDbDecoder =
         |> decodeField "id" Decode.string
         |> decodeField "host" Decode.string
         |> decodeField "name" Decode.string
+        |> decodeField "created_at" timestampDecoder
         |> decodeField "deleted_at" (Decode.nullable timestampDecoder)
 
 
@@ -953,6 +964,7 @@ encodeTagDbUpdate item =
     Encode.object
         [ ("host", encodeMaybe Encode.string item.host)
         , ("name", encodeMaybe Encode.string item.name)
+        , ("created_at", encodeMaybe Encode.int item.createdAt)
         , ("deleted_at", encodeMaybe Encode.int item.deletedAt)
         ]
 
@@ -989,6 +1001,15 @@ stringToInt str =
     case String.toInt str of
         Just int -> Decode.succeed int
         Nothing -> Decode.fail ("Could not parse timestamp: " ++ str)
+
+
+-- RichContent decoder (handles JSONB object -> JSON string)
+richContentDecoder : Decode.Decoder String
+richContentDecoder =
+    Decode.oneOf
+        [ Decode.string  -- Already a string (legacy)
+        , Decode.value |> Decode.map (Encode.encode 0)  -- JSONB object -> JSON string
+        ]
 
 
 -- UTILITY FUNCTIONS

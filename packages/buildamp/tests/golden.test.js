@@ -25,11 +25,11 @@ const horatioDir = path.join(projectRoot, 'app/horatio');
 // Paths to generated files
 const generatedPaths = {
     // SQL
-    'schema.sql': path.join(horatioDir, 'sql/migrations/schema.sql'),
+    'schema.sql': path.join(horatioDir, 'server/.generated/schema.sql'),
     'schema.json': path.join(horatioDir, 'server/.generated/schema.json'),
     // Database
     'database-queries.js': path.join(horatioDir, 'server/.generated/database-queries.js'),
-    'Database.elm': path.join(horatioDir, 'server/.generated/Generated/Database.elm'),
+    'Database.elm': path.join(horatioDir, 'server/.generated/BuildAmp/Database.elm'),
     'Backend.elm': path.join(horatioDir, 'server/src/Api/Backend.elm'),
     // API
     'api-routes.js': path.join(horatioDir, 'server/.generated/api-routes.js'),

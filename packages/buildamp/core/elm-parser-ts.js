@@ -98,6 +98,55 @@ function findChildrenByType(node, type) {
     return results;
 }
 
+/**
+ * Find the previous sibling node
+ */
+function getPreviousSibling(node) {
+    if (!node.parent) return null;
+    const parent = node.parent;
+    for (let i = 0; i < parent.childCount; i++) {
+        if (parent.child(i) === node && i > 0) {
+            return parent.child(i - 1);
+        }
+    }
+    return null;
+}
+
+/**
+ * Extract doc comment from a block_comment node
+ * Elm doc comments use {-| ... -} format
+ */
+function extractDocComment(commentNode, sourceCode) {
+    if (!commentNode || commentNode.type !== 'block_comment') {
+        return null;
+    }
+
+    const text = getText(commentNode, sourceCode);
+
+    // Check if it's a doc comment (starts with {-|)
+    if (!text.startsWith('{-|')) {
+        return null;
+    }
+
+    // Extract content between {-| and -}
+    let content = text.slice(3, -2).trim();
+
+    // Clean up the content - remove leading whitespace from each line
+    const lines = content.split('\n').map(line => line.trim());
+    return lines.join('\n').trim();
+}
+
+/**
+ * Find preceding doc comment for a node
+ */
+function findPrecedingDocComment(node, sourceCode) {
+    const prev = getPreviousSibling(node);
+    if (prev) {
+        return extractDocComment(prev, sourceCode);
+    }
+    return null;
+}
+
 // =============================================================================
 // TYPE EXPRESSION PARSING
 // =============================================================================
@@ -202,6 +251,21 @@ function parseTupleType(node, sourceCode) {
 }
 
 /**
+ * Extract line comment from a field node
+ * Handles -- comment at the end of a field line
+ */
+function extractFieldLineComment(fieldNode, sourceCode) {
+    // Look for line_comment child or sibling
+    const lineComment = findChildByType(fieldNode, 'line_comment');
+    if (lineComment) {
+        const text = getText(lineComment, sourceCode);
+        // Remove the -- prefix and trim
+        return text.replace(/^--\s*/, '').trim();
+    }
+    return null;
+}
+
+/**
  * Extract structured fields from a record_type node
  */
 function extractRecordFields(node, sourceCode) {
@@ -219,9 +283,11 @@ function extractRecordFields(node, sourceCode) {
 
         if (nameNode && typeNode) {
             const elmType = parseTypeExpression(typeNode, sourceCode);
+            const docComment = extractFieldLineComment(fieldNode, sourceCode);
             fields.push({
                 name: getText(nameNode, sourceCode),
-                elmType
+                elmType,
+                docComment
             });
         }
     }
@@ -255,6 +321,9 @@ function parseTypeAliasDeclaration(node, sourceCode) {
 
     const typeName = getText(nameNode, sourceCode);
 
+    // Find preceding doc comment
+    const docComment = findPrecedingDocComment(node, sourceCode);
+
     // Find the type definition (could be record_type nested in type_expression)
     const recordTypeNode = findDescendantByType(node, 'record_type');
     if (recordTypeNode) {
@@ -263,7 +332,8 @@ function parseTypeAliasDeclaration(node, sourceCode) {
             kind: 'type_alias',
             name: typeName,
             isRecord: true,
-            fields
+            fields,
+            docComment
         };
     }
 
@@ -278,7 +348,8 @@ function parseTypeAliasDeclaration(node, sourceCode) {
             kind: 'type_alias',
             name: typeName,
             isRecord: false,
-            aliasedType: parseTypeExpression(typeExprNode, sourceCode)
+            aliasedType: parseTypeExpression(typeExprNode, sourceCode),
+            docComment
         };
     }
 
@@ -298,6 +369,9 @@ function parseTypeDeclaration(node, sourceCode) {
     if (!nameNode) return null;
 
     const typeName = getText(nameNode, sourceCode);
+
+    // Find preceding doc comment
+    const docComment = findPrecedingDocComment(node, sourceCode);
 
     // Find type parameters
     const typeParams = [];
@@ -339,7 +413,8 @@ function parseTypeDeclaration(node, sourceCode) {
         kind: 'union_type',
         name: typeName,
         typeParams,
-        variants
+        variants,
+        docComment
     };
 }
 
@@ -600,7 +675,7 @@ export function parseElmSchemaFile(filePath) {
     return parsed.typeAliases
         .filter(t => t.isRecord)
         .map(typeAlias => {
-            const fields = typeAlias.fields.map(({ name, elmType }) => {
+            const fields = typeAlias.fields.map(({ name, elmType, docComment }) => {
                 const snakeName = camelToSnake(name);
                 const sqlInfo = elmTypeToSql(elmType, snakeName);
                 const isForeignKey = elmType.startsWith('ForeignKey ');
@@ -620,7 +695,8 @@ export function parseElmSchemaFile(filePath) {
                     isForeignKey,
                     referencedTable: isForeignKey ? extractForeignKeyTable(elmType) : null,
                     isMultiTenant: elmType === 'MultiTenant',
-                    isSoftDelete: elmType === 'SoftDelete'
+                    isSoftDelete: elmType === 'SoftDelete',
+                    docComment: docComment || null
                 };
             });
 
@@ -644,7 +720,8 @@ export function parseElmSchemaFile(filePath) {
                 multiTenantFieldName: multiTenantField?.name || null,
                 softDeleteFieldName: softDeleteField?.name || null,
                 createTimestampFieldName: createTimestampField?.name || null,
-                updateTimestampFieldName: updateTimestampField?.name || null
+                updateTimestampFieldName: updateTimestampField?.name || null,
+                docComment: typeAlias.docComment || null
             };
         });
 }
@@ -692,7 +769,7 @@ export function parseElmSchemaDirFull(schemaDir) {
 
         // Process record types (same as parseElmSchemaFile)
         for (const typeAlias of parsed.typeAliases.filter(t => t.isRecord)) {
-            const fields = typeAlias.fields.map(({ name, elmType }) => {
+            const fields = typeAlias.fields.map(({ name, elmType, docComment }) => {
                 const snakeName = camelToSnake(name);
                 const sqlInfo = elmTypeToSql(elmType, snakeName);
                 const isForeignKey = elmType.startsWith('ForeignKey ');
@@ -712,7 +789,8 @@ export function parseElmSchemaDirFull(schemaDir) {
                     isForeignKey,
                     referencedTable: isForeignKey ? extractForeignKeyTable(elmType) : null,
                     isMultiTenant: elmType === 'MultiTenant',
-                    isSoftDelete: elmType === 'SoftDelete'
+                    isSoftDelete: elmType === 'SoftDelete',
+                    docComment: docComment || null
                 };
             });
 
@@ -734,7 +812,8 @@ export function parseElmSchemaDirFull(schemaDir) {
                 multiTenantFieldName: multiTenantField?.name || null,
                 softDeleteFieldName: softDeleteField?.name || null,
                 createTimestampFieldName: createTimestampField?.name || null,
-                updateTimestampFieldName: updateTimestampField?.name || null
+                updateTimestampFieldName: updateTimestampField?.name || null,
+                docComment: typeAlias.docComment || null
             });
         }
 
@@ -757,12 +836,73 @@ export function parseElmSchemaDirFull(schemaDir) {
 const API_WRAPPERS = ['Inject', 'Required', 'Trim', 'MinLength', 'MaxLength'];
 
 /**
+ * Parse validation tags from a comment string
+ * Supports: @validate email, @min N, @max N, @minLength N, @maxLength N, @pattern "regex"
+ */
+function parseValidationTags(comment) {
+    if (!comment) return {};
+
+    const tags = {};
+
+    // @validate <type> (email, url, uuid, etc.)
+    const validateMatch = comment.match(/@validate\s+(\w+)/i);
+    if (validateMatch) {
+        tags.validate = validateMatch[1].toLowerCase();
+    }
+
+    // @email (shorthand for @validate email)
+    if (/@email\b/i.test(comment)) {
+        tags.validate = 'email';
+    }
+
+    // @min <number> (minimum value for numbers)
+    const minMatch = comment.match(/@min\s+(\d+)/i);
+    if (minMatch) {
+        tags.min = parseInt(minMatch[1], 10);
+    }
+
+    // @max <number> (maximum value for numbers)
+    const maxMatch = comment.match(/@max\s+(\d+)/i);
+    if (maxMatch) {
+        tags.max = parseInt(maxMatch[1], 10);
+    }
+
+    // @minLength <number> (minimum string length)
+    const minLengthMatch = comment.match(/@minLength\s+(\d+)/i);
+    if (minLengthMatch) {
+        tags.minLength = parseInt(minLengthMatch[1], 10);
+    }
+
+    // @maxLength <number> (maximum string length)
+    const maxLengthMatch = comment.match(/@maxLength\s+(\d+)/i);
+    if (maxLengthMatch) {
+        tags.maxLength = parseInt(maxLengthMatch[1], 10);
+    }
+
+    // @pattern "<regex>" (custom regex pattern)
+    const patternMatch = comment.match(/@pattern\s+"([^"]+)"/i);
+    if (patternMatch) {
+        tags.pattern = patternMatch[1];
+    }
+
+    return tags;
+}
+
+/**
  * Unwrap API annotation types
  */
 function unwrapApiAnnotations(elmType) {
     const annotations = {};
     let current = elmType.trim();
 
+    // Extract line comment before stripping it
+    const lineCommentMatch = current.match(/\s*--\s*(.*)$/);
+    const lineComment = lineCommentMatch ? lineCommentMatch[1] : null;
+
+    // Parse validation tags from the line comment
+    const validationTags = parseValidationTags(lineComment);
+
+    // Strip comments from the type
     current = current.replace(/\s*--.*$/, '').replace(/\s*\{-.*?-\}/, '').trim();
 
     let maxIterations = 10;
@@ -796,7 +936,7 @@ function unwrapApiAnnotations(elmType) {
         if (!foundWrapper) break;
     }
 
-    return { baseType: current, annotations };
+    return { baseType: current, annotations, validationTags };
 }
 
 /**
@@ -825,20 +965,23 @@ export function parseApiModule(content, filename) {
     for (const typeAlias of parsed.typeAliases) {
         if (!typeAlias.isRecord) continue;
 
-        const processedFields = typeAlias.fields.map(({ name, elmType }) => {
-            const { baseType, annotations } = unwrapApiAnnotations(elmType);
+        const processedFields = typeAlias.fields.map(({ name, elmType, docComment }) => {
+            const { baseType, annotations, validationTags } = unwrapApiAnnotations(elmType);
             return {
                 name: camelToSnake(name),
                 camelName: name,
                 elmType: baseType,
                 originalType: elmType,
-                annotations
+                annotations,
+                validationTags: validationTags || {},
+                docComment: docComment || null
             };
         });
 
         const typeInfo = {
             name: typeAlias.name,
-            fields: processedFields
+            fields: processedFields,
+            docComment: typeAlias.docComment || null
         };
 
         if (typeAlias.name === 'Request') {
@@ -1099,12 +1242,16 @@ export const _test = {
     parseTypeDeclaration,
     parseTypeExpression,
     extractRecordFields,
+    extractFieldLineComment,
+    extractDocComment,
+    findPrecedingDocComment,
     findDescendantByType,
     elmTypeToSql,
     camelToSnake,
     typeNameToTableName,
     extractForeignKeyTable,
     unwrapApiAnnotations,
+    parseValidationTags,
     parseApiModule,
     parseGenericModule,
     elmTypeToSchemaFormat

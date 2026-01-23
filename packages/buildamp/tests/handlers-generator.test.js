@@ -27,13 +27,13 @@ describe('Handlers Generator - Handler Content', () => {
     test('generateHandlerContent creates port module', () => {
         const result = generateHandlerContent(sampleEndpoint);
 
-        assert.ok(result.includes('port module Api.Handlers.GetFeedHandlerTEA exposing (main)'));
+        assert.ok(result.includes('port module Api.Handlers.GetFeedHandler exposing (main)'));
     });
 
     test('generateHandlerContent includes module description', () => {
         const result = generateHandlerContent(sampleEndpoint);
 
-        assert.ok(result.includes('{-| GetFeed Handler - TEA Architecture'));
+        assert.ok(result.includes('{-| GetFeed Handler'));
         assert.ok(result.includes('Business Logic:'));
     });
 

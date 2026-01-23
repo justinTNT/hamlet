@@ -7,105 +7,107 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { getGenerationPaths, modelsExist, getModelsFullPath, ensureOutputDir } from './shared-paths.js';
+import { getGenerationPaths, ensureOutputDir } from './shared-paths.js';
 import { parseElmApiDir } from '../../core/elm-parser-ts.js';
 import { generateUnionEncoder, generateUnionDecoder, generateUnionTypeDefinition } from './union-types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Parse buildamp_api annotations from file content
-function parseApiAnnotations(content, filename) {
-    const apis = [];
-    
-    // Match #[buildamp] annotations and their associated structs
-    // Need to handle multiline field annotations
-    const apiRegex = /#\[buildamp\(([^)]+)\)\][\s\S]*?pub struct\s+(\w+)\s*\{([\s\S]*?)\}/g;
-    let match;
-    
-    while ((match = apiRegex.exec(content)) !== null) {
-        const [, annotationContent, structName, fieldsContent] = match;
-        
-        // Parse annotation parameters
-        const annotations = {};
-        const paramRegex = /(\w+)\s*=\s*"([^"]+)"/g;
-        let paramMatch;
-        while ((paramMatch = paramRegex.exec(annotationContent)) !== null) {
-            const [, key, value] = paramMatch;
-            annotations[key] = value;
-        }
-        
-        // Parse fields with their annotations - need to look at the broader context
-        const fields = [];
-        
-        // Split content into lines to parse field annotations correctly
-        const lines = fieldsContent.split('\n');
-        let currentAnnotations = {};
-        
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-            
-            // Check for field annotations
-            if (line.startsWith('#[api(')) {
-                currentAnnotations = {};
-                const annotationContent = line.match(/#\[api\(([^)]+)\)\]/);
-                if (annotationContent) {
-                    const annotationStr = annotationContent[1];
-                    
-                    if (annotationStr.includes('Inject')) {
-                        const injectMatch = annotationStr.match(/Inject\s*=\s*"([^"]+)"/);
-                        if (injectMatch) {
-                            currentAnnotations.inject = injectMatch[1];
-                        }
-                    }
-                    if (annotationStr.includes('Required')) {
-                        currentAnnotations.required = true;
-                    }
-                }
-            }
-            
-            // Check for field definition
-            const fieldMatch = line.match(/pub\s+(\w+):\s*([^,\n]+)/);
-            if (fieldMatch) {
-                const [, fieldName, fieldType] = fieldMatch;
-                fields.push({
-                    name: fieldName,
-                    type: fieldType.trim().replace(',', ''),
-                    annotations: { ...currentAnnotations }
-                });
-                currentAnnotations = {}; // Reset after using
-            }
-        }
-        
-        apis.push({
-            struct_name: structName,
-            name: structName,
-            path: annotations.path || structName,
-            bundleWith: annotations.bundle_with,
-            serverContext: annotations.server_context,
-            fields,
-            filename
-        });
+// Email regex pattern for validation
+const EMAIL_REGEX = '/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/';
+const URL_REGEX = '/^https?:\\/\\/.+/';
+const UUID_REGEX = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i';
+
+/**
+ * Generate validation checks from validation tags
+ */
+function generateValidationTagChecks(field) {
+    const checks = [];
+    const tags = field.validationTags || {};
+    const fieldName = field.name;
+
+    // Email validation
+    if (tags.validate === 'email') {
+        checks.push(`    if (requestData.${fieldName} && !${EMAIL_REGEX}.test(requestData.${fieldName})) {
+        return res.status(400).json({ error: '${fieldName} must be a valid email address' });
+    }`);
     }
-    
-    return apis;
+
+    // URL validation
+    if (tags.validate === 'url') {
+        checks.push(`    if (requestData.${fieldName} && !${URL_REGEX}.test(requestData.${fieldName})) {
+        return res.status(400).json({ error: '${fieldName} must be a valid URL' });
+    }`);
+    }
+
+    // UUID validation
+    if (tags.validate === 'uuid') {
+        checks.push(`    if (requestData.${fieldName} && !${UUID_REGEX}.test(requestData.${fieldName})) {
+        return res.status(400).json({ error: '${fieldName} must be a valid UUID' });
+    }`);
+    }
+
+    // Min length validation
+    if (tags.minLength !== undefined) {
+        checks.push(`    if (requestData.${fieldName} && requestData.${fieldName}.length < ${tags.minLength}) {
+        return res.status(400).json({ error: '${fieldName} must be at least ${tags.minLength} characters' });
+    }`);
+    }
+
+    // Max length validation
+    if (tags.maxLength !== undefined) {
+        checks.push(`    if (requestData.${fieldName} && requestData.${fieldName}.length > ${tags.maxLength}) {
+        return res.status(400).json({ error: '${fieldName} must be at most ${tags.maxLength} characters' });
+    }`);
+    }
+
+    // Min value validation (for numbers)
+    if (tags.min !== undefined) {
+        checks.push(`    if (requestData.${fieldName} !== undefined && requestData.${fieldName} < ${tags.min}) {
+        return res.status(400).json({ error: '${fieldName} must be at least ${tags.min}' });
+    }`);
+    }
+
+    // Max value validation (for numbers)
+    if (tags.max !== undefined) {
+        checks.push(`    if (requestData.${fieldName} !== undefined && requestData.${fieldName} > ${tags.max}) {
+        return res.status(400).json({ error: '${fieldName} must be at most ${tags.max}' });
+    }`);
+    }
+
+    // Custom pattern validation
+    if (tags.pattern) {
+        const escapedPattern = tags.pattern.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        checks.push(`    if (requestData.${fieldName} && !/${escapedPattern}/.test(requestData.${fieldName})) {
+        return res.status(400).json({ error: '${fieldName} format is invalid' });
+    }`);
+    }
+
+    return checks;
 }
 
 // Generate Express route for an API endpoint
 function generateRoute(api) {
-    const { name, path, fields, bundleWith, serverContext } = api;
-    
+    const { name, path: apiPath, fields, _elm } = api;
+
     // Fields that need injection
     const injectFields = fields.filter(f => f.annotations.inject);
     const requiredFields = fields.filter(f => f.annotations.required);
-    
-    // Generate field validation
-    const validationChecks = requiredFields.map(field => 
+
+    // Generate required field validation
+    const requiredChecks = requiredFields.map(field =>
         `    if (!requestData.${field.name} || requestData.${field.name}.trim() === '') {
         return res.status(400).json({ error: '${field.name} is required' });
     }`
-    ).join('\n');
-    
+    );
+
+    // Generate validation tag checks for all fields
+    const tagChecks = fields.flatMap(generateValidationTagChecks);
+
+    // Combine all validation checks
+    const validationChecks = [...requiredChecks, ...tagChecks].join('\n');
+
     // Generate field injection
     const injectionCode = injectFields.map(field => {
         if (field.annotations.inject === 'host') {
@@ -113,77 +115,65 @@ function generateRoute(api) {
         }
         return `        ${field.name}: req.context.${field.annotations.inject}`;
     }).join(',\n');
-    
+
+    // Build JSDoc from Elm doc comments
+    const requestDocComment = _elm?.request?.docComment;
+    const fieldDocs = fields.filter(f => f.docComment).map(f =>
+        ` * @param {*} req.body.${f.name} - ${f.docComment}`
+    ).join('\n');
+
+    const jsdocLines = [
+        `/**`,
+        ` * ${name} - Auto-generated route`,
+        requestDocComment ? ` * ${requestDocComment.split('\n').join('\n * ')}` : null,
+        ` * @route POST /api/${apiPath}`,
+        ` * @generated from ${api.filename}`,
+        fieldDocs || null,
+        ` */`
+    ].filter(Boolean).join('\n');
+
     return `
-/**
- * Auto-generated route for ${name}
- * Path: ${path}
- * Generated from: ${api.filename}
- */
-server.app.post('/api/${path}', async (req, res) => {
+${jsdocLines}
+server.app.post('/api/${apiPath}', async (req, res) => {
     const host = req.tenant?.host || 'localhost';
-    
+
     try {
         // Extract request data
         let requestData = req.body;
-        
+
         // Field validation
 ${validationChecks}
-        
+
         // Ensure context exists
         if (!req.context) {
             req.context = { host };
         }
-        
+
         // Context injection
         requestData = {
             ...requestData,${injectionCode ? '\n' + injectionCode + '\n        ' : ''}
         };
-        
+
         // Call Elm business logic
         const elmService = server.getService('elm');
         if (!elmService) {
             throw new Error('Elm service not available');
         }
-        
-        const result = await elmService.callHandler('${path}', requestData, {
+
+        const result = await elmService.callHandler('${apiPath}', requestData, {
             host,
             user_id: req.context?.user_id || null,
             is_extension: req.context?.is_extension || false,
             tenant: host
         });
-        
+
         res.json(result);
-        
+
     } catch (error) {
-        console.error(\`Error handling ${path}:\`, error);
+        console.error(\`Error handling ${apiPath}:\`, error);
         res.status(400).json({ error: error.message });
     }
 });`.trim();
-}
-
-/**
- * Convert schema type to Elm type
- */
-function rustTypeToElmType(rustType) {
-    const typeMap = {
-        'String': 'String',
-        'i32': 'Int',
-        'i64': 'Int',
-        'u32': 'Int',
-        'u64': 'Int',
-        'f32': 'Float',
-        'f64': 'Float',
-        'bool': 'Bool',
-        'Option<String>': 'Maybe String',
-        'Option<i32>': 'Maybe Int',
-        'Option<bool>': 'Maybe Bool',
-        'Vec<String>': 'List String',
-        'Vec<i32>': 'List Int',
-        'serde_json::Value': 'Json.Encode.Value'
-    };
-    
-    return typeMap[rustType] || rustType;
 }
 
 /**
@@ -193,12 +183,11 @@ function generateElmTypeDefinition(api) {
     if (!api.fields || api.fields.length === 0) {
         return `type alias ${api.struct_name} = {}`;
     }
-    
+
     const fields = api.fields.map(field => {
-        const elmType = rustTypeToElmType(field.type);
-        return `    ${field.name} : ${elmType}`;
+        return `    ${field.name} : ${field.elmType || field.type}`;
     }).join('\n');
-    
+
     return `type alias ${api.struct_name} =\n{\n${fields}\n}`;
 }
 
@@ -208,44 +197,34 @@ function generateElmTypeDefinition(api) {
 function generateElmEncoder(api) {
     const functionName = `encode${api.struct_name}`;
     const paramName = api.struct_name.toLowerCase();
-    
+
     if (!api.fields || api.fields.length === 0) {
         return `${functionName} : ${api.struct_name} -> Json.Encode.Value
 ${functionName} _ =
     Json.Encode.object []`;
     }
-    
+
     const encoderFields = api.fields.map(field => {
+        const elmType = field.elmType || field.type;
         let encoder;
-        switch (field.type) {
-            case 'String':
-                encoder = 'Json.Encode.string';
-                break;
-            case 'i32':
-            case 'i64':
-            case 'u32':
-            case 'u64':
-                encoder = 'Json.Encode.int';
-                break;
-            case 'f32':
-            case 'f64':
-                encoder = 'Json.Encode.float';
-                break;
-            case 'bool':
-                encoder = 'Json.Encode.bool';
-                break;
-            case 'Option<String>':
-                encoder = '(Maybe.withDefault Json.Encode.null << Maybe.map Json.Encode.string)';
-                break;
-            case 'Vec<String>':
-                encoder = '(Json.Encode.list Json.Encode.string)';
-                break;
-            default:
-                encoder = 'Json.Encode.string'; // Fallback
+        if (elmType === 'String') {
+            encoder = 'Json.Encode.string';
+        } else if (elmType === 'Int') {
+            encoder = 'Json.Encode.int';
+        } else if (elmType === 'Float') {
+            encoder = 'Json.Encode.float';
+        } else if (elmType === 'Bool') {
+            encoder = 'Json.Encode.bool';
+        } else if (elmType.startsWith('Maybe ')) {
+            encoder = '(Maybe.withDefault Json.Encode.null << Maybe.map Json.Encode.string)';
+        } else if (elmType.startsWith('List ')) {
+            encoder = '(Json.Encode.list Json.Encode.string)';
+        } else {
+            encoder = 'Json.Encode.string'; // Fallback
         }
         return `        ( "${field.name}", ${encoder} ${paramName}.${field.name} )`;
     }).join('\n');
-    
+
     return `${functionName} : ${api.struct_name} -> Json.Encode.Value
 ${functionName} ${paramName} =
     Json.Encode.object
@@ -260,7 +239,7 @@ function generateElmHttpFunction(api) {
     const functionName = `${api.path.toLowerCase()}`;
     const requestType = api.struct_name;
     const encoderName = `encode${api.struct_name}`;
-    
+
     return `{-| Call ${api.path} API endpoint
 -}
 ${functionName} : ${requestType} -> (Result Http.Error Json.Decode.Value -> msg) -> Cmd msg
@@ -296,10 +275,10 @@ function generateElmApiClient(allApis, dbReferences = new Set()) {
         : '';
 
     return `-- Auto-Generated Elm API Client
--- Generated from #[buildamp_api] annotations in src/models/api/
+-- Generated from Elm API definitions in shared/Api/
 --
--- ⚠️  DO NOT EDIT THIS FILE MANUALLY
--- ⚠️  Changes will be overwritten during next generation
+-- DO NOT EDIT THIS FILE MANUALLY
+-- Changes will be overwritten during next generation
 
 module BuildAmp.ApiClient exposing
     ( ${moduleDeclarations.join('\n    , ')}
@@ -376,26 +355,26 @@ function generateElmBackendTypes(allApis, unionTypes = []) {
         const bundleName = `${actionName}ReqBundle`;
         return `    | ${actionName} (${bundleName})`;
     }).join('\n');
-    
+
     // Generate bundle types for each endpoint
     const bundleTypes = allApis.map(api => {
         const actionName = api.path;
         const reqType = `${actionName}Req`;
         const bundleType = `${actionName}ReqBundle`;
-        
+
         return `type alias ${bundleType} =
     { context : StandardServerContext
     , input : ${reqType}
     }`;
     }).join('\n\n');
-    
+
     // Generate encoders for bundle types
     const bundleEncoders = allApis.map(api => {
         const actionName = api.path;
         const bundleType = `${actionName}ReqBundle`;
         const reqEncoder = `${actionName.toLowerCase()}ReqEncoder`;
         const functionName = `${actionName.toLowerCase()}ReqBundleEncoder`;
-        
+
         return `${functionName} : ${bundleType} -> Json.Encode.Value
 ${functionName} struct =
     Json.Encode.object
@@ -403,38 +382,38 @@ ${functionName} struct =
         , ( "input", (${reqEncoder}) struct.input )
         ]`;
     }).join('\n\n');
-    
-    // Generate decoders for bundle types  
+
+    // Generate decoders for bundle types
     const bundleDecoders = allApis.map(api => {
         const actionName = api.path;
         const bundleType = `${actionName}ReqBundle`;
         const reqDecoder = `${actionName.toLowerCase()}ReqDecoder`;
         const functionName = `${actionName.toLowerCase()}ReqBundleDecoder`;
-        
+
         return `${functionName} : Json.Decode.Decoder ${bundleType}
 ${functionName} =
     Json.Decode.succeed ${bundleType}
         |> Json.Decode.andThen (\\x -> Json.Decode.map x (Json.Decode.field "context" (standardServerContextDecoder)))
         |> Json.Decode.andThen (\\x -> Json.Decode.map x (Json.Decode.field "input" (${reqDecoder})))`;
     }).join('\n\n');
-    
+
     // Generate BackendAction encoder cases
     const actionEncoderCases = allApis.map(api => {
         const actionName = api.path;
         const bundleEncoder = `${actionName.toLowerCase()}ReqBundleEncoder`;
-        
+
         return `        ${actionName} inner ->
             Json.Encode.object [ ( "${actionName}", ${bundleEncoder} inner ) ]`;
     }).join('\n');
-    
+
     // Generate BackendAction decoder cases
     const actionDecoderCases = allApis.map(api => {
         const actionName = api.path;
         const bundleDecoder = `${actionName.toLowerCase()}ReqBundleDecoder`;
-        
+
         return `        , Json.Decode.map ${actionName} (Json.Decode.field "${actionName}" (${bundleDecoder}))`;
     }).join('\n');
-    
+
     return `-- AUTO-GENERATED BACKEND TYPES
 -- Add these to your Api.Backend module
 
@@ -485,22 +464,6 @@ function convertElmApiToGeneratorFormat(elmApi) {
         return result;
     };
 
-    // Map Elm types to schema format types (for compatibility with existing generators)
-    const elmTypeToSchemaType = (elmType) => {
-        if (elmType.startsWith('Maybe ')) {
-            const inner = elmType.slice(6);
-            return `Option<${elmTypeToSchemaType(inner)}>`;
-        }
-        if (elmType.startsWith('List ')) {
-            const inner = elmType.slice(5);
-            return `Vec<${elmTypeToSchemaType(inner)}>`;
-        }
-        if (elmType === 'Int') return 'i64';
-        if (elmType === 'Float') return 'f64';
-        if (elmType === 'Bool') return 'bool';
-        return elmType; // String stays String
-    };
-
     return {
         struct_name: `${elmApi.name}Req`,
         name: `${elmApi.name}Req`,
@@ -508,8 +471,11 @@ function convertElmApiToGeneratorFormat(elmApi) {
         serverContext: elmApi.serverContext ? 'ServerContext' : null,
         fields: elmApi.request.fields.map(f => ({
             name: f.name,
-            type: elmTypeToSchemaType(f.elmType),
-            annotations: convertAnnotations(f.annotations)
+            type: f.elmType,
+            elmType: f.elmType,
+            annotations: convertAnnotations(f.annotations),
+            validationTags: f.validationTags || {},
+            docComment: f.docComment
         })),
         filename: elmApi.filename,
         // Keep Elm-specific data for enhanced generation
@@ -521,36 +487,33 @@ function convertElmApiToGeneratorFormat(elmApi) {
 function generateApiRoutes(config = {}) {
     // Use shared path discovery
     const paths = getGenerationPaths(config);
-    const schemaLang = config.schemaLang || 'elm';
 
     const outputPath = ensureOutputDir(paths.jsGlueDir);
     const allApis = [];
     const allDbReferences = new Set(); // Track cross-model DB references
     const allUnionTypes = []; // Collect union types from all API modules
 
-    // Try Elm API schemas first
-    if (schemaLang === 'elm') {
-        const elmApiDir = paths.elmApiDir || path.join(paths.outputDir, 'models/Api');
-        if (fs.existsSync(elmApiDir)) {
-            const elmApis = parseElmApiDir(elmApiDir);
-            if (elmApis.length > 0) {
-                console.log(`🌳 Parsing Elm API schemas from ${elmApiDir}`);
-                for (const elmApi of elmApis) {
-                    allApis.push(convertElmApiToGeneratorFormat(elmApi));
-                    // Collect union types from this API module
-                    if (elmApi.unionTypes && elmApi.unionTypes.length > 0) {
-                        allUnionTypes.push(...elmApi.unionTypes);
-                    }
+    // Parse Elm API schemas
+    const elmApiDir = paths.elmApiDir || path.join(paths.outputDir, 'models/Api');
+    if (fs.existsSync(elmApiDir)) {
+        const elmApis = parseElmApiDir(elmApiDir);
+        if (elmApis.length > 0) {
+            console.log(`🌳 Parsing Elm API schemas from ${elmApiDir}`);
+            for (const elmApi of elmApis) {
+                allApis.push(convertElmApiToGeneratorFormat(elmApi));
+                // Collect union types from this API module
+                if (elmApi.unionTypes && elmApi.unionTypes.length > 0) {
+                    allUnionTypes.push(...elmApi.unionTypes);
                 }
-                console.log(`🔍 Found ${allApis.length} API endpoints (elm): ${allApis.map(api => api.path).join(', ')}`);
-                if (allUnionTypes.length > 0) {
-                    console.log(`🔷 Found ${allUnionTypes.length} union types: ${allUnionTypes.map(t => t.name).join(', ')}`);
-                }
+            }
+            console.log(`🔍 Found ${allApis.length} API endpoints: ${allApis.map(api => api.path).join(', ')}`);
+            if (allUnionTypes.length > 0) {
+                console.log(`🔷 Found ${allUnionTypes.length} union types: ${allUnionTypes.map(t => t.name).join(', ')}`);
             }
         }
     }
 
-    // If no Elm APIs found, skip generation
+    // If no APIs found, skip generation
     if (allApis.length === 0) {
         console.log('❌ No API endpoints found in Elm models, skipping API route generation');
         return;
@@ -561,23 +524,23 @@ function generateApiRoutes(config = {}) {
     if (dbReferencesArray.length > 0) {
         console.log(`🔗 Found cross-model DB references: ${dbReferencesArray.join(', ')}`);
     }
-    
+
     // Generate JavaScript routes for each API
     const allRoutes = allApis.map(generateRoute).join('\n\n');
 
     // Generate Elm client code for each API (with cross-model imports)
     const elmClientCode = generateElmApiClient(allApis, allDbReferences);
-    
+
     // Generate Elm backend types for each API (including union types)
     const elmBackendCode = generateElmBackendTypes(allApis, allUnionTypes);
-    
+
     const outputContent = `/**
- * Auto-Generated API Routes  
- * Generated from #[buildamp_api] annotations in src/models/api/
- * 
- * ⚠️  DO NOT EDIT THIS FILE MANUALLY
- * ⚠️  Changes will be overwritten during next generation
- * 
+ * Auto-Generated API Routes
+ * Generated from Elm API definitions in shared/Api/
+ *
+ * DO NOT EDIT THIS FILE MANUALLY
+ * Changes will be overwritten during next generation
+ *
  * This file replaces manual endpoint switching with individual Express routes
  * that include automatic validation and context injection.
  */
@@ -588,33 +551,33 @@ function generateApiRoutes(config = {}) {
  */
 export default function registerApiRoutes(server) {
     console.log('🚀 Registering auto-generated API routes...');
-    
+
 ${allRoutes}
-    
+
     console.log(\`✅ Registered \${${allApis.length}} auto-generated API routes\`);
 }
 `;
-    
+
     // Write JavaScript routes file
     const jsOutputFile = path.join(outputPath, 'api-routes.js');
     fs.writeFileSync(jsOutputFile, outputContent);
-    
+
     // Write Elm client file
     const elmOutputPath = ensureOutputDir(paths.elmGlueDir);
     const elmOutputFile = path.join(elmOutputPath, 'ApiClient.elm');
     fs.writeFileSync(elmOutputFile, elmClientCode);
-    
+
     // Write Elm backend types file
     // BackendTypes.elm goes to elm/backend subdirectory of dest
     const backendOutputPath = ensureOutputDir(path.join(paths.elmOutputPath, 'backend'));
     const backendOutputFile = path.join(backendOutputPath, 'BackendTypes.elm');
     fs.writeFileSync(backendOutputFile, elmBackendCode);
-    
+
     console.log(`✅ Generated API routes: ${jsOutputFile}`);
     console.log(`✅ Generated Elm API client: ${elmOutputFile}`);
     console.log(`✅ Generated Elm backend types: ${backendOutputFile}`);
     console.log(`📊 Generated ${allApis.length} Express routes and ${allApis.length} Elm HTTP functions`);
-    
+
     return {
         routes: allApis.length,
         endpoints: allApis.length,
@@ -638,9 +601,8 @@ export { generateApiRoutes };
 
 // Exported for testing
 export const _test = {
-    parseApiAnnotations,
     generateRoute,
-    rustTypeToElmType,
+    generateValidationTagChecks,
     generateElmTypeDefinition,
     generateElmEncoder,
     generateElmHttpFunction,

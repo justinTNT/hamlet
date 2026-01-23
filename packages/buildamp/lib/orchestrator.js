@@ -12,6 +12,7 @@ import { generateElmSharedModules } from './generators/elm.js';
 import { generateElmHandlers } from './generators/handlers.js';
 import { generateElmEventHandlers } from './generators/event-handlers.js';
 import { generateSqlMigrations, generateSchemaIntrospection } from './generators/sql.js';
+import { generateTypeScriptDefinitions } from './generators/ts.js';
 import { createPaths } from './generators/shared-paths.js';
 
 /**
@@ -19,8 +20,8 @@ import { createPaths } from './generators/shared-paths.js';
  * When a model-dir is specified, these generators run
  */
 const modelDirGenerators = {
-    db: ['js', 'elm', 'sql', 'schema'],
-    api: ['js', 'elm', 'handlers'],
+    db: ['js', 'elm', 'sql', 'schema', 'ts'],
+    api: ['js', 'elm', 'handlers', 'ts'],
     storage: ['js', 'elm'],
     kv: ['js', 'elm'],
     sse: ['js', 'elm'],
@@ -80,6 +81,7 @@ const targetGenerators = {
     'event-handlers': generateElmEventHandlers,
     sql: generateSqlMigrations,
     schema: generateSchemaIntrospection,
+    ts: generateTypeScriptDefinitions,
 };
 
 /**

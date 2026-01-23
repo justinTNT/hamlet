@@ -18,7 +18,7 @@ ask the user if you want a server killed or started.
 
 ### Code Generation - NEVER HARDCODE BUSINESS MODELS
 - **NEVER** put business domain models directly in codegen source files
-- Models are defined in Elm type aliases in `shared/` directories
+- Models are defined in Elm type aliases in `models/` directories
 - Generators parse Elm files using tree-sitter in `core/elm-parser-ts.js`
 - Follow "Elm once" principle - business types defined only in Elm, generated everywhere else
 - Tree-sitter enables parsing of union types (custom types) for enum dropdowns, CHECK constraints
@@ -69,13 +69,13 @@ buildamp status                                            # Check generation st
 - Server handlers: `/app/horatio/server/src/Api/Handlers/`
 - Database migrations: `/app/horatio/sql/migrations/`
 - **Elm models** (source of truth):
-  - `/app/horatio/shared/Schema/` - Database models (type aliases with Framework.Schema types)
-  - `/app/horatio/shared/Api/` - API endpoints (Request, Response, ServerContext)
-  - `/app/horatio/shared/Kv/` - KV store models
-  - `/app/horatio/shared/Storage/` - Browser localStorage models
-  - `/app/horatio/shared/Sse/` - Server-sent event types
-  - `/app/horatio/shared/Events/` - Background event types
-  - `/app/horatio/shared/Config/` - Configuration types
+  - `/app/horatio/models/Schema/` - Database models (type aliases with Interface.Schema types)
+  - `/app/horatio/models/Api/` - API endpoints (Request, Response, ServerContext)
+  - `/app/horatio/models/Kv/` - KV store models
+  - `/app/horatio/models/Storage/` - Browser localStorage models
+  - `/app/horatio/models/Sse/` - Server-sent event types
+  - `/app/horatio/models/Events/` - Background event types
+  - `/app/horatio/models/Config/` - Configuration types
 
 ### Comment Submission System
 - Complete implementation with auto-generated UUIDs

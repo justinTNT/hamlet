@@ -175,6 +175,8 @@ export function getGenerationPaths(config = {}) {
             : path.join(outputDir, 'server', '.generated');
 
         const elmOutputPath = config.backendElmPath || path.join(outputDir, 'web', 'src', '.generated');
+        // For legacy mode, Elm model paths use the models directory structure
+        const elmModelsDir = path.join(outputDir, 'models');
         return {
             modelsDir,
             dbModelsDir: path.join(modelsDir, 'db'),
@@ -184,6 +186,14 @@ export function getGenerationPaths(config = {}) {
             sseModelsDir: path.join(modelsDir, 'sse'),
             eventsModelsDir: path.join(modelsDir, 'events'),
             configModelsDir: path.join(modelsDir, 'config'),
+            // Elm model source paths
+            elmSchemaDir: path.join(elmModelsDir, 'Schema'),
+            elmApiDir: path.join(elmModelsDir, 'Api'),
+            elmKvDir: path.join(elmModelsDir, 'Kv'),
+            elmStorageDir: path.join(elmModelsDir, 'Storage'),
+            elmSseDir: path.join(elmModelsDir, 'Sse'),
+            elmEventsDir: path.join(elmModelsDir, 'Events'),
+            elmConfigDir: path.join(elmModelsDir, 'Config'),
             outputDir,
             serverGlueDir: jsOutputDir,
             serverElmDir: jsOutputDir,          // Legacy: same as serverGlueDir

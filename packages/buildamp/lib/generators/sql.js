@@ -11,17 +11,25 @@ import { getGenerationPaths, ensureOutputDir } from './shared-paths.js';
 import { parseElmSchemaDir, parseElmSchemaDirFull } from '../../core/elm-parser-ts.js';
 
 /**
+ * Escape single quotes for SQL strings
+ */
+function escapeSqlString(str) {
+    return str.replace(/'/g, "''");
+}
+
+/**
  * Generate CREATE TABLE statement for a struct
  * @param {Object} struct - Parsed struct info
  * @param {string[]} knownTables - All known table names for FK validation
  * @param {Object} unionTypeMap - Map of union type name -> union type info (optional)
- * @returns {{ sql: string, foreignKeys: Array, warnings: Array }}
+ * @returns {{ sql: string, foreignKeys: Array, warnings: Array, comments: Array }}
  */
 function generateCreateTable(struct, knownTables = [], unionTypeMap = {}) {
-    const { tableName, fields, isMultiTenant, isSoftDelete, multiTenantFieldName } = struct;
+    const { tableName, fields, isMultiTenant, isSoftDelete, multiTenantFieldName, docComment } = struct;
     const foreignKeys = [];
     const warnings = [];
     const checkConstraints = [];
+    const comments = [];
 
     const columnDefs = fields.map(field => {
         const parts = [field.name, field.sqlType];
@@ -35,6 +43,16 @@ function generateCreateTable(struct, knownTables = [], unionTypeMap = {}) {
                 const enumValues = ut.variants.map(v => `'${v.name}'`).join(', ');
                 checkConstraints.push(`    CHECK (${field.name} IN (${enumValues}))`);
             }
+        }
+
+        // Collect field doc comment if present
+        if (field.docComment) {
+            comments.push({
+                type: 'column',
+                table: tableName,
+                column: field.name,
+                comment: field.docComment
+            });
         }
 
         return '    ' + parts.join(' ');
@@ -87,6 +105,15 @@ function generateCreateTable(struct, knownTables = [], unionTypeMap = {}) {
     // Determine the tenant field name for the index (use explicit field name or default to 'host')
     const tenantFieldName = multiTenantFieldName || 'host';
 
+    // Add table-level doc comment if present
+    if (docComment) {
+        comments.unshift({
+            type: 'table',
+            table: tableName,
+            comment: docComment
+        });
+    }
+
     const sql = `-- Generated from ${struct.filename}
 CREATE TABLE ${tableName} (
 ${allDefs.join(',\n')}
@@ -95,7 +122,7 @@ ${allDefs.join(',\n')}
 -- Index for tenant isolation
 CREATE INDEX idx_${tableName}_${tenantFieldName} ON ${tableName}(${tenantFieldName});`;
 
-    return { sql, foreignKeys, warnings };
+    return { sql, foreignKeys, warnings, comments };
 }
 
 /**
@@ -128,6 +155,7 @@ function generateSchema(structs, unionTypes = []) {
     // Generate tables with FK validation and CHECK constraints
     const allForeignKeys = [];
     const allWarnings = [];
+    const allComments = [];
     const tableSqls = [];
 
     for (const struct of structs) {
@@ -138,9 +166,26 @@ function generateSchema(structs, unionTypes = []) {
             ...fk
         })));
         allWarnings.push(...result.warnings.map(w => `${struct.tableName}: ${w}`));
+        if (result.comments) {
+            allComments.push(...result.comments);
+        }
     }
 
-    const schema = header + tableSqls.join('\n\n');
+    // Generate COMMENT ON statements from doc comments
+    let commentsSql = '';
+    if (allComments.length > 0) {
+        const commentStatements = allComments.map(c => {
+            const escapedComment = escapeSqlString(c.comment);
+            if (c.type === 'table') {
+                return `COMMENT ON TABLE ${c.table} IS '${escapedComment}';`;
+            } else {
+                return `COMMENT ON COLUMN ${c.table}.${c.column} IS '${escapedComment}';`;
+            }
+        });
+        commentsSql = '\n\n-- Documentation comments from Elm doc comments\n' + commentStatements.join('\n');
+    }
+
+    const schema = header + tableSqls.join('\n\n') + commentsSql;
 
     return { schema, foreignKeys: allForeignKeys, warnings: allWarnings };
 }
