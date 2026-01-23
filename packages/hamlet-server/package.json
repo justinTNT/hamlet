@@ -7,7 +7,9 @@
   "exports": {
     ".": "./index.js",
     "./core": "./core/index.js",
-    "./middleware": "./middleware/index.js"
+    "./middleware": "./middleware/index.js",
+    "./rich-text": "./rich-text/index.js",
+    "./rich-text/styles.css": "./rich-text/styles.css"
   },
   "scripts": {
     "test": "npx --node-options='--experimental-vm-modules' jest --forceExit tests/core.test.js tests/database.test.js tests/middleware/ tests/security/",
@@ -23,7 +25,14 @@
     "express": "^4.18.2",
     "cors": "^2.8.5",
     "body-parser": "^1.20.2",
-    "node-cron": "^3.0.3"
+    "node-cron": "^3.0.3",
+    "@tiptap/core": "^2.1.0",
+    "@tiptap/starter-kit": "^2.1.0",
+    "@tiptap/extension-link": "^2.1.0",
+    "@tiptap/extension-text-align": "^2.1.0",
+    "@tiptap/extension-color": "^2.1.0",
+    "@tiptap/extension-text-style": "^2.1.0",
+    "@tiptap/extension-highlight": "^2.1.0"
   },
   "peerDependencies": {
     "pg": "^8.11.3",

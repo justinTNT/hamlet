@@ -75,6 +75,48 @@ How the browser talks to Phase 3.
 
 ---
 
+## Phase 5: TipTap Image Integration
+Now that we have shared rich-text editing via `hamlet-server/rich-text`, we wire it up to the upload infrastructure.
+
+### `packages/hamlet-server`
+#### [MODIFY] [package.json](file:///Users/jtnt/Play/hamlet/packages/hamlet-server/package.json)
+- Add dependency: `@tiptap/extension-image`
+
+#### [MODIFY] [rich-text/tiptap-editor.js](file:///Users/jtnt/Play/hamlet/packages/hamlet-server/rich-text/tiptap-editor.js)
+- Import and configure `Image` extension
+- Add 🖼️ toolbar button (between link and headings)
+- Button click triggers file picker for images (`accept="image/*"`)
+- On file select:
+  1. Create `FormData` with file
+  2. `POST /api/uploads`
+  3. On success: `editor.chain().focus().setImage({ src: response.url }).run()`
+  4. On error: Show alert or status message
+
+#### [MODIFY] [rich-text/styles.css](file:///Users/jtnt/Play/hamlet/packages/hamlet-server/rich-text/styles.css)
+- Style for images in editor (max-width, cursor, selection ring)
+- Optional: drag handle for repositioning
+
+### Configuration
+The editor needs to know the upload endpoint. Options:
+1. **Convention**: Always `/api/uploads` (simplest)
+2. **Config option**: `createRichTextEditor({ uploadEndpoint: '/api/uploads', ... })`
+
+### Flow
+```
+User clicks 🖼️ → File picker (images only) →
+Upload to /api/uploads →
+Get { file_id, url } →
+editor.chain().setImage({ src: url }).run()
+```
+
+### Future Enhancements (not in this phase)
+- Drag & drop images into editor
+- Paste images from clipboard
+- Upload progress indicator
+- Image resize handles
+
+---
+
 ## Verification Plan
 
 ### Automated Tests
@@ -85,9 +127,16 @@ How the browser talks to Phase 3.
     - Call `acceptUpload`.
     - Verify DB row created + Blob method called.
 
-### Manual Verification
+### Manual Verification (Phases 1-4)
 1.  Start Server (Bun).
 2.  Run migration.
 3.  `curl -F "file=@test.png" http://localhost:3000/api/uploads`
 4.  Check `storage/uploads` folder for file.
 5.  Check `psql` for `file_uploads` row.
+
+### Manual Verification (Phase 5 - TipTap)
+1.  Open admin UI with a RichContent field
+2.  Click 🖼️ button in toolbar
+3.  Select an image file
+4.  Verify image appears in editor
+5.  Save record, reload, verify image persists

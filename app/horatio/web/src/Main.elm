@@ -17,6 +17,7 @@ import Storage
 import Url
 import Dict exposing (Dict)
 import Json.Decode as Decode
+import Process
 import Set
 import Task
 
@@ -29,6 +30,12 @@ port getCommentEditorContent : () -> Cmd msg
 port commentEditorContent : (String -> msg) -> Sub msg
 port clearCommentEditor : () -> Cmd msg
 port commentEditorCommand : Encode.Value -> Cmd msg
+port destroyCommentEditor : () -> Cmd msg
+
+
+-- Rich text viewer ports
+port initRichTextViewers : List { elementId : String, content : String } -> Cmd msg
+port destroyRichTextViewers : List String -> Cmd msg
 
 
 -- SSE ports for real-time updates
@@ -437,6 +444,7 @@ type Msg
     | RequestSubmitComment
     | ToggleCollapse String
     | ReceivedSseEvent Encode.Value
+    | InitViewersForItem String
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -482,14 +490,14 @@ update msg model =
 
         SubmittedComment (Ok _) ->
             ( { model | replyingTo = Nothing, newComment = "", feed = Loading }
-            , Cmd.batch [ getFeed, clearCommentEditor () ]
+            , Cmd.batch [ getFeed, destroyCommentEditor () ]
             )
 
         SubmittedComment (Err err) ->
             ( { model | feed = Errored ("Failed to submit comment: " ++ httpErrorToString err) }, Cmd.none )
 
         CancelReply ->
-            ( { model | replyingTo = Nothing, newComment = "" }, Cmd.none )
+            ( { model | replyingTo = Nothing, newComment = "" }, destroyCommentEditor () )
             
         LinkClicked urlRequest ->
             case urlRequest of
@@ -534,7 +542,7 @@ update msg model =
             
         GotItem itemId (Ok res) ->
             ( { model | itemDetails = Dict.insert itemId (ItemLoaded res.item) model.itemDetails }
-            , Cmd.none
+            , scheduleViewerInit itemId
             )
             
         GotItem itemId (Err _) ->
@@ -617,8 +625,12 @@ update msg model =
                                             itemState
                                 )
                                 model.itemDetails
+                        -- Schedule viewer init for the new comment
+                        viewerCmd =
+                            Process.sleep 50
+                                |> Task.perform (always (InitViewersForItem comment.itemId))
                     in
-                    ( { model | itemDetails = updatedItemDetails }, Cmd.none )
+                    ( { model | itemDetails = updatedItemDetails }, viewerCmd )
 
                 Ok (CommentModeratedSseEvent data) ->
                     -- Update moderated comments set
@@ -641,6 +653,32 @@ update msg model =
                     -- Failed to decode, ignore
                     ( model, Cmd.none )
 
+        InitViewersForItem itemId ->
+            case Dict.get itemId model.itemDetails of
+                Just (ItemLoaded item) ->
+                    let
+                        -- Build list of viewers to initialize for comments
+                        commentViewers =
+                            item.comments
+                                |> List.map (\c -> { elementId = "comment-viewer-" ++ c.id, content = c.text })
+
+                        -- Also include the item's extract and ownerComment if they have rich content
+                        extractViewer =
+                            case item.extract of
+                                _ ->
+                                    [ { elementId = "item-extract-" ++ itemId, content = item.extract } ]
+
+                        ownerCommentViewer =
+                            [ { elementId = "item-owner-comment-" ++ itemId, content = item.ownerComment } ]
+
+                        allViewers =
+                            extractViewer ++ ownerCommentViewer ++ commentViewers
+                    in
+                    ( model, initRichTextViewers allViewers )
+
+                _ ->
+                    ( model, Cmd.none )
+
 httpErrorToString : Http.Error -> String
 httpErrorToString err =
     case err of
@@ -649,6 +687,13 @@ httpErrorToString err =
         Http.NetworkError -> "Network Error"
         Http.BadStatus status -> "Bad Status: " ++ String.fromInt status
         Http.BadBody body -> "Bad Body: " ++ body
+
+
+{-| Schedule viewer initialization after a small delay to let Elm render the DOM -}
+scheduleViewerInit : String -> Cmd Msg
+scheduleViewerInit itemId =
+    Process.sleep 50
+        |> Task.perform (always (InitViewersForItem itemId))
 
 
 -- SSE EVENT HANDLING
@@ -848,13 +893,13 @@ viewItemDetail model item =
     section [ style "border" "1px solid #ddd", style "padding" "20px", style "border-radius" "8px" ]
         [ h2 [] [ text item.title ]
         , a [ href item.link, style "color" "blue", style "text-decoration" "underline" ] [ text item.link ]
-        , div [ style "margin" "15px 0" ] 
+        , div [ style "margin" "15px 0" ]
             [ img [ src item.image, style "max-width" "100%", style "height" "auto" ] [] ]
-        , div [] [ viewRichContent item.extract ]
+        , div [ id ("item-extract-" ++ item.id) ] []
         , div [ style "margin-bottom" "15px" ]
             (List.map (viewTag model) item.tags)
         , div [ style "background" "#f9f9f9", style "padding" "15px", style "font-style" "italic", style "border-radius" "5px" ]
-            [ text "Owner: ", viewRichContent item.ownerComment ]
+            [ text "Owner: ", span [ id ("item-owner-comment-" ++ item.id) ] [] ]
         
         -- Comments Section
         , div [ style "margin-top" "30px", style "border-top" "2px solid #eee", style "padding-top" "20px" ]
@@ -899,7 +944,7 @@ viewComment model itemId allComments depth comment =
                 div [ class "comment-body", style "color" "#999", style "font-style" "italic" ]
                     [ text "[removed by moderation]" ]
               else
-                div [ class "comment-body" ] [ viewRichContent comment.text ]
+                div [ class "comment-body", id ("comment-viewer-" ++ comment.id) ] []
             , div [ class "comment-meta" ]
                 [ if hasChildren then
                         span [][
@@ -978,16 +1023,9 @@ viewReplyForm model itemId parentId =
                 div [ class "comment-form", style "margin-top" "10px" ]
                     [ div [ style "margin-bottom" "8px", style "font-size" "0.9em", style "color" "#666" ]
                         [ text ("Commenting as: " ++ (Maybe.map .displayName model.guestSession |> Maybe.withDefault "Guest")) ]
-                    , viewEditorToolbar
                     , div
                         [ id "comment-editor"
                         , class "comment-editor"
-                        , style "border" "1px solid #ccc"
-                        , style "border-top" "none"
-                        , style "border-radius" "0 0 4px 4px"
-                        , style "min-height" "80px"
-                        , style "padding" "10px"
-                        , style "background" "white"
                         ]
                         []
                     , div [ style "margin-top" "10px", style "display" "flex", style "gap" "8px" ]
@@ -1034,16 +1072,9 @@ viewReplyButton model itemId parentId =
                 div [ class "comment-form", style "margin-top" "10px" ]
                     [ div [ style "margin-bottom" "8px", style "font-size" "0.9em", style "color" "#666" ]
                         [ text ("Commenting as: " ++ (Maybe.map .displayName model.guestSession |> Maybe.withDefault "Guest")) ]
-                    , viewEditorToolbar
                     , div
                         [ id "comment-editor"
                         , class "comment-editor"
-                        , style "border" "1px solid #ccc"
-                        , style "border-top" "none"
-                        , style "border-radius" "0 0 4px 4px"
-                        , style "min-height" "80px"
-                        , style "padding" "10px"
-                        , style "background" "white"
                         ]
                         []
                     , div [ style "margin-top" "10px", style "display" "flex", style "gap" "8px" ]

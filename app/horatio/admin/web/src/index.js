@@ -1,5 +1,7 @@
 import { Elm } from './Main.elm';
 import { connectStoragePorts } from './.generated/browser-storage.js';
+import { createRichTextEditor, destroyRichTextEditor } from 'hamlet-server/rich-text';
+import 'hamlet-server/rich-text/styles.css';
 
 console.log("Horatio Admin v1.0.0");
 
@@ -124,7 +126,7 @@ async function run() {
         });
     }
 
-    // Handle RichContent HTML parsing
+    // Handle RichContent HTML parsing (legacy, kept for compatibility)
     if (app.ports && app.ports.parseHtmlToRichContent) {
         app.ports.parseHtmlToRichContent.subscribe(({ fieldName, html }) => {
             console.log('Parsing HTML to RichContent:', { fieldName, html: html.substring(0, 100) + '...' });
@@ -136,23 +138,30 @@ async function run() {
         });
     }
 
-    // Rich content editor keyboard shortcuts (Ctrl+B, Ctrl+I)
-    document.addEventListener('keydown', (e) => {
-        // Check if we're in a contenteditable element (could be the editor or a child)
-        const editor = e.target.closest('.rich-content-editor');
-        if (!editor) return;
+    // TipTap rich text editor initialization
+    if (app.ports && app.ports.initRichTextEditor) {
+        app.ports.initRichTextEditor.subscribe(({ fieldId, content }) => {
+            console.log('[TipTap] Init editor:', fieldId);
+            // Use requestAnimationFrame to ensure DOM is ready
+            requestAnimationFrame(() => {
+                createRichTextEditor({
+                    elementId: fieldId,
+                    initialContent: content,
+                    onChange: (json) => {
+                        app.ports.richTextChanged.send({ fieldId, content: json });
+                    }
+                });
+            });
+        });
+    }
 
-        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-        const modKey = isMac ? e.metaKey : e.ctrlKey;
-
-        if (modKey && e.key === 'b') {
-            e.preventDefault();
-            document.execCommand('bold', false, null);
-        } else if (modKey && e.key === 'i') {
-            e.preventDefault();
-            document.execCommand('italic', false, null);
-        }
-    });
+    // TipTap editor cleanup
+    if (app.ports && app.ports.destroyRichTextEditor) {
+        app.ports.destroyRichTextEditor.subscribe((fieldId) => {
+            console.log('[TipTap] Destroy editor:', fieldId);
+            destroyRichTextEditor(fieldId);
+        });
+    }
 
     console.log('Admin interface ready');
 }

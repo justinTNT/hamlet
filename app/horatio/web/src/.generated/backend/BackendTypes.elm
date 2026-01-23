@@ -1,5 +1,5 @@
 -- AUTO-GENERATED BACKEND TYPES
--- Add these to your Api.Backend module
+-- Legacy BackendTypes for web frontend (see BuildAmp.Api for server)
 
 -- Updated BackendAction type:
 type BackendAction

@@ -31,10 +31,9 @@ export async function generateElmSharedModules(config = {}) {
         ? ensureOutputDir(path.join(paths.elmOutputPath, 'BuildAmp'))
         : ensureOutputDir(path.join(paths.sharedElmDir, 'BuildAmp'));
 
-    // Server-only modules
+    // Server-only modules (Events.elm handled separately below)
     const serverModules = [
         { name: 'Database.elm', content: generateDatabaseModule(paths, config) },
-        { name: 'Events.elm', content: generateEventsModule(paths, config) },
         { name: 'KV.elm', content: generateKvModule(paths, config) },
         { name: 'Services.elm', content: generateServicesModule(config) }
     ];

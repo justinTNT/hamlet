@@ -1,21 +1,14 @@
 import { Elm } from './Main.elm';
-import { Editor } from '@tiptap/core';
-import Document from '@tiptap/extension-document';
-import Paragraph from '@tiptap/extension-paragraph';
-import Text from '@tiptap/extension-text';
-import Bold from '@tiptap/extension-bold';
-import Italic from '@tiptap/extension-italic';
-import Code from '@tiptap/extension-code';
-import Link from '@tiptap/extension-link';
-import BulletList from '@tiptap/extension-bullet-list';
-import ListItem from '@tiptap/extension-list-item';
-import Blockquote from '@tiptap/extension-blockquote';
-import History from '@tiptap/extension-history';
+import {
+    createRichTextEditor,
+    destroyRichTextEditor,
+    getEditor,
+    createRichTextViewer,
+    destroyRichTextViewer
+} from 'hamlet-server/rich-text';
+import 'hamlet-server/rich-text/styles.css';
 
 console.log("Horatio Client v1.0.0");
-
-// Global editor instance
-let commentEditor = null;
 
 async function run() {
     console.log("About to initialize Elm app...");
@@ -170,59 +163,27 @@ async function run() {
         });
     }
 
-    // Tiptap comment editor ports
+    // Tiptap comment editor ports - using shared hamlet-server rich-text
+    const COMMENT_EDITOR_ID = 'comment-editor';
+
     if (app.ports && app.ports.initCommentEditor) {
         app.ports.initCommentEditor.subscribe(function(elementId) {
-            // Wait for DOM element to be ready
             requestAnimationFrame(() => {
-                const element = document.getElementById(elementId);
-                if (!element) {
-                    console.error('Comment editor element not found:', elementId);
-                    return;
-                }
-
-                // Destroy existing editor if any
-                if (commentEditor) {
-                    commentEditor.destroy();
-                }
-
-                commentEditor = new Editor({
-                    element: element,
-                    extensions: [
-                        Document,
-                        Paragraph,
-                        Text,
-                        Bold,
-                        Italic,
-                        Code,
-                        Link.configure({
-                            openOnClick: false,
-                            HTMLAttributes: {
-                                rel: 'noopener noreferrer nofollow',
-                            },
-                        }),
-                        BulletList,
-                        ListItem,
-                        Blockquote,
-                        History,
-                    ],
-                    content: '',
-                    editorProps: {
-                        attributes: {
-                            class: 'comment-editor-content',
-                        },
-                    },
+                createRichTextEditor({
+                    elementId: elementId,
+                    initialContent: '',
+                    onChange: null // We'll get content on demand
                 });
-
-                console.log('Tiptap comment editor initialized');
+                console.log('Comment editor initialized with shared hamlet-server rich-text');
             });
         });
     }
 
     if (app.ports && app.ports.getCommentEditorContent) {
         app.ports.getCommentEditorContent.subscribe(function() {
-            if (commentEditor) {
-                const json = JSON.stringify(commentEditor.getJSON());
+            const editor = getEditor(COMMENT_EDITOR_ID);
+            if (editor) {
+                const json = JSON.stringify(editor.getJSON());
                 app.ports.commentEditorContent.send(json);
             } else {
                 app.ports.commentEditorContent.send('');
@@ -232,46 +193,44 @@ async function run() {
 
     if (app.ports && app.ports.clearCommentEditor) {
         app.ports.clearCommentEditor.subscribe(function() {
-            if (commentEditor) {
-                commentEditor.commands.clearContent();
+            const editor = getEditor(COMMENT_EDITOR_ID);
+            if (editor) {
+                editor.commands.clearContent();
             }
         });
     }
 
-    if (app.ports && app.ports.commentEditorCommand) {
-        app.ports.commentEditorCommand.subscribe(function(command) {
-            if (!commentEditor) return;
+    // Destroy comment editor - called when canceling reply or after submit
+    if (app.ports && app.ports.destroyCommentEditor) {
+        app.ports.destroyCommentEditor.subscribe(function() {
+            destroyRichTextEditor(COMMENT_EDITOR_ID);
+            console.log('Comment editor destroyed');
+        });
+    }
 
-            switch (command.action) {
-                case 'bold':
-                    commentEditor.chain().focus().toggleBold().run();
-                    break;
-                case 'italic':
-                    commentEditor.chain().focus().toggleItalic().run();
-                    break;
-                case 'code':
-                    commentEditor.chain().focus().toggleCode().run();
-                    break;
-                case 'bulletList':
-                    commentEditor.chain().focus().toggleBulletList().run();
-                    break;
-                case 'blockquote':
-                    commentEditor.chain().focus().toggleBlockquote().run();
-                    break;
-                case 'link':
-                    // Check if there's already a link on the selection
-                    if (commentEditor.isActive('link')) {
-                        commentEditor.chain().focus().unsetLink().run();
-                    } else {
-                        const url = prompt('Enter URL:');
-                        if (url) {
-                            commentEditor.chain().focus().setLink({ href: url }).run();
-                        }
+    // Rich text viewer ports - for displaying formatted content
+    if (app.ports && app.ports.initRichTextViewers) {
+        app.ports.initRichTextViewers.subscribe(function(viewers) {
+            requestAnimationFrame(() => {
+                viewers.forEach(({ elementId, content }) => {
+                    // Only initialize if the element exists and has content
+                    if (document.getElementById(elementId) && content) {
+                        createRichTextViewer({ elementId, content });
                     }
-                    break;
-            }
+                });
+                console.log(`Initialized ${viewers.length} rich text viewers`);
+            });
         });
     }
+
+    if (app.ports && app.ports.destroyRichTextViewers) {
+        app.ports.destroyRichTextViewers.subscribe(function(elementIds) {
+            elementIds.forEach(destroyRichTextViewer);
+            console.log(`Destroyed ${elementIds.length} rich text viewers`);
+        });
+    }
+
+    // Note: commentEditorCommand port is no longer needed - toolbar is built into the editor
 }
 
 run();

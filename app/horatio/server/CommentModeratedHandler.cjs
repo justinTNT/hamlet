@@ -3024,6 +3024,18 @@ var $author$project$Events$Handlers$CommentModeratedHandler$decodeEventBundle = 
 			$elm$json$Json$Decode$errorToString,
 			A2($elm$json$Json$Decode$decodeValue, $author$project$BuildAmp$Events$eventContextDecoder, bundle.context)));
 };
+var $author$project$BuildAmp$Sse$encodeCommentModeratedEvent = function (commentModeratedEvent) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'comment_id',
+				$elm$json$Json$Encode$string(commentModeratedEvent.commentId)),
+				_Utils_Tuple2(
+				'removed',
+				$elm$json$Json$Encode$bool(commentModeratedEvent.removed))
+			]));
+};
 var $author$project$Events$Handlers$CommentModeratedHandler$sseBroadcast = _Platform_outgoingPort(
 	'sseBroadcast',
 	function ($) {
@@ -3049,16 +3061,8 @@ var $author$project$Events$Handlers$CommentModeratedHandler$update = F2(
 			var result = $author$project$BuildAmp$Events$Success(
 				{message: 'CommentModerated SSE broadcast', recordsAffected: 1});
 			var removed = payload.newValue === 'true';
-			var ssePayload = $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'commentId',
-						$elm$json$Json$Encode$string(payload.recordId)),
-						_Utils_Tuple2(
-						'removed',
-						$elm$json$Json$Encode$bool(removed))
-					]));
+			var ssePayload = $author$project$BuildAmp$Sse$encodeCommentModeratedEvent(
+				{commentId: payload.recordId, removed: removed});
 			return _Utils_Tuple2(
 				_Utils_update(
 					model,

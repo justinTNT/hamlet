@@ -1,52 +1,81 @@
-port module BuildAmp.Events exposing (..)
+module BuildAmp.Events exposing (HardDeletesPayload, CommentModeratedPayload, hardDeletesPayloadDecoder, commentModeratedPayloadDecoder, EventContext, EventResult(..), eventContextDecoder, encodeEventResult)
 
-{-| Generated events interface for TEA handlers
+{-| Generated Events Backend Module
 
-This module provides strongly-typed Event Sourcing capabilities:
-- pushEvent: Trigger an event immediately
-- scheduleEvent: Trigger an event after a delay
+This module provides strongly-typed payload types and decoders for Elm event handlers.
+Generated from Elm models in: models/Events/*.elm
 
-For recurring/cron events, use Config/Cron.elm configuration instead.
-
-@docs pushEvent, scheduleEvent
+@docs HardDeletesPayload, CommentModeratedPayload
+@docs hardDeletesPayloadDecoder, commentModeratedPayloadDecoder
+@docs EventContext, EventResult, eventContextDecoder, encodeEventResult
 
 -}
 
+import Json.Decode as Decode
 import Json.Encode as Encode
 
 
--- EVENT SCHEDULING INTERFACES
+-- EVENT RESULT TYPE
 
-{-| Push immediate background event
-Usage: Events.pushEvent (SendWelcomeEmail { email = user.email, name = user.name })
+type EventResult
+    = Success { message : String, recordsAffected : Int }
+    | Failure { error : String }
+
+
+encodeEventResult : EventResult -> Encode.Value
+encodeEventResult result =
+    case result of
+        Success data ->
+            Encode.object
+                [ ("success", Encode.bool True)
+                , ("message", Encode.string data.message)
+                , ("recordsAffected", Encode.int data.recordsAffected)
+                ]
+
+        Failure data ->
+            Encode.object
+                [ ("success", Encode.bool False)
+                , ("error", Encode.string data.error)
+                ]
+
+
+-- EVENT CONTEXT TYPE
+
+type alias EventContext =
+    { host : String
+    , sessionId : Maybe String
+    , correlationId : Maybe String
+    , attempt : Int
+    , scheduledAt : Int
+    , executedAt : Int
+    }
+
+
+eventContextDecoder : Decode.Decoder EventContext
+eventContextDecoder =
+    Decode.map6 EventContext
+        (Decode.field "host" Decode.string)
+        (Decode.maybe (Decode.field "sessionId" Decode.string))
+        (Decode.maybe (Decode.field "correlationId" Decode.string))
+        (Decode.field "attempt" Decode.int)
+        (Decode.field "scheduledAt" Decode.int)
+        (Decode.field "executedAt" Decode.int)
+
+
+-- EVENT PAYLOAD TYPES
+
+{-| Payload type for HardDeletes events
+Generated from Config/Cron.elm
 -}
-pushEvent : EventPayload -> Cmd msg
-pushEvent payload =
-    eventPush
-        { event = encodeEventPayload payload
-        , delay = 0
-        }
+type alias HardDeletesPayload =
+    {}
 
 
-{-| Schedule background event with delay (in seconds)
-Usage: Events.scheduleEvent 300 (ProcessUpload { fileId = file.id, processType = "thumbnail" })
+{-| Payload type for CommentModerated events
+Generated from CommentModerated.elm
 -}
-scheduleEvent : Int -> EventPayload -> Cmd msg
-scheduleEvent delaySeconds payload =
-    eventPush
-        { event = encodeEventPayload payload
-        , delay = delaySeconds
-        }
-
-
--- EVENT PAYLOAD TYPES (Generated from src/models/events/*.rs)
-
-type EventPayload
-    = CommentModerated CommentModeratedData
-
-
-type alias CommentModeratedData =
-    {    recordId : String
+type alias CommentModeratedPayload =
+    {     recordId : String
     , table : String
     , field : String
     , oldValue : String
@@ -54,43 +83,18 @@ type alias CommentModeratedData =
     }
 
 
--- PORT INTERFACE (Internal - used by runtime)
+-- EVENT PAYLOAD DECODERS
 
-port eventPush : EventRequest -> Cmd msg
-
-
-type alias EventRequest =
-    { event : Encode.Value
-    , delay : Int
-    }
+hardDeletesPayloadDecoder : Decode.Decoder HardDeletesPayload
+hardDeletesPayloadDecoder =
+    Decode.succeed {}
 
 
--- ENCODING
-
-encodeEventPayload : EventPayload -> Encode.Value
-encodeEventPayload payload =
-    case payload of
-        CommentModerated data ->
-            Encode.object
-                [ ("type", Encode.string "CommentModerated")
-                , ("data", encodeCommentModerated data)
-                ]
-
-
-encodeCommentModerated : CommentModeratedData -> Encode.Value
-encodeCommentModerated data =
-    Encode.object
-        [ -- Generated from event model fields
-        ("recordId", Encode.string data.recordId)
-        , ("table", Encode.string data.table)
-        , ("field", Encode.string data.field)
-        , ("oldValue", Encode.string data.oldValue)
-        , ("newValue", Encode.string data.newValue)
-        ]
-
-
-encodeMaybe : (a -> Encode.Value) -> Maybe a -> Encode.Value
-encodeMaybe encoder maybeValue =
-    case maybeValue of
-        Nothing -> Encode.null
-        Just value -> encoder value
+commentModeratedPayloadDecoder : Decode.Decoder CommentModeratedPayload
+commentModeratedPayloadDecoder =
+    Decode.map5 CommentModeratedPayload
+        (Decode.field "record_id" Decode.string)
+        (Decode.field "table" Decode.string)
+        (Decode.field "field" Decode.string)
+        (Decode.field "old_value" Decode.string)
+        (Decode.field "new_value" Decode.string)

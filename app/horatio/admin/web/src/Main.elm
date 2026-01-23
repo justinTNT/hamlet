@@ -21,6 +21,8 @@ import Html.Keyed as Keyed
 import Http
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
+import Process
+import Task
 import Url
 import Url.Parser as Parser exposing ((</>), Parser)
 
@@ -42,6 +44,15 @@ port parseHtmlToRichContent : { fieldName : String, html : String } -> Cmd msg
 
 
 port richContentParsed : ({ fieldName : String, json : String } -> msg) -> Sub msg
+
+
+port initRichTextEditor : { fieldId : String, content : String } -> Cmd msg
+
+
+port destroyRichTextEditor : String -> Cmd msg
+
+
+port richTextChanged : ({ fieldId : String, content : String } -> msg) -> Sub msg
 
 
 
@@ -365,6 +376,8 @@ type Msg
     | StopResize
     | RichContentEdited String String
     | RichContentParsed { fieldName : String, json : String }
+    | RichTextContentChanged { fieldId : String, content : String }
+    | InitRichTextEditors
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -687,6 +700,45 @@ update msg model =
             , Cmd.none
             )
 
+        RichTextContentChanged { fieldId, content } ->
+            -- TipTap editor content changed
+            ( { model
+                | formData = Dict.insert fieldId content model.formData
+                , formDirty = True
+              }
+            , Cmd.none
+            )
+
+        InitRichTextEditors ->
+            -- Initialize TipTap editors for all RichContent fields in the current form
+            case ( model.currentTable, model.schema ) of
+                ( Just tableName, Just schema ) ->
+                    case Dict.get tableName schema.tables of
+                        Just tableSchema ->
+                            let
+                                richContentFields =
+                                    tableSchema.fields
+                                        |> Dict.toList
+                                        |> List.filter (\( _, fieldSchema ) -> fieldSchema.isRichContent)
+
+                                initCmds =
+                                    List.map
+                                        (\( fieldName, _ ) ->
+                                            initRichTextEditor
+                                                { fieldId = fieldName
+                                                , content = Dict.get fieldName model.formData |> Maybe.withDefault ""
+                                                }
+                                        )
+                                        richContentFields
+                            in
+                            ( model, Cmd.batch initCmds )
+
+                        Nothing ->
+                            ( model, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
 
 loadRouteData : Model -> Route -> Cmd Msg
 loadRouteData model route =
@@ -870,7 +922,7 @@ handleApiResponse model response =
                     formData = extractFormData data
                 in
                 ( { model | loading = False, formData = formData, error = Nothing }
-                , Cmd.none
+                , scheduleInitRichTextEditors
                 )
 
             Nothing ->
@@ -932,6 +984,15 @@ handleApiResponse model response =
     else
         -- Unknown correlation ID - log it and ignore
         ( { model | loading = False }, Cmd.none )
+
+
+{-| Schedule InitRichTextEditors to run after a brief delay.
+This gives the view time to render the container elements.
+-}
+scheduleInitRichTextEditors : Cmd Msg
+scheduleInitRichTextEditors =
+    Process.sleep 50
+        |> Task.perform (\_ -> InitRichTextEditors)
 
 
 extractFormData : Encode.Value -> Dict String String
@@ -2040,17 +2101,15 @@ viewFormField model tableSchema ( fieldName, fieldSchema ) =
                         )
 
                 else if fieldSchema.isRichContent then
-                    -- RichContent field - use contenteditable for rich editing
-                    -- Use Keyed to prevent Elm from diffing contenteditable children
+                    -- RichContent field - TipTap editor container
+                    -- Use Keyed.node to prevent Elm from interfering with TipTap-managed DOM
                     div [ class "rich-content-field" ]
                         [ Keyed.node "div"
                             [ id fieldName
-                            , contenteditable True
-                            , class "rich-content-editor"
-                            , onBlurWithHtml (RichContentEdited fieldName)
+                            , class "rich-content-editor-container"
                             ]
-                            [ ( currentValue, viewRichContentChildren currentValue ) ]
-                        , small [ class "field-hint" ] [ text "Rich text - ⌘/Ctrl+B for bold, ⌘/Ctrl+I for italic" ]
+                            [ ( "tiptap-" ++ fieldName, text "" ) ]
+                        , small [ class "field-hint" ] [ text "Rich text editor" ]
                         ]
 
                 else
@@ -2612,6 +2671,7 @@ subscriptions _ =
         , Browser.Events.onMouseMove (Decode.map Resize (Decode.field "pageX" Decode.float))
         , Browser.Events.onMouseUp (Decode.succeed StopResize)
         , richContentParsed RichContentParsed
+        , richTextChanged RichTextContentChanged
         ]
 
 
