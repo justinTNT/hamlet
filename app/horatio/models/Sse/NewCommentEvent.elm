@@ -3,13 +3,6 @@ module Sse.NewCommentEvent exposing (..)
 {-| NewCommentEvent SSE Model
 -}
 
+import Api.SubmitComment exposing (CommentItem)
 
-type alias NewCommentEvent =
-    { commentId : String
-    , postId : String
-    , parentCommentId : Maybe String
-    , authorName : String
-    , authorId : String
-    , text : String
-    , timestamp : Int
-    }
+type alias NewCommentEvent = CommentItem

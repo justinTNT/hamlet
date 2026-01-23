@@ -1,0 +1,9 @@
+{
+  "generated": "2026-01-23T05:08:03.960Z",
+  "events": [
+    {
+      "event": "HardDeletes",
+      "schedule": "* * * * *"
+    }
+  ]
+}

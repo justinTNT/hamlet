@@ -9,159 +9,10 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
+import { TEAHandlerPool, createApiHandlerInitializer } from './elm-handler-pool.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-
-
-/**
- * Fresh handler instance with cleanup capability
- */
-class HandlerInstance {
-    constructor(config, elmApp) {
-        this.config = config;
-        this.elmApp = elmApp;
-        this.isActive = true;
-        this.subscriptions = new Set();
-        this.createdAt = Date.now();
-    }
-
-    addSubscription(unsubscribeFn) {
-        this.subscriptions.add(unsubscribeFn);
-    }
-
-    async cleanup() {
-        if (!this.isActive) return;
-
-        console.log(`🧹 Cleaning up handler instance: ${this.config.name}`);
-        this.isActive = false;
-
-        // Cleanup all port subscriptions
-        for (const unsubscribe of this.subscriptions) {
-            try {
-                if (typeof unsubscribe === 'function') {
-                    unsubscribe();
-                }
-            } catch (error) {
-                console.warn(`⚠️  Error during subscription cleanup: ${error.message}`);
-            }
-        }
-        this.subscriptions.clear();
-
-        // Mark Elm app as inactive
-        if (this.elmApp && this.elmApp.ports) {
-            this.elmApp._hamlet_inactive = true;
-        }
-
-        console.log(`✅ Handler instance cleaned up: ${this.config.name}`);
-    }
-}
-
-/**
- * TEA Handler Pool - maintains fresh instances for optimal performance + isolation
- */
-class TEAHandlerPool {
-    constructor(handlerModule, config, poolSize = 3) {
-        this.handlerModule = handlerModule;
-        this.config = config;
-        this.poolSize = poolSize;
-        this.maxIdle = poolSize * 2; // Allow buffer beyond target
-        this.available = [];      // idle/waiting
-        this.busy = new Set();    // running
-        this.spawning = new Set(); // being created
-
-        // Initialize pool asynchronously
-        this.ready = this.fillPool();
-    }
-
-    async fillPool() {
-        console.log(`🏊 Filling TEA handler pool: ${this.config.name} (target: ${this.poolSize})`);
-        const promises = [];
-        for (let i = 0; i < this.poolSize; i++) {
-            promises.push(this.spawnFresh());
-        }
-        const handlers = await Promise.all(promises);
-        this.available.push(...handlers);
-        console.log(`✅ TEA handler pool ready: ${this.config.name} (${this.available.length} instances)`);
-    }
-
-    async getHandler() {
-        let handler;
-
-        if (this.available.length > 0) {
-            handler = this.available.pop();
-        } else {
-            console.log(`⚡ Pool empty, spawning fresh handler: ${this.config.name}`);
-            handler = await this.spawnFresh();
-        }
-
-        this.busy.add(handler);
-
-        // Smart replacement: only spawn if we need more capacity
-        if (this.available.length < this.maxIdle) {
-            this.spawnReplacement();
-        }
-
-        console.log(`📊 Pool stats: ${this.config.name} (available: ${this.available.length}, busy: ${this.busy.size}, spawning: ${this.spawning.size})`);
-
-        return handler;
-    }
-
-    releaseHandler(handler) {
-        this.busy.delete(handler);
-        handler.cleanup(); // Always fresh, never reuse
-        console.log(`🔄 Released handler: ${this.config.name} (available: ${this.available.length}, busy: ${this.busy.size})`);
-    }
-
-    async spawnFresh() {
-        const serverNow = Date.now();
-        const elmApp = this.handlerModule.Elm.Api.Handlers[this.config.file].init({
-            node: null,
-            flags: {
-                globalConfig: {
-                    serverNow: serverNow,
-                    hostIsolation: true,
-                    environment: process.env.NODE_ENV || 'development'
-                },
-                globalState: {
-                    requestCount: 0,
-                    lastActivity: serverNow
-                }
-            }
-        });
-
-        return new HandlerInstance(this.config, elmApp);
-    }
-
-    spawnReplacement() {
-        const spawnPromise = this.spawnFresh();
-        this.spawning.add(spawnPromise);
-
-        spawnPromise.then(fresh => {
-            this.spawning.delete(spawnPromise);
-            this.available.push(fresh);
-            console.log(`🆕 Spawned replacement handler: ${this.config.name} (available: ${this.available.length})`);
-        }).catch(error => {
-            this.spawning.delete(spawnPromise);
-            console.error(`❌ Failed to spawn replacement handler: ${this.config.name}:`, error);
-        });
-    }
-
-    async cleanup() {
-        console.log(`🧹 Cleaning up TEA handler pool: ${this.config.name}`);
-
-        // Cleanup all handlers
-        const allHandlers = [...this.available, ...this.busy];
-        await Promise.all(allHandlers.map(h => h.cleanup()));
-
-        this.available = [];
-        this.busy.clear();
-        this.spawning.clear();
-
-        console.log(`✅ TEA handler pool cleaned up: ${this.config.name}`);
-    }
-}
 
 export default async function createElmService(server) {
     console.log('🌳 Setting up Elm service with TEA Handler Support');
@@ -214,7 +65,8 @@ export default async function createElmService(server) {
                     if (handlerModule.Elm && handlerModule.Elm.Api && handlerModule.Elm.Api.Handlers && handlerModule.Elm.Api.Handlers[config.file]) {
                         // Create TEA handler pool for this endpoint
                         const poolSize = server.config.poolSize || 3;
-                        const handlerPool = new TEAHandlerPool(handlerModule, config, poolSize);
+                        const initHandler = createApiHandlerInitializer();
+                        const handlerPool = new TEAHandlerPool(handlerModule, config, initHandler, poolSize);
                         await handlerPool.ready; // Wait for pool to initialize
 
                         handlerPools.set(config.name, handlerPool);

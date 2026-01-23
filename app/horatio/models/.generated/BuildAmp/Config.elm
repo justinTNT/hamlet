@@ -5,7 +5,7 @@ module BuildAmp.Config exposing (..)
 These types are generated from Elm models in shared/Config/*.elm
 They define the shape of configuration data passed to Elm via init flags.
 
-@docs GlobalConfig, FeatureFlags
+@docs Cron, CronEvent, GlobalConfig, FeatureFlags
 
 -}
 
@@ -14,6 +14,24 @@ import Json.Encode as Encode
 
 
 -- CONFIG TYPES
+
+{-| Cron configuration type
+Generated from Cron.elm
+-}
+type alias Cron =
+    {     event : String
+    , schedule : String
+    }
+
+
+{-| CronEvent configuration type
+Generated from Cron.elm
+-}
+type alias CronEvent =
+    {     event : String
+    , schedule : String
+    }
+
 
 {-| GlobalConfig configuration type
 Generated from GlobalConfig.elm
@@ -36,6 +54,20 @@ type alias FeatureFlags =
 
 -- DECODERS
 
+cronDecoder : Decode.Decoder Cron
+cronDecoder =
+    Decode.succeed Cron
+        |> andMap (Decode.field "event" Decode.string)
+        |> andMap (Decode.field "schedule" Decode.string)
+
+
+cronEventDecoder : Decode.Decoder CronEvent
+cronEventDecoder =
+    Decode.succeed CronEvent
+        |> andMap (Decode.field "event" Decode.string)
+        |> andMap (Decode.field "schedule" Decode.string)
+
+
 globalConfigDecoder : Decode.Decoder GlobalConfig
 globalConfigDecoder =
     Decode.succeed GlobalConfig
@@ -52,6 +84,22 @@ featureFlagsDecoder =
 
 
 -- ENCODERS
+
+encodeCron : Cron -> Encode.Value
+encodeCron config =
+    Encode.object
+        [ ("event", Encode.string config.event)
+        , ("schedule", Encode.string config.schedule)
+        ]
+
+
+encodeCronEvent : CronEvent -> Encode.Value
+encodeCronEvent config =
+    Encode.object
+        [ ("event", Encode.string config.event)
+        , ("schedule", Encode.string config.schedule)
+        ]
+
 
 encodeGlobalConfig : GlobalConfig -> Encode.Value
 encodeGlobalConfig config =

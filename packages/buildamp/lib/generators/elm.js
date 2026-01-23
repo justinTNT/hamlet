@@ -8,7 +8,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getGenerationPaths, ensureOutputDir } from './shared-paths.js';
-import { parseElmSchemaDir, parseElmConfigDir, parseElmEventsDir, parseElmKvDir } from '../../core/elm-parser-ts.js';
+import { parseElmSchemaDir, parseElmConfigDir, parseElmEventsDir, parseElmKvDir, parseCronConfig } from '../../core/elm-parser-ts.js';
 
 /**
  * Generate all shared Elm modules (configurable version)
@@ -39,6 +39,12 @@ export async function generateElmSharedModules(config = {}) {
         { name: 'Services.elm', content: generateServicesModule(config) }
     ];
 
+    // Events backend module for event handlers
+    const eventsBackendDir = ensureOutputDir(path.join(paths.outputDir, 'server', 'src', 'Events'));
+    const eventsBackendContent = generateEventsBackendModule(paths, config);
+    fs.writeFileSync(path.join(eventsBackendDir, 'Backend.elm'), eventsBackendContent);
+    console.log(`   ✅ Generated Events/Backend.elm (event handler support)`);
+
     // Shared modules (used by both web and server)
     const sharedModules = [
         { name: 'Config.elm', content: generateConfigModule(paths, config) }
@@ -60,6 +66,12 @@ export async function generateElmSharedModules(config = {}) {
     const dbModels = parseDbModels(paths, config);
     const fieldModules = generateFieldAccessorModules(dbModels, serverOutputDir);
     console.log(`   ✅ Generated ${fieldModules.length} field accessor modules`);
+
+    // Generate cron config (validated against event types)
+    const cronConfigResult = generateCronConfig(paths, config);
+    if (cronConfigResult.generated) {
+        console.log(`   ✅ Generated cron-config.json (${cronConfigResult.events.length} scheduled events)`);
+    }
 
     const allModules = [...serverModules, ...sharedModules, ...fieldModules.map(f => `Database/${f}`)];
     console.log(`📊 Generated ${allModules.length} shared modules`);
@@ -629,11 +641,13 @@ function generateEventsModule(paths, config = {}) {
 
 {-| Generated events interface for TEA handlers
 
-This module provides strongly-typed Event Sourcing capabilities with
-three distinct interfaces: immediate, scheduled, and recurring events.
+This module provides strongly-typed Event Sourcing capabilities:
+- pushEvent: Trigger an event immediately
+- scheduleEvent: Trigger an event after a delay
 
-@docs pushEvent, scheduleEvent, cronEvent
-@docs SendWelcomeEmail, ProcessUpload
+For recurring/cron events, use Config/Cron.elm configuration instead.
+
+@docs pushEvent, scheduleEvent
 
 -}
 
@@ -650,31 +664,17 @@ pushEvent payload =
     eventPush
         { event = encodeEventPayload payload
         , delay = 0
-        , schedule = Nothing
         }
 
 
 {-| Schedule background event with delay (in seconds)
 Usage: Events.scheduleEvent 300 (ProcessUpload { fileId = file.id, processType = "thumbnail" })
 -}
-scheduleEvent : Int -> EventPayload -> Cmd msg  
+scheduleEvent : Int -> EventPayload -> Cmd msg
 scheduleEvent delaySeconds payload =
     eventPush
         { event = encodeEventPayload payload
         , delay = delaySeconds
-        , schedule = Nothing
-        }
-
-
-{-| Schedule recurring background event with cron expression
-Usage: Events.cronEvent "0 6 * * *" (GenerateReport { reportType = "daily" })
--}
-cronEvent : String -> EventPayload -> Cmd msg
-cronEvent cronExpression payload =
-    eventPush
-        { event = encodeEventPayload payload  
-        , delay = 0
-        , schedule = Just cronExpression
         }
 
 
@@ -691,7 +691,6 @@ port eventPush : EventRequest -> Cmd msg
 type alias EventRequest =
     { event : Encode.Value
     , delay : Int
-    , schedule : Maybe String
     }
 
 
@@ -1906,5 +1905,374 @@ ${mainEncoderCases}
 
 
 ${individualEncoders}`;
+}
+
+/**
+ * Generate Events.Backend module for event handlers
+ * This provides payload types and decoders for Elm event handlers
+ *
+ * Sources:
+ * - Config/Cron.elm: Cron events (empty payload)
+ * - models/Events/*.elm: Payload events (with fields)
+ */
+export function generateEventsBackendModule(paths, config = {}) {
+    // Collect events from both sources
+    const allEventModels = [];
+
+    // 1. Cron events from Config/Cron.elm (empty payload)
+    const cronEvents = parseCronConfig(paths.elmConfigDir);
+    for (const cronEvent of cronEvents) {
+        allEventModels.push({
+            name: cronEvent.event,
+            fields: [],  // Empty payload
+            sourceFile: 'Config/Cron.elm',
+            isCron: true
+        });
+    }
+
+    // 2. Payload events from Events/*.elm
+    const payloadModels = parseEventModels(paths, config);
+    for (const model of payloadModels) {
+        // Skip if already defined as cron event
+        if (allEventModels.some(e => e.name === model.name)) {
+            continue;
+        }
+        allEventModels.push({
+            ...model,
+            isCron: false
+        });
+    }
+
+    if (allEventModels.length === 0) {
+        return `module Events.Backend exposing (..)
+
+{-| Generated Events Backend Module
+No event models found in models/Events/
+-}
+
+import Json.Decode as Decode
+import Json.Encode as Encode
+
+
+-- No event models found
+type alias EmptyPayload = {}
+
+type EventResult
+    = Success { message : String, recordsAffected : Int }
+    | Failure { error : String }
+
+type alias EventContext =
+    { host : String
+    , sessionId : Maybe String
+    , correlationId : Maybe String
+    , attempt : Int
+    , scheduledAt : Int
+    , executedAt : Int
+    }
+
+eventContextDecoder : Decode.Decoder EventContext
+eventContextDecoder =
+    Decode.map6 EventContext
+        (Decode.field "host" Decode.string)
+        (Decode.maybe (Decode.field "sessionId" Decode.string))
+        (Decode.maybe (Decode.field "correlationId" Decode.string))
+        (Decode.field "attempt" Decode.int)
+        (Decode.field "scheduledAt" Decode.int)
+        (Decode.field "executedAt" Decode.int)
+
+encodeEventResult : EventResult -> Encode.Value
+encodeEventResult result =
+    case result of
+        Success data ->
+            Encode.object
+                [ ("success", Encode.bool True)
+                , ("message", Encode.string data.message)
+                , ("recordsAffected", Encode.int data.recordsAffected)
+                ]
+
+        Failure data ->
+            Encode.object
+                [ ("success", Encode.bool False)
+                , ("error", Encode.string data.error)
+                ]
+`;
+    }
+
+    // Generate payload types and decoders from all event models
+    const payloadTypes = allEventModels.map(model => generateEventPayloadType(model)).join('\n\n\n');
+    const payloadDecoders = allEventModels.map(model => generateEventPayloadDecoder(model)).join('\n\n\n');
+    const exposedTypes = allEventModels.map(m => `${m.name}Payload`).join(', ');
+    const exposedDecoders = allEventModels.map(m => `${lowerFirst(m.name)}PayloadDecoder`).join(', ');
+
+    return `module Events.Backend exposing (${exposedTypes}, ${exposedDecoders}, EventContext, EventResult(..), eventContextDecoder, encodeEventResult)
+
+{-| Generated Events Backend Module
+
+This module provides strongly-typed payload types and decoders for Elm event handlers.
+Generated from Elm models in: models/Events/*.elm
+
+@docs ${exposedTypes}
+@docs ${exposedDecoders}
+@docs EventContext, EventResult, eventContextDecoder, encodeEventResult
+
+-}
+
+import Json.Decode as Decode
+import Json.Encode as Encode
+
+
+-- EVENT RESULT TYPE
+
+type EventResult
+    = Success { message : String, recordsAffected : Int }
+    | Failure { error : String }
+
+
+encodeEventResult : EventResult -> Encode.Value
+encodeEventResult result =
+    case result of
+        Success data ->
+            Encode.object
+                [ ("success", Encode.bool True)
+                , ("message", Encode.string data.message)
+                , ("recordsAffected", Encode.int data.recordsAffected)
+                ]
+
+        Failure data ->
+            Encode.object
+                [ ("success", Encode.bool False)
+                , ("error", Encode.string data.error)
+                ]
+
+
+-- EVENT CONTEXT TYPE
+
+type alias EventContext =
+    { host : String
+    , sessionId : Maybe String
+    , correlationId : Maybe String
+    , attempt : Int
+    , scheduledAt : Int
+    , executedAt : Int
+    }
+
+
+eventContextDecoder : Decode.Decoder EventContext
+eventContextDecoder =
+    Decode.map6 EventContext
+        (Decode.field "host" Decode.string)
+        (Decode.maybe (Decode.field "sessionId" Decode.string))
+        (Decode.maybe (Decode.field "correlationId" Decode.string))
+        (Decode.field "attempt" Decode.int)
+        (Decode.field "scheduledAt" Decode.int)
+        (Decode.field "executedAt" Decode.int)
+
+
+-- EVENT PAYLOAD TYPES
+
+${payloadTypes}
+
+
+-- EVENT PAYLOAD DECODERS
+
+${payloadDecoders}
+`;
+}
+
+/**
+ * Generate payload type alias for an event model
+ */
+function generateEventPayloadType(model) {
+    const modelName = model.name;
+
+    if (!model.fields || model.fields.length === 0) {
+        return `{-| Payload type for ${modelName} events
+Generated from ${model.sourceFile}
+-}
+type alias ${modelName}Payload =
+    {}`;
+    }
+
+    const fields = model.fields.map((field, index) => {
+        const elmFieldName = snakeToCamel(field.camelName || field.name);
+        const elmType = eventFieldToElmType(field.elmType);
+        const prefix = index === 0 ? '    ' : '    , ';
+        return `${prefix}${elmFieldName} : ${elmType}`;
+    }).join('\n');
+
+    return `{-| Payload type for ${modelName} events
+Generated from ${model.sourceFile}
+-}
+type alias ${modelName}Payload =
+    { ${fields}
+    }`;
+}
+
+/**
+ * Generate decoder for an event payload
+ */
+function generateEventPayloadDecoder(model) {
+    const modelName = model.name;
+    const decoderName = lowerFirst(modelName) + 'PayloadDecoder';
+
+    if (!model.fields || model.fields.length === 0) {
+        return `${decoderName} : Decode.Decoder ${modelName}Payload
+${decoderName} =
+    Decode.succeed {}`;
+    }
+
+    const fieldCount = model.fields.length;
+
+    // Use map2..map8 or succeed + andMap pattern
+    if (fieldCount <= 8) {
+        return `${decoderName} : Decode.Decoder ${modelName}Payload
+${decoderName} =
+    Decode.map${fieldCount > 1 ? fieldCount : ''} ${modelName}Payload
+${model.fields.map(field => {
+    const snakeFieldName = camelToSnake(field.camelName || field.name);
+    const decoder = generateEventFieldDecoder(field.elmType);
+    return `        (Decode.field "${snakeFieldName}" ${decoder})`;
+}).join('\n')}`;
+    } else {
+        // Pipeline style for many fields
+        return `${decoderName} : Decode.Decoder ${modelName}Payload
+${decoderName} =
+    Decode.succeed ${modelName}Payload
+${model.fields.map(field => {
+    const snakeFieldName = camelToSnake(field.camelName || field.name);
+    const decoder = generateEventFieldDecoder(field.elmType);
+    return `        |> andMap (Decode.field "${snakeFieldName}" ${decoder})`;
+}).join('\n')}
+
+
+andMap : Decode.Decoder a -> Decode.Decoder (a -> b) -> Decode.Decoder b
+andMap = Decode.map2 (|>)`;
+    }
+}
+
+/**
+ * Convert event field types to Elm types
+ */
+function eventFieldToElmType(elmType) {
+    // Handle special event types
+    if (elmType === 'CorrelationId' || elmType.startsWith('CorrelationId ')) {
+        return 'String';
+    }
+    if (elmType === 'ExecuteAt' || elmType.startsWith('ExecuteAt ')) {
+        return 'String';
+    }
+    if (elmType === 'DateTime') {
+        return 'String';
+    }
+    if (elmType.startsWith('Maybe ')) {
+        const innerType = elmType.slice(6);
+        return `Maybe ${eventFieldToElmType(innerType)}`;
+    }
+    // Basic types pass through
+    return elmType;
+}
+
+/**
+ * Generate decoder for an event field
+ */
+function generateEventFieldDecoder(elmType) {
+    if (elmType === 'String' || elmType === 'CorrelationId' || elmType.startsWith('CorrelationId ') ||
+        elmType === 'ExecuteAt' || elmType.startsWith('ExecuteAt ') || elmType === 'DateTime') {
+        return 'Decode.string';
+    }
+    if (elmType === 'Int') {
+        return 'Decode.int';
+    }
+    if (elmType === 'Float') {
+        return 'Decode.float';
+    }
+    if (elmType === 'Bool') {
+        return 'Decode.bool';
+    }
+    if (elmType.startsWith('Maybe ')) {
+        const innerType = elmType.slice(6);
+        return `(Decode.nullable ${generateEventFieldDecoder(innerType)})`;
+    }
+    if (elmType.startsWith('List ')) {
+        const innerType = elmType.slice(5);
+        return `(Decode.list ${generateEventFieldDecoder(innerType)})`;
+    }
+    return 'Decode.string'; // Fallback
+}
+
+/**
+ * Helper to lowercase first character
+ */
+function lowerFirst(str) {
+    return str.charAt(0).toLowerCase() + str.slice(1);
+}
+
+// =============================================================================
+// CRON CONFIG GENERATION
+// =============================================================================
+
+/**
+ * Generate cron-config.json from Config/Cron.elm
+ * Cron events are self-defining (no need to also exist in Events/*.elm)
+ */
+function generateCronConfig(paths, config = {}) {
+    const cronConfig = parseCronConfig(paths.elmConfigDir);
+
+    if (cronConfig.length === 0) {
+        return { generated: false, events: [] };
+    }
+
+    // Validate cron entries
+    const errors = [];
+    const validatedEvents = [];
+
+    for (const cronEvent of cronConfig) {
+        if (!cronEvent.event || !cronEvent.schedule) {
+            errors.push(`Invalid cron event entry: ${JSON.stringify(cronEvent)}`);
+            continue;
+        }
+
+        // Validate event name is PascalCase
+        if (!/^[A-Z][a-zA-Z0-9]*$/.test(cronEvent.event)) {
+            errors.push(`Invalid event name "${cronEvent.event}" - must be PascalCase`);
+            continue;
+        }
+
+        // Basic cron expression validation (5 or 6 fields)
+        const cronParts = cronEvent.schedule.trim().split(/\s+/);
+        if (cronParts.length < 5 || cronParts.length > 6) {
+            errors.push(`Invalid cron expression "${cronEvent.schedule}" for event "${cronEvent.event}". Expected 5-6 fields.`);
+            continue;
+        }
+
+        validatedEvents.push({
+            event: cronEvent.event,
+            schedule: cronEvent.schedule
+        });
+    }
+
+    // Report errors
+    if (errors.length > 0) {
+        console.error('   ❌ Cron config validation errors:');
+        for (const error of errors) {
+            console.error(`      - ${error}`);
+        }
+        if (validatedEvents.length === 0) {
+            return { generated: false, events: [], errors };
+        }
+    }
+
+    // Write cron-config.json to server/.generated/
+    const outputDir = ensureOutputDir(paths.serverGlueDir);
+    const outputPath = path.join(outputDir, 'cron-config.json');
+
+    const configOutput = {
+        generated: new Date().toISOString(),
+        events: validatedEvents
+    };
+
+    fs.writeFileSync(outputPath, JSON.stringify(configOutput, null, 2));
+
+    return { generated: true, events: validatedEvents, errors };
 }
 

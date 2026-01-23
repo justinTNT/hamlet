@@ -10,6 +10,7 @@ import { generateKvStore } from './generators/kv.js';
 import { generateSSEEvents } from './generators/sse.js';
 import { generateElmSharedModules } from './generators/elm.js';
 import { generateElmHandlers } from './generators/handlers.js';
+import { generateElmEventHandlers } from './generators/event-handlers.js';
 import { generateSqlMigrations, generateSchemaIntrospection } from './generators/sql.js';
 import { createPaths } from './generators/shared-paths.js';
 
@@ -23,7 +24,7 @@ const modelDirGenerators = {
     storage: ['js', 'elm'],
     kv: ['js', 'elm'],
     sse: ['js', 'elm'],
-    events: ['elm'],
+    events: ['elm', 'event-handlers'],
     config: ['elm'],
 };
 
@@ -76,6 +77,7 @@ const targetGenerators = {
     js: generateJavaScript,
     elm: generateElmSharedModules,
     handlers: generateElmHandlers,
+    'event-handlers': generateElmEventHandlers,
     sql: generateSqlMigrations,
     schema: generateSchemaIntrospection,
 };

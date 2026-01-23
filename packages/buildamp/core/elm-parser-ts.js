@@ -1001,6 +1001,95 @@ export const parseElmEventsDir = (eventsDir) => parseElmModelDir(eventsDir, 'Eve
 export const parseElmConfigDir = (configDir) => parseElmModelDir(configDir, 'Config');
 
 // =============================================================================
+// CRON CONFIG PARSING
+// =============================================================================
+
+/**
+ * Parse Config/Cron.elm to extract cron event schedules
+ * Returns: [{ event: "HardDeletes", schedule: "0 2 * * *" }, ...]
+ */
+export function parseCronConfig(configDir) {
+    const cronPath = path.join(configDir, 'Cron.elm');
+    if (!fs.existsSync(cronPath)) {
+        return [];
+    }
+
+    const sourceCode = fs.readFileSync(cronPath, 'utf-8');
+    const tree = parser.parse(sourceCode);
+
+    // Find the cronEvents value declaration
+    const valueDeclarations = findAllOfType(tree, 'value_declaration');
+
+    for (const decl of valueDeclarations) {
+        const funcDeclLeft = findChildByType(decl, 'function_declaration_left');
+        if (!funcDeclLeft) continue;
+
+        const nameNode = findChildByType(funcDeclLeft, 'lower_case_identifier');
+        if (!nameNode) continue;
+
+        const name = getText(nameNode, sourceCode);
+        if (name !== 'cronEvents') continue;
+
+        // Found cronEvents, now extract the list
+        const body = findDescendantByType(decl, 'list_expr');
+        if (!body) continue;
+
+        return parseListOfRecords(body, sourceCode);
+    }
+
+    return [];
+}
+
+/**
+ * Parse a list expression containing record literals
+ * Handles: [ { event = "X", schedule = "Y" }, ... ]
+ */
+function parseListOfRecords(listNode, sourceCode) {
+    const records = [];
+
+    for (let i = 0; i < listNode.childCount; i++) {
+        const child = listNode.child(i);
+        if (child.type === 'record_expr') {
+            const record = parseRecordExpr(child, sourceCode);
+            if (record) {
+                records.push(record);
+            }
+        }
+    }
+
+    return records;
+}
+
+/**
+ * Parse a record expression into a plain object
+ * Handles: { event = "HardDeletes", schedule = "0 2 * * *" }
+ */
+function parseRecordExpr(recordNode, sourceCode) {
+    const result = {};
+
+    // Find all field assignments
+    for (let i = 0; i < recordNode.childCount; i++) {
+        const child = recordNode.child(i);
+        if (child.type === 'field') {
+            const fieldName = findChildByType(child, 'lower_case_identifier');
+            const fieldValue = findDescendantByType(child, 'string_constant_expr');
+
+            if (fieldName && fieldValue) {
+                const name = getText(fieldName, sourceCode);
+                // Extract string value, removing quotes
+                let value = getText(fieldValue, sourceCode);
+                if (value.startsWith('"') && value.endsWith('"')) {
+                    value = value.slice(1, -1);
+                }
+                result[name] = value;
+            }
+        }
+    }
+
+    return Object.keys(result).length > 0 ? result : null;
+}
+
+// =============================================================================
 // TEST EXPORTS
 // =============================================================================
 
@@ -1032,5 +1121,6 @@ export default {
     parseElmConfigDir,
     parseElmModelDir,
     parseElmSource,
+    parseCronConfig,
     _test
 };

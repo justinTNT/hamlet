@@ -74,7 +74,18 @@ function setSSEService(service) {
     console.log('[EventProcessor] SSE service connected for session-aware events');
 }
 
-// Event handlers
+// Global Elm event service reference - will be injected when running in server context
+let elmEventService = null;
+
+/**
+ * Set the Elm event service for TEA-based event handlers
+ */
+function setElmEventService(service) {
+    elmEventService = service;
+    console.log('[EventProcessor] Elm event service connected for TEA handlers');
+}
+
+// JavaScript event handlers (fallback when no Elm handler exists)
 const eventHandlers = {
     SendWelcomeEmail: async (payload, context) => {
         console.log(`[SendWelcomeEmail] Sending welcome email to ${payload.email} (${payload.name})`);
@@ -84,12 +95,12 @@ const eventHandlers = {
 
     NotifyCommentAdded: async (payload, context) => {
         console.log(`[NotifyCommentAdded] New comment by ${payload.author_name} on item ${payload.item_id}`);
-        
+
         if (payload.item_owner_email) {
             console.log(`[NotifyCommentAdded] Would email ${payload.item_owner_email} about new comment`);
             // TODO: Send actual email notification
         }
-        
+
         // TODO: Could also trigger push notifications, webhooks, etc.
         return { success: true };
     },
@@ -118,23 +129,46 @@ const eventHandlers = {
  */
 async function processEvent(event) {
     const { id, event_type, payload, context, attempts } = event;
-    
+
     console.log(`[EventProcessor] Processing event ${id} (${event_type}), attempt ${attempts + 1}`);
-    
+
     try {
         // Mark as processing
         await pool.query(
             'UPDATE buildamp_events SET status = $1, attempts = attempts + 1 WHERE id = $2',
             ['processing', id]
         );
-        
-        // Parse payload
-        const eventPayload = JSON.parse(payload);
-        const eventContext = context ? JSON.parse(context) : {};
-        
-        // Find and execute handler
-        const handler = eventHandlers[event_type] || eventHandlers.default;
-        const result = await handler(eventPayload, eventContext);
+
+        // Payload/context are JSONB columns - pg auto-parses them
+        const eventPayload = typeof payload === 'string' ? JSON.parse(payload) : (payload || {});
+        const eventContext = typeof context === 'string' ? JSON.parse(context) : (context || {});
+
+        // Add event metadata to context
+        const enrichedContext = {
+            ...eventContext,
+            host: event.host || 'localhost',
+            session_id: event.session_id,
+            correlation_id: event.correlation_id,
+            attempt: attempts + 1,
+            scheduled_at: event.execute_at ? new Date(event.execute_at).getTime() : Date.now()
+        };
+
+        let result;
+
+        // Try Elm handler first if event service is available
+        if (elmEventService && elmEventService.hasHandler(event_type)) {
+            console.log(`[EventProcessor] Dispatching ${event_type} to Elm TEA handler`);
+            try {
+                result = await elmEventService.callHandler(event_type, eventPayload, enrichedContext);
+            } catch (elmError) {
+                console.error(`[EventProcessor] Elm handler failed: ${elmError.message}`);
+                throw elmError;
+            }
+        } else {
+            // Fall back to JavaScript handler
+            const handler = eventHandlers[event_type] || eventHandlers.default;
+            result = await handler(eventPayload, enrichedContext);
+        }
         
         if (result.success) {
             // Mark as completed
@@ -278,6 +312,17 @@ process.on('SIGTERM', async () => {
     process.exit(0);
 });
 
+/**
+ * Start polling (called by server or when run standalone)
+ */
+async function startPolling() {
+    const pollIntervalMs = parseInt(process.env.POLL_INTERVAL_MS) || 5000;
+    console.log(`[EventProcessor] Starting polling every ${pollIntervalMs}ms`);
+
+    setInterval(pollEvents, pollIntervalMs);
+    await pollEvents(); // Initial poll
+}
+
 // Start if run directly
 if (import.meta.url === `file://${process.argv[1]}`) {
     start().catch(error => {
@@ -286,4 +331,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     });
 }
 
-export { processEvent, eventHandlers, setSSEService };
+export { processEvent, eventHandlers, setSSEService, setElmEventService, startPolling };
