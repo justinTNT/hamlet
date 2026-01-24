@@ -13,8 +13,7 @@ import Interface.Api exposing (..)
 {-| Request payload for submitting a comment.
 -}
 type alias Request =
-    { host : Inject String
-    , itemId : String
+    { itemId : String
     , parentId : Maybe String
     , text : Required (Trim String) -- @minLength 1 @maxLength 500
     , authorName : Maybe String

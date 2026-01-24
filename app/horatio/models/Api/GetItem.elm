@@ -14,8 +14,7 @@ import Api.SubmitItem exposing (MicroblogItem)
 {-| Request payload for getting an item.
 -}
 type alias Request =
-    { host : Inject String
-    , id : String
+    { id : String
     }
 
 

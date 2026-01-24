@@ -13,8 +13,7 @@ import Interface.Api exposing (..)
 {-| Request payload for getting tags.
 -}
 type alias Request =
-    { host : Inject String
-    }
+    {}
 
 
 {-| Response payload containing tags.

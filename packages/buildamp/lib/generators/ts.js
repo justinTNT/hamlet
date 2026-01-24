@@ -104,23 +104,7 @@ function elmTypeToTs(elmType) {
     if (type.startsWith('Trim ')) {
         return elmTypeToTs(type.slice(5).trim());
     }
-    if (type.startsWith('MinLength ')) {
-        // MinLength n Type -> Type
-        const rest = type.slice(10).trim();
-        const parts = rest.split(/\s+/);
-        if (parts.length >= 2) {
-            return elmTypeToTs(parts.slice(1).join(' '));
-        }
-        return 'string';
-    }
-    if (type.startsWith('MaxLength ')) {
-        const rest = type.slice(10).trim();
-        const parts = rest.split(/\s+/);
-        if (parts.length >= 2) {
-            return elmTypeToTs(parts.slice(1).join(' '));
-        }
-        return 'string';
-    }
+
 
     // Handle parenthesized types
     if (type.startsWith('(') && type.endsWith(')')) {

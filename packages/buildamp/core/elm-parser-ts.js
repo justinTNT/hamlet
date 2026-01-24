@@ -882,7 +882,7 @@ export function parseElmSchemaDirFull(schemaDir) {
 // API PARSING
 // =============================================================================
 
-const API_WRAPPERS = ['Inject', 'Required', 'Trim', 'MinLength', 'MaxLength'];
+const API_WRAPPERS = ['Required', 'Trim'];
 
 /**
  * Parse validation tags from a comment string
@@ -988,8 +988,12 @@ function unwrapApiAnnotations(elmType) {
     return { baseType: current, annotations, validationTags };
 }
 
+
+
 /**
  * Parse an Elm API module
+ * @param {string} content - Module source
+ * @param {string} filename - Filename
  */
 export function parseApiModule(content, filename) {
     const parsed = parseElmSource(content);
@@ -1021,6 +1025,7 @@ export function parseApiModule(content, filename) {
 
         const processedFields = typeAlias.fields.map(({ name, elmType, docComment }) => {
             const { baseType, annotations, validationTags } = unwrapApiAnnotations(elmType);
+
             return {
                 name: camelToSnake(name),
                 camelName: name,

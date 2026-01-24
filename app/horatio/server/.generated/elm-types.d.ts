@@ -68,7 +68,7 @@ export interface Tag {
 }
 
 export interface GetFeedRequest {
-    host: string;
+
 }
 
 export interface GetFeedResponse {
@@ -85,7 +85,6 @@ export interface FeedItem {
 }
 
 export interface GetItemRequest {
-    host: string;
     id: string;
 }
 
@@ -94,7 +93,6 @@ export interface GetItemResponse {
 }
 
 export interface GetItemsByTagRequest {
-    host: string;
     tag: string;
 }
 
@@ -104,7 +102,7 @@ export interface GetItemsByTagResponse {
 }
 
 export interface GetTagsRequest {
-    host: string;
+
 }
 
 export interface GetTagsResponse {
@@ -112,7 +110,6 @@ export interface GetTagsResponse {
 }
 
 export interface SubmitCommentRequest {
-    host: string;
     itemId: string;
     parentId?: string;
     text: string;
@@ -139,7 +136,6 @@ export interface CommentItem {
 }
 
 export interface SubmitItemRequest {
-    host: string;
     title: string;
     link: string;
     image: string;

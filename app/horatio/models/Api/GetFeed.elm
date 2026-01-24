@@ -13,8 +13,8 @@ import Interface.Api exposing (..)
 {-| Request payload for getting the feed.
 -}
 type alias Request =
-    { host : Inject String
-    }
+    {}
+
 
 
 {-| Response payload containing feed items.

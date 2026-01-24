@@ -14,8 +14,7 @@ import Api.SubmitComment exposing (CommentItem)
 {-| Request payload for submitting an item.
 -}
 type alias Request =
-    { host : Inject String
-    , title : Required String
+    { title : Required String
     , link : String
     , image : String
     , extract : String

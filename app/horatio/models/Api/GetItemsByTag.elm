@@ -14,8 +14,7 @@ import Api.GetFeed exposing (FeedItem)
 {-| Request payload for getting items by tag.
 -}
 type alias Request =
-    { host : Inject String
-    , tag : String
+    { tag : String
     }
 
 

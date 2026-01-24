@@ -13,7 +13,6 @@ const {
     generateElmHttpFunction,
     generateElmApiClient,
     generateRoute,
-    generateValidationTagChecks,
     convertElmApiToGeneratorFormat,
     // Backend API module generation
     generateElmBackend,
@@ -252,45 +251,6 @@ describe('API Generator - Express Routes', () => {
     });
 });
 
-describe('API Generator - Validation Tags', () => {
-    test('generateValidationTagChecks generates email validation', () => {
-        const field = { name: 'email', validationTags: { validate: 'email' } };
-        const checks = generateValidationTagChecks(field);
-
-        assert.strictEqual(checks.length, 1);
-        assert.ok(checks[0].includes('valid email'));
-    });
-
-    test('generateValidationTagChecks generates minLength validation', () => {
-        const field = { name: 'password', validationTags: { minLength: 8 } };
-        const checks = generateValidationTagChecks(field);
-
-        assert.strictEqual(checks.length, 1);
-        assert.ok(checks[0].includes('at least 8 characters'));
-    });
-
-    test('generateValidationTagChecks generates maxLength validation', () => {
-        const field = { name: 'username', validationTags: { maxLength: 20 } };
-        const checks = generateValidationTagChecks(field);
-
-        assert.strictEqual(checks.length, 1);
-        assert.ok(checks[0].includes('at most 20 characters'));
-    });
-
-    test('generateValidationTagChecks generates multiple validations', () => {
-        const field = { name: 'text', validationTags: { minLength: 1, maxLength: 500 } };
-        const checks = generateValidationTagChecks(field);
-
-        assert.strictEqual(checks.length, 2);
-    });
-
-    test('generateValidationTagChecks returns empty for no tags', () => {
-        const field = { name: 'plain', validationTags: {} };
-        const checks = generateValidationTagChecks(field);
-
-        assert.strictEqual(checks.length, 0);
-    });
-});
 
 describe('API Generator - Elm API Conversion', () => {
     test('convertElmApiToGeneratorFormat converts basic API', () => {

@@ -29,20 +29,17 @@ server.app.post('/api/GetFeed', async (req, res) => {
         // Extract request data
         let requestData = req.body;
 
+        // Trim fields
+
+
         // Field validation
+
 
 
         // Ensure context exists
         if (!req.context) {
             req.context = { host };
         }
-
-        // Context injection
-        requestData = {
-            ...requestData,
-        host: req.context.host
-        
-        };
 
         // Call Elm business logic
         const elmService = server.getService('elm');
@@ -78,20 +75,17 @@ server.app.post('/api/GetItem', async (req, res) => {
         // Extract request data
         let requestData = req.body;
 
+        // Trim fields
+
+
         // Field validation
+
 
 
         // Ensure context exists
         if (!req.context) {
             req.context = { host };
         }
-
-        // Context injection
-        requestData = {
-            ...requestData,
-        host: req.context.host
-        
-        };
 
         // Call Elm business logic
         const elmService = server.getService('elm');
@@ -127,20 +121,17 @@ server.app.post('/api/GetItemsByTag', async (req, res) => {
         // Extract request data
         let requestData = req.body;
 
+        // Trim fields
+
+
         // Field validation
+
 
 
         // Ensure context exists
         if (!req.context) {
             req.context = { host };
         }
-
-        // Context injection
-        requestData = {
-            ...requestData,
-        host: req.context.host
-        
-        };
 
         // Call Elm business logic
         const elmService = server.getService('elm');
@@ -176,20 +167,17 @@ server.app.post('/api/GetTags', async (req, res) => {
         // Extract request data
         let requestData = req.body;
 
+        // Trim fields
+
+
         // Field validation
+
 
 
         // Ensure context exists
         if (!req.context) {
             req.context = { host };
         }
-
-        // Context injection
-        requestData = {
-            ...requestData,
-        host: req.context.host
-        
-        };
 
         // Call Elm business logic
         const elmService = server.getService('elm');
@@ -225,7 +213,13 @@ server.app.post('/api/SubmitComment', async (req, res) => {
         // Extract request data
         let requestData = req.body;
 
+        // Trim fields
+    if (requestData.text && typeof requestData.text === 'string') {
+        requestData.text = requestData.text.trim();
+    }
+
         // Field validation
+
     if (!requestData.text || requestData.text.trim() === '') {
         return res.status(400).json({ error: 'text is required' });
     }
@@ -234,13 +228,6 @@ server.app.post('/api/SubmitComment', async (req, res) => {
         if (!req.context) {
             req.context = { host };
         }
-
-        // Context injection
-        requestData = {
-            ...requestData,
-        host: req.context.host
-        
-        };
 
         // Call Elm business logic
         const elmService = server.getService('elm');
@@ -276,7 +263,11 @@ server.app.post('/api/SubmitItem', async (req, res) => {
         // Extract request data
         let requestData = req.body;
 
+        // Trim fields
+
+
         // Field validation
+
     if (!requestData.title || requestData.title.trim() === '') {
         return res.status(400).json({ error: 'title is required' });
     }
@@ -285,13 +276,6 @@ server.app.post('/api/SubmitItem', async (req, res) => {
         if (!req.context) {
             req.context = { host };
         }
-
-        // Context injection
-        requestData = {
-            ...requestData,
-        host: req.context.host
-        
-        };
 
         // Call Elm business logic
         const elmService = server.getService('elm');

@@ -14,86 +14,23 @@ import { generateUnionEncoder, generateUnionDecoder, generateUnionTypeDefinition
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Email regex pattern for validation
-const EMAIL_REGEX = '/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/';
-const URL_REGEX = '/^https?:\\/\\/.+/';
-const UUID_REGEX = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i';
 
-/**
- * Generate validation checks from validation tags
- */
-function generateValidationTagChecks(field) {
-    const checks = [];
-    const tags = field.validationTags || {};
-    const fieldName = field.name;
 
-    // Email validation
-    if (tags.validate === 'email') {
-        checks.push(`    if (requestData.${fieldName} && !${EMAIL_REGEX}.test(requestData.${fieldName})) {
-        return res.status(400).json({ error: '${fieldName} must be a valid email address' });
-    }`);
-    }
-
-    // URL validation
-    if (tags.validate === 'url') {
-        checks.push(`    if (requestData.${fieldName} && !${URL_REGEX}.test(requestData.${fieldName})) {
-        return res.status(400).json({ error: '${fieldName} must be a valid URL' });
-    }`);
-    }
-
-    // UUID validation
-    if (tags.validate === 'uuid') {
-        checks.push(`    if (requestData.${fieldName} && !${UUID_REGEX}.test(requestData.${fieldName})) {
-        return res.status(400).json({ error: '${fieldName} must be a valid UUID' });
-    }`);
-    }
-
-    // Min length validation
-    if (tags.minLength !== undefined) {
-        checks.push(`    if (requestData.${fieldName} && requestData.${fieldName}.length < ${tags.minLength}) {
-        return res.status(400).json({ error: '${fieldName} must be at least ${tags.minLength} characters' });
-    }`);
-    }
-
-    // Max length validation
-    if (tags.maxLength !== undefined) {
-        checks.push(`    if (requestData.${fieldName} && requestData.${fieldName}.length > ${tags.maxLength}) {
-        return res.status(400).json({ error: '${fieldName} must be at most ${tags.maxLength} characters' });
-    }`);
-    }
-
-    // Min value validation (for numbers)
-    if (tags.min !== undefined) {
-        checks.push(`    if (requestData.${fieldName} !== undefined && requestData.${fieldName} < ${tags.min}) {
-        return res.status(400).json({ error: '${fieldName} must be at least ${tags.min}' });
-    }`);
-    }
-
-    // Max value validation (for numbers)
-    if (tags.max !== undefined) {
-        checks.push(`    if (requestData.${fieldName} !== undefined && requestData.${fieldName} > ${tags.max}) {
-        return res.status(400).json({ error: '${fieldName} must be at most ${tags.max}' });
-    }`);
-    }
-
-    // Custom pattern validation
-    if (tags.pattern) {
-        const escapedPattern = tags.pattern.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        checks.push(`    if (requestData.${fieldName} && !/${escapedPattern}/.test(requestData.${fieldName})) {
-        return res.status(400).json({ error: '${fieldName} format is invalid' });
-    }`);
-    }
-
-    return checks;
-}
 
 // Generate Express route for an API endpoint
 function generateRoute(api) {
     const { name, path: apiPath, fields, _elm } = api;
 
-    // Fields that need injection
-    const injectFields = fields.filter(f => f.annotations.inject);
+    // Fields that need validation
     const requiredFields = fields.filter(f => f.annotations.required);
+    const trimFields = fields.filter(f => f.annotations.trim);
+
+    // Generate trim logic
+    const trimLogic = trimFields.map(field =>
+        `    if (requestData.${field.name} && typeof requestData.${field.name} === 'string') {
+        requestData.${field.name} = requestData.${field.name}.trim();
+    }`
+    ).join('\n');
 
     // Generate required field validation
     const requiredChecks = requiredFields.map(field =>
@@ -102,19 +39,10 @@ function generateRoute(api) {
     }`
     );
 
-    // Generate validation tag checks for all fields
-    const tagChecks = fields.flatMap(generateValidationTagChecks);
-
     // Combine all validation checks
-    const validationChecks = [...requiredChecks, ...tagChecks].join('\n');
+    const validationChecks = [...requiredChecks].join('\n');
 
-    // Generate field injection
-    const injectionCode = injectFields.map(field => {
-        if (field.annotations.inject === 'host') {
-            return `        ${field.name}: req.context.host`;
-        }
-        return `        ${field.name}: req.context.${field.annotations.inject}`;
-    }).join(',\n');
+
 
     // Build JSDoc from Elm doc comments
     const requestDocComment = _elm?.request?.docComment;
@@ -141,18 +69,17 @@ server.app.post('/api/${apiPath}', async (req, res) => {
         // Extract request data
         let requestData = req.body;
 
+        // Trim fields
+${trimLogic}
+
         // Field validation
+
 ${validationChecks}
 
         // Ensure context exists
         if (!req.context) {
             req.context = { host };
         }
-
-        // Context injection
-        requestData = {
-            ...requestData,${injectionCode ? '\n' + injectionCode + '\n        ' : ''}
-        };
 
         // Call Elm business logic
         const elmService = server.getService('elm');
@@ -924,6 +851,8 @@ function generateApiRoutes(config = {}) {
 
     // Parse Elm API schemas
     const elmApiDir = paths.elmApiDir || path.join(paths.outputDir, 'models/Api');
+
+
     if (fs.existsSync(elmApiDir)) {
         const elmApis = parseElmApiDir(elmApiDir);
         rawElmApis = elmApis; // Store for backend generation
@@ -1042,7 +971,6 @@ export { generateApiRoutes };
 // Exported for testing
 export const _test = {
     generateRoute,
-    generateValidationTagChecks,
     generateElmTypeDefinition,
     generateElmEncoder,
     generateElmHttpFunction,

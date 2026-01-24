@@ -20,31 +20,22 @@ import Json.Encode
 
 -- TYPE DEFINITIONS
 
-type alias GetFeedReq =
-{
-    host : String
-}
+type alias GetFeedReq = {}
 
 type alias GetItemReq =
 {
-    host : String
     id : String
 }
 
 type alias GetItemsByTagReq =
 {
-    host : String
     tag : String
 }
 
-type alias GetTagsReq =
-{
-    host : String
-}
+type alias GetTagsReq = {}
 
 type alias SubmitCommentReq =
 {
-    host : String
     item_id : String
     parent_id : Maybe String
     text : String
@@ -53,7 +44,6 @@ type alias SubmitCommentReq =
 
 type alias SubmitItemReq =
 {
-    host : String
     title : String
     link : String
     image : String
@@ -66,36 +56,29 @@ type alias SubmitItemReq =
 -- ENCODERS
 
 encodeGetFeedReq : GetFeedReq -> Json.Encode.Value
-encodeGetFeedReq getfeedreq =
-    Json.Encode.object
-        [         ( "host", Json.Encode.string getfeedreq.host )
-        ]
+encodeGetFeedReq _ =
+    Json.Encode.object []
 
 encodeGetItemReq : GetItemReq -> Json.Encode.Value
 encodeGetItemReq getitemreq =
     Json.Encode.object
-        [         ( "host", Json.Encode.string getitemreq.host )
-        ( "id", Json.Encode.string getitemreq.id )
+        [         ( "id", Json.Encode.string getitemreq.id )
         ]
 
 encodeGetItemsByTagReq : GetItemsByTagReq -> Json.Encode.Value
 encodeGetItemsByTagReq getitemsbytagreq =
     Json.Encode.object
-        [         ( "host", Json.Encode.string getitemsbytagreq.host )
-        ( "tag", Json.Encode.string getitemsbytagreq.tag )
+        [         ( "tag", Json.Encode.string getitemsbytagreq.tag )
         ]
 
 encodeGetTagsReq : GetTagsReq -> Json.Encode.Value
-encodeGetTagsReq gettagsreq =
-    Json.Encode.object
-        [         ( "host", Json.Encode.string gettagsreq.host )
-        ]
+encodeGetTagsReq _ =
+    Json.Encode.object []
 
 encodeSubmitCommentReq : SubmitCommentReq -> Json.Encode.Value
 encodeSubmitCommentReq submitcommentreq =
     Json.Encode.object
-        [         ( "host", Json.Encode.string submitcommentreq.host )
-        ( "item_id", Json.Encode.string submitcommentreq.item_id )
+        [         ( "item_id", Json.Encode.string submitcommentreq.item_id )
         ( "parent_id", (Maybe.withDefault Json.Encode.null << Maybe.map Json.Encode.string) submitcommentreq.parent_id )
         ( "text", Json.Encode.string submitcommentreq.text )
         ( "author_name", (Maybe.withDefault Json.Encode.null << Maybe.map Json.Encode.string) submitcommentreq.author_name )
@@ -104,8 +87,7 @@ encodeSubmitCommentReq submitcommentreq =
 encodeSubmitItemReq : SubmitItemReq -> Json.Encode.Value
 encodeSubmitItemReq submititemreq =
     Json.Encode.object
-        [         ( "host", Json.Encode.string submititemreq.host )
-        ( "title", Json.Encode.string submititemreq.title )
+        [         ( "title", Json.Encode.string submititemreq.title )
         ( "link", Json.Encode.string submititemreq.link )
         ( "image", Json.Encode.string submititemreq.image )
         ( "extract", Json.Encode.string submititemreq.extract )
