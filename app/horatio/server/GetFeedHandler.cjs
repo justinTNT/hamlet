@@ -3255,18 +3255,8 @@ var $author$project$Api$Handlers$GetFeedHandler$contextDecoder = A4(
 		A2($elm$json$Json$Decode$field, 'userId', $elm$json$Json$Decode$string)),
 	$elm$json$Json$Decode$maybe(
 		A2($elm$json$Json$Decode$field, 'sessionId', $elm$json$Json$Decode$string)));
-var $author$project$BuildAmp$Api$GetFeedReq = function (host) {
-	return {host: host};
-};
-var $author$project$BuildAmp$Api$getFeedReqDecoder = A2(
-	$elm$json$Json$Decode$andThen,
-	function (x) {
-		return A2(
-			$elm$json$Json$Decode$map,
-			x,
-			A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
-	},
-	$elm$json$Json$Decode$succeed($author$project$BuildAmp$Api$GetFeedReq));
+var $author$project$BuildAmp$Api$GetFeedReq = {};
+var $author$project$BuildAmp$Api$getFeedReqDecoder = $elm$json$Json$Decode$succeed($author$project$BuildAmp$Api$GetFeedReq);
 var $elm$core$Result$map2 = F3(
 	function (func, ra, rb) {
 		if (ra.$ === 'Err') {

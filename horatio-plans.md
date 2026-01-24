@@ -8,6 +8,8 @@ DONE:
 
 TODO:
 * extension: enrich content with: tiptap owner comment, html of selection
+* expand Admin hooks 
+* implement task_abstraction_proposal.md
 * multi-admin with edit queue;
   - project key + initial host required to claim editor role (where to store?)
   - admin key per host set by editor, required for admin (where to store?)

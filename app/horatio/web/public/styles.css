@@ -199,3 +199,21 @@
 .comment-thread.root-comment::before {
     display: none;
 }
+
+/* Tag pills */
+.tag {
+    display: inline-block;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 0.85em;
+    margin-right: 8px;
+    margin-bottom: 6px;
+    text-decoration: none;
+    transition: filter 0.2s, transform 0.1s;
+}
+
+.tag:hover {
+    filter: brightness(0.85);
+    transform: scale(1.05);
+}

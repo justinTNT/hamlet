@@ -3172,10 +3172,9 @@ var $author$project$Api$Handlers$GetItemHandler$contextDecoder = A4(
 		A2($elm$json$Json$Decode$field, 'userId', $elm$json$Json$Decode$string)),
 	$elm$json$Json$Decode$maybe(
 		A2($elm$json$Json$Decode$field, 'sessionId', $elm$json$Json$Decode$string)));
-var $author$project$BuildAmp$Api$GetItemReq = F2(
-	function (host, id) {
-		return {host: host, id: id};
-	});
+var $author$project$BuildAmp$Api$GetItemReq = function (id) {
+	return {id: id};
+};
 var $author$project$BuildAmp$Api$getItemReqDecoder = A2(
 	$elm$json$Json$Decode$andThen,
 	function (x) {
@@ -3184,15 +3183,7 @@ var $author$project$BuildAmp$Api$getItemReqDecoder = A2(
 			x,
 			A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string));
 	},
-	A2(
-		$elm$json$Json$Decode$andThen,
-		function (x) {
-			return A2(
-				$elm$json$Json$Decode$map,
-				x,
-				A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
-		},
-		$elm$json$Json$Decode$succeed($author$project$BuildAmp$Api$GetItemReq)));
+	$elm$json$Json$Decode$succeed($author$project$BuildAmp$Api$GetItemReq));
 var $elm$core$Result$map2 = F3(
 	function (func, ra, rb) {
 		if (ra.$ === 'Err') {

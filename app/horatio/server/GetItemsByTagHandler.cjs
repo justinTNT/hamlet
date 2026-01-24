@@ -3174,10 +3174,9 @@ var $author$project$Api$Handlers$GetItemsByTagHandler$contextDecoder = A4(
 		A2($elm$json$Json$Decode$field, 'userId', $elm$json$Json$Decode$string)),
 	$elm$json$Json$Decode$maybe(
 		A2($elm$json$Json$Decode$field, 'sessionId', $elm$json$Json$Decode$string)));
-var $author$project$BuildAmp$Api$GetItemsByTagReq = F2(
-	function (host, tag) {
-		return {host: host, tag: tag};
-	});
+var $author$project$BuildAmp$Api$GetItemsByTagReq = function (tag) {
+	return {tag: tag};
+};
 var $author$project$BuildAmp$Api$getItemsByTagReqDecoder = A2(
 	$elm$json$Json$Decode$andThen,
 	function (x) {
@@ -3186,15 +3185,7 @@ var $author$project$BuildAmp$Api$getItemsByTagReqDecoder = A2(
 			x,
 			A2($elm$json$Json$Decode$field, 'tag', $elm$json$Json$Decode$string));
 	},
-	A2(
-		$elm$json$Json$Decode$andThen,
-		function (x) {
-			return A2(
-				$elm$json$Json$Decode$map,
-				x,
-				A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
-		},
-		$elm$json$Json$Decode$succeed($author$project$BuildAmp$Api$GetItemsByTagReq)));
+	$elm$json$Json$Decode$succeed($author$project$BuildAmp$Api$GetItemsByTagReq));
 var $elm$core$Result$map2 = F3(
 	function (func, ra, rb) {
 		if (ra.$ === 'Err') {

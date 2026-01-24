@@ -7,12 +7,6 @@ import fs from 'fs';
 import path from 'path';
 
 /**
- * Create paths object from explicit src/dest configuration
- * @param {Object} config - Configuration with src and dest paths
- * @param {string} config.src - Source models directory (absolute path)
- * @param {string} config.dest - Destination output directory (absolute path)
- */
-/**
  * Find project root by looking for .git (repo root, not subpackage)
  */
 function findProjectRoot(startDir = process.cwd()) {
@@ -35,6 +29,12 @@ function findProjectRoot(startDir = process.cwd()) {
     return process.cwd(); // Final fallback to CWD
 }
 
+/**
+ * Create paths object from explicit src/dest configuration
+ * @param {Object} config - Configuration with src and dest paths
+ * @param {string} config.src - Source models directory
+ * @param {string} config.dest - Destination output directory
+ */
 export function createPaths(config) {
     if (!config.src) {
         throw new Error('buildamp requires --src flag (path to models directory)');
@@ -52,11 +52,8 @@ export function createPaths(config) {
     const serverGlueDir = path.join(dest, 'server', '.generated');
     const webGlueDir = path.join(dest, 'web', 'src', '.generated');
 
-    // Elm model source paths (models/ directory - user-written definitions)
-    const modelsDir = path.join(dest, 'models');
-
     return {
-        // Source paths (legacy - no longer used, Elm models in shared/ are the source of truth)
+        // Source paths - Elm models are the source of truth
         modelsDir: src,
         dbModelsDir: path.join(src, 'db'),
         apiModelsDir: path.join(src, 'api'),
@@ -66,21 +63,21 @@ export function createPaths(config) {
         eventsModelsDir: path.join(src, 'events'),
         configModelsDir: path.join(src, 'config'),
 
-        // Elm model source paths (models/ directory)
-        elmSchemaDir: path.join(modelsDir, 'Schema'),
-        elmApiDir: path.join(modelsDir, 'Api'),
-        elmKvDir: path.join(modelsDir, 'Kv'),
-        elmStorageDir: path.join(modelsDir, 'Storage'),
-        elmSseDir: path.join(modelsDir, 'Sse'),
-        elmEventsDir: path.join(modelsDir, 'Events'),
-        elmConfigDir: path.join(modelsDir, 'Config'),
+        // Elm model source paths (where user-written Elm type definitions live)
+        elmSchemaDir: path.join(src, 'Schema'),
+        elmApiDir: path.join(src, 'Api'),
+        elmKvDir: path.join(src, 'Kv'),
+        elmStorageDir: path.join(src, 'Storage'),
+        elmSseDir: path.join(src, 'Sse'),
+        elmEventsDir: path.join(src, 'Events'),
+        elmConfigDir: path.join(src, 'Config'),
 
         // Output paths
         outputDir: dest,
         serverGlueDir,                 // Server JS: api-routes.js, database-queries.js, kv-store.js
         serverElmDir: serverGlueDir,   // Server Elm: BuildAmp/Database.elm, etc (add to elm.json sources)
         webGlueDir,                    // Web: ApiClient.elm, StoragePorts.elm, browser-storage.js
-        sharedElmDir: path.join(modelsDir, '.generated'),  // Shared Elm: Config.elm
+        sharedElmDir: path.join(src, '.generated'),  // Shared Elm: Config.elm (generated alongside source models)
 
         // Legacy aliases (for generator compatibility)
         jsGlueDir: serverGlueDir,      // Server-side JS (api-routes, db-queries, kv-store)
@@ -102,18 +99,18 @@ export function createPaths(config) {
             }
         },
 
-        // Helper to get Elm model paths
+        // Helper to get Elm model paths (source of truth)
         getElmModelPath: (modelType) => {
             switch (modelType) {
                 case 'db':
-                case 'schema': return path.join(modelsDir, 'Schema');
-                case 'api': return path.join(modelsDir, 'Api');
-                case 'storage': return path.join(modelsDir, 'Storage');
-                case 'kv': return path.join(modelsDir, 'Kv');
-                case 'sse': return path.join(modelsDir, 'Sse');
-                case 'events': return path.join(modelsDir, 'Events');
-                case 'config': return path.join(modelsDir, 'Config');
-                default: return modelsDir;
+                case 'schema': return path.join(src, 'Schema');
+                case 'api': return path.join(src, 'Api');
+                case 'storage': return path.join(src, 'Storage');
+                case 'kv': return path.join(src, 'Kv');
+                case 'sse': return path.join(src, 'Sse');
+                case 'events': return path.join(src, 'Events');
+                case 'config': return path.join(src, 'Config');
+                default: return src;
             }
         }
     };
@@ -146,14 +143,12 @@ export function ensureOutputDir(outputPath) {
 
 
 /**
- * Get generation paths - accepts pre-computed paths, src/dest config, or legacy config
+ * Get generation paths - accepts pre-computed paths or src/dest config
  *
  * @param {Object} config - Configuration object
  * @param {Object} [config.paths] - Pre-computed paths object (from orchestrator)
  * @param {string} [config.src] - Source models directory (for direct calls)
  * @param {string} [config.dest] - Destination output directory (for direct calls)
- * @param {string} [config.inputBasePath] - Legacy: path to models (maps to src parent)
- * @param {string} [config.handlersPath] - Legacy: path to handlers output
  */
 export function getGenerationPaths(config = {}) {
     // If paths already provided (from orchestrator), use them directly
@@ -161,52 +156,6 @@ export function getGenerationPaths(config = {}) {
         return config.paths;
     }
 
-    // Check for legacy config options (used by tests)
-    if (config.inputBasePath && !config.src) {
-        // Legacy mode - build paths from inputBasePath
-        const modelsDir = path.resolve(config.inputBasePath);
-        const outputDir = config.handlersPath ?
-            path.resolve(path.dirname(config.handlersPath), '..', '..', '..') :
-            process.cwd();
-
-        // Allow explicit jsOutputPath override for tests
-        const jsOutputDir = config.jsOutputPath
-            ? path.resolve(config.jsOutputPath)
-            : path.join(outputDir, 'server', '.generated');
-
-        const elmOutputPath = config.backendElmPath || path.join(outputDir, 'web', 'src', '.generated');
-        // For legacy mode, Elm model paths use the models directory structure
-        const elmModelsDir = path.join(outputDir, 'models');
-        return {
-            modelsDir,
-            dbModelsDir: path.join(modelsDir, 'db'),
-            apiModelsDir: path.join(modelsDir, 'api'),
-            storageModelsDir: path.join(modelsDir, 'storage'),
-            kvModelsDir: path.join(modelsDir, 'kv'),
-            sseModelsDir: path.join(modelsDir, 'sse'),
-            eventsModelsDir: path.join(modelsDir, 'events'),
-            configModelsDir: path.join(modelsDir, 'config'),
-            // Elm model source paths
-            elmSchemaDir: path.join(elmModelsDir, 'Schema'),
-            elmApiDir: path.join(elmModelsDir, 'Api'),
-            elmKvDir: path.join(elmModelsDir, 'Kv'),
-            elmStorageDir: path.join(elmModelsDir, 'Storage'),
-            elmSseDir: path.join(elmModelsDir, 'Sse'),
-            elmEventsDir: path.join(elmModelsDir, 'Events'),
-            elmConfigDir: path.join(elmModelsDir, 'Config'),
-            outputDir,
-            serverGlueDir: jsOutputDir,
-            serverElmDir: jsOutputDir,          // Legacy: same as serverGlueDir
-            webGlueDir: path.join(outputDir, 'web', 'src', '.generated'),
-            sharedElmDir: path.join(outputDir, 'models', '.generated'),
-            jsGlueDir: jsOutputDir,
-            elmGlueDir: path.join(outputDir, 'web', 'src', '.generated'),
-            elmOutputPath,
-            serverHandlersDir: config.handlersPath || path.join(outputDir, 'server', 'src', 'Api', 'Handlers'),
-            getModelPath: (modelType) => path.join(modelsDir, modelType)
-        };
-    }
-
-    // Otherwise create paths from src/dest
+    // Create paths from src/dest
     return createPaths(config);
 }

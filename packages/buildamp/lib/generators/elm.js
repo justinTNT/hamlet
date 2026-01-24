@@ -19,17 +19,8 @@ export async function generateElmSharedModules(config = {}) {
     // Use shared path utilities for consistency
     const paths = getGenerationPaths(config);
 
-    // Legacy mode (tests): use flat Generated/ structure under elmOutputPath
-    // Normal mode: use serverElmDir/Generated/ and sharedElmDir/Generated/
-    const isLegacyMode = config.inputBasePath && !config.src;
-
-    const serverOutputDir = isLegacyMode
-        ? ensureOutputDir(path.join(paths.elmOutputPath, 'BuildAmp'))
-        : ensureOutputDir(path.join(paths.serverElmDir, 'BuildAmp'));
-
-    const sharedOutputDir = isLegacyMode
-        ? ensureOutputDir(path.join(paths.elmOutputPath, 'BuildAmp'))
-        : ensureOutputDir(path.join(paths.sharedElmDir, 'BuildAmp'));
+    const serverOutputDir = ensureOutputDir(path.join(paths.serverElmDir, 'BuildAmp'));
+    const sharedOutputDir = ensureOutputDir(path.join(paths.sharedElmDir, 'BuildAmp'));
 
     // Server-only modules (Events.elm handled separately below)
     const serverModules = [

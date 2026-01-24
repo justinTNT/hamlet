@@ -2959,18 +2959,8 @@ var $author$project$Api$Handlers$GetTagsHandler$contextDecoder = A4(
 	$elm$json$Json$Decode$maybe(
 		A2($elm$json$Json$Decode$field, 'sessionId', $elm$json$Json$Decode$string)));
 var $elm$json$Json$Decode$decodeValue = _Json_run;
-var $author$project$BuildAmp$Api$GetTagsReq = function (host) {
-	return {host: host};
-};
-var $author$project$BuildAmp$Api$getTagsReqDecoder = A2(
-	$elm$json$Json$Decode$andThen,
-	function (x) {
-		return A2(
-			$elm$json$Json$Decode$map,
-			x,
-			A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
-	},
-	$elm$json$Json$Decode$succeed($author$project$BuildAmp$Api$GetTagsReq));
+var $author$project$BuildAmp$Api$GetTagsReq = {};
+var $author$project$BuildAmp$Api$getTagsReqDecoder = $elm$json$Json$Decode$succeed($author$project$BuildAmp$Api$GetTagsReq);
 var $elm$core$Result$map2 = F3(
 	function (func, ra, rb) {
 		if (ra.$ === 'Err') {

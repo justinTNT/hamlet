@@ -3305,9 +3305,9 @@ var $elm$core$Tuple$pair = F2(
 	function (a, b) {
 		return _Utils_Tuple2(a, b);
 	});
-var $author$project$BuildAmp$Api$SubmitItemReq = F7(
-	function (host, title, link, image, extract, ownerComment, tags) {
-		return {extract: extract, host: host, image: image, link: link, ownerComment: ownerComment, tags: tags, title: title};
+var $author$project$BuildAmp$Api$SubmitItemReq = F6(
+	function (title, link, image, extract, ownerComment, tags) {
+		return {extract: extract, image: image, link: link, ownerComment: ownerComment, tags: tags, title: title};
 	});
 var $elm$json$Json$Decode$list = _Json_decodeList;
 var $author$project$BuildAmp$Api$submitItemReqDecoder = A2(
@@ -3361,15 +3361,7 @@ var $author$project$BuildAmp$Api$submitItemReqDecoder = A2(
 								x,
 								A2($elm$json$Json$Decode$field, 'title', $elm$json$Json$Decode$string));
 						},
-						A2(
-							$elm$json$Json$Decode$andThen,
-							function (x) {
-								return A2(
-									$elm$json$Json$Decode$map,
-									x,
-									A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
-							},
-							$elm$json$Json$Decode$succeed($author$project$BuildAmp$Api$SubmitItemReq))))))));
+						$elm$json$Json$Decode$succeed($author$project$BuildAmp$Api$SubmitItemReq)))))));
 var $author$project$Api$Handlers$SubmitItemHandler$decodeRequest = function (bundle) {
 	return A3(
 		$elm$core$Result$map2,

@@ -111,13 +111,20 @@ function generateElmTypeDefinition(api) {
         return `type alias ${api.struct_name} = {}`;
     }
 
-    const fields = api.fields.map(field => {
-        // Use camelCase for idiomatic Elm field names
+    const firstField = api.fields[0];
+    const firstFieldName = firstField.camelName || firstField.name;
+    const firstFieldType = firstField.elmType || firstField.type;
+
+    const restFields = api.fields.slice(1).map(field => {
         const elmFieldName = field.camelName || field.name;
-        return `    ${elmFieldName} : ${field.elmType || field.type}`;
+        return `    , ${elmFieldName} : ${field.elmType || field.type}`;
     }).join('\n');
 
-    return `type alias ${api.struct_name} =\n{\n${fields}\n}`;
+    if (restFields) {
+        return `type alias ${api.struct_name} =\n    { ${firstFieldName} : ${firstFieldType}\n${restFields}\n    }`;
+    } else {
+        return `type alias ${api.struct_name} =\n    { ${firstFieldName} : ${firstFieldType}\n    }`;
+    }
 }
 
 /**
@@ -133,9 +140,8 @@ ${functionName} _ =
     Json.Encode.object []`;
     }
 
-    const encoderFields = api.fields.map(field => {
+    function getFieldEncoder(field) {
         const elmType = field.elmType || field.type;
-        // Use camelCase for Elm record access, snake_case for JSON keys
         const elmFieldName = field.camelName || field.name;
         const jsonKey = field.name; // snake_case for wire format
         let encoder;
@@ -154,25 +160,56 @@ ${functionName} _ =
         } else {
             encoder = 'Json.Encode.string'; // Fallback
         }
-        return `        ( "${jsonKey}", ${encoder} ${paramName}.${elmFieldName} )`;
-    }).join('\n');
+        return { jsonKey, encoder, elmFieldName };
+    }
 
-    return `${functionName} : ${api.struct_name} -> Json.Encode.Value
+    const firstField = getFieldEncoder(api.fields[0]);
+    const restFields = api.fields.slice(1).map(getFieldEncoder);
+
+    const firstLine = `( "${firstField.jsonKey}", ${firstField.encoder} ${paramName}.${firstField.elmFieldName} )`;
+    const restLines = restFields.map(f =>
+        `        , ( "${f.jsonKey}", ${f.encoder} ${paramName}.${f.elmFieldName} )`
+    ).join('\n');
+
+    if (restLines) {
+        return `${functionName} : ${api.struct_name} -> Json.Encode.Value
 ${functionName} ${paramName} =
     Json.Encode.object
-        [ ${encoderFields}
+        [ ${firstLine}
+${restLines}
         ]`;
+    } else {
+        return `${functionName} : ${api.struct_name} -> Json.Encode.Value
+${functionName} ${paramName} =
+    Json.Encode.object
+        [ ${firstLine}
+        ]`;
+    }
 }
 
 /**
- * Generate Elm HTTP function for API call
+ * Generate Elm HTTP function for API call (with typed response)
  */
-function generateElmHttpFunction(api) {
+function generateElmHttpFunction(api, hasTypedResponse = false) {
     const functionName = `${api.path.toLowerCase()}`;
     const requestType = api.struct_name;
     const encoderName = `encode${api.struct_name}`;
+    const responseType = `${api.path}Res`;
+    const decoderName = `${lcFirst(api.path)}ResDecoder`;
 
-    return `{-| Call ${api.path} API endpoint
+    if (hasTypedResponse) {
+        return `{-| Call ${api.path} API endpoint
+-}
+${functionName} : ${requestType} -> (Result Http.Error ${responseType} -> msg) -> Cmd msg
+${functionName} request toMsg =
+    Http.post
+        { url = "/api/${api.path}"
+        , body = Http.jsonBody (${encoderName} request)
+        , expect = Http.expectJson toMsg ${decoderName}
+        }`;
+    } else {
+        // Fallback for APIs without typed response
+        return `{-| Call ${api.path} API endpoint
 -}
 ${functionName} : ${requestType} -> (Result Http.Error Json.Decode.Value -> msg) -> Cmd msg
 ${functionName} request toMsg =
@@ -181,24 +218,85 @@ ${functionName} request toMsg =
         , body = Http.jsonBody (${encoderName} request)
         , expect = Http.expectJson toMsg Json.Decode.value
         }`;
+    }
 }
 
 /**
  * Generate complete Elm API client module
- * @param {Array} allApis - All parsed API definitions
+ * @param {Array} allApis - All parsed API definitions (converted format)
+ * @param {Array} rawElmApis - Raw parsed Elm API modules (for response types)
  * @param {Set} dbReferences - Set of DB model names referenced by API models
  */
-function generateElmApiClient(allApis, dbReferences = new Set()) {
-    const moduleDeclarations = allApis.map(api => {
+function generateElmApiClient(allApis, rawElmApis = [], dbReferences = new Set()) {
+    // Build a map of endpoint name to raw API for response info
+    const rawApiMap = new Map();
+    for (const rawApi of rawElmApis) {
+        rawApiMap.set(rawApi.name, rawApi);
+    }
+
+    // Collect response types and helper types from raw APIs
+    const responseTypes = [];
+    const helperTypes = [];
+
+    for (const rawApi of rawElmApis) {
+        if (rawApi.response && rawApi.response.fields) {
+            responseTypes.push({
+                name: `${rawApi.name}Res`,
+                fields: rawApi.response.fields
+            });
+        }
+        // Collect helper types (deduplicated by name)
+        if (rawApi.helperTypes) {
+            for (const helper of rawApi.helperTypes) {
+                if (!helperTypes.find(h => h.name === helper.name)) {
+                    helperTypes.push(helper);
+                }
+            }
+        }
+    }
+
+    // Combine all types that need definitions and decoders
+    const allResponseTypes = [...helperTypes, ...responseTypes];
+
+    // Generate module exports
+    const moduleDeclarations = [];
+
+    // Request types and encoders
+    for (const api of allApis) {
         const functionName = api.path.toLowerCase();
         const typeName = api.struct_name;
         const encoderName = `encode${api.struct_name}`;
-        return `${functionName}, ${typeName}, ${encoderName}`;
-    });
+        moduleDeclarations.push(`${functionName}, ${typeName}, ${encoderName}`);
+    }
 
-    const typeDefinitions = allApis.map(generateElmTypeDefinition).join('\n\n');
-    const encoders = allApis.map(generateElmEncoder).join('\n\n');
-    const httpFunctions = allApis.map(generateElmHttpFunction).join('\n\n');
+    // Response types and decoders
+    for (const resType of allResponseTypes) {
+        const decoderName = `${lcFirst(resType.name)}Decoder`;
+        moduleDeclarations.push(`${resType.name}, ${decoderName}`);
+    }
+
+    // Generate request type definitions
+    const requestTypeDefinitions = allApis.map(generateElmTypeDefinition).join('\n\n');
+
+    // Generate response type definitions using the backend generator functions
+    const responseTypeDefinitions = allResponseTypes.map(t =>
+        generateBackendTypeAlias(t.name, t.fields)
+    ).join('\n\n');
+
+    // Generate request encoders
+    const requestEncoders = allApis.map(generateElmEncoder).join('\n\n');
+
+    // Generate response decoders
+    const responseDecoders = allResponseTypes.map(t =>
+        generateBackendDecoder(t.name, t.fields)
+    ).join('\n\n');
+
+    // Generate HTTP functions (with typed responses where available)
+    const httpFunctions = allApis.map(api => {
+        const rawApi = rawApiMap.get(api.path);
+        const hasTypedResponse = rawApi && rawApi.response && rawApi.response.fields;
+        return generateElmHttpFunction(api, hasTypedResponse);
+    }).join('\n\n');
 
     // Generate cross-model imports for DB references
     const dbReferencesArray = Array.from(dbReferences);
@@ -207,7 +305,7 @@ function generateElmApiClient(allApis, dbReferences = new Set()) {
         : '';
 
     return `-- Auto-Generated Elm API Client
--- Generated from Elm API definitions in shared/Api/
+-- Generated from Elm API definitions in models/Api/
 --
 -- DO NOT EDIT THIS FILE MANUALLY
 -- Changes will be overwritten during next generation
@@ -221,14 +319,24 @@ import Json.Decode
 import Json.Encode
 ${crossModelImports}
 
--- TYPE DEFINITIONS
+-- REQUEST TYPES
 
-${typeDefinitions}
+${requestTypeDefinitions}
 
 
--- ENCODERS
+-- RESPONSE TYPES
 
-${encoders}
+${responseTypeDefinitions}
+
+
+-- REQUEST ENCODERS
+
+${requestEncoders}
+
+
+-- RESPONSE DECODERS
+
+${responseDecoders}
 
 
 -- HTTP FUNCTIONS
@@ -887,8 +995,8 @@ function generateApiRoutes(config = {}) {
     // Generate JavaScript routes for each API
     const allRoutes = allApis.map(generateRoute).join('\n\n');
 
-    // Generate Elm client code for each API (with cross-model imports)
-    const elmClientCode = generateElmApiClient(allApis, allDbReferences);
+    // Generate Elm client code for each API (with response types and cross-model imports)
+    const elmClientCode = generateElmApiClient(allApis, rawElmApis, allDbReferences);
 
     // Generate Elm backend types for each API (including union types)
     const elmBackendCode = generateElmBackendTypes(allApis, allUnionTypes);
@@ -921,9 +1029,9 @@ ${allRoutes}
     const jsOutputFile = path.join(outputPath, 'api-routes.js');
     fs.writeFileSync(jsOutputFile, outputContent);
 
-    // Write Elm client file
-    const elmOutputPath = ensureOutputDir(paths.elmGlueDir);
-    const elmOutputFile = path.join(elmOutputPath, 'ApiClient.elm');
+    // Write Elm client file (in BuildAmp/ subdirectory to match module name)
+    const elmBuildAmpPath = ensureOutputDir(path.join(paths.elmGlueDir, 'BuildAmp'));
+    const elmOutputFile = path.join(elmBuildAmpPath, 'ApiClient.elm');
     fs.writeFileSync(elmOutputFile, elmClientCode);
 
     // Write Elm backend types file (legacy - BackendTypes.elm)

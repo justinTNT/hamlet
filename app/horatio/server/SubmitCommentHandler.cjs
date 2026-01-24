@@ -3115,9 +3115,9 @@ var $elm$core$Tuple$pair = F2(
 	function (a, b) {
 		return _Utils_Tuple2(a, b);
 	});
-var $author$project$BuildAmp$Api$SubmitCommentReq = F5(
-	function (host, itemId, parentId, text, authorName) {
-		return {authorName: authorName, host: host, itemId: itemId, parentId: parentId, text: text};
+var $author$project$BuildAmp$Api$SubmitCommentReq = F4(
+	function (itemId, parentId, text, authorName) {
+		return {authorName: authorName, itemId: itemId, parentId: parentId, text: text};
 	});
 var $elm$json$Json$Decode$nullable = function (decoder) {
 	return $elm$json$Json$Decode$oneOf(
@@ -3165,15 +3165,7 @@ var $author$project$BuildAmp$Api$submitCommentReqDecoder = A2(
 						x,
 						A2($elm$json$Json$Decode$field, 'item_id', $elm$json$Json$Decode$string));
 				},
-				A2(
-					$elm$json$Json$Decode$andThen,
-					function (x) {
-						return A2(
-							$elm$json$Json$Decode$map,
-							x,
-							A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string));
-					},
-					$elm$json$Json$Decode$succeed($author$project$BuildAmp$Api$SubmitCommentReq))))));
+				$elm$json$Json$Decode$succeed($author$project$BuildAmp$Api$SubmitCommentReq)))));
 var $author$project$Api$Handlers$SubmitCommentHandler$decodeRequest = function (bundle) {
 	return A3(
 		$elm$core$Result$map2,
