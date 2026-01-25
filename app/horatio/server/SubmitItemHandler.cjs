@@ -2837,150 +2837,68 @@ var $elm$core$Result$isOk = function (result) {
 };
 var $elm$json$Json$Decode$andThen = _Json_andThen;
 var $elm$json$Json$Decode$bool = _Json_decodeBool;
+var $author$project$BuildAmp$Api$SubmitItemReq = F6(
+	function (title, link, image, extract, ownerComment, tags) {
+		return {extract: extract, image: image, link: link, ownerComment: ownerComment, tags: tags, title: title};
+	});
 var $elm$json$Json$Decode$field = _Json_decodeField;
-var $author$project$Api$Handlers$SubmitItemHandler$Idle = {$: 'Idle'};
-var $elm$core$Platform$Cmd$batch = _Platform_batch;
-var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
-var $author$project$Api$Handlers$SubmitItemHandler$init = function (flags) {
-	return _Utils_Tuple2(
-		{context: $elm$core$Maybe$Nothing, createdItemId: $elm$core$Maybe$Nothing, createdTagIds: _List_Nil, existingTags: _List_Nil, globalConfig: flags.globalConfig, globalState: flags.globalState, request: $elm$core$Maybe$Nothing, stage: $author$project$Api$Handlers$SubmitItemHandler$Idle, tagsToCreate: _List_Nil},
-		$elm$core$Platform$Cmd$none);
-};
-var $elm$json$Json$Decode$int = _Json_decodeInt;
-var $elm$json$Json$Decode$string = _Json_decodeString;
-var $author$project$Api$Handlers$SubmitItemHandler$HandleRequest = function (a) {
-	return {$: 'HandleRequest', a: a};
-};
-var $author$project$Api$Handlers$SubmitItemHandler$ItemCreated = function (a) {
-	return {$: 'ItemCreated', a: a};
-};
-var $author$project$Api$Handlers$SubmitItemHandler$TagCreated = function (a) {
-	return {$: 'TagCreated', a: a};
-};
-var $author$project$Api$Handlers$SubmitItemHandler$TagLinked = function (a) {
-	return {$: 'TagLinked', a: a};
-};
-var $author$project$Api$Handlers$SubmitItemHandler$TagsLoaded = function (a) {
-	return {$: 'TagsLoaded', a: a};
-};
-var $elm$core$Platform$Sub$batch = _Platform_batch;
+var $elm$json$Json$Decode$list = _Json_decodeList;
 var $elm$json$Json$Decode$map = _Json_map1;
-var $elm$json$Json$Decode$null = _Json_decodeNull;
-var $elm$json$Json$Decode$oneOf = _Json_oneOf;
+var $elm$json$Json$Decode$string = _Json_decodeString;
 var $elm$json$Json$Decode$succeed = _Json_succeed;
-var $elm$json$Json$Decode$value = _Json_decodeValue;
-var $author$project$BuildAmp$Database$dbResult = _Platform_incomingPort(
-	'dbResult',
+var $author$project$BuildAmp$Api$submitItemReqDecoder = A2(
+	$elm$json$Json$Decode$andThen,
+	function (x) {
+		return A2(
+			$elm$json$Json$Decode$map,
+			x,
+			A2(
+				$elm$json$Json$Decode$field,
+				'tags',
+				$elm$json$Json$Decode$list($elm$json$Json$Decode$string)));
+	},
 	A2(
 		$elm$json$Json$Decode$andThen,
-		function (success) {
+		function (x) {
 			return A2(
-				$elm$json$Json$Decode$andThen,
-				function (id) {
-					return A2(
-						$elm$json$Json$Decode$andThen,
-						function (error) {
-							return A2(
-								$elm$json$Json$Decode$andThen,
-								function (data) {
-									return $elm$json$Json$Decode$succeed(
-										{data: data, error: error, id: id, success: success});
-								},
-								A2(
-									$elm$json$Json$Decode$field,
-									'data',
-									$elm$json$Json$Decode$oneOf(
-										_List_fromArray(
-											[
-												$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
-												A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$json$Json$Decode$value)
-											]))));
-						},
-						A2(
-							$elm$json$Json$Decode$field,
-							'error',
-							$elm$json$Json$Decode$oneOf(
-								_List_fromArray(
-									[
-										$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
-										A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$json$Json$Decode$string)
-									]))));
-				},
-				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string));
+				$elm$json$Json$Decode$map,
+				x,
+				A2($elm$json$Json$Decode$field, 'owner_comment', $elm$json$Json$Decode$string));
 		},
-		A2($elm$json$Json$Decode$field, 'success', $elm$json$Json$Decode$bool)));
-var $author$project$Api$Handlers$SubmitItemHandler$handleRequest = _Platform_incomingPort(
-	'handleRequest',
-	A2(
-		$elm$json$Json$Decode$andThen,
-		function (request) {
-			return A2(
+		A2(
+			$elm$json$Json$Decode$andThen,
+			function (x) {
+				return A2(
+					$elm$json$Json$Decode$map,
+					x,
+					A2($elm$json$Json$Decode$field, 'extract', $elm$json$Json$Decode$string));
+			},
+			A2(
 				$elm$json$Json$Decode$andThen,
-				function (globalState) {
+				function (x) {
 					return A2(
-						$elm$json$Json$Decode$andThen,
-						function (globalConfig) {
-							return A2(
-								$elm$json$Json$Decode$andThen,
-								function (context) {
-									return $elm$json$Json$Decode$succeed(
-										{context: context, globalConfig: globalConfig, globalState: globalState, request: request});
-								},
-								A2($elm$json$Json$Decode$field, 'context', $elm$json$Json$Decode$value));
-						},
-						A2($elm$json$Json$Decode$field, 'globalConfig', $elm$json$Json$Decode$value));
+						$elm$json$Json$Decode$map,
+						x,
+						A2($elm$json$Json$Decode$field, 'image', $elm$json$Json$Decode$string));
 				},
-				A2($elm$json$Json$Decode$field, 'globalState', $elm$json$Json$Decode$value));
-		},
-		A2($elm$json$Json$Decode$field, 'request', $elm$json$Json$Decode$value)));
-var $author$project$Api$Handlers$SubmitItemHandler$subscriptions = function (_v0) {
-	return $elm$core$Platform$Sub$batch(
-		_List_fromArray(
-			[
-				$author$project$Api$Handlers$SubmitItemHandler$handleRequest($author$project$Api$Handlers$SubmitItemHandler$HandleRequest),
-				$author$project$BuildAmp$Database$dbResult($author$project$Api$Handlers$SubmitItemHandler$ItemCreated),
-				$author$project$BuildAmp$Database$dbResult($author$project$Api$Handlers$SubmitItemHandler$TagsLoaded),
-				$author$project$BuildAmp$Database$dbResult($author$project$Api$Handlers$SubmitItemHandler$TagCreated),
-				$author$project$BuildAmp$Database$dbResult($author$project$Api$Handlers$SubmitItemHandler$TagLinked)
-			]));
-};
-var $author$project$Api$Handlers$SubmitItemHandler$CreatingItem = {$: 'CreatingItem'};
-var $author$project$Api$Handlers$SubmitItemHandler$CreatingTags = {$: 'CreatingTags'};
-var $author$project$Api$Handlers$SubmitItemHandler$Failed = function (a) {
-	return {$: 'Failed', a: a};
-};
-var $author$project$Api$Handlers$SubmitItemHandler$LinkingTags = {$: 'LinkingTags'};
-var $author$project$Api$Handlers$SubmitItemHandler$LoadingTags = {$: 'LoadingTags'};
-var $elm$core$Basics$identity = function (x) {
-	return x;
-};
-var $author$project$Api$Handlers$SubmitItemHandler$complete = _Platform_outgoingPort('complete', $elm$core$Basics$identity);
-var $author$project$Api$Handlers$SubmitItemHandler$Complete = function (a) {
-	return {$: 'Complete', a: a};
-};
-var $elm$json$Json$Encode$object = function (pairs) {
-	return _Json_wrap(
-		A3(
-			$elm$core$List$foldl,
-			F2(
-				function (_v0, obj) {
-					var k = _v0.a;
-					var v = _v0.b;
-					return A3(_Json_addField, k, v, obj);
-				}),
-			_Json_emptyObject(_Utils_Tuple0),
-			pairs));
-};
-var $elm$json$Json$Encode$string = _Json_wrap;
-var $author$project$Api$Handlers$SubmitItemHandler$encodeError = function (error) {
-	return $elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'error',
-				$elm$json$Json$Encode$string(error))
-			]));
-};
+				A2(
+					$elm$json$Json$Decode$andThen,
+					function (x) {
+						return A2(
+							$elm$json$Json$Decode$map,
+							x,
+							A2($elm$json$Json$Decode$field, 'link', $elm$json$Json$Decode$string));
+					},
+					A2(
+						$elm$json$Json$Decode$andThen,
+						function (x) {
+							return A2(
+								$elm$json$Json$Decode$map,
+								x,
+								A2($elm$json$Json$Decode$field, 'title', $elm$json$Json$Decode$string));
+						},
+						$elm$json$Json$Decode$succeed($author$project$BuildAmp$Api$SubmitItemReq)))))));
+var $author$project$Api$Scripts$SubmitItem$decodeRequest = $author$project$BuildAmp$Api$submitItemReqDecoder;
 var $elm$core$Basics$composeL = F3(
 	function (g, f, x) {
 		return g(
@@ -2998,6 +2916,20 @@ var $elm$core$Maybe$map = F2(
 		}
 	});
 var $elm$json$Json$Encode$null = _Json_encodeNull;
+var $elm$json$Json$Encode$object = function (pairs) {
+	return _Json_wrap(
+		A3(
+			$elm$core$List$foldl,
+			F2(
+				function (_v0, obj) {
+					var k = _v0.a;
+					var v = _v0.b;
+					return A3(_Json_addField, k, v, obj);
+				}),
+			_Json_emptyObject(_Utils_Tuple0),
+			pairs));
+};
+var $elm$json$Json$Encode$string = _Json_wrap;
 var $elm$core$Maybe$withDefault = F2(
 	function (_default, maybe) {
 		if (maybe.$ === 'Just') {
@@ -3088,136 +3020,214 @@ var $author$project$BuildAmp$Api$submitItemResEncoder = function (struct) {
 				$author$project$BuildAmp$Api$microblogItemEncoder(struct.item))
 			]));
 };
-var $author$project$Api$Handlers$SubmitItemHandler$encodeSubmitItemRes = function (response) {
-	return $author$project$BuildAmp$Api$submitItemResEncoder(response);
+var $author$project$Api$Scripts$SubmitItem$encodeResponse = $author$project$BuildAmp$Api$submitItemResEncoder;
+var $author$project$Backend$Script$Fail = function (a) {
+	return {$: 'Fail', a: a};
 };
-var $author$project$Api$Handlers$SubmitItemHandler$completeWithItem = F2(
-	function (model, req) {
-		var _v0 = model.createdItemId;
-		if (_v0.$ === 'Just') {
-			var itemId = _v0.a;
-			var item = {comments: _List_Nil, extract: req.extract, id: itemId, image: req.image, link: req.link, ownerComment: req.ownerComment, tags: req.tags, timestamp: model.globalConfig.serverNow, title: req.title};
-			var response = {item: item};
-			return _Utils_Tuple2(
-				_Utils_update(
-					model,
-					{
-						stage: $author$project$Api$Handlers$SubmitItemHandler$Complete(response)
-					}),
-				$author$project$Api$Handlers$SubmitItemHandler$complete(
-					$author$project$Api$Handlers$SubmitItemHandler$encodeSubmitItemRes(response)));
-		} else {
-			return _Utils_Tuple2(
-				_Utils_update(
-					model,
-					{
-						stage: $author$project$Api$Handlers$SubmitItemHandler$Failed('Missing item ID')
-					}),
-				$author$project$Api$Handlers$SubmitItemHandler$complete(
-					$author$project$Api$Handlers$SubmitItemHandler$encodeError('Missing item ID')));
+var $author$project$Backend$Script$Step = F2(
+	function (a, b) {
+		return {$: 'Step', a: a, b: b};
+	});
+var $author$project$Backend$Script$andThen = F2(
+	function (f, script) {
+		switch (script.$) {
+			case 'Succeed':
+				var a = script.a;
+				return f(a);
+			case 'Fail':
+				var err = script.a;
+				return $author$project$Backend$Script$Fail(err);
+			default:
+				var op = script.a;
+				var cont = script.b;
+				return A2(
+					$author$project$Backend$Script$Step,
+					op,
+					function (result) {
+						return A2(
+							$author$project$Backend$Script$andThen,
+							f,
+							cont(result));
+					});
 		}
 	});
-var $author$project$BuildAmp$Database$dbCreate = _Platform_outgoingPort(
-	'dbCreate',
-	function ($) {
+var $elm$json$Json$Decode$decodeValue = _Json_run;
+var $author$project$Backend$Script$andThenDecode = F3(
+	function (decoder, f, script) {
+		return A2(
+			$author$project$Backend$Script$andThen,
+			function (value) {
+				var _v0 = A2($elm$json$Json$Decode$decodeValue, decoder, value);
+				if (_v0.$ === 'Ok') {
+					var a = _v0.a;
+					return f(a);
+				} else {
+					var err = _v0.a;
+					return $author$project$Backend$Script$Fail(
+						$elm$json$Json$Decode$errorToString(err));
+				}
+			},
+			script);
+	});
+var $author$project$Api$Scripts$SubmitItem$buildItem = F3(
+	function (itemId, req, timestamp) {
+		return {comments: _List_Nil, extract: req.extract, id: itemId, image: req.image, link: req.link, ownerComment: req.ownerComment, tags: req.tags, timestamp: timestamp, title: req.title};
+	});
+var $author$project$Backend$Script$DbCreate = function (a) {
+	return {$: 'DbCreate', a: a};
+};
+var $author$project$Backend$Script$Succeed = function (a) {
+	return {$: 'Succeed', a: a};
+};
+var $author$project$Backend$Script$dbCreate = F2(
+	function (table, data) {
+		return A2(
+			$author$project$Backend$Script$Step,
+			$author$project$Backend$Script$DbCreate(
+				{data: data, table: table}),
+			function (result) {
+				if (result.$ === 'Ok') {
+					var value = result.a;
+					return $author$project$Backend$Script$Succeed(value);
+				} else {
+					var err = result.a;
+					return $author$project$Backend$Script$Fail(err);
+				}
+			});
+	});
+var $author$project$Backend$Script$DbFind = function (a) {
+	return {$: 'DbFind', a: a};
+};
+var $author$project$Backend$Script$encodeFilter = function (filter) {
+	if (filter.$ === 'ById') {
+		var id = filter.a;
 		return $elm$json$Json$Encode$object(
 			_List_fromArray(
 				[
 					_Utils_Tuple2(
-					'data',
-					$elm$core$Basics$identity($.data)),
+					'type',
+					$elm$json$Json$Encode$string('ById')),
 					_Utils_Tuple2(
-					'id',
-					$elm$json$Json$Encode$string($.id)),
-					_Utils_Tuple2(
-					'table',
-					$elm$json$Json$Encode$string($.table))
+					'value',
+					$elm$json$Json$Encode$string(id))
 				]));
-	});
-var $elm$core$String$isEmpty = function (string) {
-	return string === '';
+	} else {
+		var field = filter.a;
+		var value = filter.b;
+		return $elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'type',
+					$elm$json$Json$Encode$string('ByField')),
+					_Utils_Tuple2(
+					'field',
+					$elm$json$Json$Encode$string(field)),
+					_Utils_Tuple2(
+					'value',
+					$elm$json$Json$Encode$string(value))
+				]));
+	}
 };
-var $author$project$Api$Handlers$SubmitItemHandler$wrapInRichContent = function (plainText) {
+var $author$project$Backend$Script$encodeSort = function (sort) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
 			[
 				_Utils_Tuple2(
-				'type',
-				$elm$json$Json$Encode$string('doc')),
+				'field',
+				$elm$json$Json$Encode$string(sort.field)),
 				_Utils_Tuple2(
-				'content',
-				A2(
-					$elm$json$Json$Encode$list,
-					$elm$core$Basics$identity,
-					_List_fromArray(
-						[
-							$elm$json$Json$Encode$object(
-							_List_fromArray(
-								[
-									_Utils_Tuple2(
-									'type',
-									$elm$json$Json$Encode$string('paragraph')),
-									_Utils_Tuple2(
-									'content',
-									A2(
-										$elm$json$Json$Encode$list,
-										$elm$core$Basics$identity,
-										_List_fromArray(
-											[
-												$elm$json$Json$Encode$object(
-												_List_fromArray(
-													[
-														_Utils_Tuple2(
-														'type',
-														$elm$json$Json$Encode$string('text')),
-														_Utils_Tuple2(
-														'text',
-														$elm$json$Json$Encode$string(plainText))
-													]))
-											])))
-								]))
-						])))
+				'direction',
+				$elm$json$Json$Encode$string(
+					function () {
+						var _v0 = sort.direction;
+						if (_v0.$ === 'Asc') {
+							return 'Asc';
+						} else {
+							return 'Desc';
+						}
+					}()))
 			]));
 };
-var $author$project$Api$Handlers$SubmitItemHandler$createMicroblogItem = F3(
-	function (itemId, req, timestamp) {
-		var encodeOptionalRichContent = function (str) {
-			return $elm$core$String$isEmpty(str) ? $elm$json$Json$Encode$null : $author$project$Api$Handlers$SubmitItemHandler$wrapInRichContent(str);
-		};
-		var encodeOptional = function (str) {
-			return $elm$core$String$isEmpty(str) ? $elm$json$Json$Encode$null : $elm$json$Json$Encode$string(str);
-		};
-		var data = $elm$json$Json$Encode$object(
-			_List_fromArray(
-				[
-					_Utils_Tuple2(
-					'id',
-					$elm$json$Json$Encode$string(itemId)),
-					_Utils_Tuple2(
-					'title',
-					$elm$json$Json$Encode$string(req.title)),
-					_Utils_Tuple2(
-					'link',
-					encodeOptional(req.link)),
-					_Utils_Tuple2(
-					'image',
-					encodeOptional(req.image)),
-					_Utils_Tuple2(
-					'extract',
-					encodeOptionalRichContent(req.extract)),
-					_Utils_Tuple2(
-					'owner_comment',
-					$author$project$Api$Handlers$SubmitItemHandler$wrapInRichContent(req.ownerComment)),
-					_Utils_Tuple2(
-					'created_at',
-					$elm$json$Json$Encode$int(timestamp)),
-					_Utils_Tuple2(
-					'view_count',
-					$elm$json$Json$Encode$int(0))
-				]));
-		return $author$project$BuildAmp$Database$dbCreate(
-			{data: data, id: 'create_item', table: 'microblog_item'});
+var $author$project$Backend$Script$encodeQuery = function (query) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'filter',
+				A2($elm$json$Json$Encode$list, $author$project$Backend$Script$encodeFilter, query.filter)),
+				_Utils_Tuple2(
+				'sort',
+				A2($elm$json$Json$Encode$list, $author$project$Backend$Script$encodeSort, query.sort))
+			]));
+};
+var $author$project$Backend$Script$dbFind = F2(
+	function (table, query) {
+		return A2(
+			$author$project$Backend$Script$Step,
+			$author$project$Backend$Script$DbFind(
+				{
+					query: $author$project$Backend$Script$encodeQuery(query),
+					table: table
+				}),
+			function (result) {
+				if (result.$ === 'Ok') {
+					var value = result.a;
+					return $author$project$Backend$Script$Succeed(value);
+				} else {
+					var err = result.a;
+					return $author$project$Backend$Script$Fail(err);
+				}
+			});
 	});
+var $author$project$BuildAmp$Database$encodeItemTagDbCreate = function (item) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'item_id',
+				$elm$json$Json$Encode$string(item.itemId)),
+				_Utils_Tuple2(
+				'tag_id',
+				$elm$json$Json$Encode$string(item.tagId))
+			]));
+};
+var $author$project$BuildAmp$Database$encodeMaybe = F2(
+	function (encoder, maybeValue) {
+		if (maybeValue.$ === 'Nothing') {
+			return $elm$json$Json$Encode$null;
+		} else {
+			var value = maybeValue.a;
+			return encoder(value);
+		}
+	});
+var $elm$core$Basics$identity = function (x) {
+	return x;
+};
+var $author$project$BuildAmp$Database$encodeMicroblogItemDbCreate = function (item) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'title',
+				$elm$json$Json$Encode$string(item.title)),
+				_Utils_Tuple2(
+				'link',
+				A2($author$project$BuildAmp$Database$encodeMaybe, $elm$json$Json$Encode$string, item.link)),
+				_Utils_Tuple2(
+				'image',
+				A2($author$project$BuildAmp$Database$encodeMaybe, $elm$json$Json$Encode$string, item.image)),
+				_Utils_Tuple2(
+				'extract',
+				A2($author$project$BuildAmp$Database$encodeMaybe, $elm$core$Basics$identity, item.extract)),
+				_Utils_Tuple2(
+				'owner_comment',
+				$elm$core$Basics$identity(item.ownerComment)),
+				_Utils_Tuple2(
+				'view_count',
+				$elm$json$Json$Encode$int(item.viewCount))
+			]));
+};
 var $author$project$BuildAmp$Database$encodeTagDbCreate = function (item) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
@@ -3227,175 +3237,6 @@ var $author$project$BuildAmp$Database$encodeTagDbCreate = function (item) {
 				$elm$json$Json$Encode$string(item.name))
 			]));
 };
-var $elm$core$List$head = function (list) {
-	if (list.b) {
-		var x = list.a;
-		var xs = list.b;
-		return $elm$core$Maybe$Just(x);
-	} else {
-		return $elm$core$Maybe$Nothing;
-	}
-};
-var $author$project$Api$Handlers$SubmitItemHandler$createNextTag = function (tags) {
-	var _v0 = $elm$core$List$head(tags);
-	if (_v0.$ === 'Just') {
-		var tagName = _v0.a;
-		return $author$project$BuildAmp$Database$dbCreate(
-			{
-				data: $author$project$BuildAmp$Database$encodeTagDbCreate(
-					{name: tagName}),
-				id: 'create_tag_' + tagName,
-				table: 'tag'
-			});
-	} else {
-		return $elm$core$Platform$Cmd$none;
-	}
-};
-var $author$project$Api$Handlers$SubmitItemHandler$Context = F3(
-	function (host, userId, sessionId) {
-		return {host: host, sessionId: sessionId, userId: userId};
-	});
-var $elm$json$Json$Decode$map3 = _Json_map3;
-var $elm$json$Json$Decode$maybe = function (decoder) {
-	return $elm$json$Json$Decode$oneOf(
-		_List_fromArray(
-			[
-				A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, decoder),
-				$elm$json$Json$Decode$succeed($elm$core$Maybe$Nothing)
-			]));
-};
-var $author$project$Api$Handlers$SubmitItemHandler$contextDecoder = A4(
-	$elm$json$Json$Decode$map3,
-	$author$project$Api$Handlers$SubmitItemHandler$Context,
-	A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string),
-	$elm$json$Json$Decode$maybe(
-		A2($elm$json$Json$Decode$field, 'userId', $elm$json$Json$Decode$string)),
-	$elm$json$Json$Decode$maybe(
-		A2($elm$json$Json$Decode$field, 'sessionId', $elm$json$Json$Decode$string)));
-var $elm$json$Json$Decode$decodeValue = _Json_run;
-var $elm$core$Result$map2 = F3(
-	function (func, ra, rb) {
-		if (ra.$ === 'Err') {
-			var x = ra.a;
-			return $elm$core$Result$Err(x);
-		} else {
-			var a = ra.a;
-			if (rb.$ === 'Err') {
-				var x = rb.a;
-				return $elm$core$Result$Err(x);
-			} else {
-				var b = rb.a;
-				return $elm$core$Result$Ok(
-					A2(func, a, b));
-			}
-		}
-	});
-var $elm$core$Result$mapError = F2(
-	function (f, result) {
-		if (result.$ === 'Ok') {
-			var v = result.a;
-			return $elm$core$Result$Ok(v);
-		} else {
-			var e = result.a;
-			return $elm$core$Result$Err(
-				f(e));
-		}
-	});
-var $elm$core$Tuple$pair = F2(
-	function (a, b) {
-		return _Utils_Tuple2(a, b);
-	});
-var $author$project$BuildAmp$Api$SubmitItemReq = F6(
-	function (title, link, image, extract, ownerComment, tags) {
-		return {extract: extract, image: image, link: link, ownerComment: ownerComment, tags: tags, title: title};
-	});
-var $elm$json$Json$Decode$list = _Json_decodeList;
-var $author$project$BuildAmp$Api$submitItemReqDecoder = A2(
-	$elm$json$Json$Decode$andThen,
-	function (x) {
-		return A2(
-			$elm$json$Json$Decode$map,
-			x,
-			A2(
-				$elm$json$Json$Decode$field,
-				'tags',
-				$elm$json$Json$Decode$list($elm$json$Json$Decode$string)));
-	},
-	A2(
-		$elm$json$Json$Decode$andThen,
-		function (x) {
-			return A2(
-				$elm$json$Json$Decode$map,
-				x,
-				A2($elm$json$Json$Decode$field, 'owner_comment', $elm$json$Json$Decode$string));
-		},
-		A2(
-			$elm$json$Json$Decode$andThen,
-			function (x) {
-				return A2(
-					$elm$json$Json$Decode$map,
-					x,
-					A2($elm$json$Json$Decode$field, 'extract', $elm$json$Json$Decode$string));
-			},
-			A2(
-				$elm$json$Json$Decode$andThen,
-				function (x) {
-					return A2(
-						$elm$json$Json$Decode$map,
-						x,
-						A2($elm$json$Json$Decode$field, 'image', $elm$json$Json$Decode$string));
-				},
-				A2(
-					$elm$json$Json$Decode$andThen,
-					function (x) {
-						return A2(
-							$elm$json$Json$Decode$map,
-							x,
-							A2($elm$json$Json$Decode$field, 'link', $elm$json$Json$Decode$string));
-					},
-					A2(
-						$elm$json$Json$Decode$andThen,
-						function (x) {
-							return A2(
-								$elm$json$Json$Decode$map,
-								x,
-								A2($elm$json$Json$Decode$field, 'title', $elm$json$Json$Decode$string));
-						},
-						$elm$json$Json$Decode$succeed($author$project$BuildAmp$Api$SubmitItemReq)))))));
-var $author$project$Api$Handlers$SubmitItemHandler$decodeRequest = function (bundle) {
-	return A3(
-		$elm$core$Result$map2,
-		$elm$core$Tuple$pair,
-		A2(
-			$elm$core$Result$mapError,
-			$elm$json$Json$Decode$errorToString,
-			A2($elm$json$Json$Decode$decodeValue, $author$project$BuildAmp$Api$submitItemReqDecoder, bundle.request)),
-		A2(
-			$elm$core$Result$mapError,
-			$elm$json$Json$Decode$errorToString,
-			A2($elm$json$Json$Decode$decodeValue, $author$project$Api$Handlers$SubmitItemHandler$contextDecoder, bundle.context)));
-};
-var $elm$core$List$drop = F2(
-	function (n, list) {
-		drop:
-		while (true) {
-			if (n <= 0) {
-				return list;
-			} else {
-				if (!list.b) {
-					return list;
-				} else {
-					var x = list.a;
-					var xs = list.b;
-					var $temp$n = n - 1,
-						$temp$list = xs;
-					n = $temp$n;
-					list = $temp$list;
-					continue drop;
-				}
-			}
-		}
-	});
 var $elm$core$List$foldrHelper = F4(
 	function (fn, acc, ctr, ls) {
 		if (!ls.b) {
@@ -3462,6 +3303,119 @@ var $elm$core$List$filter = F2(
 			_List_Nil,
 			list);
 	});
+var $elm$core$List$map = F2(
+	function (f, xs) {
+		return A3(
+			$elm$core$List$foldr,
+			F2(
+				function (x, acc) {
+					return A2(
+						$elm$core$List$cons,
+						f(x),
+						acc);
+				}),
+			_List_Nil,
+			xs);
+	});
+var $author$project$Backend$Script$map = F2(
+	function (f, script) {
+		switch (script.$) {
+			case 'Succeed':
+				var a = script.a;
+				return $author$project$Backend$Script$Succeed(
+					f(a));
+			case 'Fail':
+				var err = script.a;
+				return $author$project$Backend$Script$Fail(err);
+			default:
+				var op = script.a;
+				var cont = script.b;
+				return A2(
+					$author$project$Backend$Script$Step,
+					op,
+					function (result) {
+						return A2(
+							$author$project$Backend$Script$map,
+							f,
+							cont(result));
+					});
+		}
+	});
+var $author$project$Backend$Script$sequence = function (scripts) {
+	if (!scripts.b) {
+		return $author$project$Backend$Script$Succeed(_List_Nil);
+	} else {
+		var first = scripts.a;
+		var rest = scripts.b;
+		return A2(
+			$author$project$Backend$Script$andThen,
+			function (a) {
+				return A2(
+					$author$project$Backend$Script$map,
+					function (as_) {
+						return A2($elm$core$List$cons, a, as_);
+					},
+					$author$project$Backend$Script$sequence(rest));
+			},
+			first);
+	}
+};
+var $author$project$Backend$Script$forEach = F2(
+	function (items, f) {
+		return $author$project$Backend$Script$sequence(
+			A2($elm$core$List$map, f, items));
+	});
+var $author$project$Backend$RichContent$fromPlainText = function (text) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'type',
+				$elm$json$Json$Encode$string('doc')),
+				_Utils_Tuple2(
+				'content',
+				A2(
+					$elm$json$Json$Encode$list,
+					$elm$core$Basics$identity,
+					_List_fromArray(
+						[
+							$elm$json$Json$Encode$object(
+							_List_fromArray(
+								[
+									_Utils_Tuple2(
+									'type',
+									$elm$json$Json$Encode$string('paragraph')),
+									_Utils_Tuple2(
+									'content',
+									A2(
+										$elm$json$Json$Encode$list,
+										$elm$core$Basics$identity,
+										_List_fromArray(
+											[
+												$elm$json$Json$Encode$object(
+												_List_fromArray(
+													[
+														_Utils_Tuple2(
+														'type',
+														$elm$json$Json$Encode$string('text')),
+														_Utils_Tuple2(
+														'text',
+														$elm$json$Json$Encode$string(text))
+													]))
+											])))
+								]))
+						])))
+			]));
+};
+var $elm$core$String$isEmpty = function (string) {
+	return string === '';
+};
+var $elm$core$String$trim = _String_trim;
+var $author$project$Backend$RichContent$fromPlainTextMaybe = function (text) {
+	return $elm$core$String$isEmpty(
+		$elm$core$String$trim(text)) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(
+		$author$project$Backend$RichContent$fromPlainText(text));
+};
 var $elm$core$List$maybeCons = F3(
 	function (f, mx, xs) {
 		var _v0 = f(mx);
@@ -3480,7 +3434,16 @@ var $elm$core$List$filterMap = F2(
 			_List_Nil,
 			xs);
 	});
-var $author$project$Api$Handlers$SubmitItemHandler$getTagIdsForNames = F2(
+var $elm$core$List$head = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return $elm$core$Maybe$Just(x);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $author$project$Api$Scripts$SubmitItem$getTagIdsForNames = F2(
 	function (names, tags) {
 		return A2(
 			$elm$core$List$filterMap,
@@ -3499,408 +3462,6 @@ var $author$project$Api$Handlers$SubmitItemHandler$getTagIdsForNames = F2(
 							tags)));
 			},
 			names);
-	});
-var $author$project$Api$Handlers$SubmitItemHandler$handleDbResponse = function (response) {
-	if (response.success) {
-		var _v0 = response.data;
-		if (_v0.$ === 'Just') {
-			var data = _v0.a;
-			return $elm$core$Result$Ok(data);
-		} else {
-			return $elm$core$Result$Err('No data returned from database');
-		}
-	} else {
-		return $elm$core$Result$Err(
-			A2($elm$core$Maybe$withDefault, 'Database operation failed', response.error));
-	}
-};
-var $elm$core$List$isEmpty = function (xs) {
-	if (!xs.b) {
-		return true;
-	} else {
-		return false;
-	}
-};
-var $author$project$BuildAmp$Database$encodeItemTagDbCreate = function (item) {
-	return $elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'item_id',
-				$elm$json$Json$Encode$string(item.itemId)),
-				_Utils_Tuple2(
-				'tag_id',
-				$elm$json$Json$Encode$string(item.tagId))
-			]));
-};
-var $author$project$Api$Handlers$SubmitItemHandler$linkTagsToItem = F2(
-	function (maybeItemId, tagIds) {
-		var _v0 = _Utils_Tuple2(
-			maybeItemId,
-			$elm$core$List$head(tagIds));
-		if ((_v0.a.$ === 'Just') && (_v0.b.$ === 'Just')) {
-			var itemId = _v0.a.a;
-			var tagId = _v0.b.a;
-			return $author$project$BuildAmp$Database$dbCreate(
-				{
-					data: $author$project$BuildAmp$Database$encodeItemTagDbCreate(
-						{itemId: itemId, tagId: tagId}),
-					id: 'link_tag_' + tagId,
-					table: 'item_tag'
-				});
-		} else {
-			return $elm$core$Platform$Cmd$none;
-		}
-	});
-var $elm$core$Basics$negate = function (n) {
-	return -n;
-};
-var $elm$core$Basics$abs = function (n) {
-	return (n < 0) ? (-n) : n;
-};
-var $author$project$BuildAmp$Database$dbFind = _Platform_outgoingPort(
-	'dbFind',
-	function ($) {
-		return $elm$json$Json$Encode$object(
-			_List_fromArray(
-				[
-					_Utils_Tuple2(
-					'id',
-					$elm$json$Json$Encode$string($.id)),
-					_Utils_Tuple2(
-					'query',
-					$elm$core$Basics$identity($.query)),
-					_Utils_Tuple2(
-					'table',
-					$elm$json$Json$Encode$string($.table))
-				]));
-	});
-var $author$project$Interface$Query$encodeFilterExpr = function (expr) {
-	switch (expr.$) {
-		case 'Eq':
-			var field = expr.a;
-			var value = expr.b;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						$elm$json$Json$Encode$string('Eq')),
-						_Utils_Tuple2(
-						'field',
-						$elm$json$Json$Encode$string(field)),
-						_Utils_Tuple2('value', value)
-					]));
-		case 'Neq':
-			var field = expr.a;
-			var value = expr.b;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						$elm$json$Json$Encode$string('Neq')),
-						_Utils_Tuple2(
-						'field',
-						$elm$json$Json$Encode$string(field)),
-						_Utils_Tuple2('value', value)
-					]));
-		case 'Gt':
-			var field = expr.a;
-			var value = expr.b;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						$elm$json$Json$Encode$string('Gt')),
-						_Utils_Tuple2(
-						'field',
-						$elm$json$Json$Encode$string(field)),
-						_Utils_Tuple2('value', value)
-					]));
-		case 'Gte':
-			var field = expr.a;
-			var value = expr.b;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						$elm$json$Json$Encode$string('Gte')),
-						_Utils_Tuple2(
-						'field',
-						$elm$json$Json$Encode$string(field)),
-						_Utils_Tuple2('value', value)
-					]));
-		case 'Lt':
-			var field = expr.a;
-			var value = expr.b;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						$elm$json$Json$Encode$string('Lt')),
-						_Utils_Tuple2(
-						'field',
-						$elm$json$Json$Encode$string(field)),
-						_Utils_Tuple2('value', value)
-					]));
-		case 'Lte':
-			var field = expr.a;
-			var value = expr.b;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						$elm$json$Json$Encode$string('Lte')),
-						_Utils_Tuple2(
-						'field',
-						$elm$json$Json$Encode$string(field)),
-						_Utils_Tuple2('value', value)
-					]));
-		case 'Like':
-			var field = expr.a;
-			var pattern = expr.b;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						$elm$json$Json$Encode$string('Like')),
-						_Utils_Tuple2(
-						'field',
-						$elm$json$Json$Encode$string(field)),
-						_Utils_Tuple2(
-						'value',
-						$elm$json$Json$Encode$string(pattern))
-					]));
-		case 'ILike':
-			var field = expr.a;
-			var pattern = expr.b;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						$elm$json$Json$Encode$string('ILike')),
-						_Utils_Tuple2(
-						'field',
-						$elm$json$Json$Encode$string(field)),
-						_Utils_Tuple2(
-						'value',
-						$elm$json$Json$Encode$string(pattern))
-					]));
-		case 'IsNull':
-			var field = expr.a;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						$elm$json$Json$Encode$string('IsNull')),
-						_Utils_Tuple2(
-						'field',
-						$elm$json$Json$Encode$string(field))
-					]));
-		case 'IsNotNull':
-			var field = expr.a;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						$elm$json$Json$Encode$string('IsNotNull')),
-						_Utils_Tuple2(
-						'field',
-						$elm$json$Json$Encode$string(field))
-					]));
-		case 'In':
-			var field = expr.a;
-			var values = expr.b;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						$elm$json$Json$Encode$string('In')),
-						_Utils_Tuple2(
-						'field',
-						$elm$json$Json$Encode$string(field)),
-						_Utils_Tuple2(
-						'values',
-						A2($elm$json$Json$Encode$list, $elm$core$Basics$identity, values))
-					]));
-		case 'And':
-			var exprs = expr.a;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						$elm$json$Json$Encode$string('And')),
-						_Utils_Tuple2(
-						'exprs',
-						A2($elm$json$Json$Encode$list, $author$project$Interface$Query$encodeFilterExpr, exprs))
-					]));
-		case 'Or':
-			var exprs = expr.a;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						$elm$json$Json$Encode$string('Or')),
-						_Utils_Tuple2(
-						'exprs',
-						A2($elm$json$Json$Encode$list, $author$project$Interface$Query$encodeFilterExpr, exprs))
-					]));
-		default:
-			var subExpr = expr.a;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						$elm$json$Json$Encode$string('Not')),
-						_Utils_Tuple2(
-						'expr',
-						$author$project$Interface$Query$encodeFilterExpr(subExpr))
-					]));
-	}
-};
-var $author$project$BuildAmp$Database$encodeFilter = function (filter) {
-	switch (filter.$) {
-		case 'ById':
-			var id = filter.a;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						$elm$json$Json$Encode$string('ById')),
-						_Utils_Tuple2(
-						'value',
-						$elm$json$Json$Encode$string(id))
-					]));
-		case 'ByField':
-			var field = filter.a;
-			var value = filter.b;
-			return $elm$json$Json$Encode$object(
-				_List_fromArray(
-					[
-						_Utils_Tuple2(
-						'type',
-						$elm$json$Json$Encode$string('ByField')),
-						_Utils_Tuple2(
-						'field',
-						$elm$json$Json$Encode$string(field)),
-						_Utils_Tuple2(
-						'value',
-						$elm$json$Json$Encode$string(value))
-					]));
-		default:
-			var expr = filter.a;
-			return $author$project$Interface$Query$encodeFilterExpr(expr);
-	}
-};
-var $author$project$BuildAmp$Database$encodeMaybePagination = function (maybePagination) {
-	if (maybePagination.$ === 'Nothing') {
-		return $elm$json$Json$Encode$null;
-	} else {
-		var pagination = maybePagination.a;
-		return $elm$json$Json$Encode$object(
-			_List_fromArray(
-				[
-					_Utils_Tuple2(
-					'offset',
-					$elm$json$Json$Encode$int(pagination.offset)),
-					_Utils_Tuple2(
-					'limit',
-					$elm$json$Json$Encode$int(pagination.limit))
-				]));
-	}
-};
-var $author$project$BuildAmp$Database$encodeDirection = function (direction) {
-	if (direction.$ === 'Asc') {
-		return $elm$json$Json$Encode$string('asc');
-	} else {
-		return $elm$json$Json$Encode$string('desc');
-	}
-};
-var $author$project$BuildAmp$Database$encodeSort = function (sort) {
-	return $elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'field',
-				$elm$json$Json$Encode$string(sort.field)),
-				_Utils_Tuple2(
-				'direction',
-				$author$project$BuildAmp$Database$encodeDirection(sort.direction))
-			]));
-};
-var $author$project$BuildAmp$Database$encodeQuery = function (query) {
-	return $elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'filter',
-				A2($elm$json$Json$Encode$list, $author$project$BuildAmp$Database$encodeFilter, query.filter)),
-				_Utils_Tuple2(
-				'sort',
-				A2($elm$json$Json$Encode$list, $author$project$BuildAmp$Database$encodeSort, query.sort)),
-				_Utils_Tuple2(
-				'paginate',
-				$author$project$BuildAmp$Database$encodeMaybePagination(query.paginate))
-			]));
-};
-var $elm$core$String$foldl = _String_foldl;
-var $author$project$BuildAmp$Database$hashString = function (str) {
-	return A3(
-		$elm$core$String$foldl,
-		F2(
-			function (_char, acc) {
-				return (acc * 31) + $elm$core$Char$toCode(_char);
-			}),
-		0,
-		str);
-};
-var $elm$core$Basics$neq = _Utils_notEqual;
-var $author$project$BuildAmp$Database$toString = function (query) {
-	return 'filters:' + ($elm$core$String$fromInt(
-		$elm$core$List$length(query.filter)) + ('_sorts:' + ($elm$core$String$fromInt(
-		$elm$core$List$length(query.sort)) + ('_paginated:' + ((!_Utils_eq(query.paginate, $elm$core$Maybe$Nothing)) ? 'yes' : 'no')))));
-};
-var $author$project$BuildAmp$Database$findTags = function (query) {
-	var requestId = 'find_tag_' + $elm$core$String$fromInt(
-		$elm$core$Basics$abs(
-			$author$project$BuildAmp$Database$hashString(
-				$author$project$BuildAmp$Database$toString(query))));
-	return $author$project$BuildAmp$Database$dbFind(
-		{
-			id: requestId,
-			query: $author$project$BuildAmp$Database$encodeQuery(query),
-			table: 'tag'
-		});
-};
-var $author$project$BuildAmp$Database$queryAll = {filter: _List_Nil, paginate: $elm$core$Maybe$Nothing, sort: _List_Nil};
-var $author$project$Api$Handlers$SubmitItemHandler$loadTags = $author$project$BuildAmp$Database$findTags($author$project$BuildAmp$Database$queryAll);
-var $elm$core$List$map = F2(
-	function (f, xs) {
-		return A3(
-			$elm$core$List$foldr,
-			F2(
-				function (x, acc) {
-					return A2(
-						$elm$core$List$cons,
-						f(x),
-						acc);
-				}),
-			_List_Nil,
-			xs);
 	});
 var $elm$core$List$any = F2(
 	function (isOkay, list) {
@@ -3932,7 +3493,15 @@ var $elm$core$List$member = F2(
 			},
 			xs);
 	});
+var $author$project$Api$Scripts$SubmitItem$nonEmpty = function (str) {
+	return $elm$core$String$isEmpty(
+		$elm$core$String$trim(str)) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(str);
+};
 var $elm$core$Basics$not = _Basics_not;
+var $author$project$Backend$Script$queryAll = {filter: _List_Nil, sort: _List_Nil};
+var $author$project$Backend$Script$succeed = function (a) {
+	return $author$project$Backend$Script$Succeed(a);
+};
 var $author$project$BuildAmp$Database$TagDb = F5(
 	function (id, host, name, createdAt, deletedAt) {
 		return {createdAt: createdAt, deletedAt: deletedAt, host: host, id: id, name: name};
@@ -3944,6 +3513,8 @@ var $author$project$BuildAmp$Database$decodeField = F2(
 		return $author$project$BuildAmp$Database$andMap(
 			A2($elm$json$Json$Decode$field, fieldName, decoder));
 	});
+var $elm$json$Json$Decode$null = _Json_decodeNull;
+var $elm$json$Json$Decode$oneOf = _Json_oneOf;
 var $elm$json$Json$Decode$nullable = function (decoder) {
 	return $elm$json$Json$Decode$oneOf(
 		_List_fromArray(
@@ -3952,6 +3523,7 @@ var $elm$json$Json$Decode$nullable = function (decoder) {
 				A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, decoder)
 			]));
 };
+var $elm$json$Json$Decode$int = _Json_decodeInt;
 var $elm$json$Json$Decode$fail = _Json_fail;
 var $elm$core$String$toInt = _String_toInt;
 var $author$project$BuildAmp$Database$stringToInt = function (str) {
@@ -3990,246 +3562,537 @@ var $author$project$BuildAmp$Database$tagDbDecoder = A3(
 					'id',
 					$elm$json$Json$Decode$string,
 					$elm$json$Json$Decode$succeed($author$project$BuildAmp$Database$TagDb))))));
-var $author$project$Api$Handlers$SubmitItemHandler$update = F2(
-	function (msg, model) {
-		switch (msg.$) {
-			case 'HandleRequest':
-				var bundle = msg.a;
-				var _v1 = $author$project$Api$Handlers$SubmitItemHandler$decodeRequest(bundle);
-				if (_v1.$ === 'Ok') {
-					var _v2 = _v1.a;
-					var req = _v2.a;
-					var ctx = _v2.b;
-					var itemId = $elm$core$String$fromInt(model.globalConfig.serverNow);
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								context: $elm$core$Maybe$Just(ctx),
-								createdItemId: $elm$core$Maybe$Just(itemId),
-								request: $elm$core$Maybe$Just(req),
-								stage: $author$project$Api$Handlers$SubmitItemHandler$CreatingItem
-							}),
-						A3($author$project$Api$Handlers$SubmitItemHandler$createMicroblogItem, itemId, req, model.globalConfig.serverNow));
-				} else {
-					var error = _v1.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								stage: $author$project$Api$Handlers$SubmitItemHandler$Failed(error)
-							}),
-						$author$project$Api$Handlers$SubmitItemHandler$complete(
-							$author$project$Api$Handlers$SubmitItemHandler$encodeError(error)));
-				}
-			case 'ItemCreated':
-				var result = msg.a;
-				if (_Utils_eq(model.stage, $author$project$Api$Handlers$SubmitItemHandler$CreatingItem)) {
-					var _v3 = $author$project$Api$Handlers$SubmitItemHandler$handleDbResponse(result);
-					if (_v3.$ === 'Ok') {
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{stage: $author$project$Api$Handlers$SubmitItemHandler$LoadingTags}),
-							$author$project$Api$Handlers$SubmitItemHandler$loadTags);
-					} else {
-						var error = _v3.a;
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{
-									stage: $author$project$Api$Handlers$SubmitItemHandler$Failed(error)
-								}),
-							$author$project$Api$Handlers$SubmitItemHandler$complete(
-								$author$project$Api$Handlers$SubmitItemHandler$encodeError(error)));
-					}
-				} else {
-					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
-				}
-			case 'TagsLoaded':
-				var result = msg.a;
-				if (!_Utils_eq(model.stage, $author$project$Api$Handlers$SubmitItemHandler$LoadingTags)) {
-					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
-				} else {
-					var _v4 = model.request;
-					if (_v4.$ === 'Just') {
-						var req = _v4.a;
-						var _v5 = $author$project$Api$Handlers$SubmitItemHandler$handleDbResponse(result);
-						if (_v5.$ === 'Ok') {
-							var data = _v5.a;
-							var _v6 = A2(
-								$elm$json$Json$Decode$decodeValue,
-								$elm$json$Json$Decode$list($author$project$BuildAmp$Database$tagDbDecoder),
-								data);
-							if (_v6.$ === 'Ok') {
-								var tags = _v6.a;
-								var existingNames = A2(
-									$elm$core$List$map,
-									function ($) {
-										return $.name;
+var $author$project$Api$Scripts$SubmitItem$handler = F3(
+	function (req, ctx, config) {
+		return A3(
+			$author$project$Backend$Script$andThenDecode,
+			A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string),
+			function (itemId) {
+				return A3(
+					$author$project$Backend$Script$andThenDecode,
+					$elm$json$Json$Decode$list($author$project$BuildAmp$Database$tagDbDecoder),
+					function (existingTags) {
+						var existingNames = A2(
+							$elm$core$List$map,
+							function ($) {
+								return $.name;
+							},
+							existingTags);
+						var tagsToCreate = A2(
+							$elm$core$List$filter,
+							function (t) {
+								return !A2($elm$core$List$member, t, existingNames);
+							},
+							req.tags);
+						return A2(
+							$author$project$Backend$Script$andThen,
+							function (createdTagIds) {
+								var existingTagIds = A2($author$project$Api$Scripts$SubmitItem$getTagIdsForNames, req.tags, existingTags);
+								var allTagIds = _Utils_ap(existingTagIds, createdTagIds);
+								return A2(
+									$author$project$Backend$Script$map,
+									function (_v0) {
+										return {
+											item: A3($author$project$Api$Scripts$SubmitItem$buildItem, itemId, req, config.serverNow)
+										};
 									},
-									tags);
-								var tagsToCreate = A2(
-									$elm$core$List$filter,
-									function (t) {
-										return !A2($elm$core$List$member, t, existingNames);
-									},
-									req.tags);
-								if ($elm$core$List$isEmpty(tagsToCreate)) {
-									var tagIds = A2($author$project$Api$Handlers$SubmitItemHandler$getTagIdsForNames, req.tags, tags);
-									return $elm$core$List$isEmpty(tagIds) ? A2($author$project$Api$Handlers$SubmitItemHandler$completeWithItem, model, req) : _Utils_Tuple2(
-										_Utils_update(
-											model,
-											{createdTagIds: tagIds, existingTags: tags, stage: $author$project$Api$Handlers$SubmitItemHandler$LinkingTags}),
-										A2($author$project$Api$Handlers$SubmitItemHandler$linkTagsToItem, model.createdItemId, tagIds));
-								} else {
-									return _Utils_Tuple2(
-										_Utils_update(
-											model,
-											{existingTags: tags, stage: $author$project$Api$Handlers$SubmitItemHandler$CreatingTags, tagsToCreate: tagsToCreate}),
-										$author$project$Api$Handlers$SubmitItemHandler$createNextTag(tagsToCreate));
-								}
-							} else {
-								var err = _v6.a;
-								return _Utils_Tuple2(
-									_Utils_update(
-										model,
-										{
-											stage: $author$project$Api$Handlers$SubmitItemHandler$Failed(
-												$elm$json$Json$Decode$errorToString(err))
-										}),
-									$author$project$Api$Handlers$SubmitItemHandler$complete(
-										$author$project$Api$Handlers$SubmitItemHandler$encodeError(
-											$elm$json$Json$Decode$errorToString(err))));
-							}
-						} else {
-							var error = _v5.a;
-							return _Utils_Tuple2(
-								_Utils_update(
-									model,
-									{
-										stage: $author$project$Api$Handlers$SubmitItemHandler$Failed(error)
-									}),
-								$author$project$Api$Handlers$SubmitItemHandler$complete(
-									$author$project$Api$Handlers$SubmitItemHandler$encodeError(error)));
-						}
-					} else {
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{
-									stage: $author$project$Api$Handlers$SubmitItemHandler$Failed('No request in model')
-								}),
-							$author$project$Api$Handlers$SubmitItemHandler$complete(
-								$author$project$Api$Handlers$SubmitItemHandler$encodeError('No request in model')));
-					}
-				}
-			case 'TagCreated':
-				var result = msg.a;
-				if (!_Utils_eq(model.stage, $author$project$Api$Handlers$SubmitItemHandler$CreatingTags)) {
-					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
-				} else {
-					var _v7 = $author$project$Api$Handlers$SubmitItemHandler$handleDbResponse(result);
-					if (_v7.$ === 'Ok') {
-						var data = _v7.a;
-						var _v8 = A2(
-							$elm$json$Json$Decode$decodeValue,
-							A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string),
-							data);
-						if (_v8.$ === 'Ok') {
-							var tagId = _v8.a;
-							var remainingTags = A2($elm$core$List$drop, 1, model.tagsToCreate);
-							var newCreatedIds = _Utils_ap(
-								model.createdTagIds,
+									A2(
+										$author$project$Backend$Script$forEach,
+										allTagIds,
+										function (tagId) {
+											return A2(
+												$author$project$Backend$Script$dbCreate,
+												'item_tag',
+												$author$project$BuildAmp$Database$encodeItemTagDbCreate(
+													{itemId: itemId, tagId: tagId}));
+										}));
+							},
+							A2(
+								$author$project$Backend$Script$forEach,
+								tagsToCreate,
+								function (tagName) {
+									return A3(
+										$author$project$Backend$Script$andThenDecode,
+										A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string),
+										$author$project$Backend$Script$succeed,
+										A2(
+											$author$project$Backend$Script$dbCreate,
+											'tag',
+											$author$project$BuildAmp$Database$encodeTagDbCreate(
+												{name: tagName})));
+								}));
+					},
+					A2($author$project$Backend$Script$dbFind, 'tag', $author$project$Backend$Script$queryAll));
+			},
+			A2(
+				$author$project$Backend$Script$dbCreate,
+				'microblog_item',
+				$author$project$BuildAmp$Database$encodeMicroblogItemDbCreate(
+					{
+						extract: $author$project$Backend$RichContent$fromPlainTextMaybe(req.extract),
+						image: $author$project$Api$Scripts$SubmitItem$nonEmpty(req.image),
+						link: $author$project$Api$Scripts$SubmitItem$nonEmpty(req.link),
+						ownerComment: $author$project$Backend$RichContent$fromPlainText(req.ownerComment),
+						title: req.title,
+						viewCount: 0
+					})));
+	});
+var $elm$core$Platform$Cmd$batch = _Platform_batch;
+var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
+var $author$project$Backend$Runtime$init = F2(
+	function (encodeResponse, flags) {
+		return _Utils_Tuple2(
+			{config: flags.globalConfig, continuation: $elm$core$Maybe$Nothing, encodeResponse: encodeResponse, opCounter: 0},
+			$elm$core$Platform$Cmd$none);
+	});
+var $author$project$Backend$Runtime$DbResultReceived = function (a) {
+	return {$: 'DbResultReceived', a: a};
+};
+var $author$project$Backend$Runtime$HandleRequest = function (a) {
+	return {$: 'HandleRequest', a: a};
+};
+var $elm$core$Platform$Sub$batch = _Platform_batch;
+var $elm$json$Json$Decode$value = _Json_decodeValue;
+var $author$project$Backend$Runtime$dbResult = _Platform_incomingPort(
+	'dbResult',
+	A2(
+		$elm$json$Json$Decode$andThen,
+		function (success) {
+			return A2(
+				$elm$json$Json$Decode$andThen,
+				function (id) {
+					return A2(
+						$elm$json$Json$Decode$andThen,
+						function (error) {
+							return A2(
+								$elm$json$Json$Decode$andThen,
+								function (data) {
+									return $elm$json$Json$Decode$succeed(
+										{data: data, error: error, id: id, success: success});
+								},
+								A2(
+									$elm$json$Json$Decode$field,
+									'data',
+									$elm$json$Json$Decode$oneOf(
+										_List_fromArray(
+											[
+												$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
+												A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$json$Json$Decode$value)
+											]))));
+						},
+						A2(
+							$elm$json$Json$Decode$field,
+							'error',
+							$elm$json$Json$Decode$oneOf(
 								_List_fromArray(
-									[tagId]));
-							if ($elm$core$List$isEmpty(remainingTags)) {
-								var _v9 = model.request;
-								if (_v9.$ === 'Just') {
-									var req = _v9.a;
-									var existingTagIds = A2($author$project$Api$Handlers$SubmitItemHandler$getTagIdsForNames, req.tags, model.existingTags);
-									var allTagIds = _Utils_ap(existingTagIds, newCreatedIds);
-									return _Utils_Tuple2(
-										_Utils_update(
-											model,
-											{createdTagIds: allTagIds, stage: $author$project$Api$Handlers$SubmitItemHandler$LinkingTags, tagsToCreate: _List_Nil}),
-										A2($author$project$Api$Handlers$SubmitItemHandler$linkTagsToItem, model.createdItemId, allTagIds));
-								} else {
-									return _Utils_Tuple2(
-										_Utils_update(
-											model,
-											{
-												stage: $author$project$Api$Handlers$SubmitItemHandler$Failed('No request')
-											}),
-										$author$project$Api$Handlers$SubmitItemHandler$complete(
-											$author$project$Api$Handlers$SubmitItemHandler$encodeError('No request')));
-								}
-							} else {
-								return _Utils_Tuple2(
-									_Utils_update(
-										model,
-										{createdTagIds: newCreatedIds, tagsToCreate: remainingTags}),
-									$author$project$Api$Handlers$SubmitItemHandler$createNextTag(remainingTags));
-							}
-						} else {
-							var err = _v8.a;
-							return _Utils_Tuple2(
-								_Utils_update(
-									model,
-									{
-										stage: $author$project$Api$Handlers$SubmitItemHandler$Failed(
-											$elm$json$Json$Decode$errorToString(err))
-									}),
-								$author$project$Api$Handlers$SubmitItemHandler$complete(
-									$author$project$Api$Handlers$SubmitItemHandler$encodeError(
-										$elm$json$Json$Decode$errorToString(err))));
-						}
-					} else {
-						var error = _v7.a;
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{
-									stage: $author$project$Api$Handlers$SubmitItemHandler$Failed(error)
-								}),
-							$author$project$Api$Handlers$SubmitItemHandler$complete(
-								$author$project$Api$Handlers$SubmitItemHandler$encodeError(error)));
-					}
-				}
+									[
+										$elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
+										A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, $elm$json$Json$Decode$string)
+									]))));
+				},
+				A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string));
+		},
+		A2($elm$json$Json$Decode$field, 'success', $elm$json$Json$Decode$bool)));
+var $author$project$Backend$Runtime$handleRequest = _Platform_incomingPort(
+	'handleRequest',
+	A2(
+		$elm$json$Json$Decode$andThen,
+		function (request) {
+			return A2(
+				$elm$json$Json$Decode$andThen,
+				function (globalState) {
+					return A2(
+						$elm$json$Json$Decode$andThen,
+						function (globalConfig) {
+							return A2(
+								$elm$json$Json$Decode$andThen,
+								function (context) {
+									return $elm$json$Json$Decode$succeed(
+										{context: context, globalConfig: globalConfig, globalState: globalState, request: request});
+								},
+								A2($elm$json$Json$Decode$field, 'context', $elm$json$Json$Decode$value));
+						},
+						A2($elm$json$Json$Decode$field, 'globalConfig', $elm$json$Json$Decode$value));
+				},
+				A2($elm$json$Json$Decode$field, 'globalState', $elm$json$Json$Decode$value));
+		},
+		A2($elm$json$Json$Decode$field, 'request', $elm$json$Json$Decode$value)));
+var $author$project$Backend$Runtime$subscriptions = function (_v0) {
+	return $elm$core$Platform$Sub$batch(
+		_List_fromArray(
+			[
+				$author$project$Backend$Runtime$handleRequest($author$project$Backend$Runtime$HandleRequest),
+				$author$project$Backend$Runtime$dbResult($author$project$Backend$Runtime$DbResultReceived)
+			]));
+};
+var $author$project$Backend$Runtime$complete = _Platform_outgoingPort('complete', $elm$core$Basics$identity);
+var $author$project$Backend$Runtime$Context = F3(
+	function (host, userId, sessionId) {
+		return {host: host, sessionId: sessionId, userId: userId};
+	});
+var $elm$json$Json$Decode$map3 = _Json_map3;
+var $elm$json$Json$Decode$maybe = function (decoder) {
+	return $elm$json$Json$Decode$oneOf(
+		_List_fromArray(
+			[
+				A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, decoder),
+				$elm$json$Json$Decode$succeed($elm$core$Maybe$Nothing)
+			]));
+};
+var $author$project$Backend$Runtime$contextDecoder = A4(
+	$elm$json$Json$Decode$map3,
+	$author$project$Backend$Runtime$Context,
+	A2($elm$json$Json$Decode$field, 'host', $elm$json$Json$Decode$string),
+	$elm$json$Json$Decode$maybe(
+		A2($elm$json$Json$Decode$field, 'userId', $elm$json$Json$Decode$string)),
+	$elm$json$Json$Decode$maybe(
+		A2($elm$json$Json$Decode$field, 'sessionId', $elm$json$Json$Decode$string)));
+var $elm$core$Result$map2 = F3(
+	function (func, ra, rb) {
+		if (ra.$ === 'Err') {
+			var x = ra.a;
+			return $elm$core$Result$Err(x);
+		} else {
+			var a = ra.a;
+			if (rb.$ === 'Err') {
+				var x = rb.a;
+				return $elm$core$Result$Err(x);
+			} else {
+				var b = rb.a;
+				return $elm$core$Result$Ok(
+					A2(func, a, b));
+			}
+		}
+	});
+var $elm$core$Result$mapError = F2(
+	function (f, result) {
+		if (result.$ === 'Ok') {
+			var v = result.a;
+			return $elm$core$Result$Ok(v);
+		} else {
+			var e = result.a;
+			return $elm$core$Result$Err(
+				f(e));
+		}
+	});
+var $elm$core$Tuple$pair = F2(
+	function (a, b) {
+		return _Utils_Tuple2(a, b);
+	});
+var $author$project$Backend$Runtime$decodeBundle = F2(
+	function (reqDecoder, bundle) {
+		return A3(
+			$elm$core$Result$map2,
+			$elm$core$Tuple$pair,
+			A2(
+				$elm$core$Result$mapError,
+				$elm$json$Json$Decode$errorToString,
+				A2($elm$json$Json$Decode$decodeValue, reqDecoder, bundle.request)),
+			A2(
+				$elm$core$Result$mapError,
+				$elm$json$Json$Decode$errorToString,
+				A2($elm$json$Json$Decode$decodeValue, $author$project$Backend$Runtime$contextDecoder, bundle.context)));
+	});
+var $author$project$Backend$Runtime$encodeError = function (err) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'error',
+				$elm$json$Json$Encode$string(err))
+			]));
+};
+var $author$project$Backend$Runtime$dbCreate = _Platform_outgoingPort(
+	'dbCreate',
+	function ($) {
+		return $elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'data',
+					$elm$core$Basics$identity($.data)),
+					_Utils_Tuple2(
+					'id',
+					$elm$json$Json$Encode$string($.id)),
+					_Utils_Tuple2(
+					'table',
+					$elm$json$Json$Encode$string($.table))
+				]));
+	});
+var $author$project$Backend$Runtime$dbFind = _Platform_outgoingPort(
+	'dbFind',
+	function ($) {
+		return $elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'id',
+					$elm$json$Json$Encode$string($.id)),
+					_Utils_Tuple2(
+					'query',
+					$elm$core$Basics$identity($.query)),
+					_Utils_Tuple2(
+					'table',
+					$elm$json$Json$Encode$string($.table))
+				]));
+	});
+var $elm$core$Task$Perform = function (a) {
+	return {$: 'Perform', a: a};
+};
+var $elm$core$Task$succeed = _Scheduler_succeed;
+var $elm$core$Task$init = $elm$core$Task$succeed(_Utils_Tuple0);
+var $elm$core$Task$andThen = _Scheduler_andThen;
+var $elm$core$Task$map = F2(
+	function (func, taskA) {
+		return A2(
+			$elm$core$Task$andThen,
+			function (a) {
+				return $elm$core$Task$succeed(
+					func(a));
+			},
+			taskA);
+	});
+var $elm$core$Task$map2 = F3(
+	function (func, taskA, taskB) {
+		return A2(
+			$elm$core$Task$andThen,
+			function (a) {
+				return A2(
+					$elm$core$Task$andThen,
+					function (b) {
+						return $elm$core$Task$succeed(
+							A2(func, a, b));
+					},
+					taskB);
+			},
+			taskA);
+	});
+var $elm$core$Task$sequence = function (tasks) {
+	return A3(
+		$elm$core$List$foldr,
+		$elm$core$Task$map2($elm$core$List$cons),
+		$elm$core$Task$succeed(_List_Nil),
+		tasks);
+};
+var $elm$core$Platform$sendToApp = _Platform_sendToApp;
+var $elm$core$Task$spawnCmd = F2(
+	function (router, _v0) {
+		var task = _v0.a;
+		return _Scheduler_spawn(
+			A2(
+				$elm$core$Task$andThen,
+				$elm$core$Platform$sendToApp(router),
+				task));
+	});
+var $elm$core$Task$onEffects = F3(
+	function (router, commands, state) {
+		return A2(
+			$elm$core$Task$map,
+			function (_v0) {
+				return _Utils_Tuple0;
+			},
+			$elm$core$Task$sequence(
+				A2(
+					$elm$core$List$map,
+					$elm$core$Task$spawnCmd(router),
+					commands)));
+	});
+var $elm$core$Task$onSelfMsg = F3(
+	function (_v0, _v1, _v2) {
+		return $elm$core$Task$succeed(_Utils_Tuple0);
+	});
+var $elm$core$Task$cmdMap = F2(
+	function (tagger, _v0) {
+		var task = _v0.a;
+		return $elm$core$Task$Perform(
+			A2($elm$core$Task$map, tagger, task));
+	});
+_Platform_effectManagers['Task'] = _Platform_createManager($elm$core$Task$init, $elm$core$Task$onEffects, $elm$core$Task$onSelfMsg, $elm$core$Task$cmdMap);
+var $elm$core$Task$command = _Platform_leaf('Task');
+var $elm$core$Task$perform = F2(
+	function (toMessage, task) {
+		return $elm$core$Task$command(
+			$elm$core$Task$Perform(
+				A2($elm$core$Task$map, toMessage, task)));
+	});
+var $author$project$Backend$Runtime$sseBroadcast = _Platform_outgoingPort(
+	'sseBroadcast',
+	function ($) {
+		return $elm$json$Json$Encode$object(
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					'data',
+					$elm$core$Basics$identity($.data)),
+					_Utils_Tuple2(
+					'eventType',
+					$elm$json$Json$Encode$string($.eventType))
+				]));
+	});
+var $author$project$Backend$Runtime$executeOp = F2(
+	function (counter, op) {
+		var opId = 'script_op_' + $elm$core$String$fromInt(counter);
+		switch (op.$) {
+			case 'DbCreate':
+				var table = op.a.table;
+				var data = op.a.data;
+				return _Utils_Tuple2(
+					$author$project$Backend$Runtime$dbCreate(
+						{data: data, id: opId, table: table}),
+					counter + 1);
+			case 'DbFind':
+				var table = op.a.table;
+				var query = op.a.query;
+				return _Utils_Tuple2(
+					$author$project$Backend$Runtime$dbFind(
+						{id: opId, query: query, table: table}),
+					counter + 1);
 			default:
-				var result = msg.a;
-				if (!_Utils_eq(model.stage, $author$project$Api$Handlers$SubmitItemHandler$LinkingTags)) {
-					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
-				} else {
-					var remainingTagIds = A2($elm$core$List$drop, 1, model.createdTagIds);
-					if ($elm$core$List$isEmpty(remainingTagIds)) {
-						var _v10 = model.request;
-						if (_v10.$ === 'Just') {
-							var req = _v10.a;
-							return A2($author$project$Api$Handlers$SubmitItemHandler$completeWithItem, model, req);
+				var eventType = op.a.eventType;
+				var data = op.a.data;
+				return _Utils_Tuple2(
+					$elm$core$Platform$Cmd$batch(
+						_List_fromArray(
+							[
+								$author$project$Backend$Runtime$sseBroadcast(
+								{data: data, eventType: eventType}),
+								A2(
+								$elm$core$Task$perform,
+								function (_v1) {
+									return $author$project$Backend$Runtime$DbResultReceived(
+										{
+											data: $elm$core$Maybe$Just(
+												$elm$json$Json$Encode$object(_List_Nil)),
+											error: $elm$core$Maybe$Nothing,
+											id: opId,
+											success: true
+										});
+								},
+								$elm$core$Task$succeed(_Utils_Tuple0))
+							])),
+					counter + 1);
+		}
+	});
+var $author$project$Backend$Script$Continue = F2(
+	function (a, b) {
+		return {$: 'Continue', a: a, b: b};
+	});
+var $author$project$Backend$Script$Done = function (a) {
+	return {$: 'Done', a: a};
+};
+var $author$project$Backend$Script$run = function (script) {
+	switch (script.$) {
+		case 'Succeed':
+			var a = script.a;
+			return $author$project$Backend$Script$Done(
+				$elm$core$Result$Ok(a));
+		case 'Fail':
+			var err = script.a;
+			return $author$project$Backend$Script$Done(
+				$elm$core$Result$Err(err));
+		default:
+			var op = script.a;
+			var cont = script.b;
+			return A2($author$project$Backend$Script$Continue, op, cont);
+	}
+};
+var $author$project$Backend$Runtime$runScript = F2(
+	function (model, script) {
+		var _v0 = $author$project$Backend$Script$run(script);
+		if (_v0.$ === 'Done') {
+			if (_v0.a.$ === 'Ok') {
+				var result = _v0.a.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{continuation: $elm$core$Maybe$Nothing}),
+					$author$project$Backend$Runtime$complete(
+						model.encodeResponse(result)));
+			} else {
+				var err = _v0.a.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{continuation: $elm$core$Maybe$Nothing}),
+					$author$project$Backend$Runtime$complete(
+						$author$project$Backend$Runtime$encodeError(err)));
+			}
+		} else {
+			var op = _v0.a;
+			var cont = _v0.b;
+			var _v1 = A2($author$project$Backend$Runtime$executeOp, model.opCounter, op);
+			var cmd = _v1.a;
+			var newCounter = _v1.b;
+			return _Utils_Tuple2(
+				_Utils_update(
+					model,
+					{
+						continuation: $elm$core$Maybe$Just(cont),
+						opCounter: newCounter
+					}),
+				cmd);
+		}
+	});
+var $author$project$Backend$Runtime$update = F3(
+	function (config, msg, model) {
+		if (msg.$ === 'HandleRequest') {
+			var bundle = msg.a;
+			var _v1 = A2($author$project$Backend$Runtime$decodeBundle, config.decodeRequest, bundle);
+			if (_v1.$ === 'Ok') {
+				var _v2 = _v1.a;
+				var req = _v2.a;
+				var ctx = _v2.b;
+				var script = A3(config.handler, req, ctx, model.config);
+				return A2($author$project$Backend$Runtime$runScript, model, script);
+			} else {
+				var err = _v1.a;
+				return _Utils_Tuple2(
+					model,
+					$author$project$Backend$Runtime$complete(
+						$author$project$Backend$Runtime$encodeError(err)));
+			}
+		} else {
+			var response = msg.a;
+			var _v3 = model.continuation;
+			if (_v3.$ === 'Just') {
+				var cont = _v3.a;
+				var result = function () {
+					if (response.success) {
+						var _v4 = response.data;
+						if (_v4.$ === 'Just') {
+							var data = _v4.a;
+							return $elm$core$Result$Ok(data);
 						} else {
-							return _Utils_Tuple2(
-								_Utils_update(
-									model,
-									{
-										stage: $author$project$Api$Handlers$SubmitItemHandler$Failed('Missing request')
-									}),
-								$author$project$Api$Handlers$SubmitItemHandler$complete(
-									$author$project$Api$Handlers$SubmitItemHandler$encodeError('Missing request')));
+							return $elm$core$Result$Err('No data in response');
 						}
 					} else {
-						return _Utils_Tuple2(
-							_Utils_update(
-								model,
-								{createdTagIds: remainingTagIds}),
-							A2($author$project$Api$Handlers$SubmitItemHandler$linkTagsToItem, model.createdItemId, remainingTagIds));
+						return $elm$core$Result$Err(
+							A2($elm$core$Maybe$withDefault, 'Database error', response.error));
 					}
-				}
+				}();
+				var nextScript = cont(result);
+				return A2(
+					$author$project$Backend$Runtime$runScript,
+					_Utils_update(
+						model,
+						{continuation: $elm$core$Maybe$Nothing}),
+					nextScript);
+			} else {
+				return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+			}
 		}
 	});
 var $elm$core$Platform$worker = _Platform_worker;
-var $author$project$Api$Handlers$SubmitItemHandler$main = $elm$core$Platform$worker(
-	{init: $author$project$Api$Handlers$SubmitItemHandler$init, subscriptions: $author$project$Api$Handlers$SubmitItemHandler$subscriptions, update: $author$project$Api$Handlers$SubmitItemHandler$update});
+var $author$project$Backend$Runtime$run = function (config) {
+	return $elm$core$Platform$worker(
+		{
+			init: $author$project$Backend$Runtime$init(config.encodeResponse),
+			subscriptions: $author$project$Backend$Runtime$subscriptions,
+			update: $author$project$Backend$Runtime$update(config)
+		});
+};
+var $author$project$Api$Handlers$SubmitItemHandler$main = $author$project$Backend$Runtime$run(
+	{decodeRequest: $author$project$Api$Scripts$SubmitItem$decodeRequest, encodeResponse: $author$project$Api$Scripts$SubmitItem$encodeResponse, handler: $author$project$Api$Scripts$SubmitItem$handler});
 _Platform_export({'Api':{'Handlers':{'SubmitItemHandler':{'init':$author$project$Api$Handlers$SubmitItemHandler$main(
 	A2(
 		$elm$json$Json$Decode$andThen,

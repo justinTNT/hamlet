@@ -103,9 +103,9 @@ type alias SoftDelete = Maybe Int
 type alias CreateTimestamp = Int
 
 
-{-| Auto-populated update timestamp. Set on INSERT and UPDATE.
+{-| Auto-populated update timestamp. Null until first UPDATE.
 -}
-type alias UpdateTimestamp = Int
+type alias UpdateTimestamp = Maybe Int
 
 
 -- QUERY BUILDERS
@@ -467,7 +467,7 @@ type alias ItemCommentDbCreate =
     , guestId : String
     , parentId : Maybe String
     , authorName : String
-    , text : String
+    , text : Encode.Value
     , removed : Bool
     }
 
@@ -480,7 +480,7 @@ type alias ItemCommentDbUpdate =
     , guestId : Maybe String
     , parentId : Maybe String
     , authorName : Maybe String
-    , text : Maybe String
+    , text : Maybe Encode.Value
     , removed : Maybe Bool
     , createdAt : Maybe CreateTimestamp
     , deletedAt : SoftDelete
@@ -570,7 +570,7 @@ encodeItemCommentDbCreate item =
         , ("guest_id", Encode.string item.guestId)
         , ("parent_id", encodeMaybe Encode.string item.parentId)
         , ("author_name", Encode.string item.authorName)
-        , ("text", Encode.string item.text)
+        , ("text", identity item.text)
         , ("removed", Encode.bool item.removed)
         ]
 
@@ -583,7 +583,7 @@ encodeItemCommentDbUpdate item =
         , ("guest_id", encodeMaybe Encode.string item.guestId)
         , ("parent_id", encodeMaybe Encode.string item.parentId)
         , ("author_name", encodeMaybe Encode.string item.authorName)
-        , ("text", encodeMaybe Encode.string item.text)
+        , ("text", encodeMaybe identity item.text)
         , ("removed", encodeMaybe Encode.bool item.removed)
         , ("created_at", encodeMaybe Encode.int item.createdAt)
         , ("deleted_at", encodeMaybe Encode.int item.deletedAt)
@@ -731,8 +731,8 @@ type alias MicroblogItemDbCreate =
     {     title : String
     , link : Maybe String
     , image : Maybe String
-    , extract : Maybe String
-    , ownerComment : String
+    , extract : Maybe Encode.Value
+    , ownerComment : Encode.Value
     , viewCount : Int
     }
 
@@ -744,10 +744,10 @@ type alias MicroblogItemDbUpdate =
     , title : Maybe String
     , link : Maybe String
     , image : Maybe String
-    , extract : Maybe String
-    , ownerComment : Maybe String
+    , extract : Maybe Encode.Value
+    , ownerComment : Maybe Encode.Value
     , createdAt : Maybe CreateTimestamp
-    , updatedAt : Maybe UpdateTimestamp
+    , updatedAt : UpdateTimestamp
     , viewCount : Maybe Int
     , deletedAt : SoftDelete
     }
@@ -825,7 +825,7 @@ microblogitemDbDecoder =
         |> decodeField "extract" (Decode.nullable richContentDecoder)
         |> decodeField "owner_comment" richContentDecoder
         |> decodeField "created_at" timestampDecoder
-        |> decodeField "updated_at" timestampDecoder
+        |> decodeField "updated_at" (Decode.nullable timestampDecoder)
         |> decodeField "view_count" Decode.int
         |> decodeField "deleted_at" (Decode.nullable timestampDecoder)
 
@@ -836,8 +836,8 @@ encodeMicroblogItemDbCreate item =
         [ ("title", Encode.string item.title)
         , ("link", encodeMaybe Encode.string item.link)
         , ("image", encodeMaybe Encode.string item.image)
-        , ("extract", encodeMaybe Encode.string item.extract)
-        , ("owner_comment", Encode.string item.ownerComment)
+        , ("extract", encodeMaybe identity item.extract)
+        , ("owner_comment", identity item.ownerComment)
         , ("view_count", Encode.int item.viewCount)
         ]
 
@@ -849,8 +849,8 @@ encodeMicroblogItemDbUpdate item =
         , ("title", encodeMaybe Encode.string item.title)
         , ("link", encodeMaybe Encode.string item.link)
         , ("image", encodeMaybe Encode.string item.image)
-        , ("extract", encodeMaybe Encode.string item.extract)
-        , ("owner_comment", encodeMaybe Encode.string item.ownerComment)
+        , ("extract", encodeMaybe identity item.extract)
+        , ("owner_comment", encodeMaybe identity item.ownerComment)
         , ("created_at", encodeMaybe Encode.int item.createdAt)
         , ("updated_at", encodeMaybe Encode.int item.updatedAt)
         , ("view_count", encodeMaybe Encode.int item.viewCount)

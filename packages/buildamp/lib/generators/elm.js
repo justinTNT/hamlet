@@ -152,7 +152,7 @@ function getPhantomType(field) {
     if (elmType === 'MultiTenant' || elmType === 'String') {
         return 'String';
     }
-    if (elmType === 'Int' || elmType === 'Timestamp' || elmType === 'CreateTimestamp' || elmType === 'UpdateTimestamp') {
+    if (elmType === 'Int' || elmType === 'Timestamp' || elmType === 'CreateTimestamp') {
         return 'Int';
     }
     if (elmType === 'Float') {
@@ -161,8 +161,8 @@ function getPhantomType(field) {
     if (elmType === 'Bool') {
         return 'Bool';
     }
-    if (elmType === 'SoftDelete') {
-        return '(Maybe Int)';
+    if (elmType === 'SoftDelete' || elmType === 'UpdateTimestamp') {
+        return '(Maybe Int)';  // These are nullable timestamps
     }
     if (elmType.startsWith('Maybe ')) {
         const innerType = elmType.slice(6);
@@ -181,7 +181,7 @@ function getPhantomTypeSimple(elmType) {
     if (elmType === 'String' || elmType === 'MultiTenant' || elmType === 'Link' || elmType === 'RichContent') {
         return 'String';
     }
-    if (elmType === 'Int' || elmType === 'Timestamp' || elmType === 'CreateTimestamp' || elmType === 'UpdateTimestamp') {
+    if (elmType === 'Int' || elmType === 'Timestamp' || elmType === 'CreateTimestamp') {
         return 'Int';
     }
     if (elmType === 'Float') {
@@ -199,10 +199,13 @@ function getPhantomTypeSimple(elmType) {
 function getFieldEncoder(field) {
     const elmType = field.elmType;
 
-    if (elmType === 'String' || elmType === 'MultiTenant' || elmType === 'Link' || elmType === 'RichContent') {
+    if (elmType === 'String' || elmType === 'MultiTenant' || elmType === 'Link') {
         return 'Encode.string';
     }
-    if (elmType === 'Int' || elmType === 'Timestamp' || elmType === 'CreateTimestamp' || elmType === 'UpdateTimestamp') {
+    if (elmType === 'RichContent') {
+        return 'identity';  // RichContent is already Encode.Value (JSONB)
+    }
+    if (elmType === 'Int' || elmType === 'Timestamp' || elmType === 'CreateTimestamp') {
         return 'Encode.int';
     }
     if (elmType === 'Float') {
@@ -211,8 +214,8 @@ function getFieldEncoder(field) {
     if (elmType === 'Bool') {
         return 'Encode.bool';
     }
-    if (elmType === 'SoftDelete') {
-        return '(Maybe.withDefault Encode.null << Maybe.map Encode.int)';
+    if (elmType === 'SoftDelete' || elmType === 'UpdateTimestamp') {
+        return '(Maybe.withDefault Encode.null << Maybe.map Encode.int)';  // Nullable timestamps
     }
     if (elmType.startsWith('Maybe ')) {
         const innerType = elmType.slice(6);
@@ -228,10 +231,13 @@ function getFieldEncoder(field) {
  * Get encoder for inner types (without Maybe wrapper handling)
  */
 function getFieldEncoderSimple(elmType) {
-    if (elmType === 'String' || elmType === 'Link' || elmType === 'RichContent') {
+    if (elmType === 'String' || elmType === 'Link') {
         return 'Encode.string';
     }
-    if (elmType === 'Int' || elmType === 'Timestamp' || elmType === 'CreateTimestamp' || elmType === 'UpdateTimestamp') {
+    if (elmType === 'RichContent') {
+        return 'identity';  // RichContent is already Encode.Value (JSONB)
+    }
+    if (elmType === 'Int' || elmType === 'Timestamp' || elmType === 'CreateTimestamp') {
         return 'Encode.int';
     }
     if (elmType === 'Float') {
@@ -355,9 +361,9 @@ type alias SoftDelete = Maybe Int
 type alias CreateTimestamp = Int
 
 
-{-| Auto-populated update timestamp. Set on INSERT and UPDATE.
+{-| Auto-populated update timestamp. Null until first UPDATE.
 -}
-type alias UpdateTimestamp = Int
+type alias UpdateTimestamp = Maybe Int
 
 
 -- QUERY BUILDERS
@@ -1382,8 +1388,8 @@ function elmTypeToElmType(elmType) {
     if (elmType.startsWith('ForeignKey ')) {
         return 'String';
     }
-    // RichContent -> String (stored as TEXT/JSONB in database)
-    // Decoder uses richContentDecoder via field.isRichContent flag
+    // RichContent -> String (JSONB decoded to JSON string by richContentDecoder)
+    // For DbCreate types, the Create generator transforms this to Encode.Value
     if (elmType === 'RichContent') {
         return 'String';
     }
@@ -1515,10 +1521,12 @@ function generateCreateTypeAlias(model) {
     const fields = createFields.map((field, index) => {
         const elmFieldName = snakeToCamel(field.name);
         const prefix = index === 0 ? '    ' : '    , ';
+        // RichContent fields become Encode.Value (JSONB stored as pre-encoded JSON)
+        let baseType = field.isRichContent ? 'Encode.Value' : field.elmType;
         // Optional fields become Maybe if not already
-        const fieldType = field.isOptional && !field.elmType.startsWith('Maybe ')
-            ? `Maybe ${field.elmType}`
-            : field.elmType;
+        const fieldType = field.isOptional && !baseType.startsWith('Maybe ')
+            ? `Maybe ${baseType}`
+            : baseType;
         return `${prefix}${elmFieldName} : ${fieldType}`;
     }).join('\n');
 
@@ -1542,12 +1550,21 @@ function generateUpdateTypeAlias(model) {
     }
 
     const fields = updateFields.map((field, index) => {
-        // SoftDelete is already Maybe Int, don't double-wrap
-        // Same for types already starting with Maybe
-        const isAlreadyOptional = field.elmType.startsWith('Maybe ') || field.elmType === 'SoftDelete';
-        const optionalType = isAlreadyOptional ? field.elmType : `Maybe ${field.elmType}`;
         const elmFieldName = snakeToCamel(field.name);
         const prefix = index === 0 ? '    ' : '    , ';
+
+        // RichContent fields need Encode.Value for JSONB updates
+        if (field.isRichContent) {
+            // Always wrap in Maybe for updates (optional fields)
+            return `${prefix}${elmFieldName} : Maybe Encode.Value`;
+        }
+
+        // SoftDelete and UpdateTimestamp are already Maybe Int, don't double-wrap
+        // Same for types already starting with Maybe
+        const isAlreadyOptional = field.elmType.startsWith('Maybe ') ||
+            field.elmType === 'SoftDelete' ||
+            field.elmType === 'UpdateTimestamp';
+        const optionalType = isAlreadyOptional ? field.elmType : `Maybe ${field.elmType}`;
         return `${prefix}${elmFieldName} : ${optionalType}`;
     }).join('\n');
 
@@ -1682,6 +1699,11 @@ encode${modelName}DbCreate item =
             )
             .map(field => {
                 const snakeFieldName = camelToSnake(field.name);
+                // RichContent fields need identity encoder (already Encode.Value)
+                if (field.isRichContent) {
+                    const encoder = field.isOptional ? 'encodeMaybe identity' : 'identity';
+                    return `("${snakeFieldName}", ${encoder} item.${field.name})`;
+                }
                 // Optional fields need encodeMaybe wrapper
                 const encoder = generateFieldEncoder(field, field.isOptional);
                 return `("${snakeFieldName}", ${encoder} item.${field.name})`;
@@ -1696,6 +1718,10 @@ encode${modelName}DbUpdate item =
             .filter(field => field.name !== 'id' && field.name !== 'timestamp')
             .map(field => {
                 const snakeFieldName = camelToSnake(field.name);
+                // RichContent fields need identity encoder (already Encode.Value)
+                if (field.isRichContent) {
+                    return `("${snakeFieldName}", encodeMaybe identity item.${field.name})`;
+                }
                 const encoder = generateFieldEncoder(field, true); // optional for update
                 return `("${snakeFieldName}", ${encoder} item.${field.name})`;
             }).join('\n        , ')}
@@ -1716,12 +1742,12 @@ function generateFieldDecoder(field) {
 
     // Special handling for Timestamp fields - PostgreSQL BIGINT comes as string
     if (field.rustType === 'Timestamp' || field.elmType === 'Timestamp' ||
-        field.elmType === 'CreateTimestamp' || field.elmType === 'UpdateTimestamp') {
+        field.elmType === 'CreateTimestamp') {
         return 'timestampDecoder';
     }
 
-    // Special handling for SoftDelete - it's defined as Maybe Int (nullable timestamp)
-    if (field.elmType === 'SoftDelete') {
+    // Special handling for nullable timestamps (SoftDelete and UpdateTimestamp)
+    if (field.elmType === 'SoftDelete' || field.elmType === 'UpdateTimestamp') {
         return '(Decode.nullable timestampDecoder)';
     }
 
@@ -1760,10 +1786,10 @@ function generateBasicDecoder(elmType) {
         case 'Bool': return 'Decode.bool';
         case 'MultiTenant': return 'Decode.string';  // MultiTenant = String
         case 'RichContent': return 'richContentDecoder';  // RichContent = JSONB -> String
-        case 'SoftDelete': return '(Decode.nullable timestampDecoder)';  // SoftDelete = Maybe Int
+        case 'SoftDelete':
+        case 'UpdateTimestamp': return '(Decode.nullable timestampDecoder)';  // Nullable timestamps
         case 'Timestamp':
-        case 'CreateTimestamp':
-        case 'UpdateTimestamp': return 'timestampDecoder';  // Timestamp types
+        case 'CreateTimestamp': return 'timestampDecoder';  // Non-nullable timestamps
         default: return 'Decode.string'; // Fallback for custom types
     }
 }
@@ -1779,14 +1805,14 @@ function generateFieldEncoder(field, isOptional = false) {
         const componentType = field.elmType; // e.g., "MicroblogItemDataDb"
         const baseName = componentType.replace(/Db$/, '');
         baseEncoder = `encode${baseName}Db`;
-    } else if (field.elmType === 'SoftDelete') {
-        // SoftDelete = Maybe Int, encode as nullable int
+    } else if (field.elmType === 'SoftDelete' || field.elmType === 'UpdateTimestamp') {
+        // SoftDelete and UpdateTimestamp = Maybe Int, encode as nullable int
         baseEncoder = 'encodeMaybe Encode.int';
     } else if (field.elmType === 'MultiTenant') {
         // MultiTenant = String
         baseEncoder = 'Encode.string';
-    } else if (field.elmType === 'Timestamp' || field.elmType === 'CreateTimestamp' || field.elmType === 'UpdateTimestamp') {
-        // Timestamp types = Int
+    } else if (field.elmType === 'Timestamp' || field.elmType === 'CreateTimestamp') {
+        // Non-nullable timestamp types = Int
         baseEncoder = 'Encode.int';
     } else if (field.elmType.startsWith('Maybe ')) {
         const innerType = field.elmType.replace('Maybe ', '');
@@ -1795,7 +1821,11 @@ function generateFieldEncoder(field, isOptional = false) {
         baseEncoder = generateBasicEncoder(field.elmType);
     }
 
-    if (isOptional && !field.elmType.startsWith('Maybe ') && field.elmType !== 'SoftDelete') {
+    // Don't double-wrap types that are already Maybe
+    const isAlreadyMaybe = field.elmType.startsWith('Maybe ') ||
+        field.elmType === 'SoftDelete' ||
+        field.elmType === 'UpdateTimestamp';
+    if (isOptional && !isAlreadyMaybe) {
         return `encodeMaybe ${baseEncoder}`;
     }
 
@@ -1819,10 +1849,11 @@ function generateBasicEncoder(elmType) {
             case 'Float': return 'Encode.float';
             case 'Bool': return 'Encode.bool';
             case 'MultiTenant': return 'Encode.string';  // MultiTenant = String
-            case 'SoftDelete': return 'encodeMaybe Encode.int';  // SoftDelete = Maybe Int
+            case 'SoftDelete':
+            case 'UpdateTimestamp': return 'encodeMaybe Encode.int';  // Nullable timestamps
             case 'Timestamp':
-            case 'CreateTimestamp':
-            case 'UpdateTimestamp': return 'Encode.int';  // Timestamp types
+            case 'CreateTimestamp': return 'Encode.int';  // Non-nullable timestamps
+            case 'RichContent': return 'identity';  // RichContent is already Encode.Value
             default: return 'Encode.string'; // Fallback for custom types
         }
     }

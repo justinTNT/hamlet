@@ -2,13 +2,21 @@
  * Elm Handler Scaffolding Generation
  *
  * Generates Elm handler files (once) for each API endpoint defined in Elm.
- * These are scaffolding files that developers can then customize with business logic.
+ *
+ * Two handler styles are supported:
+ *
+ * 1. **Script handlers** (preferred): If `Api/Scripts/{Name}.elm` exists, generates
+ *    a minimal runner that wires the Script to Backend.Runtime. Script handlers
+ *    are linear, declarative, and much simpler than TEA.
+ *
+ * 2. **TEA handlers** (legacy): Full TEA boilerplate with Model, Msg, Stage, etc.
+ *    Generated when no Script file exists.
  *
  * Key principles:
  * - Generate files ONLY if they don't exist (never overwrite existing files)
  * - Developer must manually move/delete files to force regeneration
  * - Parse Elm API definitions to find endpoints
- * - Create properly typed Elm handlers with database placeholders
+ * - Prefer Script handlers when Script file exists
  *
  * Regeneration workflow (--regenerate flag):
  * - Backs up existing handler to .backup file
@@ -58,10 +66,23 @@ export async function generateElmHandlers(config = {}) {
     let regeneratedCount = 0;
     const generatedFiles = [];
 
+    // Scripts directory - create if needed
+    const scriptsDir = path.join(paths.serverHandlersDir, '..', 'Scripts');
+
+    // Check for TEA override (explicit opt-in to TEA style)
+    const { teaHandlers = [] } = config;
+
     // Generate handler for each endpoint
     for (const endpoint of allEndpoints) {
         const handlerFile = path.join(outputDir, `${endpoint.name}Handler.elm`);
         const handlerName = `${endpoint.name}Handler`;
+        const scriptFile = path.join(scriptsDir, `${endpoint.name}.elm`);
+
+        // Check if TEA is explicitly requested for this endpoint
+        const useTEA = teaHandlers.includes(endpoint.name) || teaHandlers.includes('all');
+
+        // Check if a Script file already exists
+        const hasScript = fs.existsSync(scriptFile);
 
         // Check if this handler should be regenerated
         const shouldRegenerate = regenerateHandler &&
@@ -79,7 +100,9 @@ export async function generateElmHandlers(config = {}) {
 
                 fs.copyFileSync(handlerFile, backupFile);
 
-                const handlerContent = generateHandlerContent(endpoint, backupFile);
+                const handlerContent = useTEA
+                    ? generateHandlerContent(endpoint, backupFile)
+                    : generateScriptRunnerContent(endpoint);
                 fs.writeFileSync(handlerFile, handlerContent);
 
                 generatedFiles.push(handlerFile);
@@ -102,9 +125,32 @@ export async function generateElmHandlers(config = {}) {
             continue;
         }
 
-        console.log(`   ✅ Creating ${handlerName}.elm`);
+        // TEA handlers: only generate the TEA handler file
+        if (useTEA) {
+            console.log(`   ✅ Creating ${handlerName}.elm (TEA handler)`);
+            const handlerContent = generateHandlerContent(endpoint);
+            fs.writeFileSync(handlerFile, handlerContent);
+            generatedFiles.push(handlerFile);
+            generatedCount++;
+            continue;
+        }
 
-        const handlerContent = generateHandlerContent(endpoint);
+        // Script handlers (default): generate both Script scaffolding AND runner
+
+        // 1. Generate Script scaffolding if it doesn't exist
+        if (!hasScript) {
+            if (!fs.existsSync(scriptsDir)) {
+                fs.mkdirSync(scriptsDir, { recursive: true });
+            }
+            console.log(`   ✅ Creating Scripts/${endpoint.name}.elm (business logic)`);
+            const scriptContent = generateScriptScaffolding(endpoint);
+            fs.writeFileSync(scriptFile, scriptContent);
+            generatedFiles.push(scriptFile);
+        }
+
+        // 2. Generate Script runner
+        console.log(`   ✅ Creating ${handlerName}.elm (Script runner)`);
+        const handlerContent = generateScriptRunnerContent(endpoint);
         fs.writeFileSync(handlerFile, handlerContent);
 
         generatedFiles.push(handlerFile);
@@ -137,7 +183,136 @@ export async function generateElmHandlers(config = {}) {
 }
 
 /**
- * Generate Elm handler content
+ * Generate Script runner content (minimal wrapper for Script-based handlers)
+ * @param {Object} endpoint - Endpoint definition
+ */
+function generateScriptRunnerContent(endpoint) {
+    const { name } = endpoint;
+
+    return `module Api.Handlers.${name}Handler exposing (main)
+
+{-| Auto-generated Script runner for ${name}
+
+This file wires up the Script-based handler with Backend.Runtime.
+Business logic lives in Api.Scripts.${name}
+
+DO NOT EDIT - Regenerate with: buildamp gen handlers --regenerate ${name}
+
+-}
+
+import Api.Scripts.${name} as Handler
+import Backend.Runtime as Runtime
+
+
+main =
+    Runtime.run
+        { handler = Handler.handler
+        , decodeRequest = Handler.decodeRequest
+        , encodeResponse = Handler.encodeResponse
+        }
+`;
+}
+
+
+/**
+ * Generate Script scaffolding (business logic template)
+ * @param {Object} endpoint - Endpoint definition
+ */
+function generateScriptScaffolding(endpoint) {
+    const { name, requestType, responseType } = endpoint;
+    const decoderName = requestType.charAt(0).toLowerCase() + requestType.slice(1) + 'Decoder';
+    const encoderName = responseType.charAt(0).toLowerCase() + responseType.slice(1) + 'Encoder';
+
+    return `module Api.Scripts.${name} exposing (handler, decodeRequest, encodeResponse)
+
+{-| ${name} Handler
+
+TODO: Implement your business logic here.
+
+This is a Script-based handler - write linear, declarative code:
+
+    handler req ctx config =
+        Script.dbFind "items" (Script.queryAll |> Script.sortByDesc "created_at")
+            |> Script.andThenDecode (Decode.list decoder)
+                (\\items -> Script.succeed { items = items })
+
+Database operations:
+- Script.dbCreate : String -> Encode.Value -> Script Encode.Value
+- Script.dbFind : String -> Query -> Script Encode.Value
+- Script.dbFindOne : String -> String -> Script Encode.Value  -- finds by ID
+
+Query builders:
+- Script.queryAll : Query                          -- all records
+- Script.queryById : String -> Query               -- filter by ID
+- Script.byField : String -> String -> Query -> Query  -- add field filter
+- Script.sortBy : String -> Query -> Query         -- sort ascending
+- Script.sortByDesc : String -> Query -> Query     -- sort descending
+
+Combinators:
+- Script.andThenDecode : Decoder a -> (a -> Script b) -> Script Encode.Value -> Script b
+- Script.forEach : List a -> (a -> Script b) -> Script (List b)
+- Script.succeed : a -> Script a
+- Script.fail : String -> Script a
+- Script.broadcast : String -> Encode.Value -> Script ()  -- SSE event
+
+-}
+
+import Backend.RichContent as RichContent
+import Backend.Runtime exposing (Context)
+import Backend.Script as Script exposing (Script)
+import BuildAmp.Api exposing (${requestType}, ${responseType})
+import BuildAmp.Database as DB
+import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
+
+
+type alias GlobalConfig =
+    { serverNow : Int
+    , hostIsolation : Bool
+    , environment : String
+    }
+
+
+{-| The handler - implement your business logic here -}
+handler : ${requestType} -> Context -> GlobalConfig -> Script ${responseType}
+handler req ctx config =
+    -- TODO: Implement your business logic
+    -- Examples:
+    --
+    -- Load all items:
+    --     Script.dbFind "items" Script.queryAll
+    --         |> Script.andThenDecode (Decode.list itemDecoder)
+    --             (\\items -> Script.succeed { items = items })
+    --
+    -- Load by ID:
+    --     Script.dbFind "items" (Script.queryById req.id)
+    --
+    -- Create record:
+    --     Script.dbCreate "items" (encodeData req)
+    --         |> Script.andThenDecode (Decode.field "id" Decode.string)
+    --             (\\id -> Script.succeed { id = id })
+    --
+    Script.fail "TODO: Implement ${name} handler"
+
+
+
+-- Request/Response codecs (delegates to generated BuildAmp.Api)
+
+
+decodeRequest : Decoder ${requestType}
+decodeRequest =
+    BuildAmp.Api.${decoderName}
+
+
+encodeResponse : ${responseType} -> Encode.Value
+encodeResponse =
+    BuildAmp.Api.${encoderName}
+`;
+}
+
+
+/**
+ * Generate Elm handler content (TEA-style, for endpoints without Script files)
  * @param {Object} endpoint - Endpoint definition
  * @param {string} backupFile - Path to backup file (if regenerating)
  */
@@ -683,6 +858,8 @@ function createFallbackService(server) {
 // Exported for testing
 export const _test = {
     generateHandlerContent,
+    generateScriptRunnerContent,
+    generateScriptScaffolding,
     shouldRegenerateHandler,
     generatePlaceholderResponse,
     generateResponseEncoder

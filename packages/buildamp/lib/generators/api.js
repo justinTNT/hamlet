@@ -1055,6 +1055,31 @@ ${allRoutes}
     console.log(`✅ Generated Elm backend types: ${backendOutputFile}`);
     console.log(`📊 Generated ${allApis.length} Express routes and ${allApis.length} Elm HTTP functions`);
 
+    // Generate port-based API modules for extension (if extension path exists)
+    const extensionPath = path.join(paths.outputDir, 'extension');
+    if (fs.existsSync(extensionPath)) {
+        const extensionSrcPath = ensureOutputDir(path.join(extensionPath, 'src'));
+        const extensionApiPath = ensureOutputDir(path.join(extensionSrcPath, 'Api'));
+
+        // Generate Api.elm (port-based request builders)
+        const portApiCode = generatePortBasedApi(allApis, rawElmApis);
+        const portApiFile = path.join(extensionSrcPath, 'Api.elm');
+        fs.writeFileSync(portApiFile, portApiCode);
+        console.log(`✅ Generated port-based Api.elm: ${portApiFile}`);
+
+        // Generate Api/Port.elm (port communication handler)
+        const portModuleCode = generateApiPortModule();
+        const portModuleFile = path.join(extensionApiPath, 'Port.elm');
+        fs.writeFileSync(portModuleFile, portModuleCode);
+        console.log(`✅ Generated Api/Port.elm: ${portModuleFile}`);
+
+        // Generate Api/Schema.elm (type re-exports)
+        const schemaCode = generateApiSchemaModule(allApis, rawElmApis);
+        const schemaFile = path.join(extensionApiPath, 'Schema.elm');
+        fs.writeFileSync(schemaFile, schemaCode);
+        console.log(`✅ Generated Api/Schema.elm: ${schemaFile}`);
+    }
+
     return {
         routes: allApis.length,
         endpoints: allApis.length,
@@ -1076,6 +1101,303 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
 export { generateApiRoutes };
 
+// =============================================================================
+// PORT-BASED API GENERATION (for browser extensions)
+// =============================================================================
+
+/**
+ * Convert snake_case to camelCase
+ */
+function snakeToCamel(str) {
+    return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+/**
+ * Generate port-based Request type and endpoint functions
+ * Used by browser extensions that can't make direct HTTP calls
+ */
+function generatePortBasedApi(allApis, rawElmApis = []) {
+    const rawApiMap = new Map();
+    for (const rawApi of rawElmApis) {
+        rawApiMap.set(rawApi.name, rawApi);
+    }
+
+    // Generate endpoint functions
+    const endpointFunctions = allApis.map(api => {
+        const functionName = lcFirst(api.path);
+        const rawApi = rawApiMap.get(api.path);
+        const responseType = `${api.path}Res`;
+        const decoderName = `Client.${lcFirst(api.path)}ResDecoder`;
+
+        // Build request fields - filter out injected fields like 'host'
+        const requestFields = (api.fields || []).filter(f => !f.annotations.inject);
+
+        // Add host field for extension (required for all requests)
+        const allFields = [{ name: 'host', elmType: 'String' }, ...requestFields];
+
+        // Generate type signature using camelCase field names
+        const fieldTypes = allFields.map(f => {
+            const camelName = snakeToCamel(f.name);
+            return `${camelName} : ${f.elmType || f.type}`;
+        }).join(', ');
+        const typeSignature = `{ ${fieldTypes} }`;
+
+        // Generate encoder fields - use camelCase for Elm access, snake_case for JSON
+        const encoderFields = allFields.map(f => {
+            const camelName = snakeToCamel(f.name);
+            const jsonKey = f.name; // Keep snake_case for JSON wire format
+            const encoder = getSimpleEncoder(f.elmType || f.type);
+            return `( "${jsonKey}", ${encoder} req.${camelName} )`;
+        });
+
+        return `${functionName} : ${typeSignature} -> Request Client.${responseType}
+${functionName} req =
+    { endpoint = "${api.path}"
+    , body =
+        Encode.object
+            [ ${encoderFields.join('\n            , ')}
+            ]
+    , decoder = ${decoderName}
+    }`;
+    }).join('\n\n\n');
+
+    return `module Api exposing (..)
+
+{-| Port-based API module for browser extensions.
+
+    Auto-generated from Elm API definitions.
+    Uses Request type for port-based communication.
+-}
+
+import BuildAmp.ApiClient as Client
+import Json.Decode as Decode
+import Json.Encode as Encode
+
+
+-- CORE TYPES
+
+
+type alias Request response =
+    { endpoint : String
+    , body : Encode.Value
+    , decoder : Decode.Decoder response
+    }
+
+
+
+-- ENDPOINTS
+
+
+${endpointFunctions}
+`;
+}
+
+/**
+ * Get simple encoder expression for a type
+ */
+function getSimpleEncoder(elmType) {
+    const type = (elmType || 'String').trim();
+
+    if (type === 'String') return 'Encode.string';
+    if (type === 'Int') return 'Encode.int';
+    if (type === 'Float') return 'Encode.float';
+    if (type === 'Bool') return 'Encode.bool';
+    if (type.startsWith('Maybe ')) return '(Maybe.withDefault Encode.null << Maybe.map Encode.string)';
+    if (type.startsWith('List String')) return '(Encode.list Encode.string)';
+    if (type.startsWith('List ')) return '(Encode.list Encode.string)';
+    return 'Encode.string';
+}
+
+/**
+ * Generate Api.Port module for port-based communication
+ */
+function generateApiPortModule() {
+    return `module Api.Port exposing (Model, Msg, init, update, send, subscriptions)
+
+{-| Port-based API communication for browser extensions.
+
+    Auto-generated module that handles request/response correlation
+    through ports instead of direct HTTP.
+-}
+
+import Api
+import Dict exposing (Dict)
+import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
+import Task
+
+
+-- MODEL
+
+
+type alias Model msg =
+    { pending : Dict String (Result String Encode.Value -> msg)
+    , counter : Int
+    }
+
+
+init : Model msg
+init =
+    { pending = Dict.empty
+    , counter = 0
+    }
+
+
+
+-- MSG
+
+
+type Msg msg
+    = Send String Encode.Value (Result String Encode.Value -> msg)
+    | Received Encode.Value
+
+
+
+-- UPDATE
+
+
+update :
+    { sendPort : Encode.Value -> Cmd msg
+    }
+    -> Msg msg
+    -> Model msg
+    -> ( Model msg, Cmd msg )
+update config msg model =
+    case msg of
+        Send endpoint body callback ->
+            let
+                newCounter =
+                    model.counter + 1
+
+                correlationId =
+                    String.fromInt newCounter
+
+                payload =
+                    Encode.object
+                        [ ( "endpoint", Encode.string endpoint )
+                        , ( "body", body )
+                        , ( "correlationId", Encode.string correlationId )
+                        ]
+
+                newPending =
+                    Dict.insert correlationId callback model.pending
+            in
+            ( { model | counter = newCounter, pending = newPending }
+            , config.sendPort payload
+            )
+
+        Received val ->
+            let
+                envelopeDecoder =
+                    Decode.map3 (\\c b e -> { correlationId = c, body = b, error = e })
+                        (Decode.field "correlationId" Decode.string)
+                        (Decode.field "body" Decode.value)
+                        (Decode.maybe (Decode.field "error" Decode.string))
+            in
+            case Decode.decodeValue envelopeDecoder val of
+                Ok { correlationId, body, error } ->
+                    case Dict.get correlationId model.pending of
+                        Just callback ->
+                            let
+                                result =
+                                    case error of
+                                        Just err ->
+                                            Err err
+
+                                        Nothing ->
+                                            Ok body
+
+                                cmd =
+                                    Task.succeed (callback result)
+                                        |> Task.perform identity
+                            in
+                            ( { model | pending = Dict.remove correlationId model.pending }
+                            , cmd
+                            )
+
+                        Nothing ->
+                            ( model, Cmd.none )
+
+                Err _ ->
+                    ( model, Cmd.none )
+
+
+
+-- SUBSCRIPTIONS
+
+
+subscriptions : ((Encode.Value -> msg) -> Sub msg) -> (Msg msg -> msg) -> Sub msg
+subscriptions portSub toMsg =
+    portSub (\\val -> toMsg (Received val))
+
+
+
+-- HELPER
+
+
+send : (Result String response -> msg) -> Api.Request response -> Msg msg
+send toMsg req =
+    let
+        callback : Result String Encode.Value -> msg
+        callback result =
+            case result of
+                Ok json ->
+                    case Decode.decodeValue req.decoder json of
+                        Ok response ->
+                            toMsg (Ok response)
+
+                        Err decodeErr ->
+                            toMsg (Err (Decode.errorToString decodeErr))
+
+                Err err ->
+                    toMsg (Err err)
+    in
+    Send req.endpoint req.body callback
+`;
+}
+
+/**
+ * Generate Api.Schema module that re-exports types from ApiClient
+ */
+function generateApiSchemaModule(allApis, rawElmApis = []) {
+    // Collect all response type names
+    const responseTypes = rawElmApis
+        .filter(api => api.response && api.response.fields)
+        .map(api => `${api.name}Res`);
+
+    // Collect helper types
+    const helperTypes = new Set();
+    for (const api of rawElmApis) {
+        if (api.helperTypes) {
+            for (const helper of api.helperTypes) {
+                helperTypes.add(helper.name);
+            }
+        }
+    }
+
+    const allTypes = [...responseTypes, ...helperTypes];
+
+    const typeAliases = allTypes.map(typeName =>
+        `type alias ${typeName} =
+    Client.${typeName}`
+    ).join('\n\n\n');
+
+    return `module Api.Schema exposing
+    ( ${allTypes.join('\n    , ')}
+    )
+
+{-| Re-export types from BuildAmp.ApiClient for backward compatibility.
+
+    Auto-generated module.
+-}
+
+import BuildAmp.ApiClient as Client
+
+
+${typeAliases}
+`;
+}
+
 // Exported for testing
 export const _test = {
     generateRoute,
@@ -1096,5 +1418,11 @@ export const _test = {
     generateFieldEncoder,
     generateFieldDecoder,
     camelToSnake,
-    lcFirst
+    lcFirst,
+    // Port-based API generation (for extensions)
+    generatePortBasedApi,
+    generateApiPortModule,
+    generateApiSchemaModule,
+    getSimpleEncoder,
+    snakeToCamel
 };

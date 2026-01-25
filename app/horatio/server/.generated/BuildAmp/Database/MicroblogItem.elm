@@ -78,9 +78,9 @@ createdAt =
 
 {-| Field accessor for updated_at
 -}
-updatedAt : Field MicroblogItemDb Int
+updatedAt : Field MicroblogItemDb (Maybe Int)
 updatedAt =
-    Field "updated_at" Encode.int
+    Field "updated_at" (Maybe.withDefault Encode.null << Maybe.map Encode.int)
 
 
 {-| Field accessor for view_count

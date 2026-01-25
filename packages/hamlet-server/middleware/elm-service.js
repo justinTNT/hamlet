@@ -538,8 +538,15 @@ export default async function createElmService(server) {
                                 userId: context.user_id || null,
                                 isExtension: context.is_extension || false
                             },
-                            globalConfig: {}, // TODO: Add actual global config
-                            globalState: {}   // TODO: Add actual global state
+                            globalConfig: {
+                                serverNow: Date.now(),
+                                hostIsolation: true,
+                                environment: process.env.NODE_ENV || 'development'
+                            },
+                            globalState: {
+                                requestCount: 0,
+                                lastActivity: Date.now()
+                            }
                         };
 
                         // Context is already stored in requestContext (request-scoped)

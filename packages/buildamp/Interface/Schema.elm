@@ -72,11 +72,11 @@ type alias CreateTimestamp =
         , updatedAt : UpdateTimestamp
         }
 
-Generates: `updated_at TIMESTAMP WITH TIME ZONE` (nullable, set by application)
+Generates: `updated_at TIMESTAMP WITH TIME ZONE` (nullable, null until first UPDATE)
 
 -}
 type alias UpdateTimestamp =
-    Int
+    Maybe Int
 
 
 {-| Multi-tenant host identifier. Required field for tenant isolation.
