@@ -1,9 +1,22 @@
 {
-  "generated": "2026-01-25T01:59:36.916Z",
+  "generated": "2026-01-25T03:30:04.382Z",
   "hooks": [
     {
       "table": "item_comment",
-      "field": "removed",
+      "trigger": "OnUpdate",
+      "condition": {
+        "type": "Neq",
+        "left": {
+          "type": "Field",
+          "ref": "Before",
+          "field": "removed"
+        },
+        "right": {
+          "type": "Field",
+          "ref": "After",
+          "field": "removed"
+        }
+      },
       "event": "CommentModerated"
     }
   ]

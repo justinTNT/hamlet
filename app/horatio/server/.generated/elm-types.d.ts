@@ -211,9 +211,6 @@ export interface NewCommentEvent {
 }
 
 export interface CommentModerated {
-    recordId: string;
-    table: string;
-    field: string;
-    oldValue: string;
-    newValue: string;
+    before: unknown;
+    after: unknown;
 }

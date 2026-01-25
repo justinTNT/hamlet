@@ -5,11 +5,11 @@ DONE:
 * add sse for removed comment: update on item page
   - note: app could subscribe to certain events (e.g. comment.removed changed) and admin could publish those subscribed events to app's queue. keeps business logic (SSE broadcast) in app's event handlers, admin stays generic CRUD. simple config like `{ table = "item_comment", field = "removed", event = "CommentModerated" }`
 * test deeply nested comments
+* implement task_abstraction_proposal.md
+* expand Admin hooks 
 
 TODO:
 * extension: enrich content with: tiptap owner comment, html of selection
-* expand Admin hooks 
-* implement task_abstraction_proposal.md
 * multi-admin with edit queue;
   - project key + initial host required to claim editor role (where to store?)
   - admin key per host set by editor, required for admin (where to store?)

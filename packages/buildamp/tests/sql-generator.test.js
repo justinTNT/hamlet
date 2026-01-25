@@ -410,7 +410,7 @@ describe('SQL Generator - MultiTenant and SoftDelete Conditional Columns', () =>
         assert.ok(result.sql.includes('host TEXT NOT NULL'), 'should auto-add host column for backward compat');
     });
 
-    test('auto-adds deleted_at for backward compat if no SoftDelete field', () => {
+    test('does NOT auto-add deleted_at when isSoftDelete is false', () => {
         const struct = {
             tableName: 'posts',
             structName: 'Post',
@@ -432,8 +432,8 @@ describe('SQL Generator - MultiTenant and SoftDelete Conditional Columns', () =>
 
         const result = generateCreateTableForTest(struct, [], {});
 
-        // Should auto-add deleted_at column
-        assert.ok(result.sql.includes('deleted_at'), 'should auto-add deleted_at column for backward compat');
+        // deleted_at is NO LONGER auto-added - models must explicitly use SoftDelete type
+        assert.ok(!result.sql.includes('deleted_at'), 'should not auto-add deleted_at when not using SoftDelete');
     });
 
     test('generates host index only for MultiTenant models', () => {

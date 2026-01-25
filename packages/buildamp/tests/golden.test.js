@@ -33,7 +33,7 @@ const generatedPaths = {
     'Api.elm': path.join(horatioDir, 'server/.generated/BuildAmp/Api.elm'),
     // API
     'api-routes.js': path.join(horatioDir, 'server/.generated/api-routes.js'),
-    'ApiClient.elm': path.join(horatioDir, 'web/src/.generated/ApiClient.elm'),
+    'ApiClient.elm': path.join(horatioDir, 'web/src/.generated/BuildAmp/ApiClient.elm'),
     // KV Store
     'kv-store.js': path.join(horatioDir, 'server/.generated/kv-store.js'),
     // SSE

@@ -1,6 +1,6 @@
 /**
  * Admin API Middleware
- * 
+ *
  * Exposes a generic CRUD interface for Admin UI.
  * PROTECTED by HAMLET_ADMIN_TOKEN (if set) or development-only.
  */
@@ -15,6 +15,77 @@ function snakeToPascal(str) {
     return str.split('_')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join('');
+}
+
+// ============================================================================
+// Condition Evaluation (exported for testing)
+// ============================================================================
+
+/**
+ * Evaluate a Value expression (Const or Field)
+ * @param {Object} value - The value expression
+ * @param {Object|null} before - The row before the operation
+ * @param {Object|null} after - The row after the operation
+ * @returns {string|null} The evaluated value
+ */
+export function evaluateValue(value, before, after) {
+    if (!value) return null;
+
+    switch (value.type) {
+        case 'Const':
+            return value.value;
+
+        case 'Field': {
+            const row = value.ref === 'Before' ? before : after;
+            if (!row) return null;
+            const fieldValue = row[value.field];
+            // Convert to string for comparison (matches Elm's behavior)
+            return fieldValue !== null && fieldValue !== undefined ? String(fieldValue) : null;
+        }
+
+        default:
+            console.warn(`Unknown value type: ${value.type}`);
+            return null;
+    }
+}
+
+/**
+ * Evaluate a condition expression against before/after rows
+ * @param {Object} condition - The condition expression
+ * @param {Object|null} before - The row before the operation
+ * @param {Object|null} after - The row after the operation
+ * @returns {boolean} True if condition is satisfied
+ */
+export function evaluateCondition(condition, before, after) {
+    if (!condition) return true; // No condition = always fire
+
+    switch (condition.type) {
+        case 'Eq':
+            return evaluateValue(condition.left, before, after) === evaluateValue(condition.right, before, after);
+
+        case 'Neq':
+            return evaluateValue(condition.left, before, after) !== evaluateValue(condition.right, before, after);
+
+        case 'IsNull': {
+            const row = condition.ref === 'Before' ? before : after;
+            return row === null || row[condition.field] === null || row[condition.field] === undefined;
+        }
+
+        case 'IsNotNull': {
+            const row = condition.ref === 'Before' ? before : after;
+            return row !== null && row[condition.field] !== null && row[condition.field] !== undefined;
+        }
+
+        case 'And':
+            return evaluateCondition(condition.left, before, after) && evaluateCondition(condition.right, before, after);
+
+        case 'Or':
+            return evaluateCondition(condition.left, before, after) || evaluateCondition(condition.right, before, after);
+
+        default:
+            console.warn(`Unknown condition type: ${condition.type}`);
+            return false;
+    }
 }
 
 export default function createAdminApi(server) {
@@ -85,17 +156,15 @@ export default function createAdminApi(server) {
         return null;
     };
 
-    // Helper to publish admin hook event
-    const publishHookEvent = async (hook, recordId, oldValue, newValue, host) => {
+    /**
+     * Publish admin hook event with before/after payload
+     */
+    const publishHookEvent = async (hook, before, after, host) => {
         try {
-            // Insert event into buildamp_events table
-            // Use snake_case keys to match Elm decoder conventions
+            // Build payload with before/after row data
             const eventPayload = {
-                record_id: recordId,
-                table: hook.table,
-                field: hook.field,
-                old_value: oldValue !== undefined ? String(oldValue) : '',
-                new_value: newValue !== undefined ? String(newValue) : ''
+                before: before || null,
+                after: after || null
             };
 
             await db.query(
@@ -104,7 +173,7 @@ export default function createAdminApi(server) {
                 [host, hook.event, JSON.stringify(eventPayload)]
             );
 
-            console.log(`📣 Admin hook triggered: ${hook.event} for ${hook.table}.${hook.field} change`);
+            console.log(`📣 Admin hook triggered: ${hook.event} (${hook.trigger}) for ${hook.table}`);
         } catch (error) {
             console.error('Failed to publish admin hook event:', error);
         }
@@ -557,6 +626,17 @@ export default function createAdminApi(server) {
                 const normalizedData = normalizeRequestData(cleanData, tableSchema);
                 const result = await db[methodName]({ ...normalizedData, host });
 
+                // Check OnInsert admin hooks
+                const adminHooks = await loadAdminHooks();
+                const insertHooks = adminHooks?.hooks?.filter(h => h.table === resource && h.trigger === 'OnInsert') || [];
+
+                for (const hook of insertHooks) {
+                    // Evaluate condition with before=null, after=result
+                    if (evaluateCondition(hook.condition, null, result)) {
+                        await publishHookEvent(hook, null, result, host);
+                    }
+                }
+
                 // Remove the host field from result
                 const { host: __, ...cleanResult } = result;
                 res.status(201).json(cleanResult);
@@ -592,10 +672,10 @@ export default function createAdminApi(server) {
                 // Fetch old record for hook comparison
                 let oldRecord = null;
                 const adminHooks = await loadAdminHooks();
-                const relevantHooks = adminHooks?.hooks?.filter(h => h.table === resource) || [];
+                const updateHooks = adminHooks?.hooks?.filter(h => h.table === resource && h.trigger === 'OnUpdate') || [];
 
-                if (relevantHooks.length > 0) {
-                    // We have hooks for this table, fetch old record
+                if (updateHooks.length > 0) {
+                    // We have OnUpdate hooks for this table, fetch old record
                     const getter = typeof db[getMethodName] === 'function' ? db[getMethodName] : db[altGetMethodName];
                     if (typeof getter === 'function') {
                         oldRecord = await getter(id, host);
@@ -611,16 +691,12 @@ export default function createAdminApi(server) {
                     return res.status(404).json({ error: `${methodResource} not found` });
                 }
 
-                // Check admin hooks for field changes
-                if (oldRecord && relevantHooks.length > 0) {
-                    for (const hook of relevantHooks) {
-                        const fieldName = hook.field;
-                        const oldValue = oldRecord[fieldName];
-                        const newValue = result[fieldName];
-
-                        // Check if the field changed
-                        if (oldValue !== newValue) {
-                            await publishHookEvent(hook, id, oldValue, newValue, host);
+                // Check OnUpdate admin hooks with condition evaluation
+                if (updateHooks.length > 0) {
+                    for (const hook of updateHooks) {
+                        // Evaluate condition (if any) with before/after rows
+                        if (evaluateCondition(hook.condition, oldRecord, result)) {
+                            await publishHookEvent(hook, oldRecord, result, host);
                         }
                     }
                 }
@@ -694,6 +770,10 @@ export default function createAdminApi(server) {
                         return res.status(404).json({ error: `${methodResource} not found with given keys` });
                     }
 
+                    // Check for OnDelete hooks
+                    const adminHooks = await loadAdminHooks();
+                    const deleteHooks = adminHooks?.hooks?.filter(h => h.table === resource && h.trigger === 'OnDelete') || [];
+
                     // Delete matching records
                     // For records with an 'id' field, use kill method
                     // For join tables without 'id', delete directly via SQL
@@ -705,6 +785,14 @@ export default function createAdminApi(server) {
                         console.log('🔍 Deleting record with id:', record.id);
                         if (record.id && typeof db[killMethodName] === 'function') {
                             await db[killMethodName](record.id, host);
+
+                            // Fire OnDelete hooks
+                            for (const hook of deleteHooks) {
+                                if (evaluateCondition(hook.condition, record, null)) {
+                                    await publishHookEvent(hook, record, null, host);
+                                }
+                            }
+
                             deletedCount++;
                         } else {
                             // No id field - this is a join table, delete directly via SQL
@@ -719,7 +807,7 @@ export default function createAdminApi(server) {
                             console.log('🔍 SQL:', sql);
                             console.log('🔍 Values:', values);
 
-                            // Use db.query for raw SQL
+                            // Use db.query for raw SQL (no hooks for join tables without id)
                             await db.query(sql, values);
                             deletedCount++;
                         }
@@ -738,10 +826,35 @@ export default function createAdminApi(server) {
                 const methodName = `kill${methodResource}`;
 
                 if (typeof db[methodName] === 'function') {
+                    // Check for OnDelete hooks
+                    const adminHooks = await loadAdminHooks();
+                    const deleteHooks = adminHooks?.hooks?.filter(h => h.table === resource && h.trigger === 'OnDelete') || [];
+
+                    // Fetch record before deletion if we have hooks
+                    let oldRecord = null;
+                    if (deleteHooks.length > 0) {
+                        const getMethodName = `find${methodResource}ById`;
+                        const altGetMethodName = `get${methodResource}ById`;
+                        const getter = typeof db[getMethodName] === 'function' ? db[getMethodName] : db[altGetMethodName];
+                        if (typeof getter === 'function') {
+                            oldRecord = await getter(id, host);
+                        }
+                    }
+
                     const result = await db[methodName](id, host);
 
                     if (!result) {
                         return res.status(404).json({ error: `${methodResource} not found` });
+                    }
+
+                    // Fire OnDelete hooks
+                    if (oldRecord) {
+                        for (const hook of deleteHooks) {
+                            // Evaluate condition with before=oldRecord, after=null
+                            if (evaluateCondition(hook.condition, oldRecord, null)) {
+                                await publishHookEvent(hook, oldRecord, null, host);
+                            }
+                        }
                     }
 
                     res.status(204).send(); // No content for successful delete

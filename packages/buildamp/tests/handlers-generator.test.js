@@ -320,7 +320,7 @@ describe('Handlers Generator - Different Endpoints', () => {
         };
         const result = generateHandlerContent(endpoint);
 
-        assert.ok(result.includes('port module Api.Handlers.SubmitItemHandlerTEA'));
+        assert.ok(result.includes('port module Api.Handlers.SubmitItemHandler'));
         assert.ok(result.includes('import BuildAmp.Api exposing (SubmitItemReq, SubmitItemRes)'));
         assert.ok(result.includes('request : Maybe SubmitItemReq'));
         assert.ok(result.includes('| Complete SubmitItemRes'));
@@ -334,7 +334,7 @@ describe('Handlers Generator - Different Endpoints', () => {
         };
         const result = generateHandlerContent(endpoint);
 
-        assert.ok(result.includes('port module Api.Handlers.GetTagsHandlerTEA'));
+        assert.ok(result.includes('port module Api.Handlers.GetTagsHandler'));
         assert.ok(result.includes('processRequest : GetTagsReq -> Cmd Msg'));
     });
 
@@ -346,7 +346,7 @@ describe('Handlers Generator - Different Endpoints', () => {
         };
         const result = generateHandlerContent(endpoint);
 
-        assert.ok(result.includes('port module Api.Handlers.SubmitCommentHandlerTEA'));
+        assert.ok(result.includes('port module Api.Handlers.SubmitCommentHandler'));
         assert.ok(result.includes('encodeSubmitCommentRes'));
     });
 });

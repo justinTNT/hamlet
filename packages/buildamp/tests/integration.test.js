@@ -276,8 +276,8 @@ describe('Integration Tests - SQL Generation', () => {
             const paths = createTestConfig();
             await generateSqlMigrations({ paths });
 
-            // Check output file
-            const outputFile = path.join(tempDir, 'sql', 'migrations', 'schema.sql');
+            // Check output file (schema.sql is output to serverGlueDir, not sql/migrations)
+            const outputFile = path.join(paths.serverGlueDir, 'schema.sql');
             assert.ok(fs.existsSync(outputFile), 'schema.sql should be created');
 
             const content = fs.readFileSync(outputFile, 'utf-8');
@@ -346,8 +346,8 @@ describe('Integration Tests - API Generation', () => {
             await generateApiRoutes({ paths });
 
             // Check Elm output
-            const elmFile = path.join(paths.webGlueDir, 'ApiClient.elm');
-            assert.ok(fs.existsSync(elmFile), 'ApiClient.elm should be created');
+            const elmFile = path.join(paths.webGlueDir, 'BuildAmp', 'ApiClient.elm');
+            assert.ok(fs.existsSync(elmFile), 'BuildAmp/ApiClient.elm should be created');
 
             const content = fs.readFileSync(elmFile, 'utf-8');
             assert.ok(content.includes('module BuildAmp.ApiClient'), 'Should have module declaration');
@@ -505,8 +505,8 @@ describe('Integration Tests - SSE Generation', () => {
             generateSSEEvents({ paths });
 
             // Check Elm output
-            const elmFile = path.join(paths.webGlueDir, 'ServerSentEvents.elm');
-            assert.ok(fs.existsSync(elmFile), 'ServerSentEvents.elm should be created');
+            const elmFile = path.join(paths.webGlueDir, 'BuildAmp', 'ServerSentEvents.elm');
+            assert.ok(fs.existsSync(elmFile), 'BuildAmp/ServerSentEvents.elm should be created');
 
             const content = fs.readFileSync(elmFile, 'utf-8');
             assert.ok(content.includes('module BuildAmp.ServerSentEvents'), 'Should have module declaration');

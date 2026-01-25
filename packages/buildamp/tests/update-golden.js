@@ -24,15 +24,15 @@ const fileMappings = {
     // Database
     'database-queries.js': path.join(horatioDir, 'server/.generated/database-queries.js'),
     'Database.elm': path.join(horatioDir, 'server/.generated/BuildAmp/Database.elm'),
-    'Backend.elm': path.join(horatioDir, 'server/src/Api/Backend.elm'),
     // API
+    'Api.elm': path.join(horatioDir, 'server/.generated/BuildAmp/Api.elm'),
     'api-routes.js': path.join(horatioDir, 'server/.generated/api-routes.js'),
-    'ApiClient.elm': path.join(horatioDir, 'web/src/.generated/ApiClient.elm'),
+    'ApiClient.elm': path.join(horatioDir, 'web/src/.generated/BuildAmp/ApiClient.elm'),
     // KV Store
     'kv-store.js': path.join(horatioDir, 'server/.generated/kv-store.js'),
     // SSE
     'sse-connection.js': path.join(horatioDir, 'server/.generated/sse-connection.js'),
-    'ServerSentEvents.elm': path.join(horatioDir, 'web/src/.generated/ServerSentEvents.elm'),
+    'ServerSentEvents.elm': path.join(horatioDir, 'web/src/.generated/BuildAmp/ServerSentEvents.elm'),
     // Browser Storage
     'browser-storage.js': path.join(horatioDir, 'web/src/.generated/browser-storage.js'),
     'StoragePorts.elm': path.join(horatioDir, 'web/src/.generated/StoragePorts.elm'),

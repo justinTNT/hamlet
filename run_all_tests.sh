@@ -109,6 +109,11 @@ run_test_suite \
     "npm test" \
     "CLI parsing, codegen modes, database/events generation, integration"
 
+# Regenerate files before BuildAmp tests (earlier tests may have modified them)
+echo ""
+echo -e "${BLUE}🔄 Regenerating BuildAmp files for clean test state...${NC}"
+(cd /Users/jtnt/Play/hamlet && node packages/buildamp/bin/buildamp.js gen --src app/horatio/models --dest app/horatio > /dev/null 2>&1)
+
 # Test Suite 4: BuildAmp Package Tests
 run_test_suite \
     "BuildAmp Package Tests" \

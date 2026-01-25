@@ -71,7 +71,7 @@ test('Generated files exist', () => {
         'app/horatio/server/.generated/database-queries.js',
         'app/horatio/server/.generated/kv-store.js',
         'app/horatio/web/src/.generated/browser-storage.js',
-        'app/horatio/web/src/.generated/ApiClient.elm',
+        'app/horatio/web/src/.generated/BuildAmp/ApiClient.elm',
         'app/horatio/web/src/.generated/StoragePorts.elm'
     ];
     
@@ -89,7 +89,7 @@ test('Generated content has expected structure', () => {
     console.log('\n🔍 Testing generated content...');
     
     const apiRoutes = fs.readFileSync('app/horatio/server/.generated/api-routes.js', 'utf-8');
-    const elmClient = fs.readFileSync('app/horatio/web/src/.generated/ApiClient.elm', 'utf-8');
+    const elmClient = fs.readFileSync('app/horatio/web/src/.generated/BuildAmp/ApiClient.elm', 'utf-8');
 
     let allValid = true;
 

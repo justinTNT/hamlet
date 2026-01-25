@@ -1409,6 +1409,11 @@ function elmTypeToElmType(elmType) {
     if (elmType === 'DateTime') {
         return 'String';
     }
+    // Config union types -> String (serialized as JSON strings)
+    // These are custom types used in AdminHooks.elm, Cron.elm, etc.
+    if (elmType === 'Trigger' || elmType === 'Condition' || elmType === 'Value' || elmType === 'RowRef') {
+        return 'String';
+    }
     // Dict a b -> String (serialize as JSON string)
     if (elmType.startsWith('Dict ')) {
         return 'String';
@@ -2218,6 +2223,10 @@ function eventFieldToElmType(elmType) {
     if (elmType === 'DateTime') {
         return 'String';
     }
+    // Handle Json.Decode.Value for raw JSON payloads
+    if (elmType === 'Json.Decode.Value') {
+        return 'Decode.Value';
+    }
     if (elmType.startsWith('Maybe ')) {
         const innerType = elmType.slice(6);
         return `Maybe ${eventFieldToElmType(innerType)}`;
@@ -2242,6 +2251,10 @@ function generateEventFieldDecoder(elmType) {
     }
     if (elmType === 'Bool') {
         return 'Decode.bool';
+    }
+    // Handle Json.Decode.Value for raw JSON payloads
+    if (elmType === 'Json.Decode.Value' || elmType === 'Decode.Value') {
+        return 'Decode.value';
     }
     if (elmType.startsWith('Maybe ')) {
         const innerType = elmType.slice(6);
@@ -2350,7 +2363,8 @@ function generateAdminHooksConfig(paths, config = {}) {
     const validatedHooks = [];
 
     for (const hook of hooksConfig) {
-        if (!hook.table || !hook.field || !hook.event) {
+        // Require table, trigger, and event
+        if (!hook.table || !hook.trigger || !hook.event) {
             errors.push(`Invalid admin hook entry: ${JSON.stringify(hook)}`);
             continue;
         }
@@ -2367,15 +2381,26 @@ function generateAdminHooksConfig(paths, config = {}) {
             continue;
         }
 
-        // Validate field name is snake_case
-        if (!/^[a-z][a-z0-9_]*$/.test(hook.field)) {
-            errors.push(`Invalid field name "${hook.field}" - must be snake_case`);
+        // Validate trigger is valid
+        const validTriggers = ['OnInsert', 'OnUpdate', 'OnDelete'];
+        if (!validTriggers.includes(hook.trigger)) {
+            errors.push(`Invalid trigger "${hook.trigger}" - must be OnInsert, OnUpdate, or OnDelete`);
             continue;
+        }
+
+        // Validate condition structure if present
+        if (hook.condition) {
+            const conditionErrors = validateCondition(hook.condition, hook.trigger);
+            if (conditionErrors.length > 0) {
+                errors.push(...conditionErrors.map(e => `${hook.event}: ${e}`));
+                continue;
+            }
         }
 
         validatedHooks.push({
             table: hook.table,
-            field: hook.field,
+            trigger: hook.trigger,
+            condition: hook.condition || null,
             event: hook.event
         });
     }
@@ -2404,4 +2429,108 @@ function generateAdminHooksConfig(paths, config = {}) {
 
     return { generated: true, hooks: validatedHooks, errors };
 }
+
+/**
+ * Validate a condition expression recursively
+ * Returns an array of error messages (empty if valid)
+ */
+function validateCondition(condition, trigger) {
+    const errors = [];
+
+    if (!condition || !condition.type) {
+        errors.push('Condition missing type');
+        return errors;
+    }
+
+    switch (condition.type) {
+        case 'Eq':
+        case 'Neq':
+            // Binary comparison: needs left and right Value
+            if (!condition.left) errors.push(`${condition.type} missing left operand`);
+            if (!condition.right) errors.push(`${condition.type} missing right operand`);
+            if (condition.left) errors.push(...validateValue(condition.left, trigger));
+            if (condition.right) errors.push(...validateValue(condition.right, trigger));
+            break;
+
+        case 'IsNull':
+        case 'IsNotNull':
+            // Unary: needs ref and field
+            if (!condition.ref) errors.push(`${condition.type} missing row reference`);
+            if (!condition.field) errors.push(`${condition.type} missing field name`);
+            if (condition.ref) errors.push(...validateRowRef(condition.ref, trigger));
+            break;
+
+        case 'And':
+        case 'Or':
+            // Binary logical: needs left and right Condition
+            if (!condition.left) errors.push(`${condition.type} missing left condition`);
+            if (!condition.right) errors.push(`${condition.type} missing right condition`);
+            if (condition.left) errors.push(...validateCondition(condition.left, trigger));
+            if (condition.right) errors.push(...validateCondition(condition.right, trigger));
+            break;
+
+        default:
+            errors.push(`Unknown condition type: ${condition.type}`);
+    }
+
+    return errors;
+}
+
+/**
+ * Validate a Value expression (Const or Field)
+ */
+function validateValue(value, trigger) {
+    const errors = [];
+
+    if (!value || !value.type) {
+        errors.push('Value missing type');
+        return errors;
+    }
+
+    switch (value.type) {
+        case 'Const':
+            if (value.value === undefined) errors.push('Const value missing');
+            break;
+
+        case 'Field':
+            if (!value.ref) errors.push('Field missing row reference');
+            if (!value.field) errors.push('Field missing field name');
+            if (value.ref) errors.push(...validateRowRef(value.ref, trigger));
+            break;
+
+        default:
+            errors.push(`Unknown value type: ${value.type}`);
+    }
+
+    return errors;
+}
+
+/**
+ * Validate a row reference (Before/After) is valid for the trigger type
+ */
+function validateRowRef(ref, trigger) {
+    const errors = [];
+
+    if (ref !== 'Before' && ref !== 'After') {
+        errors.push(`Invalid row reference "${ref}" - must be Before or After`);
+        return errors;
+    }
+
+    // Validate ref is valid for trigger type
+    if (trigger === 'OnInsert' && ref === 'Before') {
+        errors.push('OnInsert cannot reference Before (no previous row exists)');
+    }
+    if (trigger === 'OnDelete' && ref === 'After') {
+        errors.push('OnDelete cannot reference After (row has been deleted)');
+    }
+
+    return errors;
+}
+
+// Exported for testing
+export const _test = {
+    validateCondition,
+    validateValue,
+    validateRowRef
+};
 

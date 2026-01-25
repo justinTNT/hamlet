@@ -20,7 +20,8 @@ Generated from AdminHooks.elm
 -}
 type alias AdminHooks =
     {     table : String
-    , field : String
+    , trigger : String
+    , condition : Maybe String
     , event : String
     }
 
@@ -30,7 +31,8 @@ Generated from AdminHooks.elm
 -}
 type alias AdminHook =
     {     table : String
-    , field : String
+    , trigger : String
+    , condition : Maybe String
     , event : String
     }
 
@@ -78,7 +80,8 @@ adminHooksDecoder : Decode.Decoder AdminHooks
 adminHooksDecoder =
     Decode.succeed AdminHooks
         |> andMap (Decode.field "table" Decode.string)
-        |> andMap (Decode.field "field" Decode.string)
+        |> andMap (Decode.field "trigger" Decode.string)
+        |> andMap (Decode.field "condition" (Decode.nullable Decode.string))
         |> andMap (Decode.field "event" Decode.string)
 
 
@@ -86,7 +89,8 @@ adminHookDecoder : Decode.Decoder AdminHook
 adminHookDecoder =
     Decode.succeed AdminHook
         |> andMap (Decode.field "table" Decode.string)
-        |> andMap (Decode.field "field" Decode.string)
+        |> andMap (Decode.field "trigger" Decode.string)
+        |> andMap (Decode.field "condition" (Decode.nullable Decode.string))
         |> andMap (Decode.field "event" Decode.string)
 
 
@@ -125,7 +129,8 @@ encodeAdminHooks : AdminHooks -> Encode.Value
 encodeAdminHooks config =
     Encode.object
         [ ("table", Encode.string config.table)
-        , ("field", Encode.string config.field)
+        , ("trigger", Encode.string config.trigger)
+        , ("condition", encodeMaybe Encode.string config.condition)
         , ("event", Encode.string config.event)
         ]
 
@@ -134,7 +139,8 @@ encodeAdminHook : AdminHook -> Encode.Value
 encodeAdminHook config =
     Encode.object
         [ ("table", Encode.string config.table)
-        , ("field", Encode.string config.field)
+        , ("trigger", Encode.string config.trigger)
+        , ("condition", encodeMaybe Encode.string config.condition)
         , ("event", Encode.string config.event)
         ]
 

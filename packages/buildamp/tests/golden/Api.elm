@@ -93,8 +93,7 @@ resultDecoder errDecoder okDecoder =
 
 
 type alias GetFeedReq =
-    { host : String
-    }
+    {}
 
 
 type alias FeedItem =
@@ -113,8 +112,7 @@ type alias GetFeedRes =
 
 
 type alias GetItemReq =
-    { host : String
-    , id : String
+    { id : String
     }
 
 
@@ -148,8 +146,7 @@ type alias GetItemRes =
 
 
 type alias GetItemsByTagReq =
-    { host : String
-    , tag : String
+    { tag : String
     }
 
 
@@ -160,8 +157,7 @@ type alias GetItemsByTagRes =
 
 
 type alias GetTagsReq =
-    { host : String
-    }
+    {}
 
 
 type alias GetTagsRes =
@@ -170,8 +166,7 @@ type alias GetTagsRes =
 
 
 type alias SubmitCommentReq =
-    { host : String
-    , itemId : String
+    { itemId : String
     , parentId : Maybe String
     , text : String
     , authorName : Maybe String
@@ -190,8 +185,7 @@ type alias SubmitCommentData =
 
 
 type alias SubmitItemReq =
-    { host : String
-    , title : String
+    { title : String
     , link : String
     , image : String
     , extract : String
@@ -216,10 +210,8 @@ type alias SubmitItemData =
 
 
 getFeedReqEncoder : GetFeedReq -> Json.Encode.Value
-getFeedReqEncoder struct =
-    Json.Encode.object
-        [ ( "host", (Json.Encode.string) struct.host )
-        ]
+getFeedReqEncoder _ =
+    Json.Encode.object []
 
 
 feedItemEncoder : FeedItem -> Json.Encode.Value
@@ -244,8 +236,7 @@ getFeedResEncoder struct =
 getItemReqEncoder : GetItemReq -> Json.Encode.Value
 getItemReqEncoder struct =
     Json.Encode.object
-        [ ( "host", (Json.Encode.string) struct.host )
-        , ( "id", (Json.Encode.string) struct.id )
+        [ ( "id", (Json.Encode.string) struct.id )
         ]
 
 
@@ -287,8 +278,7 @@ getItemResEncoder struct =
 getItemsByTagReqEncoder : GetItemsByTagReq -> Json.Encode.Value
 getItemsByTagReqEncoder struct =
     Json.Encode.object
-        [ ( "host", (Json.Encode.string) struct.host )
-        , ( "tag", (Json.Encode.string) struct.tag )
+        [ ( "tag", (Json.Encode.string) struct.tag )
         ]
 
 
@@ -301,10 +291,8 @@ getItemsByTagResEncoder struct =
 
 
 getTagsReqEncoder : GetTagsReq -> Json.Encode.Value
-getTagsReqEncoder struct =
-    Json.Encode.object
-        [ ( "host", (Json.Encode.string) struct.host )
-        ]
+getTagsReqEncoder _ =
+    Json.Encode.object []
 
 
 getTagsResEncoder : GetTagsRes -> Json.Encode.Value
@@ -317,8 +305,7 @@ getTagsResEncoder struct =
 submitCommentReqEncoder : SubmitCommentReq -> Json.Encode.Value
 submitCommentReqEncoder struct =
     Json.Encode.object
-        [ ( "host", (Json.Encode.string) struct.host )
-        , ( "item_id", (Json.Encode.string) struct.itemId )
+        [ ( "item_id", (Json.Encode.string) struct.itemId )
         , ( "parent_id", (Maybe.withDefault Json.Encode.null << Maybe.map (Json.Encode.string)) struct.parentId )
         , ( "text", (Json.Encode.string) struct.text )
         , ( "author_name", (Maybe.withDefault Json.Encode.null << Maybe.map (Json.Encode.string)) struct.authorName )
@@ -343,8 +330,7 @@ submitCommentDataEncoder struct =
 submitItemReqEncoder : SubmitItemReq -> Json.Encode.Value
 submitItemReqEncoder struct =
     Json.Encode.object
-        [ ( "host", (Json.Encode.string) struct.host )
-        , ( "title", (Json.Encode.string) struct.title )
+        [ ( "title", (Json.Encode.string) struct.title )
         , ( "link", (Json.Encode.string) struct.link )
         , ( "image", (Json.Encode.string) struct.image )
         , ( "extract", (Json.Encode.string) struct.extract )
@@ -375,7 +361,6 @@ submitItemDataEncoder struct =
 getFeedReqDecoder : Json.Decode.Decoder GetFeedReq
 getFeedReqDecoder =
     Json.Decode.succeed GetFeedReq
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "host" (Json.Decode.string)))
 
 
 feedItemDecoder : Json.Decode.Decoder FeedItem
@@ -398,7 +383,6 @@ getFeedResDecoder =
 getItemReqDecoder : Json.Decode.Decoder GetItemReq
 getItemReqDecoder =
     Json.Decode.succeed GetItemReq
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "host" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "id" (Json.Decode.string)))
 
 
@@ -437,7 +421,6 @@ getItemResDecoder =
 getItemsByTagReqDecoder : Json.Decode.Decoder GetItemsByTagReq
 getItemsByTagReqDecoder =
     Json.Decode.succeed GetItemsByTagReq
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "host" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "tag" (Json.Decode.string)))
 
 
@@ -451,7 +434,6 @@ getItemsByTagResDecoder =
 getTagsReqDecoder : Json.Decode.Decoder GetTagsReq
 getTagsReqDecoder =
     Json.Decode.succeed GetTagsReq
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "host" (Json.Decode.string)))
 
 
 getTagsResDecoder : Json.Decode.Decoder GetTagsRes
@@ -463,7 +445,6 @@ getTagsResDecoder =
 submitCommentReqDecoder : Json.Decode.Decoder SubmitCommentReq
 submitCommentReqDecoder =
     Json.Decode.succeed SubmitCommentReq
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "host" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "item_id" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "parent_id" (Json.Decode.nullable (Json.Decode.string))))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "text" (Json.Decode.string)))
@@ -486,7 +467,6 @@ submitCommentDataDecoder =
 submitItemReqDecoder : Json.Decode.Decoder SubmitItemReq
 submitItemReqDecoder =
     Json.Decode.succeed SubmitItemReq
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "host" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "title" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "link" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "image" (Json.Decode.string)))

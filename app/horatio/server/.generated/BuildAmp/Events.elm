@@ -75,11 +75,8 @@ type alias HardDeletesPayload =
 Generated from CommentModerated.elm
 -}
 type alias CommentModeratedPayload =
-    {     recordId : String
-    , table : String
-    , field : String
-    , oldValue : String
-    , newValue : String
+    {     before : Decode.Value
+    , after : Decode.Value
     }
 
 
@@ -92,9 +89,6 @@ hardDeletesPayloadDecoder =
 
 commentModeratedPayloadDecoder : Decode.Decoder CommentModeratedPayload
 commentModeratedPayloadDecoder =
-    Decode.map5 CommentModeratedPayload
-        (Decode.field "record_id" Decode.string)
-        (Decode.field "table" Decode.string)
-        (Decode.field "field" Decode.string)
-        (Decode.field "old_value" Decode.string)
-        (Decode.field "new_value" Decode.string)
+    Decode.map2 CommentModeratedPayload
+        (Decode.field "before" Decode.value)
+        (Decode.field "after" Decode.value)

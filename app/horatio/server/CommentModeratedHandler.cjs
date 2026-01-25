@@ -2939,20 +2939,43 @@ var $author$project$Events$Handlers$CommentModeratedHandler$Failed = function (a
 var $author$project$BuildAmp$Events$Success = function (a) {
 	return {$: 'Success', a: a};
 };
-var $author$project$BuildAmp$Events$CommentModeratedPayload = F5(
-	function (recordId, table, field, oldValue, newValue) {
-		return {field: field, newValue: newValue, oldValue: oldValue, recordId: recordId, table: table};
+var $author$project$Events$Handlers$CommentModeratedHandler$CommentData = F2(
+	function (id, removed) {
+		return {id: id, removed: removed};
 	});
-var $elm$json$Json$Decode$map5 = _Json_map5;
-var $author$project$BuildAmp$Events$commentModeratedPayloadDecoder = A6(
-	$elm$json$Json$Decode$map5,
-	$author$project$BuildAmp$Events$CommentModeratedPayload,
-	A2($elm$json$Json$Decode$field, 'record_id', $elm$json$Json$Decode$string),
-	A2($elm$json$Json$Decode$field, 'table', $elm$json$Json$Decode$string),
-	A2($elm$json$Json$Decode$field, 'field', $elm$json$Json$Decode$string),
-	A2($elm$json$Json$Decode$field, 'old_value', $elm$json$Json$Decode$string),
-	A2($elm$json$Json$Decode$field, 'new_value', $elm$json$Json$Decode$string));
+var $elm$json$Json$Decode$map2 = _Json_map2;
+var $author$project$Events$Handlers$CommentModeratedHandler$commentDataDecoder = A3(
+	$elm$json$Json$Decode$map2,
+	$author$project$Events$Handlers$CommentModeratedHandler$CommentData,
+	A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string),
+	A2($elm$json$Json$Decode$field, 'removed', $elm$json$Json$Decode$bool));
 var $elm$json$Json$Decode$decodeValue = _Json_run;
+var $elm$core$Result$mapError = F2(
+	function (f, result) {
+		if (result.$ === 'Ok') {
+			var v = result.a;
+			return $elm$core$Result$Ok(v);
+		} else {
+			var e = result.a;
+			return $elm$core$Result$Err(
+				f(e));
+		}
+	});
+var $author$project$Events$Handlers$CommentModeratedHandler$decodeCommentFromRow = function (value) {
+	return A2(
+		$elm$core$Result$mapError,
+		$elm$json$Json$Decode$errorToString,
+		A2($elm$json$Json$Decode$decodeValue, $author$project$Events$Handlers$CommentModeratedHandler$commentDataDecoder, value));
+};
+var $author$project$BuildAmp$Events$CommentModeratedPayload = F2(
+	function (before, after) {
+		return {after: after, before: before};
+	});
+var $author$project$BuildAmp$Events$commentModeratedPayloadDecoder = A3(
+	$elm$json$Json$Decode$map2,
+	$author$project$BuildAmp$Events$CommentModeratedPayload,
+	A2($elm$json$Json$Decode$field, 'before', $elm$json$Json$Decode$value),
+	A2($elm$json$Json$Decode$field, 'after', $elm$json$Json$Decode$value));
 var $author$project$BuildAmp$Events$EventContext = F6(
 	function (host, sessionId, correlationId, attempt, scheduledAt, executedAt) {
 		return {attempt: attempt, correlationId: correlationId, executedAt: executedAt, host: host, scheduledAt: scheduledAt, sessionId: sessionId};
@@ -2994,17 +3017,6 @@ var $elm$core$Result$map2 = F3(
 				return $elm$core$Result$Ok(
 					A2(func, a, b));
 			}
-		}
-	});
-var $elm$core$Result$mapError = F2(
-	function (f, result) {
-		if (result.$ === 'Ok') {
-			var v = result.a;
-			return $elm$core$Result$Ok(v);
-		} else {
-			var e = result.a;
-			return $elm$core$Result$Err(
-				f(e));
 		}
 	});
 var $elm$core$Tuple$pair = F2(
@@ -3058,21 +3070,33 @@ var $author$project$Events$Handlers$CommentModeratedHandler$update = F2(
 			var _v2 = _v1.a;
 			var payload = _v2.a;
 			var ctx = _v2.b;
-			var result = $author$project$BuildAmp$Events$Success(
-				{message: 'CommentModerated SSE broadcast', recordsAffected: 1});
-			var removed = payload.newValue === 'true';
-			var ssePayload = $author$project$BuildAmp$Sse$encodeCommentModeratedEvent(
-				{commentId: payload.recordId, removed: removed});
-			return _Utils_Tuple2(
-				_Utils_update(
-					model,
-					{
-						context: $elm$core$Maybe$Just(ctx),
-						payload: $elm$core$Maybe$Just(payload),
-						stage: $author$project$Events$Handlers$CommentModeratedHandler$Complete(result)
-					}),
-				$author$project$Events$Handlers$CommentModeratedHandler$sseBroadcast(
-					{data: ssePayload, eventType: 'comment_moderated'}));
+			var _v3 = $author$project$Events$Handlers$CommentModeratedHandler$decodeCommentFromRow(payload.after);
+			if (_v3.$ === 'Ok') {
+				var comment = _v3.a;
+				var ssePayload = $author$project$BuildAmp$Sse$encodeCommentModeratedEvent(
+					{commentId: comment.id, removed: comment.removed});
+				var result = $author$project$BuildAmp$Events$Success(
+					{message: 'CommentModerated SSE broadcast', recordsAffected: 1});
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							context: $elm$core$Maybe$Just(ctx),
+							payload: $elm$core$Maybe$Just(payload),
+							stage: $author$project$Events$Handlers$CommentModeratedHandler$Complete(result)
+						}),
+					$author$project$Events$Handlers$CommentModeratedHandler$sseBroadcast(
+						{data: ssePayload, eventType: 'comment_moderated'}));
+			} else {
+				var error = _v3.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							stage: $author$project$Events$Handlers$CommentModeratedHandler$Failed('Failed to decode comment row: ' + error)
+						}),
+					$elm$core$Platform$Cmd$none);
+			}
 		} else {
 			var error = _v1.a;
 			return _Utils_Tuple2(

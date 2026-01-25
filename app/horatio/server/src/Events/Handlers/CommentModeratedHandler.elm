@@ -5,6 +5,9 @@ port module Events.Handlers.CommentModeratedHandler exposing (main)
 Triggered by admin hooks when a comment's `removed` field changes.
 Broadcasts SSE to all clients so they can update their UI in real-time.
 
+Payload: { before : Maybe row, after : Maybe row }
+For OnUpdate hooks, both before and after will have values.
+
 -}
 
 import BuildAmp.Events exposing (CommentModeratedPayload, EventContext, EventResult(..), commentModeratedPayloadDecoder, eventContextDecoder, encodeEventResult)
@@ -82,33 +85,58 @@ update msg model =
         HandleEvent bundle ->
             case decodeEventBundle bundle of
                 Ok ( payload, ctx ) ->
-                    let
-                        removed = payload.newValue == "true"
+                    -- Extract comment data from the "after" row
+                    case decodeCommentFromRow payload.after of
+                        Ok comment ->
+                            let
+                                -- Use generated encoder for consistent snake_case wire format
+                                ssePayload = Sse.encodeCommentModeratedEvent
+                                    { commentId = comment.id
+                                    , removed = comment.removed
+                                    }
 
-                        -- Use generated encoder for consistent snake_case wire format
-                        ssePayload = Sse.encodeCommentModeratedEvent
-                            { commentId = payload.recordId
-                            , removed = removed
-                            }
+                                result = Success
+                                    { message = "CommentModerated SSE broadcast"
+                                    , recordsAffected = 1
+                                    }
+                            in
+                            ( { model
+                              | stage = Complete result
+                              , payload = Just payload
+                              , context = Just ctx
+                              }
+                            , sseBroadcast { eventType = "comment_moderated", data = ssePayload }
+                            )
 
-                        result = Success
-                            { message = "CommentModerated SSE broadcast"
-                            , recordsAffected = 1
-                            }
-                    in
-                    ( { model
-                      | stage = Complete result
-                      , payload = Just payload
-                      , context = Just ctx
-                      }
-                    , sseBroadcast { eventType = "comment_moderated", data = ssePayload }
-                    )
+                        Err error ->
+                            ( { model | stage = Failed ("Failed to decode comment row: " ++ error) }, Cmd.none )
 
                 Err error ->
                     ( { model | stage = Failed error }, Cmd.none )
 
 
 -- DECODING
+
+{-| Minimal comment data we need from the row -}
+type alias CommentData =
+    { id : String
+    , removed : Bool
+    }
+
+
+{-| Decode the essential comment fields from a row JSON value -}
+decodeCommentFromRow : Decode.Value -> Result String CommentData
+decodeCommentFromRow value =
+    Decode.decodeValue commentDataDecoder value
+        |> Result.mapError Decode.errorToString
+
+
+commentDataDecoder : Decode.Decoder CommentData
+commentDataDecoder =
+    Decode.map2 CommentData
+        (Decode.field "id" Decode.string)
+        (Decode.field "removed" Decode.bool)
+
 
 decodeEventBundle : EventBundle -> Result String ( CommentModeratedPayload, EventContext )
 decodeEventBundle bundle =

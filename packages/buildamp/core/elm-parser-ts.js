@@ -1244,7 +1244,14 @@ export function parseCronConfig(configDir) {
 
 /**
  * Parse Config/AdminHooks.elm to extract admin hook configurations
- * Returns: [{ table: "item_comment", field: "removed", event: "CommentModerated" }, ...]
+ * Returns: [{ table, trigger, condition, event }, ...]
+ *
+ * Handles the new format:
+ *   { table = "item_comment"
+ *   , trigger = OnUpdate
+ *   , condition = Just (changed "removed")
+ *   , event = "CommentModerated"
+ *   }
  */
 export function parseAdminHooksConfig(configDir) {
     const hooksPath = path.join(configDir, 'AdminHooks.elm');
@@ -1272,14 +1279,346 @@ export function parseAdminHooksConfig(configDir) {
         const body = findDescendantByType(decl, 'list_expr');
         if (!body) continue;
 
-        return parseListOfRecords(body, sourceCode);
+        return parseAdminHooksList(body, sourceCode);
     }
 
     return [];
 }
 
 /**
- * Parse a list expression containing record literals
+ * Parse a list of admin hook records
+ */
+function parseAdminHooksList(listNode, sourceCode) {
+    const hooks = [];
+
+    for (let i = 0; i < listNode.childCount; i++) {
+        const child = listNode.child(i);
+        if (child.type === 'record_expr') {
+            const hook = parseAdminHookRecord(child, sourceCode);
+            if (hook) {
+                hooks.push(hook);
+            }
+        }
+    }
+
+    return hooks;
+}
+
+/**
+ * Parse a single admin hook record
+ */
+function parseAdminHookRecord(recordNode, sourceCode) {
+    const result = {};
+
+    for (let i = 0; i < recordNode.childCount; i++) {
+        const child = recordNode.child(i);
+        if (child.type === 'field') {
+            const fieldNameNode = findChildByType(child, 'lower_case_identifier');
+            if (!fieldNameNode) continue;
+
+            const fieldName = getText(fieldNameNode, sourceCode);
+
+            // Get the field value (everything after the = sign)
+            // The field structure is: lower_case_identifier eq expression
+            let valueNode = null;
+            for (let j = 0; j < child.childCount; j++) {
+                const fieldChild = child.child(j);
+                // Skip the field name and the = sign
+                if (fieldChild.type !== 'lower_case_identifier' && fieldChild.type !== 'eq') {
+                    valueNode = fieldChild;
+                    break;
+                }
+            }
+
+            if (!valueNode) continue;
+
+            switch (fieldName) {
+                case 'table':
+                case 'event':
+                    // String values
+                    result[fieldName] = parseStringValue(valueNode, sourceCode);
+                    break;
+
+                case 'trigger':
+                    // Union type constructor: OnInsert, OnUpdate, OnDelete
+                    result.trigger = parseConstructorName(valueNode, sourceCode);
+                    break;
+
+                case 'condition':
+                    // Maybe Condition: Just (...) or Nothing
+                    result.condition = parseMaybeCondition(valueNode, sourceCode);
+                    break;
+
+                case 'field':
+                    // Legacy format support
+                    result.field = parseStringValue(valueNode, sourceCode);
+                    break;
+            }
+        }
+    }
+
+    // Handle legacy format: convert { table, field, event } to new format
+    if (result.field && !result.trigger) {
+        result.trigger = 'OnUpdate';
+        result.condition = {
+            type: 'Neq',
+            left: { type: 'Field', ref: 'Before', field: result.field },
+            right: { type: 'Field', ref: 'After', field: result.field }
+        };
+        delete result.field;
+    }
+
+    return result.table && result.event ? result : null;
+}
+
+/**
+ * Extract string value from a string_constant_expr
+ */
+function parseStringValue(node, sourceCode) {
+    const stringNode = node.type === 'string_constant_expr'
+        ? node
+        : findDescendantByType(node, 'string_constant_expr');
+
+    if (!stringNode) return null;
+
+    let value = getText(stringNode, sourceCode);
+    if (value.startsWith('"') && value.endsWith('"')) {
+        value = value.slice(1, -1);
+    }
+    return value;
+}
+
+/**
+ * Extract constructor name (e.g., OnUpdate, OnInsert)
+ */
+function parseConstructorName(node, sourceCode) {
+    const constructorNode = node.type === 'upper_case_identifier'
+        ? node
+        : findDescendantByType(node, 'upper_case_identifier');
+
+    if (!constructorNode) return null;
+    return getText(constructorNode, sourceCode);
+}
+
+/**
+ * Parse Maybe Condition: Just (...) or Nothing
+ */
+function parseMaybeCondition(node, sourceCode) {
+    const text = getText(node, sourceCode).trim();
+
+    if (text === 'Nothing') {
+        return null;
+    }
+
+    // It's Just (...), find the inner expression
+    // The structure is: function_call_expr with "Just" and the condition
+    if (node.type === 'function_call_expr') {
+        // First child should be "Just", second is the argument
+        for (let i = 0; i < node.childCount; i++) {
+            const child = node.child(i);
+            const childText = getText(child, sourceCode).trim();
+
+            if (childText !== 'Just' && child.type !== 'upper_case_identifier') {
+                // This is the condition expression
+                return parseCondition(child, sourceCode);
+            }
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Parse a Condition expression recursively
+ * Handles: Eq, Neq, IsNull, IsNotNull, And, Or
+ * And function calls like: changed "field", changedTo "field" "value"
+ */
+function parseCondition(node, sourceCode) {
+    const text = getText(node, sourceCode).trim();
+
+    // Handle parenthesized expressions
+    if (node.type === 'parenthesized_expr') {
+        for (let i = 0; i < node.childCount; i++) {
+            const child = node.child(i);
+            if (child.type !== '(' && child.type !== ')') {
+                return parseCondition(child, sourceCode);
+            }
+        }
+    }
+
+    // Handle function calls
+    if (node.type === 'function_call_expr') {
+        const parts = [];
+        for (let i = 0; i < node.childCount; i++) {
+            parts.push(node.child(i));
+        }
+
+        if (parts.length === 0) return null;
+
+        const funcName = getText(parts[0], sourceCode).trim();
+
+        switch (funcName) {
+            case 'And':
+                if (parts.length >= 3) {
+                    return {
+                        type: 'And',
+                        left: parseCondition(parts[1], sourceCode),
+                        right: parseCondition(parts[2], sourceCode)
+                    };
+                }
+                break;
+
+            case 'Or':
+                if (parts.length >= 3) {
+                    return {
+                        type: 'Or',
+                        left: parseCondition(parts[1], sourceCode),
+                        right: parseCondition(parts[2], sourceCode)
+                    };
+                }
+                break;
+
+            case 'Eq':
+            case 'Neq':
+                if (parts.length >= 3) {
+                    return {
+                        type: funcName,
+                        left: parseValue(parts[1], sourceCode),
+                        right: parseValue(parts[2], sourceCode)
+                    };
+                }
+                break;
+
+            case 'IsNull':
+            case 'IsNotNull':
+                if (parts.length >= 3) {
+                    return {
+                        type: funcName,
+                        ref: parseConstructorName(parts[1], sourceCode),
+                        field: parseStringValue(parts[2], sourceCode)
+                    };
+                }
+                break;
+
+            case 'changed':
+                // Sugar: changed "field" -> Neq (Field Before field) (Field After field)
+                if (parts.length >= 2) {
+                    const field = parseStringValue(parts[1], sourceCode);
+                    return {
+                        type: 'Neq',
+                        left: { type: 'Field', ref: 'Before', field },
+                        right: { type: 'Field', ref: 'After', field }
+                    };
+                }
+                break;
+
+            case 'changedTo':
+                // Sugar: changedTo "field" "value" -> And (changed field) (Eq (Field After field) (Const value))
+                if (parts.length >= 3) {
+                    const field = parseStringValue(parts[1], sourceCode);
+                    const value = parseStringValue(parts[2], sourceCode);
+                    return {
+                        type: 'And',
+                        left: {
+                            type: 'Neq',
+                            left: { type: 'Field', ref: 'Before', field },
+                            right: { type: 'Field', ref: 'After', field }
+                        },
+                        right: {
+                            type: 'Eq',
+                            left: { type: 'Field', ref: 'After', field },
+                            right: { type: 'Const', value }
+                        }
+                    };
+                }
+                break;
+
+            case 'changedFrom':
+                // Sugar: changedFrom "field" "value" -> And (changed field) (Eq (Field Before field) (Const value))
+                if (parts.length >= 3) {
+                    const field = parseStringValue(parts[1], sourceCode);
+                    const value = parseStringValue(parts[2], sourceCode);
+                    return {
+                        type: 'And',
+                        left: {
+                            type: 'Neq',
+                            left: { type: 'Field', ref: 'Before', field },
+                            right: { type: 'Field', ref: 'After', field }
+                        },
+                        right: {
+                            type: 'Eq',
+                            left: { type: 'Field', ref: 'Before', field },
+                            right: { type: 'Const', value }
+                        }
+                    };
+                }
+                break;
+
+            case 'isTrue':
+            case 'isFalse':
+                if (parts.length >= 3) {
+                    const ref = parseConstructorName(parts[1], sourceCode);
+                    const field = parseStringValue(parts[2], sourceCode);
+                    return {
+                        type: 'Eq',
+                        left: { type: 'Field', ref, field },
+                        right: { type: 'Const', value: funcName === 'isTrue' ? 'true' : 'false' }
+                    };
+                }
+                break;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Parse a Value expression: Const "value" or Field Before "field"
+ */
+function parseValue(node, sourceCode) {
+    const text = getText(node, sourceCode).trim();
+
+    // Handle parenthesized expressions
+    if (node.type === 'parenthesized_expr') {
+        for (let i = 0; i < node.childCount; i++) {
+            const child = node.child(i);
+            if (child.type !== '(' && child.type !== ')') {
+                return parseValue(child, sourceCode);
+            }
+        }
+    }
+
+    if (node.type === 'function_call_expr') {
+        const parts = [];
+        for (let i = 0; i < node.childCount; i++) {
+            parts.push(node.child(i));
+        }
+
+        if (parts.length === 0) return null;
+
+        const funcName = getText(parts[0], sourceCode).trim();
+
+        if (funcName === 'Const' && parts.length >= 2) {
+            return {
+                type: 'Const',
+                value: parseStringValue(parts[1], sourceCode)
+            };
+        }
+
+        if (funcName === 'Field' && parts.length >= 3) {
+            return {
+                type: 'Field',
+                ref: parseConstructorName(parts[1], sourceCode),
+                field: parseStringValue(parts[2], sourceCode)
+            };
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Parse a list expression containing record literals (for cron config)
  * Handles: [ { event = "X", schedule = "Y" }, ... ]
  */
 function parseListOfRecords(listNode, sourceCode) {
@@ -1288,7 +1627,7 @@ function parseListOfRecords(listNode, sourceCode) {
     for (let i = 0; i < listNode.childCount; i++) {
         const child = listNode.child(i);
         if (child.type === 'record_expr') {
-            const record = parseRecordExpr(child, sourceCode);
+            const record = parseSimpleRecordExpr(child, sourceCode);
             if (record) {
                 records.push(record);
             }
@@ -1299,10 +1638,10 @@ function parseListOfRecords(listNode, sourceCode) {
 }
 
 /**
- * Parse a record expression into a plain object
+ * Parse a simple record expression with only string values
  * Handles: { event = "HardDeletes", schedule = "0 2 * * *" }
  */
-function parseRecordExpr(recordNode, sourceCode) {
+function parseSimpleRecordExpr(recordNode, sourceCode) {
     const result = {};
 
     // Find all field assignments

@@ -178,14 +178,14 @@ describe('API Generator - Elm API Client Module', () => {
     test('generateElmApiClient includes cross-model imports', () => {
         const apis = [{ path: 'Test', struct_name: 'TestReq', fields: [] }];
         const dbReferences = new Set(['User', 'Post']);
-        const result = generateElmApiClient(apis, dbReferences);
+        const result = generateElmApiClient(apis, [], dbReferences);
 
         assert.ok(result.includes('import BuildAmp.Db exposing (UserDb, PostDb)'));
     });
 
     test('generateElmApiClient has no cross-model imports when empty', () => {
         const apis = [{ path: 'Test', struct_name: 'TestReq', fields: [] }];
-        const result = generateElmApiClient(apis, new Set());
+        const result = generateElmApiClient(apis, [], new Set());
 
         assert.ok(!result.includes('import BuildAmp.Db'));
     });
@@ -222,18 +222,18 @@ describe('API Generator - Express Routes', () => {
         assert.ok(!result.includes('content is required'));
     });
 
-    test('generateRoute includes host injection', () => {
+    test('generateRoute includes host in context', () => {
         const api = {
             name: 'HostedReq',
             path: 'HostedReq',
             filename: 'api/hosted.elm',
-            fields: [
-                { name: 'host', type: 'String', annotations: { inject: 'host' }, validationTags: {} }
-            ]
+            fields: []
         };
         const result = generateRoute(api);
 
-        assert.ok(result.includes('host: req.context.host'));
+        // Host is extracted from tenant and passed to context
+        assert.ok(result.includes('const host = req.tenant?.host'));
+        assert.ok(result.includes('req.context = { host }'));
     });
 
     test('generateRoute includes error handling', () => {
