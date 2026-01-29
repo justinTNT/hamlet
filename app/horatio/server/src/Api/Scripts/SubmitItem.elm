@@ -7,7 +7,6 @@ Flow: CreateItem → LoadTags → CreateMissingTags → LinkTags → Complete
 
 -}
 
-import Backend.RichContent as RichContent
 import Backend.Runtime exposing (Context)
 import Backend.Script as Script exposing (Script)
 import BuildAmp.Api exposing (MicroblogItem, SubmitItemReq, SubmitItemRes)
@@ -32,8 +31,8 @@ handler req ctx config =
             { title = req.title
             , link = nonEmpty req.link
             , image = nonEmpty req.image
-            , extract = RichContent.fromPlainTextMaybe req.extract
-            , ownerComment = RichContent.fromPlainText req.ownerComment
+            , extract = Just req.extract
+            , ownerComment = req.ownerComment
             , viewCount = 0
             }
         )

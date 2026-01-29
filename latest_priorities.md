@@ -44,8 +44,10 @@ Hamlet provides **type-safe client-server boundaries** with **web-native capabil
 
 
 ---
+# TODO
 
-### 🔗 **Phase 1.5: WebSocket Implementation (2-3 weeks)**
+
+### 🔗 **DEPRIORITISED Phase 1.5: WebSocket Implementation (2-3 weeks)**
 
 Client↔client messaging with server-mediated routing.
 
@@ -71,9 +73,11 @@ type GameMessage
 
 ---
 
-### 📁 **Phase 2: File Upload Types (4-6 weeks)**
+### 📁 **Phase 2: PRIORITY - File Upload Types (4-6 weeks)**
 
 Essential for real applications. Web-native file handling with event integration.
+
+see FE2E_FILE_UPLOADS_PLAN.md
 
 #### 2.1 Type-Safe File Upload
 ```elm
@@ -112,6 +116,8 @@ type alias FileConstraints =
 ### ⚙️ **Phase 4: Background Workers (6-8 weeks)**
 
 Type-safe worker communication for CPU-intensive tasks.
+
+eg the kind of document analysis required for footnotes
 
 #### 4.1 Worker Communication Types
 ```elm
@@ -163,9 +169,9 @@ Enhanced tooling and documentation.
 ## Success Criteria
 
 ### Phase 1 (Event System)
-- [ ] Multi-stage workflows with reliable execution
-- [ ] Persistent scheduling that survives restarts  
-- [ ] Enhanced SSE with workflow status updates
+- [x] Multi-stage workflows with reliable execution
+- [x] Persistent scheduling that survives restarts  
+- [x] Enhanced SSE with workflow status updates
 
 ### Phase 1.5 (WebSocket)
 - [ ] WebSocket client↔client messaging with server-mediated routing

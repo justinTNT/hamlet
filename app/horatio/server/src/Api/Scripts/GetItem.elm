@@ -7,6 +7,7 @@ Flow: LoadItem → LoadTags → LoadItemTags → LoadComments → Transform → 
 
 -}
 
+import Backend.RichContent as RichContent
 import Backend.Runtime exposing (Context)
 import Backend.Script as Script exposing (Script)
 import BuildAmp.Api exposing (CommentItem, GetItemReq, GetItemRes, MicroblogItem)
@@ -74,7 +75,7 @@ toMicroblogItem dbItem allTags itemTags comments =
     , title = dbItem.title
     , link = dbItem.link |> Maybe.withDefault ""
     , image = dbItem.image |> Maybe.withDefault ""
-    , extract = dbItem.extract |> Maybe.withDefault ""
+    , extract = dbItem.extract |> Maybe.withDefault RichContent.empty
     , ownerComment = dbItem.ownerComment
     , tags = itemTagNames
     , comments = itemComments
@@ -92,7 +93,7 @@ toCommentItem dbComment =
     , authorName = dbComment.authorName
     , text =
         if dbComment.removed then
-            "[removed by moderation]"
+            RichContent.fromPlainText "[removed by moderation]"
         else
             dbComment.text
     , timestamp = dbComment.createdAt

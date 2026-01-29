@@ -104,6 +104,15 @@ ${validationChecks}
 }
 
 /**
+ * Map an Elm model type to its generated Elm wire type.
+ * RichContent is a String alias in the model but is JSON on the wire.
+ */
+function toWireType(elmType) {
+    return elmType
+        .replace(/\bRichContent\b/g, 'Json.Encode.Value');
+}
+
+/**
  * Generate Elm type definition for API request
  */
 function generateElmTypeDefinition(api) {
@@ -113,11 +122,11 @@ function generateElmTypeDefinition(api) {
 
     const firstField = api.fields[0];
     const firstFieldName = firstField.camelName || firstField.name;
-    const firstFieldType = firstField.elmType || firstField.type;
+    const firstFieldType = toWireType(firstField.elmType || firstField.type);
 
     const restFields = api.fields.slice(1).map(field => {
         const elmFieldName = field.camelName || field.name;
-        return `    , ${elmFieldName} : ${field.elmType || field.type}`;
+        return `    , ${elmFieldName} : ${toWireType(field.elmType || field.type)}`;
     }).join('\n');
 
     if (restFields) {
@@ -145,7 +154,9 @@ ${functionName} _ =
         const elmFieldName = field.camelName || field.name;
         const jsonKey = field.name; // snake_case for wire format
         let encoder;
-        if (elmType === 'String') {
+        if (elmType === 'RichContent') {
+            encoder = 'identity';
+        } else if (elmType === 'String') {
             encoder = 'Json.Encode.string';
         } else if (elmType === 'Int') {
             encoder = 'Json.Encode.int';
@@ -409,6 +420,7 @@ function generateFieldEncoderSimple(elmType) {
         case 'Int': return 'Json.Encode.int';
         case 'Float': return 'Json.Encode.float';
         case 'Bool': return 'Json.Encode.bool';
+        case 'RichContent': return 'identity';
         default:
             // Custom type - use lowercase encoder name
             return lcFirst(cleanType) + 'Encoder';
@@ -461,6 +473,7 @@ function generateFieldDecoderSimple(elmType) {
         case 'Int': return 'Json.Decode.int';
         case 'Float': return 'Json.Decode.float';
         case 'Bool': return 'Json.Decode.bool';
+        case 'RichContent': return 'Json.Decode.value';
         default:
             // Custom type - use lowercase decoder name
             return lcFirst(cleanType) + 'Decoder';
@@ -481,15 +494,15 @@ function generateBackendTypeAlias(typeName, fields) {
 
     const restFieldLines = restFields.map(f => {
         const fieldName = f.camelName || f.name;
-        return `    , ${fieldName} : ${f.elmType}`;
+        return `    , ${fieldName} : ${toWireType(f.elmType)}`;
     });
 
     // Use multi-line record format matching elm_rs style
     if (restFieldLines.length === 0) {
-        return `type alias ${typeName} =\n    { ${firstFieldName} : ${firstField.elmType}\n    }`;
+        return `type alias ${typeName} =\n    { ${firstFieldName} : ${toWireType(firstField.elmType)}\n    }`;
     }
 
-    return `type alias ${typeName} =\n    { ${firstFieldName} : ${firstField.elmType}\n${restFieldLines.join('\n')}\n    }`;
+    return `type alias ${typeName} =\n    { ${firstFieldName} : ${toWireType(firstField.elmType)}\n${restFieldLines.join('\n')}\n    }`;
 }
 
 /**
@@ -1136,9 +1149,11 @@ function generatePortBasedApi(allApis, rawElmApis = []) {
         const allFields = [{ name: 'host', elmType: 'String' }, ...requestFields];
 
         // Generate type signature using camelCase field names
+        // Port module uses `import Json.Encode as Encode`, so use Encode.Value
         const fieldTypes = allFields.map(f => {
             const camelName = snakeToCamel(f.name);
-            return `${camelName} : ${f.elmType || f.type}`;
+            const wireType = toWireType(f.elmType || f.type).replace('Json.Encode.Value', 'Encode.Value');
+            return `${camelName} : ${wireType}`;
         }).join(', ');
         const typeSignature = `{ ${fieldTypes} }`;
 
@@ -1198,10 +1213,12 @@ ${endpointFunctions}
 function getSimpleEncoder(elmType) {
     const type = (elmType || 'String').trim();
 
+    if (type === 'RichContent') return 'identity';
     if (type === 'String') return 'Encode.string';
     if (type === 'Int') return 'Encode.int';
     if (type === 'Float') return 'Encode.float';
     if (type === 'Bool') return 'Encode.bool';
+    if (type.startsWith('Maybe RichContent')) return '(Maybe.withDefault Encode.null)';
     if (type.startsWith('Maybe ')) return '(Maybe.withDefault Encode.null << Maybe.map Encode.string)';
     if (type.startsWith('List String')) return '(Encode.list Encode.string)';
     if (type.startsWith('List ')) return '(Encode.list Encode.string)';

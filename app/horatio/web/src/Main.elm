@@ -43,7 +43,7 @@ port commentEditorCommand : Encode.Value -> Cmd msg
 port destroyCommentEditor : () -> Cmd msg
 
 -- Rich text viewer ports
-port initRichTextViewers : List { elementId : String, content : String } -> Cmd msg
+port initRichTextViewers : List { elementId : String, content : Encode.Value } -> Cmd msg
 port destroyRichTextViewers : List String -> Cmd msg
 
 -- SSE ports for real-time updates
@@ -124,11 +124,34 @@ submitItem =
         { title = "New Item from Elm"
         , link = "https://elm-lang.org"
         , image = "https://placehold.co/100x100"
-        , extract = "This item was submitted via the generated Elm API."
-        , owner_comment = "So much cleaner!"
+        , extract = plainTextToRichContent "This item was submitted via the generated Elm API."
+        , owner_comment = plainTextToRichContent "So much cleaner!"
         , tags = []
         }
         SubmittedItem
+
+
+{-| Wrap plain text as a TipTap document JSON value. -}
+plainTextToRichContent : String -> Encode.Value
+plainTextToRichContent str =
+    Encode.object
+        [ ( "type", Encode.string "doc" )
+        , ( "content"
+          , Encode.list identity
+                [ Encode.object
+                    [ ( "type", Encode.string "paragraph" )
+                    , ( "content"
+                      , Encode.list identity
+                            [ Encode.object
+                                [ ( "type", Encode.string "text" )
+                                , ( "text", Encode.string str )
+                                ]
+                            ]
+                      )
+                    ]
+                ]
+          )
+        ]
 
 
 submitComment : Model -> Cmd Msg

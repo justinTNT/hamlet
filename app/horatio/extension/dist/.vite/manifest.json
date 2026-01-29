@@ -12,9 +12,12 @@
     "isEntry": true
   },
   "src/popup.html": {
-    "file": "assets/popup.html-CQCc3R1f.js",
+    "file": "assets/popup.html-BiZOO7-y.js",
     "name": "popup.html",
     "src": "src/popup.html",
-    "isEntry": true
+    "isEntry": true,
+    "css": [
+      "assets/popup-BZn23Yub.css"
+    ]
   }
 }

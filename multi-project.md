@@ -84,3 +84,18 @@ Handler namespacing is implicit - each project defines its own API endpoints in 
 - Multi-tenancy via host column
 - API contract system
 - Vite dev server (per-project)
+
+## Key storage
+
+Admin Key (Per Host):
+Where: Store in the Database (e.g., a host_secrets table).
+Why: Hosts are dynamic. You want to create/rotate keys per-tenant without deeper re-configuration.
+Access: Your Script will just DB Query it: DB.query "SELECT key FROM host_secrets...".
+
+Project Key (Bootstrap Secret):
+Where: Store in config.json (server-side) or ENV_VAR.
+Why: It identifies the "owner" of the running code instance. It shouldn't change often.
+Access: We will inject this into the Handler's Context (securely) so your Script can verify req.key == context.projectKey. this key is used to update the per-host admin keys.
+
+both keys are configured in the extension.
+

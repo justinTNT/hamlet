@@ -5,7 +5,7 @@ import Api.Port
 import Api.Schema
 import Browser
 import Html exposing (Html, button, div, h3, h4, p, text, input, textarea, img, label, select, option, span)
-import Html.Attributes exposing (placeholder, value, style, src, type_, checked, name, selected, class)
+import Html.Attributes exposing (placeholder, value, style, src, type_, checked, name, selected, class, id)
 import Html.Events exposing (onClick, onInput)
 import Json.Encode as Encode
 import Json.Decode as Decode
@@ -21,6 +21,13 @@ port saveHosts : Encode.Value -> Cmd msg
 port loadHosts : () -> Cmd msg
 port hostsLoaded : (Encode.Value -> msg) -> Sub msg
 port openAdmin : Encode.Value -> Cmd msg
+port closeWindow : () -> Cmd msg
+
+-- Rich text editor ports
+port initExtractEditor : String -> Cmd msg
+port initOwnerCommentEditor : () -> Cmd msg
+port extractContentChanged : (Encode.Value -> msg) -> Sub msg
+port ownerCommentContentChanged : (Encode.Value -> msg) -> Sub msg
 
 
 -- HOST CONFIG
@@ -96,6 +103,7 @@ type alias Flags =
     { title : String
     , url : String
     , selection : String
+    , selectionHtml : String
     , images : List String
     }
 
@@ -106,9 +114,11 @@ type alias Model =
     , title : String
     , url : String
     , selection : String
+    , selectionHtml : String
+    , extractJson : Maybe Encode.Value
     , images : List String
     , selectedImage : Maybe String
-    , comment : String
+    , commentJson : Maybe Encode.Value
     , availableTags : List String
     , selectedTags : List String
     , newTagInput : String
@@ -140,9 +150,11 @@ init flags =
       , title = flags.title
       , url = flags.url
       , selection = flags.selection
+      , selectionHtml = flags.selectionHtml
+      , extractJson = Nothing
       , images = flags.images
       , selectedImage = List.head flags.images
-      , comment = ""
+      , commentJson = Nothing
       , availableTags = []
       , selectedTags = []
       , newTagInput = ""
@@ -153,7 +165,11 @@ init flags =
       , hostForm = emptyHostForm
       , hostsLoaded = False
       }
-    , loadHosts ()
+    , Cmd.batch
+        [ loadHosts ()
+        , initExtractEditor flags.selectionHtml
+        , initOwnerCommentEditor ()
+        ]
     )
 
 
@@ -186,6 +202,8 @@ type Msg
     | ToggleTag String
     | NewTagInput String
     | AddNewTag
+    | ExtractContentChanged Encode.Value
+    | OwnerCommentContentChanged Encode.Value
     | HostSelected String
     | SwitchView View
     | HostsReceived Encode.Value
@@ -246,15 +264,17 @@ update msg model =
                 ( { model | status = "Error: Title cannot be empty" }, Cmd.none )
             else if String.isEmpty model.url then
                 ( { model | status = "Error: URL cannot be empty" }, Cmd.none )
-            else if String.isEmpty model.selection then
+            else if model.extractJson == Nothing then
                 ( { model | status = "Error: Selection (Extract) cannot be empty" }, Cmd.none )
             else if model.selectedImage == Nothing then
                 ( { model | status = "Error: Please select an image" }, Cmd.none )
-            else if String.isEmpty model.comment then
+            else if model.commentJson == Nothing then
                 ( { model | status = "Error: Comment cannot be empty" }, Cmd.none )
             else
                 let
                     host = hostFromUrl model.selectedHost.url
+
+                    emptyDoc = Encode.object [ ( "type", Encode.string "doc" ), ( "content", Encode.list identity [] ) ]
 
                     req =
                         Api.submitItem
@@ -262,8 +282,8 @@ update msg model =
                             , title = model.title
                             , link = model.url
                             , image = Maybe.withDefault "" model.selectedImage
-                            , extract = model.selection
-                            , ownerComment = model.comment
+                            , extract = Maybe.withDefault emptyDoc model.extractJson
+                            , ownerComment = Maybe.withDefault emptyDoc model.commentJson
                             , tags = model.selectedTags
                             }
 
@@ -282,17 +302,25 @@ update msg model =
         TitleChanged val ->
             ( { model | title = val }, Cmd.none )
 
-        SelectionChanged val ->
-            ( { model | selection = val }, Cmd.none )
+        SelectionChanged _ ->
+            -- No longer used (tiptap editor handles extract content)
+            ( model, Cmd.none )
 
         ImageSelected val ->
             ( { model | selectedImage = Just val }, Cmd.none )
 
-        CommentChanged val ->
-            ( { model | comment = val }, Cmd.none )
+        CommentChanged _ ->
+            -- No longer used (tiptap editor handles comment content)
+            ( model, Cmd.none )
+
+        ExtractContentChanged val ->
+            ( { model | extractJson = Just val }, Cmd.none )
+
+        OwnerCommentContentChanged val ->
+            ( { model | commentJson = Just val }, Cmd.none )
 
         GotSubmitRes (Ok _) ->
-            ( { model | status = "Success!" }, Cmd.none )
+            ( { model | status = "Success!" }, closeWindow () )
 
         GotSubmitRes (Err err) ->
             ( { model | status = "Error: " ++ err }, Cmd.none )
@@ -560,25 +588,12 @@ viewWriter model =
 
         , div [ style "margin-bottom" "10px" ]
             [ label [ style "display" "block", style "font-weight" "bold" ] [ text "Selection (Extract)" ]
-            , textarea
-                [ value model.selection
-                , onInput SelectionChanged
-                , style "width" "100%"
-                , style "height" "80px"
-                , style "padding" "5px"
-                ] []
+            , div [ id "extract-editor" ] []
             ]
 
         , div [ style "margin-bottom" "10px" ]
             [ label [ style "display" "block", style "font-weight" "bold" ] [ text "Comment" ]
-            , textarea
-                [ value model.comment
-                , onInput CommentChanged
-                , placeholder "Add your thoughts..."
-                , style "width" "100%"
-                , style "height" "60px"
-                , style "padding" "5px"
-                ] []
+            , div [ id "owner-comment-editor" ] []
             ]
 
         , div [ style "margin-bottom" "10px" ]
@@ -854,4 +869,6 @@ subscriptions _ =
     Sub.batch
         [ Api.Port.subscriptions inbound PortMsg
         , hostsLoaded HostsReceived
+        , extractContentChanged ExtractContentChanged
+        , ownerCommentContentChanged OwnerCommentContentChanged
         ]

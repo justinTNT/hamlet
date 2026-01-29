@@ -79,8 +79,8 @@ export interface FeedItem {
     id: string;
     title: string;
     image?: string;
-    extract?: string;
-    ownerComment: string;
+    extract?: object;
+    ownerComment: object;
     timestamp: number;
 }
 
@@ -131,7 +131,7 @@ export interface CommentItem {
     guestId: string;
     parentId?: string;
     authorName: string;
-    text: string;
+    text: object;
     timestamp: number;
 }
 
@@ -139,8 +139,8 @@ export interface SubmitItemRequest {
     title: string;
     link: string;
     image: string;
-    extract: string;
-    ownerComment: string;
+    extract: object;
+    ownerComment: object;
     tags: Array<string>;
 }
 
@@ -157,8 +157,8 @@ export interface MicroblogItem {
     title: string;
     link: string;
     image: string;
-    extract: string;
-    ownerComment: string;
+    extract: object;
+    ownerComment: object;
     tags: Array<string>;
     comments: Array<CommentItem>;
     timestamp: number;
@@ -206,7 +206,7 @@ export interface NewCommentEvent {
     guestId: string;
     parentId?: string;
     authorName: string;
-    text: string;
+    text: object;
     timestamp: number;
 }
 

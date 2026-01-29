@@ -35,7 +35,7 @@ type alias NewCommentEvent =
     ,     guestId : String
     ,     parentId : Maybe String
     ,     authorName : String
-    ,     text : String
+    ,     text : Encode.Value
     ,     timestamp : Int
     }
 
@@ -67,6 +67,6 @@ encodeNewCommentEvent newCommentEvent =
         , ( "guest_id", Encode.string newCommentEvent.guestId )
         , ( "parent_id", Maybe.withDefault Encode.null (Maybe.map Encode.string newCommentEvent.parentId) )
         , ( "author_name", Encode.string newCommentEvent.authorName )
-        , ( "text", Encode.string newCommentEvent.text )
+        , ( "text", identity newCommentEvent.text )
         , ( "timestamp", Encode.int newCommentEvent.timestamp )
         ]

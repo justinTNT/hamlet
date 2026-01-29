@@ -2859,6 +2859,9 @@ var $elm$core$Basics$composeL = F3(
 		return g(
 			f(x));
 	});
+var $elm$core$Basics$identity = function (x) {
+	return x;
+};
 var $elm$json$Json$Encode$int = _Json_wrap;
 var $elm$core$Maybe$map = F2(
 	function (f, maybe) {
@@ -2918,7 +2921,7 @@ var $author$project$BuildAmp$Api$commentItemEncoder = function (struct) {
 				$elm$json$Json$Encode$string(struct.authorName)),
 				_Utils_Tuple2(
 				'text',
-				$elm$json$Json$Encode$string(struct.text)),
+				$elm$core$Basics$identity(struct.text)),
 				_Utils_Tuple2(
 				'timestamp',
 				$elm$json$Json$Encode$int(struct.timestamp))
@@ -2951,10 +2954,10 @@ var $author$project$BuildAmp$Api$microblogItemEncoder = function (struct) {
 				$elm$json$Json$Encode$string(struct.image)),
 				_Utils_Tuple2(
 				'extract',
-				$elm$json$Json$Encode$string(struct.extract)),
+				$elm$core$Basics$identity(struct.extract)),
 				_Utils_Tuple2(
 				'owner_comment',
-				$elm$json$Json$Encode$string(struct.ownerComment)),
+				$elm$core$Basics$identity(struct.ownerComment)),
 				_Utils_Tuple2(
 				'tags',
 				$elm$json$Json$Encode$list($elm$json$Json$Encode$string)(struct.tags)),
@@ -3162,16 +3165,6 @@ var $elm$json$Json$Decode$nullable = function (decoder) {
 				A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, decoder)
 			]));
 };
-var $elm$json$Json$Decode$value = _Json_decodeValue;
-var $author$project$BuildAmp$Database$richContentDecoder = $elm$json$Json$Decode$oneOf(
-	_List_fromArray(
-		[
-			$elm$json$Json$Decode$string,
-			A2(
-			$elm$json$Json$Decode$map,
-			$elm$json$Json$Encode$encode(0),
-			$elm$json$Json$Decode$value)
-		]));
 var $elm$json$Json$Decode$int = _Json_decodeInt;
 var $elm$json$Json$Decode$fail = _Json_fail;
 var $elm$core$String$toInt = _String_toInt;
@@ -3190,6 +3183,7 @@ var $author$project$BuildAmp$Database$timestampDecoder = $elm$json$Json$Decode$o
 			$elm$json$Json$Decode$int,
 			A2($elm$json$Json$Decode$andThen, $author$project$BuildAmp$Database$stringToInt, $elm$json$Json$Decode$string)
 		]));
+var $elm$json$Json$Decode$value = _Json_decodeValue;
 var $author$project$BuildAmp$Database$itemcommentDbDecoder = A3(
 	$author$project$BuildAmp$Database$decodeField,
 	'deleted_at',
@@ -3205,7 +3199,7 @@ var $author$project$BuildAmp$Database$itemcommentDbDecoder = A3(
 			A3(
 				$author$project$BuildAmp$Database$decodeField,
 				'text',
-				$author$project$BuildAmp$Database$richContentDecoder,
+				$elm$json$Json$Decode$value,
 				A3(
 					$author$project$BuildAmp$Database$decodeField,
 					'author_name',
@@ -3295,11 +3289,11 @@ var $author$project$BuildAmp$Database$microblogitemDbDecoder = A3(
 				A3(
 					$author$project$BuildAmp$Database$decodeField,
 					'owner_comment',
-					$author$project$BuildAmp$Database$richContentDecoder,
+					$elm$json$Json$Decode$value,
 					A3(
 						$author$project$BuildAmp$Database$decodeField,
 						'extract',
-						$elm$json$Json$Decode$nullable($author$project$BuildAmp$Database$richContentDecoder),
+						$elm$json$Json$Decode$nullable($elm$json$Json$Decode$value),
 						A3(
 							$author$project$BuildAmp$Database$decodeField,
 							'image',
@@ -3362,6 +3356,16 @@ var $author$project$BuildAmp$Database$tagDbDecoder = A3(
 					'id',
 					$elm$json$Json$Decode$string,
 					$elm$json$Json$Decode$succeed($author$project$BuildAmp$Database$TagDb))))));
+var $author$project$Backend$RichContent$empty = $elm$json$Json$Encode$object(
+	_List_fromArray(
+		[
+			_Utils_Tuple2(
+			'type',
+			$elm$json$Json$Encode$string('doc')),
+			_Utils_Tuple2(
+			'content',
+			A2($elm$json$Json$Encode$list, $elm$core$Basics$identity, _List_Nil))
+		]));
 var $elm$core$List$foldrHelper = F4(
 	function (fn, acc, ctr, ls) {
 		if (!ls.b) {
@@ -3472,6 +3476,48 @@ var $elm$core$List$member = F2(
 			},
 			xs);
 	});
+var $author$project$Backend$RichContent$fromPlainText = function (text) {
+	return $elm$json$Json$Encode$object(
+		_List_fromArray(
+			[
+				_Utils_Tuple2(
+				'type',
+				$elm$json$Json$Encode$string('doc')),
+				_Utils_Tuple2(
+				'content',
+				A2(
+					$elm$json$Json$Encode$list,
+					$elm$core$Basics$identity,
+					_List_fromArray(
+						[
+							$elm$json$Json$Encode$object(
+							_List_fromArray(
+								[
+									_Utils_Tuple2(
+									'type',
+									$elm$json$Json$Encode$string('paragraph')),
+									_Utils_Tuple2(
+									'content',
+									A2(
+										$elm$json$Json$Encode$list,
+										$elm$core$Basics$identity,
+										_List_fromArray(
+											[
+												$elm$json$Json$Encode$object(
+												_List_fromArray(
+													[
+														_Utils_Tuple2(
+														'type',
+														$elm$json$Json$Encode$string('text')),
+														_Utils_Tuple2(
+														'text',
+														$elm$json$Json$Encode$string(text))
+													]))
+											])))
+								]))
+						])))
+			]));
+};
 var $author$project$Api$Scripts$GetItem$toCommentItem = function (dbComment) {
 	return {
 		authorName: dbComment.authorName,
@@ -3479,7 +3525,7 @@ var $author$project$Api$Scripts$GetItem$toCommentItem = function (dbComment) {
 		id: dbComment.id,
 		itemId: dbComment.itemId,
 		parentId: dbComment.parentId,
-		text: dbComment.removed ? '[removed by moderation]' : dbComment.text,
+		text: dbComment.removed ? $author$project$Backend$RichContent$fromPlainText('[removed by moderation]') : dbComment.text,
 		timestamp: dbComment.createdAt
 	};
 };
@@ -3519,7 +3565,7 @@ var $author$project$Api$Scripts$GetItem$toMicroblogItem = F4(
 				comments));
 		return {
 			comments: itemComments,
-			extract: A2($elm$core$Maybe$withDefault, '', dbItem.extract),
+			extract: A2($elm$core$Maybe$withDefault, $author$project$Backend$RichContent$empty, dbItem.extract),
 			id: dbItem.id,
 			image: A2($elm$core$Maybe$withDefault, '', dbItem.image),
 			link: A2($elm$core$Maybe$withDefault, '', dbItem.link),
@@ -3655,9 +3701,6 @@ var $author$project$Backend$Runtime$subscriptions = function (_v0) {
 				$author$project$Backend$Runtime$handleRequest($author$project$Backend$Runtime$HandleRequest),
 				$author$project$Backend$Runtime$dbResult($author$project$Backend$Runtime$DbResultReceived)
 			]));
-};
-var $elm$core$Basics$identity = function (x) {
-	return x;
 };
 var $author$project$Backend$Runtime$complete = _Platform_outgoingPort('complete', $elm$core$Basics$identity);
 var $author$project$Backend$Runtime$Context = F3(

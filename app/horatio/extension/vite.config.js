@@ -11,6 +11,11 @@ export default defineConfig({
     plugins: [
         crx({ manifest }),
     ],
+    resolve: {
+        alias: {
+            'hamlet-server': path.resolve(__dirname, '../../../packages/hamlet-server')
+        }
+    },
     server: {
         port: 5174,
         strictPort: true,

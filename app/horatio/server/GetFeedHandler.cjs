@@ -2846,6 +2846,9 @@ var $elm$core$Basics$composeL = F3(
 		return g(
 			f(x));
 	});
+var $elm$core$Basics$identity = function (x) {
+	return x;
+};
 var $elm$json$Json$Encode$int = _Json_wrap;
 var $elm$core$Maybe$map = F2(
 	function (f, maybe) {
@@ -2902,10 +2905,10 @@ var $author$project$BuildAmp$Api$feedItemEncoder = function (struct) {
 				A2(
 					$elm$core$Basics$composeL,
 					$elm$core$Maybe$withDefault($elm$json$Json$Encode$null),
-					$elm$core$Maybe$map($elm$json$Json$Encode$string))(struct.extract)),
+					$elm$core$Maybe$map($elm$core$Basics$identity))(struct.extract)),
 				_Utils_Tuple2(
 				'owner_comment',
-				$elm$json$Json$Encode$string(struct.ownerComment)),
+				$elm$core$Basics$identity(struct.ownerComment)),
 				_Utils_Tuple2(
 				'timestamp',
 				$elm$json$Json$Encode$int(struct.timestamp))
@@ -3180,16 +3183,6 @@ var $elm$json$Json$Decode$nullable = function (decoder) {
 			]));
 };
 var $elm$json$Json$Decode$string = _Json_decodeString;
-var $elm$json$Json$Decode$value = _Json_decodeValue;
-var $author$project$BuildAmp$Database$richContentDecoder = $elm$json$Json$Decode$oneOf(
-	_List_fromArray(
-		[
-			$elm$json$Json$Decode$string,
-			A2(
-			$elm$json$Json$Decode$map,
-			$elm$json$Json$Encode$encode(0),
-			$elm$json$Json$Decode$value)
-		]));
 var $elm$json$Json$Decode$fail = _Json_fail;
 var $elm$core$String$toInt = _String_toInt;
 var $author$project$BuildAmp$Database$stringToInt = function (str) {
@@ -3207,6 +3200,7 @@ var $author$project$BuildAmp$Database$timestampDecoder = $elm$json$Json$Decode$o
 			$elm$json$Json$Decode$int,
 			A2($elm$json$Json$Decode$andThen, $author$project$BuildAmp$Database$stringToInt, $elm$json$Json$Decode$string)
 		]));
+var $elm$json$Json$Decode$value = _Json_decodeValue;
 var $author$project$BuildAmp$Database$microblogitemDbDecoder = A3(
 	$author$project$BuildAmp$Database$decodeField,
 	'deleted_at',
@@ -3226,11 +3220,11 @@ var $author$project$BuildAmp$Database$microblogitemDbDecoder = A3(
 				A3(
 					$author$project$BuildAmp$Database$decodeField,
 					'owner_comment',
-					$author$project$BuildAmp$Database$richContentDecoder,
+					$elm$json$Json$Decode$value,
 					A3(
 						$author$project$BuildAmp$Database$decodeField,
 						'extract',
-						$elm$json$Json$Decode$nullable($author$project$BuildAmp$Database$richContentDecoder),
+						$elm$json$Json$Decode$nullable($elm$json$Json$Decode$value),
 						A3(
 							$author$project$BuildAmp$Database$decodeField,
 							'image',
@@ -3375,9 +3369,6 @@ var $author$project$Backend$Runtime$subscriptions = function (_v0) {
 				$author$project$Backend$Runtime$handleRequest($author$project$Backend$Runtime$HandleRequest),
 				$author$project$Backend$Runtime$dbResult($author$project$Backend$Runtime$DbResultReceived)
 			]));
-};
-var $elm$core$Basics$identity = function (x) {
-	return x;
 };
 var $author$project$Backend$Runtime$complete = _Platform_outgoingPort('complete', $elm$core$Basics$identity);
 var $author$project$Backend$Runtime$Context = F3(

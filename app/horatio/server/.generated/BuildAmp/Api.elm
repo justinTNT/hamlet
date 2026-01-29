@@ -100,8 +100,8 @@ type alias FeedItem =
     { id : String
     , title : String
     , image : Maybe String
-    , extract : Maybe String
-    , ownerComment : String
+    , extract : Maybe Json.Encode.Value
+    , ownerComment : Json.Encode.Value
     , timestamp : Int
     }
 
@@ -122,7 +122,7 @@ type alias CommentItem =
     , guestId : String
     , parentId : Maybe String
     , authorName : String
-    , text : String
+    , text : Json.Encode.Value
     , timestamp : Int
     }
 
@@ -132,8 +132,8 @@ type alias MicroblogItem =
     , title : String
     , link : String
     , image : String
-    , extract : String
-    , ownerComment : String
+    , extract : Json.Encode.Value
+    , ownerComment : Json.Encode.Value
     , tags : List String
     , comments : List CommentItem
     , timestamp : Int
@@ -188,8 +188,8 @@ type alias SubmitItemReq =
     { title : String
     , link : String
     , image : String
-    , extract : String
-    , ownerComment : String
+    , extract : Json.Encode.Value
+    , ownerComment : Json.Encode.Value
     , tags : List String
     }
 
@@ -220,8 +220,8 @@ feedItemEncoder struct =
         [ ( "id", (Json.Encode.string) struct.id )
         , ( "title", (Json.Encode.string) struct.title )
         , ( "image", (Maybe.withDefault Json.Encode.null << Maybe.map (Json.Encode.string)) struct.image )
-        , ( "extract", (Maybe.withDefault Json.Encode.null << Maybe.map (Json.Encode.string)) struct.extract )
-        , ( "owner_comment", (Json.Encode.string) struct.ownerComment )
+        , ( "extract", (Maybe.withDefault Json.Encode.null << Maybe.map (identity)) struct.extract )
+        , ( "owner_comment", (identity) struct.ownerComment )
         , ( "timestamp", (Json.Encode.int) struct.timestamp )
         ]
 
@@ -248,7 +248,7 @@ commentItemEncoder struct =
         , ( "guest_id", (Json.Encode.string) struct.guestId )
         , ( "parent_id", (Maybe.withDefault Json.Encode.null << Maybe.map (Json.Encode.string)) struct.parentId )
         , ( "author_name", (Json.Encode.string) struct.authorName )
-        , ( "text", (Json.Encode.string) struct.text )
+        , ( "text", (identity) struct.text )
         , ( "timestamp", (Json.Encode.int) struct.timestamp )
         ]
 
@@ -260,8 +260,8 @@ microblogItemEncoder struct =
         , ( "title", (Json.Encode.string) struct.title )
         , ( "link", (Json.Encode.string) struct.link )
         , ( "image", (Json.Encode.string) struct.image )
-        , ( "extract", (Json.Encode.string) struct.extract )
-        , ( "owner_comment", (Json.Encode.string) struct.ownerComment )
+        , ( "extract", (identity) struct.extract )
+        , ( "owner_comment", (identity) struct.ownerComment )
         , ( "tags", (Json.Encode.list (Json.Encode.string)) struct.tags )
         , ( "comments", (Json.Encode.list (commentItemEncoder)) struct.comments )
         , ( "timestamp", (Json.Encode.int) struct.timestamp )
@@ -333,8 +333,8 @@ submitItemReqEncoder struct =
         [ ( "title", (Json.Encode.string) struct.title )
         , ( "link", (Json.Encode.string) struct.link )
         , ( "image", (Json.Encode.string) struct.image )
-        , ( "extract", (Json.Encode.string) struct.extract )
-        , ( "owner_comment", (Json.Encode.string) struct.ownerComment )
+        , ( "extract", (identity) struct.extract )
+        , ( "owner_comment", (identity) struct.ownerComment )
         , ( "tags", (Json.Encode.list (Json.Encode.string)) struct.tags )
         ]
 
@@ -369,8 +369,8 @@ feedItemDecoder =
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "id" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "title" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "image" (Json.Decode.nullable (Json.Decode.string))))
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "extract" (Json.Decode.nullable (Json.Decode.string))))
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "owner_comment" (Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "extract" (Json.Decode.nullable (Json.Decode.value))))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "owner_comment" (Json.Decode.value)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "timestamp" (Json.Decode.int)))
 
 
@@ -394,7 +394,7 @@ commentItemDecoder =
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "guest_id" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "parent_id" (Json.Decode.nullable (Json.Decode.string))))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "author_name" (Json.Decode.string)))
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "text" (Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "text" (Json.Decode.value)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "timestamp" (Json.Decode.int)))
 
 
@@ -405,8 +405,8 @@ microblogItemDecoder =
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "title" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "link" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "image" (Json.Decode.string)))
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "extract" (Json.Decode.string)))
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "owner_comment" (Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "extract" (Json.Decode.value)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "owner_comment" (Json.Decode.value)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "tags" (Json.Decode.list (Json.Decode.string))))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "comments" (Json.Decode.list (commentItemDecoder))))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "timestamp" (Json.Decode.int)))
@@ -470,8 +470,8 @@ submitItemReqDecoder =
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "title" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "link" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "image" (Json.Decode.string)))
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "extract" (Json.Decode.string)))
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "owner_comment" (Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "extract" (Json.Decode.value)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "owner_comment" (Json.Decode.value)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "tags" (Json.Decode.list (Json.Decode.string))))
 
 

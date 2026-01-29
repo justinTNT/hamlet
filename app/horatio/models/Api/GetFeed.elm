@@ -8,6 +8,7 @@ module Api.GetFeed exposing (..)
 -}
 
 import Interface.Api exposing (..)
+import Interface.Schema exposing (RichContent)
 
 
 {-| Request payload for getting the feed.
@@ -30,7 +31,7 @@ type alias FeedItem =
     { id : String
     , title : String
     , image : Maybe String
-    , extract : Maybe String
-    , ownerComment : String
+    , extract : Maybe RichContent
+    , ownerComment : RichContent
     , timestamp : Int
     }

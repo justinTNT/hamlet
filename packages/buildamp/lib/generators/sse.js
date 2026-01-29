@@ -15,7 +15,9 @@ function generateElmType(model) {
 
     const elmFields = fields.map(field => {
         let elmType;
-        if (field.type === 'String') {
+        if (field.elmType === 'RichContent' || field.isRichContent) {
+            elmType = 'Encode.Value'; // RichContent is JSONB passthrough
+        } else if (field.type === 'String') {
             elmType = 'String';
         } else if (field.type === 'i64' || field.type === 'i32') {
             elmType = 'Int';
@@ -54,7 +56,9 @@ function generateElmDecoder(model) {
 
     const fieldDecoders = fields.map(field => {
         let decoder;
-        if (field.type === 'String') {
+        if (field.elmType === 'RichContent' || field.isRichContent) {
+            decoder = 'Decode.value'; // RichContent is JSONB passthrough
+        } else if (field.type === 'String') {
             decoder = 'Decode.string';
         } else if (field.type === 'i64' || field.type === 'i32') {
             decoder = 'Decode.int';
@@ -93,7 +97,9 @@ function generateElmEncoder(model) {
 
     const fieldEncoders = fields.map(field => {
         let encoder;
-        if (field.type === 'String') {
+        if (field.elmType === 'RichContent' || field.isRichContent) {
+            encoder = 'identity'; // RichContent is already Encode.Value
+        } else if (field.type === 'String') {
             encoder = 'Encode.string';
         } else if (field.type === 'i64' || field.type === 'i32') {
             encoder = 'Encode.int';
@@ -171,6 +177,7 @@ DO NOT EDIT - Changes will be overwritten
 -}
 
 import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
 
 
 -- Helper for pipeline decoding

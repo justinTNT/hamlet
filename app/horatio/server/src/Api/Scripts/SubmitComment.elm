@@ -54,7 +54,7 @@ handler req ctx config =
                         , guestId = guestId
                         , parentId = req.parentId
                         , authorName = authorName
-                        , text = req.text
+                        , text = RichContent.fromText req.text
                         , timestamp = config.serverNow
                         }
                 in

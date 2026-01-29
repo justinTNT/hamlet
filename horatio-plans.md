@@ -11,8 +11,6 @@ DONE:
 TODO:
 * extension: enrich content with: tiptap owner comment, html of selection
 * multi-admin with edit queue;
-  - project key + initial host required to claim editor role (where to store?)
-  - admin key per host set by editor, required for admin (where to store?)
 * upgrade visitor id
   - upgrade automated non-authenticated session id
   - visitors can become authenticated users with real IDs

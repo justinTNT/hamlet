@@ -16,6 +16,7 @@ For full fidelity (colors, alignment), use TipTap viewers via ports instead.
 import Html exposing (Html, h1, h2, h3, h4, p, a, span, text)
 import Html.Attributes
 import Json.Decode as Decode
+import Json.Encode as Encode
 
 
 -- RICH CONTENT TYPES
@@ -134,29 +135,22 @@ richContentMarkDecoder =
                 _ -> Decode.succeed Nothing  -- Skip unknown marks
         )
 
-decodeRichContentDoc : String -> Maybe RichContentDoc
-decodeRichContentDoc jsonStr =
-    if String.isEmpty jsonStr || jsonStr == "null" then
-        Nothing
-    else
-        case Decode.decodeString richContentDocDecoder jsonStr of
-            Ok doc -> Just doc
-            Err _ -> Nothing
+decodeRichContentDoc : Encode.Value -> Maybe RichContentDoc
+decodeRichContentDoc value =
+    case Decode.decodeValue richContentDocDecoder value of
+        Ok doc -> Just doc
+        Err _ -> Nothing
 
 
 -- RICH CONTENT RENDERING
 
-viewRichContent : String -> Html msg
-viewRichContent jsonStr =
-    if String.isEmpty jsonStr || jsonStr == "null" then
-        text ""
-    else
-        case decodeRichContentDoc jsonStr of
-            Just doc ->
-                span [] (List.map viewRichContentNode doc.content)
-            Nothing ->
-                -- Fallback: just show as plain text
-                text jsonStr
+viewRichContent : Encode.Value -> Html msg
+viewRichContent value =
+    case decodeRichContentDoc value of
+        Just doc ->
+            span [] (List.map viewRichContentNode doc.content)
+        Nothing ->
+            text ""
 
 viewRichContentNode : RichContentNode -> Html msg
 viewRichContentNode node =
@@ -204,18 +198,15 @@ applyMark mark content =
 
 -- TEXT EXTRACTION
 
-extractRichContentText : String -> String
-extractRichContentText jsonStr =
-    if String.isEmpty jsonStr || jsonStr == "null" then
-        ""
-    else
-        case decodeRichContentDoc jsonStr of
-            Just doc ->
-                doc.content
-                    |> List.map extractNodeText
-                    |> String.join " "
-            Nothing ->
-                jsonStr
+extractRichContentText : Encode.Value -> String
+extractRichContentText value =
+    case decodeRichContentDoc value of
+        Just doc ->
+            doc.content
+                |> List.map extractNodeText
+                |> String.join " "
+        Nothing ->
+            ""
 
 extractNodeText : RichContentNode -> String
 extractNodeText node =

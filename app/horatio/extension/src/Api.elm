@@ -86,7 +86,7 @@ submitComment req =
     }
 
 
-submitItem : { host : String, title : String, link : String, image : String, extract : String, ownerComment : String, tags : List String } -> Request Client.SubmitItemRes
+submitItem : { host : String, title : String, link : String, image : String, extract : Encode.Value, ownerComment : Encode.Value, tags : List String } -> Request Client.SubmitItemRes
 submitItem req =
     { endpoint = "SubmitItem"
     , body =
@@ -95,8 +95,8 @@ submitItem req =
             , ( "title", Encode.string req.title )
             , ( "link", Encode.string req.link )
             , ( "image", Encode.string req.image )
-            , ( "extract", Encode.string req.extract )
-            , ( "owner_comment", Encode.string req.ownerComment )
+            , ( "extract", identity req.extract )
+            , ( "owner_comment", identity req.ownerComment )
             , ( "tags", (Encode.list Encode.string) req.tags )
             ]
     , decoder = Client.submitItemResDecoder

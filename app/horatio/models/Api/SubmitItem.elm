@@ -8,6 +8,7 @@ module Api.SubmitItem exposing (..)
 -}
 
 import Interface.Api exposing (..)
+import Interface.Schema exposing (RichContent)
 import Api.SubmitComment exposing (CommentItem)
 
 
@@ -17,8 +18,8 @@ type alias Request =
     { title : Required String
     , link : String
     , image : String
-    , extract : String
-    , ownerComment : String
+    , extract : RichContent
+    , ownerComment : RichContent
     , tags : List String
     }
 
@@ -45,8 +46,8 @@ type alias MicroblogItem =
     , title : String
     , link : String
     , image : String
-    , extract : String
-    , ownerComment : String
+    , extract : RichContent
+    , ownerComment : RichContent
     , tags : List String
     , comments : List CommentItem
     , timestamp : Int

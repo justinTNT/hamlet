@@ -453,7 +453,7 @@ type alias ItemCommentDb =
     , guestId : String -- ForeignKey Guest String
     , parentId : Maybe String -- Maybe String
     , authorName : String -- String
-    , text : String -- RichContent
+    , text : Encode.Value -- RichContent
     , removed : Bool -- Bool
     , createdAt : CreateTimestamp -- CreateTimestamp
     , deletedAt : SoftDelete -- SoftDelete
@@ -557,7 +557,7 @@ itemcommentDbDecoder =
         |> decodeField "guest_id" Decode.string
         |> decodeField "parent_id" (Decode.nullable Decode.string)
         |> decodeField "author_name" Decode.string
-        |> decodeField "text" richContentDecoder
+        |> decodeField "text" Decode.value
         |> decodeField "removed" Decode.bool
         |> decodeField "created_at" timestampDecoder
         |> decodeField "deleted_at" (Decode.nullable timestampDecoder)
@@ -716,8 +716,8 @@ type alias MicroblogItemDb =
     , title : String -- String
     , link : Maybe String -- Maybe Link
     , image : Maybe String -- Maybe Link
-    , extract : Maybe String -- Maybe RichContent
-    , ownerComment : String -- RichContent
+    , extract : Maybe Encode.Value -- Maybe RichContent
+    , ownerComment : Encode.Value -- RichContent
     , createdAt : CreateTimestamp -- CreateTimestamp
     , updatedAt : UpdateTimestamp -- UpdateTimestamp
     , viewCount : Int -- Int
@@ -822,8 +822,8 @@ microblogitemDbDecoder =
         |> decodeField "title" Decode.string
         |> decodeField "link" (Decode.nullable Decode.string)
         |> decodeField "image" (Decode.nullable Decode.string)
-        |> decodeField "extract" (Decode.nullable richContentDecoder)
-        |> decodeField "owner_comment" richContentDecoder
+        |> decodeField "extract" (Decode.nullable Decode.value)
+        |> decodeField "owner_comment" Decode.value
         |> decodeField "created_at" timestampDecoder
         |> decodeField "updated_at" (Decode.nullable timestampDecoder)
         |> decodeField "view_count" Decode.int
@@ -1007,15 +1007,6 @@ stringToInt str =
     case String.toInt str of
         Just int -> Decode.succeed int
         Nothing -> Decode.fail ("Could not parse timestamp: " ++ str)
-
-
--- RichContent decoder (handles JSONB object -> JSON string)
-richContentDecoder : Decode.Decoder String
-richContentDecoder =
-    Decode.oneOf
-        [ Decode.string  -- Already a string (legacy)
-        , Decode.value |> Decode.map (Encode.encode 0)  -- JSONB object -> JSON string
-        ]
 
 
 -- UTILITY FUNCTIONS

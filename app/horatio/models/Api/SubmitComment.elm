@@ -8,6 +8,7 @@ module Api.SubmitComment exposing (..)
 -}
 
 import Interface.Api exposing (..)
+import Interface.Schema exposing (RichContent)
 
 
 {-| Request payload for submitting a comment.
@@ -44,6 +45,6 @@ type alias CommentItem =
     , guestId : String
     , parentId : Maybe String
     , authorName : String
-    , text : String
+    , text : RichContent
     , timestamp : Int
     }

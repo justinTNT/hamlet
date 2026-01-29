@@ -608,15 +608,6 @@ stringToInt str =
         Nothing -> Decode.fail ("Could not parse timestamp: " ++ str)
 
 
--- RichContent decoder (handles JSONB object -> JSON string)
-richContentDecoder : Decode.Decoder String
-richContentDecoder =
-    Decode.oneOf
-        [ Decode.string  -- Already a string (legacy)
-        , Decode.value |> Decode.map (Encode.encode 0)  -- JSONB object -> JSON string
-        ]
-
-
 -- UTILITY FUNCTIONS
 
 hashString : String -> Int
@@ -1388,10 +1379,9 @@ function elmTypeToElmType(elmType) {
     if (elmType.startsWith('ForeignKey ')) {
         return 'String';
     }
-    // RichContent -> String (JSONB decoded to JSON string by richContentDecoder)
-    // For DbCreate types, the Create generator transforms this to Encode.Value
+    // RichContent -> Encode.Value (JSONB passed through as-is)
     if (elmType === 'RichContent') {
-        return 'String';
+        return 'Encode.Value';
     }
     // Link -> String (URL stored as TEXT)
     if (elmType === 'Link') {
@@ -1761,12 +1751,12 @@ function generateFieldDecoder(field) {
         return 'Decode.string';
     }
 
-    // Special handling for RichContent - JSONB -> String via custom decoder
+    // RichContent - JSONB passed through as Decode.Value
     if (field.isRichContent) {
         if (field.isOptional || field.elmType.startsWith('Maybe ')) {
-            return '(Decode.nullable richContentDecoder)';
+            return '(Decode.nullable Decode.value)';
         }
-        return 'richContentDecoder';
+        return 'Decode.value';
     }
 
     if (field.elmType.startsWith('Maybe ')) {
@@ -1790,7 +1780,7 @@ function generateBasicDecoder(elmType) {
         case 'Float': return 'Decode.float';
         case 'Bool': return 'Decode.bool';
         case 'MultiTenant': return 'Decode.string';  // MultiTenant = String
-        case 'RichContent': return 'richContentDecoder';  // RichContent = JSONB -> String
+        case 'RichContent': return 'Decode.value';  // RichContent = JSONB passthrough
         case 'SoftDelete':
         case 'UpdateTimestamp': return '(Decode.nullable timestampDecoder)';  // Nullable timestamps
         case 'Timestamp':

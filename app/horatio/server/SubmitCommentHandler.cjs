@@ -2900,6 +2900,9 @@ var $elm$core$Basics$composeL = F3(
 		return g(
 			f(x));
 	});
+var $elm$core$Basics$identity = function (x) {
+	return x;
+};
 var $elm$json$Json$Encode$int = _Json_wrap;
 var $elm$core$Maybe$map = F2(
 	function (f, maybe) {
@@ -2959,7 +2962,7 @@ var $author$project$BuildAmp$Api$commentItemEncoder = function (struct) {
 				$elm$json$Json$Encode$string(struct.authorName)),
 				_Utils_Tuple2(
 				'text',
-				$elm$json$Json$Encode$string(struct.text)),
+				$elm$core$Basics$identity(struct.text)),
 				_Utils_Tuple2(
 				'timestamp',
 				$elm$json$Json$Encode$int(struct.timestamp))
@@ -3067,9 +3070,6 @@ var $author$project$Api$Scripts$SubmitComment$encodeMaybeString = function (mayb
 	}
 };
 var $elm$json$Json$Decode$decodeString = _Json_runOnString;
-var $elm$core$Basics$identity = function (x) {
-	return x;
-};
 var $elm$json$Json$Encode$list = F2(
 	function (func, entries) {
 		return _Json_wrap(
@@ -3166,7 +3166,15 @@ var $author$project$Api$Scripts$SubmitComment$handler = F3(
 			$author$project$Backend$Script$andThenDecode,
 			A2($elm$json$Json$Decode$field, 'id', $elm$json$Json$Decode$string),
 			function (commentId) {
-				var apiComment = {authorName: authorName, guestId: guestId, id: commentId, itemId: req.itemId, parentId: req.parentId, text: req.text, timestamp: config.serverNow};
+				var apiComment = {
+					authorName: authorName,
+					guestId: guestId,
+					id: commentId,
+					itemId: req.itemId,
+					parentId: req.parentId,
+					text: $author$project$Backend$RichContent$fromText(req.text),
+					timestamp: config.serverNow
+				};
 				return A2(
 					$author$project$Backend$Script$andThen,
 					function (_v0) {

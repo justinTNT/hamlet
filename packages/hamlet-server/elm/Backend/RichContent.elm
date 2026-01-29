@@ -2,6 +2,7 @@ module Backend.RichContent exposing
     ( fromPlainText
     , fromPlainTextMaybe
     , fromText
+    , fromTextMaybe
     , empty
     )
 
@@ -86,6 +87,22 @@ fromText text =
 
     else
         fromPlainText text
+
+
+{-| Like fromText, but returns Nothing for empty strings.
+
+    fromTextMaybe "" --> Nothing
+    fromTextMaybe "{\"type\":\"doc\"...}" --> Just (parsed JSON)
+    fromTextMaybe "Hello" --> Just (fromPlainText "Hello")
+
+-}
+fromTextMaybe : String -> Maybe Encode.Value
+fromTextMaybe text =
+    if String.isEmpty (String.trim text) then
+        Nothing
+
+    else
+        Just (fromText text)
 
 
 {-| An empty TipTap document.

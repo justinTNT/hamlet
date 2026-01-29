@@ -228,13 +228,17 @@ export function createRichTextEditor({ elementId, initialContent, onChange }) {
     const editorEl = document.createElement('div')
     editorEl.className = 'hamlet-rt-content'
 
-    // Parse initial content
+    // Parse initial content (accepts JSON string or object)
     let content = { type: 'doc', content: [{ type: 'paragraph' }] }
     if (initialContent) {
-        try {
-            content = JSON.parse(initialContent)
-        } catch (e) {
-            console.warn(`[hamlet-rt] Failed to parse initial content:`, e)
+        if (typeof initialContent === 'string') {
+            try {
+                content = JSON.parse(initialContent)
+            } catch (e) {
+                console.warn(`[hamlet-rt] Failed to parse initial content:`, e)
+            }
+        } else if (typeof initialContent === 'object') {
+            content = initialContent
         }
     }
 
@@ -311,11 +315,14 @@ export function getEditor(elementId) {
 export function setEditorContent(elementId, content) {
     const editor = editors.get(elementId)
     if (editor && content) {
-        try {
-            const parsed = JSON.parse(content)
-            editor.commands.setContent(parsed)
-        } catch (e) {
-            console.warn(`[hamlet-rt] Failed to set content:`, e)
+        if (typeof content === 'string') {
+            try {
+                editor.commands.setContent(JSON.parse(content))
+            } catch (e) {
+                console.warn(`[hamlet-rt] Failed to set content:`, e)
+            }
+        } else if (typeof content === 'object') {
+            editor.commands.setContent(content)
         }
     }
 }
@@ -342,13 +349,17 @@ export function createRichTextViewer({ elementId, content }) {
     // Destroy existing viewer if any
     destroyRichTextViewer(elementId)
 
-    // Parse content
+    // Parse content (accepts JSON string or object)
     let parsedContent = { type: 'doc', content: [{ type: 'paragraph' }] }
     if (content) {
-        try {
-            parsedContent = JSON.parse(content)
-        } catch (e) {
-            console.warn(`[hamlet-rt] Failed to parse viewer content:`, e)
+        if (typeof content === 'string') {
+            try {
+                parsedContent = JSON.parse(content)
+            } catch (e) {
+                console.warn(`[hamlet-rt] Failed to parse viewer content:`, e)
+            }
+        } else if (typeof content === 'object') {
+            parsedContent = content
         }
     }
 
@@ -410,11 +421,14 @@ export function destroyRichTextViewer(elementId) {
 export function setViewerContent(elementId, content) {
     const viewer = viewers.get(elementId)
     if (viewer && content) {
-        try {
-            const parsed = JSON.parse(content)
-            viewer.commands.setContent(parsed)
-        } catch (e) {
-            console.warn(`[hamlet-rt] Failed to set viewer content:`, e)
+        if (typeof content === 'string') {
+            try {
+                viewer.commands.setContent(JSON.parse(content))
+            } catch (e) {
+                console.warn(`[hamlet-rt] Failed to set viewer content:`, e)
+            }
+        } else if (typeof content === 'object') {
+            viewer.commands.setContent(content)
         }
     }
 }

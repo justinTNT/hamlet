@@ -2846,6 +2846,7 @@ var $elm$json$Json$Decode$list = _Json_decodeList;
 var $elm$json$Json$Decode$map = _Json_map1;
 var $elm$json$Json$Decode$string = _Json_decodeString;
 var $elm$json$Json$Decode$succeed = _Json_succeed;
+var $elm$json$Json$Decode$value = _Json_decodeValue;
 var $author$project$BuildAmp$Api$submitItemReqDecoder = A2(
 	$elm$json$Json$Decode$andThen,
 	function (x) {
@@ -2863,7 +2864,7 @@ var $author$project$BuildAmp$Api$submitItemReqDecoder = A2(
 			return A2(
 				$elm$json$Json$Decode$map,
 				x,
-				A2($elm$json$Json$Decode$field, 'owner_comment', $elm$json$Json$Decode$string));
+				A2($elm$json$Json$Decode$field, 'owner_comment', $elm$json$Json$Decode$value));
 		},
 		A2(
 			$elm$json$Json$Decode$andThen,
@@ -2871,7 +2872,7 @@ var $author$project$BuildAmp$Api$submitItemReqDecoder = A2(
 				return A2(
 					$elm$json$Json$Decode$map,
 					x,
-					A2($elm$json$Json$Decode$field, 'extract', $elm$json$Json$Decode$string));
+					A2($elm$json$Json$Decode$field, 'extract', $elm$json$Json$Decode$value));
 			},
 			A2(
 				$elm$json$Json$Decode$andThen,
@@ -2904,6 +2905,9 @@ var $elm$core$Basics$composeL = F3(
 		return g(
 			f(x));
 	});
+var $elm$core$Basics$identity = function (x) {
+	return x;
+};
 var $elm$json$Json$Encode$int = _Json_wrap;
 var $elm$core$Maybe$map = F2(
 	function (f, maybe) {
@@ -2963,7 +2967,7 @@ var $author$project$BuildAmp$Api$commentItemEncoder = function (struct) {
 				$elm$json$Json$Encode$string(struct.authorName)),
 				_Utils_Tuple2(
 				'text',
-				$elm$json$Json$Encode$string(struct.text)),
+				$elm$core$Basics$identity(struct.text)),
 				_Utils_Tuple2(
 				'timestamp',
 				$elm$json$Json$Encode$int(struct.timestamp))
@@ -2996,10 +3000,10 @@ var $author$project$BuildAmp$Api$microblogItemEncoder = function (struct) {
 				$elm$json$Json$Encode$string(struct.image)),
 				_Utils_Tuple2(
 				'extract',
-				$elm$json$Json$Encode$string(struct.extract)),
+				$elm$core$Basics$identity(struct.extract)),
 				_Utils_Tuple2(
 				'owner_comment',
-				$elm$json$Json$Encode$string(struct.ownerComment)),
+				$elm$core$Basics$identity(struct.ownerComment)),
 				_Utils_Tuple2(
 				'tags',
 				$elm$json$Json$Encode$list($elm$json$Json$Encode$string)(struct.tags)),
@@ -3201,9 +3205,6 @@ var $author$project$BuildAmp$Database$encodeMaybe = F2(
 			return encoder(value);
 		}
 	});
-var $elm$core$Basics$identity = function (x) {
-	return x;
-};
 var $author$project$BuildAmp$Database$encodeMicroblogItemDbCreate = function (item) {
 	return $elm$json$Json$Encode$object(
 		_List_fromArray(
@@ -3365,57 +3366,6 @@ var $author$project$Backend$Script$forEach = F2(
 		return $author$project$Backend$Script$sequence(
 			A2($elm$core$List$map, f, items));
 	});
-var $author$project$Backend$RichContent$fromPlainText = function (text) {
-	return $elm$json$Json$Encode$object(
-		_List_fromArray(
-			[
-				_Utils_Tuple2(
-				'type',
-				$elm$json$Json$Encode$string('doc')),
-				_Utils_Tuple2(
-				'content',
-				A2(
-					$elm$json$Json$Encode$list,
-					$elm$core$Basics$identity,
-					_List_fromArray(
-						[
-							$elm$json$Json$Encode$object(
-							_List_fromArray(
-								[
-									_Utils_Tuple2(
-									'type',
-									$elm$json$Json$Encode$string('paragraph')),
-									_Utils_Tuple2(
-									'content',
-									A2(
-										$elm$json$Json$Encode$list,
-										$elm$core$Basics$identity,
-										_List_fromArray(
-											[
-												$elm$json$Json$Encode$object(
-												_List_fromArray(
-													[
-														_Utils_Tuple2(
-														'type',
-														$elm$json$Json$Encode$string('text')),
-														_Utils_Tuple2(
-														'text',
-														$elm$json$Json$Encode$string(text))
-													]))
-											])))
-								]))
-						])))
-			]));
-};
-var $elm$core$String$isEmpty = function (string) {
-	return string === '';
-};
-var $elm$core$String$trim = _String_trim;
-var $author$project$Backend$RichContent$fromPlainTextMaybe = function (text) {
-	return $elm$core$String$isEmpty(
-		$elm$core$String$trim(text)) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(
-		$author$project$Backend$RichContent$fromPlainText(text));
-};
 var $elm$core$List$maybeCons = F3(
 	function (f, mx, xs) {
 		var _v0 = f(mx);
@@ -3493,6 +3443,10 @@ var $elm$core$List$member = F2(
 			},
 			xs);
 	});
+var $elm$core$String$isEmpty = function (string) {
+	return string === '';
+};
+var $elm$core$String$trim = _String_trim;
 var $author$project$Api$Scripts$SubmitItem$nonEmpty = function (str) {
 	return $elm$core$String$isEmpty(
 		$elm$core$String$trim(str)) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(str);
@@ -3629,10 +3583,10 @@ var $author$project$Api$Scripts$SubmitItem$handler = F3(
 				'microblog_item',
 				$author$project$BuildAmp$Database$encodeMicroblogItemDbCreate(
 					{
-						extract: $author$project$Backend$RichContent$fromPlainTextMaybe(req.extract),
+						extract: $elm$core$Maybe$Just(req.extract),
 						image: $author$project$Api$Scripts$SubmitItem$nonEmpty(req.image),
 						link: $author$project$Api$Scripts$SubmitItem$nonEmpty(req.link),
-						ownerComment: $author$project$Backend$RichContent$fromPlainText(req.ownerComment),
+						ownerComment: req.ownerComment,
 						title: req.title,
 						viewCount: 0
 					})));
@@ -3652,7 +3606,6 @@ var $author$project$Backend$Runtime$HandleRequest = function (a) {
 	return {$: 'HandleRequest', a: a};
 };
 var $elm$core$Platform$Sub$batch = _Platform_batch;
-var $elm$json$Json$Decode$value = _Json_decodeValue;
 var $author$project$Backend$Runtime$dbResult = _Platform_incomingPort(
 	'dbResult',
 	A2(

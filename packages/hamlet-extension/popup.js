@@ -6,6 +6,12 @@
  * This is framework code - do not modify unless updating hamlet-extension.
  */
 
+import { createRichTextEditor, destroyRichTextEditor, getEditor } from 'hamlet-server/rich-text';
+import 'hamlet-server/rich-text/styles.css';
+import { Editor } from '@tiptap/core';
+import StarterKit from '@tiptap/starter-kit';
+import Link from '@tiptap/extension-link';
+
 const Elm = window.Elm;
 
 console.log("Popup script loaded. Window.Elm:", window.Elm);
@@ -20,6 +26,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             title: "",
             url: "",
             selection: "",
+            selectionHtml: "",
             images: []
         });
         return;
@@ -40,6 +47,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             title: activeTab.title || "",
             url: url,
             selection: "",
+            selectionHtml: "",
             images: []
         });
         return;
@@ -48,11 +56,20 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     chrome.scripting.executeScript({
         target: { tabId: activeTab.id },
         func: () => {
-            const selection = window.getSelection().toString();
+            const sel = window.getSelection();
+            const selection = sel.toString();
+            let selectionHtml = '';
+            if (sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                const fragment = range.cloneContents();
+                const div = document.createElement('div');
+                div.appendChild(fragment);
+                selectionHtml = div.innerHTML;
+            }
             const images = Array.from(document.images)
                 .map(img => img.src)
                 .filter(src => src.startsWith('http'));
-            return { selection, images };
+            return { selection, selectionHtml, images };
         }
     }, (results) => {
         console.log("Script execution results:", results);
@@ -60,11 +77,13 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             title: activeTab.title || "",
             url: activeTab.url || "",
             selection: "",
+            selectionHtml: "",
             images: []
         };
 
         if (results && results[0] && results[0].result) {
             pageData.selection = results[0].result.selection || "";
+            pageData.selectionHtml = results[0].result.selectionHtml || "";
             pageData.images = results[0].result.images || [];
         }
 
@@ -83,6 +102,37 @@ function initElm(flags) {
         setupPorts(app);
     } catch (e) {
         console.error("Failed to initialize Elm:", e);
+    }
+}
+
+/**
+ * Converts HTML string to tiptap/ProseMirror JSON using a temporary editor.
+ */
+function htmlToTiptapJson(html) {
+    if (!html) return null;
+
+    const tempContainer = document.createElement('div');
+    tempContainer.style.display = 'none';
+    document.body.appendChild(tempContainer);
+
+    try {
+        const editor = new Editor({
+            element: tempContainer,
+            extensions: [
+                StarterKit,
+                Link.configure({ openOnClick: false }),
+            ],
+            content: html, // tiptap accepts HTML strings directly
+        });
+
+        const json = editor.getJSON();
+        editor.destroy();
+        return json;
+    } catch (e) {
+        console.warn('Failed to convert HTML to tiptap JSON:', e);
+        return null;
+    } finally {
+        tempContainer.remove();
     }
 }
 
@@ -126,6 +176,10 @@ function setupPorts(app) {
         chrome.tabs.create({ url: adminUrl });
     });
 
+    app.ports.closeWindow.subscribe(function () {
+        window.close();
+    });
+
     // Host management ports
     app.ports.saveHosts.subscribe(function (hosts) {
         console.log("Saving hosts:", hosts);
@@ -141,4 +195,66 @@ function setupPorts(app) {
             app.ports.hostsLoaded.send(result.hosts || []);
         });
     });
+
+    // Rich text editor ports
+    if (app.ports.initExtractEditor) {
+        app.ports.initExtractEditor.subscribe(function (selectionHtml) {
+            requestAnimationFrame(() => {
+                // Convert HTML to tiptap JSON, then create editor
+                let initialContent = '';
+                if (selectionHtml) {
+                    const json = htmlToTiptapJson(selectionHtml);
+                    if (json) {
+                        initialContent = JSON.stringify(json);
+                    }
+                }
+
+                createRichTextEditor({
+                    elementId: 'extract-editor',
+                    initialContent: initialContent,
+                    onChange: function (jsonString) {
+                        if (app.ports.extractContentChanged) {
+                            try {
+                                app.ports.extractContentChanged.send(JSON.parse(jsonString));
+                            } catch (e) {
+                                console.warn('Failed to parse extract content:', e);
+                            }
+                        }
+                    }
+                });
+
+                // Send initial content to Elm immediately
+                if (initialContent && app.ports.extractContentChanged) {
+                    try {
+                        app.ports.extractContentChanged.send(JSON.parse(initialContent));
+                    } catch (e) {
+                        console.warn('Failed to parse initial extract content:', e);
+                    }
+                }
+
+                console.log('Extract editor initialized');
+            });
+        });
+    }
+
+    if (app.ports.initOwnerCommentEditor) {
+        app.ports.initOwnerCommentEditor.subscribe(function (_) {
+            requestAnimationFrame(() => {
+                createRichTextEditor({
+                    elementId: 'owner-comment-editor',
+                    initialContent: '',
+                    onChange: function (jsonString) {
+                        if (app.ports.ownerCommentContentChanged) {
+                            try {
+                                app.ports.ownerCommentContentChanged.send(JSON.parse(jsonString));
+                            } catch (e) {
+                                console.warn('Failed to parse comment content:', e);
+                            }
+                        }
+                    }
+                });
+                console.log('Owner comment editor initialized');
+            });
+        });
+    }
 }

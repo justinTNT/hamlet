@@ -7,6 +7,7 @@ DO NOT EDIT - Changes will be overwritten
 -}
 
 import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
 
 
 -- Helper for pipeline decoding
@@ -36,7 +37,7 @@ type alias NewCommentEvent =
     ,     guestId : String
     ,     parentId : Maybe String
     ,     authorName : String
-    ,     text : String
+    ,     text : Encode.Value
     ,     timestamp : Int
     }
 
@@ -66,5 +67,5 @@ decodeNewCommentEvent =
         |> andMap (Decode.field "guest_id" Decode.string)
         |> andMap (Decode.field "parent_id" (Decode.maybe Decode.string))
         |> andMap (Decode.field "author_name" Decode.string)
-        |> andMap (Decode.field "text" Decode.string)
+        |> andMap (Decode.field "text" Decode.value)
         |> andMap (Decode.field "timestamp" Decode.int)
