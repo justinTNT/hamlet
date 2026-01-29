@@ -509,7 +509,7 @@ update msg model =
             , openAdmin
                 (Encode.object
                     [ ( "url", Encode.string hostConfig.url )
-                    , ( "adminToken", Encode.string model.projectKey )
+                    , ( "projectKey", Encode.string model.projectKey )
                     ]
                 )
             )
@@ -677,7 +677,7 @@ viewSettings model =
                 [ type_ "password"
                 , value model.projectKey
                 , onInput UpdateProjectKey
-                , placeholder "HAMLET_ADMIN_TOKEN value"
+                , placeholder "HAMLET_PROJECT_KEY value"
                 , style "width" "100%"
                 , style "padding" "5px"
                 , style "box-sizing" "border-box"

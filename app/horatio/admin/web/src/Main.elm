@@ -107,7 +107,7 @@ type alias AdminApiResponse =
 
 
 type alias Flags =
-    { adminToken : String
+    { projectKey : String
     , baseUrl : String
     , basePath : String
     }
@@ -197,7 +197,7 @@ type alias Model =
     { key : Nav.Key
     , url : Url.Url
     , route : Route
-    , adminToken : String
+    , projectKey : String
     , baseUrl : String
     , basePath : String
     , schema : Maybe Schema
@@ -250,7 +250,7 @@ init flags url key =
             { key = key
             , url = url
             , route = Home
-            , adminToken = flags.adminToken
+            , projectKey = flags.projectKey
             , baseUrl = flags.baseUrl
             , basePath = flags.basePath
             , schema = Nothing

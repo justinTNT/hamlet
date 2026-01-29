@@ -1,9 +1,14 @@
 /**
  * API Routes Middleware
  *
- * Registers auto-generated API routes from BuildAmp
- * Dev mode: Uses Vite middleware for HMR
- * Prod mode: Serves static files from dist/
+ * Provides:
+ *   - GET /api/status (shared)
+ *   - ALL /api/* catch-all 404 (shared)
+ *   - Static/SPA serving per-project (reads req.project to resolve dist dir)
+ *
+ * API route registration is handled by ProjectLoader (per-project via proxy).
+ * Dev mode: Uses Vite middleware for the defaultProject only.
+ * Prod mode: Serves static files from app/{project}/web/dist/.
  */
 
 import { fileURLToPath } from 'url';
@@ -29,52 +34,47 @@ function resolveIndexPath(server, baseDir, host) {
     return path.join(baseDir, 'index.html');
 }
 
+/**
+ * Resolve the web directory for a project
+ */
+function resolveWebDir(projectName) {
+    return path.join(__dirname, `../../../app/${projectName}/web`);
+}
+
 export default async function createAPIRoutes(server) {
     console.log('🛣️ Setting up API routes');
 
-    const appName = server.config.application || 'horatio';
-    const webDir = path.join(__dirname, `../../../app/${appName}/web`);
-    const distPath = path.join(webDir, 'dist');
+    const defaultProject = server.config.defaultProject || server.config.application || 'horatio';
 
     let viteServer = null;
 
-    // API routes first (before Vite middleware)
+    // API status endpoint (shared, not project-specific)
     server.app.get('/api/status', (req, res) => {
         res.json({
             tenant: req.tenant.host,
+            project: req.project || defaultProject,
             features: server.loader.getLoadedFeatures(),
             timestamp: new Date().toISOString()
         });
     });
 
-    // Register auto-generated API routes from BuildAmp
-    try {
-        const apiRoutesPath = path.join(__dirname, `../../../app/${appName}/server/.generated/api-routes.js`);
-        if (fs.existsSync(apiRoutesPath)) {
-            const { default: registerApiRoutes } = await import(apiRoutesPath);
-            registerApiRoutes(server);
-        } else {
-            console.warn('⚠️  No api-routes.js found at', apiRoutesPath);
-        }
-    } catch (error) {
-        console.warn('⚠️  Auto-generated routes not available:', error.message);
-    }
-
-    // Catch-all 404 for unknown API routes (must come after generated routes)
+    // Catch-all 404 for unknown API routes (must come after project router dispatch)
     server.app.all('/api/*', (req, res) => {
         res.status(404).json({ error: `Unknown API endpoint: ${req.path}` });
     });
 
     // Static/Vite middleware last (fallback for non-API requests)
     if (isDev) {
-        // Dev mode: Use Vite middleware for HMR
+        // Dev mode: Use Vite middleware for the defaultProject only
+        const webDir = resolveWebDir(defaultProject);
+
         try {
             const { createServer: createViteServer } = await import('vite');
 
             viteServer = await createViteServer({
                 root: webDir,
                 server: { middlewareMode: true },
-                appType: 'custom'  // Don't let Vite handle HTML - our fallback does
+                appType: 'custom'
             });
             server.app.use(viteServer.middlewares);
             console.log('⚡ Vite dev server enabled (HMR active)');
@@ -84,7 +84,10 @@ export default async function createAPIRoutes(server) {
             server.app.get('*', async (req, res) => {
                 try {
                     const host = req.tenant?.host || 'localhost';
-                    const indexPath = resolveIndexPath(server, publicDir, host);
+                    const projectName = req.project || defaultProject;
+                    const projectPublicDir = path.join(resolveWebDir(projectName), 'public');
+                    const baseDir = fs.existsSync(projectPublicDir) ? projectPublicDir : publicDir;
+                    const indexPath = resolveIndexPath(server, baseDir, host);
                     let indexHtml = fs.readFileSync(indexPath, 'utf-8');
                     indexHtml = await viteServer.transformIndexHtml(req.originalUrl, indexHtml);
                     res.status(200).set({ 'Content-Type': 'text/html' }).end(indexHtml);
@@ -95,21 +98,32 @@ export default async function createAPIRoutes(server) {
             });
         } catch (e) {
             console.warn('⚠️ Vite not available, falling back to static serving:', e.message);
-            const publicDir = path.join(webDir, 'public');
-            server.app.use(express.static(publicDir));
+            server.app.use((req, res, next) => {
+                const projectName = req.project || defaultProject;
+                const publicDir = path.join(resolveWebDir(projectName), 'public');
+                express.static(publicDir)(req, res, next);
+            });
             server.app.get('*', (req, res) => {
                 const host = req.tenant?.host || 'localhost';
+                const projectName = req.project || defaultProject;
+                const publicDir = path.join(resolveWebDir(projectName), 'public');
                 res.sendFile(resolveIndexPath(server, publicDir, host));
             });
         }
     } else {
-        // Prod mode: Serve pre-built static files
-        server.app.use(express.static(distPath));
+        // Prod mode: Serve pre-built static files per-project
+        server.app.use((req, res, next) => {
+            const projectName = req.project || defaultProject;
+            const distPath = path.join(resolveWebDir(projectName), 'dist');
+            express.static(distPath)(req, res, next);
+        });
         server.app.get('*', (req, res) => {
             const host = req.tenant?.host || 'localhost';
+            const projectName = req.project || defaultProject;
+            const distPath = path.join(resolveWebDir(projectName), 'dist');
             res.sendFile(resolveIndexPath(server, distPath, host));
         });
-        console.log('📦 Serving static files from dist/');
+        console.log('📦 Serving static files (project-aware)');
     }
 
     return {

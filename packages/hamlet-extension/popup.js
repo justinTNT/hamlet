@@ -164,13 +164,13 @@ function setupPorts(app) {
 
     // Open admin UI in new tab
     app.ports.openAdmin.subscribe(function (data) {
-        // data: { url: string, adminToken: string }
+        // data: { url: string, projectKey: string }
         // Convert API URL to admin URL: http://localhost:3000/api -> http://localhost:3000/admin
         let adminUrl = data.url.replace(/\/api\/?$/, '/admin');
 
-        // Append token as query param if provided
-        if (data.adminToken && data.adminToken.trim() !== '') {
-            adminUrl += '?admin_token=' + encodeURIComponent(data.adminToken);
+        // Append project key as query param if provided
+        if (data.projectKey && data.projectKey.trim() !== '') {
+            adminUrl += '?project_key=' + encodeURIComponent(data.projectKey);
         }
 
         console.log("Opening admin URL:", adminUrl);

@@ -93,7 +93,7 @@ buildamp status                                            # Check generation st
 - Schema-driven admin interface at `app/horatio/admin/`
 - Reads `schema.json` at runtime (no code generation needed)
 - CRUD operations for all tables with type-appropriate inputs
-- Secure admin API with HAMLET_ADMIN_TOKEN protection
+- Secure admin API with HAMLET_PROJECT_KEY protection (via auth-resolver tier)
 - Tenant-isolated interface
 - Next enhancement: relationship-aware UI (FK dropdowns, hide join tables)
 

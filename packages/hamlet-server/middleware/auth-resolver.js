@@ -7,7 +7,7 @@
  * Tiers:
  *   noAdmin      — no key present
  *   hostAdmin    — valid X-Hamlet-Host-Key for this tenant
- *   projectAdmin — valid X-Hamlet-Project-Key (future)
+ *   projectAdmin — valid X-Hamlet-Project-Key
  */
 
 export default function createAuthResolver(server) {
@@ -19,8 +19,17 @@ export default function createAuthResolver(server) {
         return;
     }
 
-    // Project-level key from environment (future: per-project table)
-    const projectKey = process.env.HAMLET_PROJECT_KEY || null;
+    // Build key→project reverse map from config
+    const projectKeys = server.config?.projectKeys || {};
+    const keyToProject = new Map();
+    for (const [project, key] of Object.entries(projectKeys)) {
+        if (key) keyToProject.set(key, project);
+    }
+
+    // Legacy fallback: use env var only when no projectKeys configured
+    const legacyKey = keyToProject.size === 0
+        ? (process.env.HAMLET_PROJECT_KEY || null)
+        : null;
 
     server.app.use(async (req, res, next) => {
         // Default: no admin
@@ -29,9 +38,16 @@ export default function createAuthResolver(server) {
         try {
             // 1. Check project key
             const projectKeyHeader = req.get('X-Hamlet-Project-Key');
-            if (projectKey && projectKeyHeader && projectKeyHeader === projectKey) {
-                req.authLevel = 'projectAdmin';
-                return next();
+            if (projectKeyHeader) {
+                if (keyToProject.has(projectKeyHeader)) {
+                    req.authLevel = 'projectAdmin';
+                    req.authProject = keyToProject.get(projectKeyHeader);
+                    return next();
+                }
+                if (legacyKey && projectKeyHeader === legacyKey) {
+                    req.authLevel = 'projectAdmin';
+                    return next();
+                }
             }
 
             // 2. Check host key

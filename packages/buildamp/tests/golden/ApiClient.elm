@@ -52,8 +52,8 @@ type alias SubmitItemReq =
     { title : String
     , link : String
     , image : String
-    , extract : String
-    , owner_comment : String
+    , extract : Json.Encode.Value
+    , owner_comment : Json.Encode.Value
     , tags : List String
     }
 
@@ -64,8 +64,8 @@ type alias FeedItem =
     { id : String
     , title : String
     , image : Maybe String
-    , extract : Maybe String
-    , ownerComment : String
+    , extract : Maybe Json.Encode.Value
+    , ownerComment : Json.Encode.Value
     , timestamp : Int
     }
 
@@ -75,7 +75,7 @@ type alias CommentItem =
     , guestId : String
     , parentId : Maybe String
     , authorName : String
-    , text : String
+    , text : Json.Encode.Value
     , timestamp : Int
     }
 
@@ -84,8 +84,8 @@ type alias MicroblogItem =
     , title : String
     , link : String
     , image : String
-    , extract : String
-    , ownerComment : String
+    , extract : Json.Encode.Value
+    , ownerComment : Json.Encode.Value
     , tags : List String
     , comments : List CommentItem
     , timestamp : Int
@@ -154,8 +154,8 @@ encodeSubmitItemReq submititemreq =
         [ ( "title", Json.Encode.string submititemreq.title )
         , ( "link", Json.Encode.string submititemreq.link )
         , ( "image", Json.Encode.string submititemreq.image )
-        , ( "extract", Json.Encode.string submititemreq.extract )
-        , ( "owner_comment", Json.Encode.string submititemreq.owner_comment )
+        , ( "extract", identity submititemreq.extract )
+        , ( "owner_comment", identity submititemreq.owner_comment )
         , ( "tags", (Json.Encode.list Json.Encode.string) submititemreq.tags )
         ]
 
@@ -168,8 +168,8 @@ feedItemDecoder =
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "id" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "title" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "image" (Json.Decode.nullable (Json.Decode.string))))
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "extract" (Json.Decode.nullable (Json.Decode.string))))
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "owner_comment" (Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "extract" (Json.Decode.nullable (Json.Decode.value))))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "owner_comment" (Json.Decode.value)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "timestamp" (Json.Decode.int)))
 
 commentItemDecoder : Json.Decode.Decoder CommentItem
@@ -180,7 +180,7 @@ commentItemDecoder =
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "guest_id" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "parent_id" (Json.Decode.nullable (Json.Decode.string))))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "author_name" (Json.Decode.string)))
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "text" (Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "text" (Json.Decode.value)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "timestamp" (Json.Decode.int)))
 
 microblogItemDecoder : Json.Decode.Decoder MicroblogItem
@@ -190,8 +190,8 @@ microblogItemDecoder =
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "title" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "link" (Json.Decode.string)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "image" (Json.Decode.string)))
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "extract" (Json.Decode.string)))
-        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "owner_comment" (Json.Decode.string)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "extract" (Json.Decode.value)))
+        |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "owner_comment" (Json.Decode.value)))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "tags" (Json.Decode.list (Json.Decode.string))))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "comments" (Json.Decode.list (commentItemDecoder))))
         |> Json.Decode.andThen (\x -> Json.Decode.map x (Json.Decode.field "timestamp" (Json.Decode.int)))

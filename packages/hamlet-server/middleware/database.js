@@ -101,17 +101,12 @@ export default function createDatabase(server) {
         }
     }
 
-    // Run app-level migrations if they exist
+    // Run app-level migrations for all configured projects
     async function runMigrations() {
-        const migrationsDir = path.join(process.cwd(), 'migrations');
-
-        if (!fs.existsSync(migrationsDir)) {
-            console.log('📁 No migrations directory found, skipping migrations');
-            return;
-        }
+        const applications = server.config.applications || [server.config.application || 'horatio'];
 
         try {
-            // Check if migrations table exists and has correct structure
+            // Ensure schema_migrations tracking table exists
             const tableExists = await pool.query(`
                 SELECT table_name
                 FROM information_schema.tables
@@ -119,7 +114,6 @@ export default function createDatabase(server) {
             `);
 
             if (tableExists.rows.length === 0) {
-                // Create new table
                 await pool.query(`
                     CREATE TABLE schema_migrations (
                         filename TEXT PRIMARY KEY,
@@ -148,41 +142,15 @@ export default function createDatabase(server) {
                 }
             }
 
-            // Get applied migrations
+            // Get applied migrations (shared across all projects)
             const appliedResult = await pool.query(
                 'SELECT filename FROM schema_migrations ORDER BY filename'
             );
             const appliedMigrations = new Set(appliedResult.rows.map(row => row.filename));
 
-            // Get migration files
-            const migrationFiles = fs.readdirSync(migrationsDir)
-                .filter(file => file.endsWith('.sql'))
-                .sort();
-
-            // Run pending migrations
-            for (const filename of migrationFiles) {
-                if (!appliedMigrations.has(filename)) {
-                    console.log(`🔄 Running migration: ${filename}`);
-
-                    const sql = fs.readFileSync(path.join(migrationsDir, filename), 'utf8');
-
-                    const client = await pool.connect();
-                    try {
-                        await client.query('BEGIN');
-                        await client.query(sql);
-                        await client.query(
-                            'INSERT INTO schema_migrations (filename) VALUES ($1)',
-                            [filename]
-                        );
-                        await client.query('COMMIT');
-                        console.log(`✅ Migration completed: ${filename}`);
-                    } catch (error) {
-                        await client.query('ROLLBACK');
-                        throw error;
-                    } finally {
-                        client.release();
-                    }
-                }
+            // Run migrations for each project
+            for (const projectName of applications) {
+                await runProjectMigrations(projectName, appliedMigrations);
             }
 
             console.log('✅ All migrations completed');
@@ -190,6 +158,61 @@ export default function createDatabase(server) {
         } catch (error) {
             console.error('❌ Migration error:', error.message);
             throw error;
+        }
+    }
+
+    /**
+     * Run migrations for a single project from its migrations directory
+     */
+    async function runProjectMigrations(projectName, appliedMigrations) {
+        // Try multiple possible locations for migrations
+        const possibleDirs = [
+            path.join(__dirname, `../../../app/${projectName}/sql/migrations`),
+            path.join(process.cwd(), 'sql', 'migrations'),
+            path.join(process.cwd(), 'migrations')
+        ];
+
+        let migrationsDir = null;
+        for (const dir of possibleDirs) {
+            if (fs.existsSync(dir)) {
+                migrationsDir = dir;
+                break;
+            }
+        }
+
+        if (!migrationsDir) {
+            console.log(`📁 No migrations directory found for ${projectName}, skipping`);
+            return;
+        }
+
+        const migrationFiles = fs.readdirSync(migrationsDir)
+            .filter(file => file.endsWith('.sql'))
+            .sort();
+
+        for (const filename of migrationFiles) {
+            if (!appliedMigrations.has(filename)) {
+                console.log(`🔄 Running migration [${projectName}]: ${filename}`);
+
+                const sql = fs.readFileSync(path.join(migrationsDir, filename), 'utf8');
+
+                const client = await pool.connect();
+                try {
+                    await client.query('BEGIN');
+                    await client.query(sql);
+                    await client.query(
+                        'INSERT INTO schema_migrations (filename) VALUES ($1)',
+                        [filename]
+                    );
+                    await client.query('COMMIT');
+                    appliedMigrations.add(filename);
+                    console.log(`✅ Migration completed [${projectName}]: ${filename}`);
+                } catch (error) {
+                    await client.query('ROLLBACK');
+                    throw error;
+                } finally {
+                    client.release();
+                }
+            }
         }
     }
 

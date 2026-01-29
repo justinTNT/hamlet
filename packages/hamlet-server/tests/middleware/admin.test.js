@@ -12,11 +12,11 @@ describe('Admin Middleware', () => {
     let app;
     let mockServer;
     let mockDb;
-    
+
     beforeEach(() => {
         app = express();
         app.use(express.json());
-        
+
         // Mock database service
         mockDb = {
             // Legacy method-based API (still used by some endpoints)
@@ -41,134 +41,113 @@ describe('Admin Middleware', () => {
                 return Promise.resolve({ rows: [] });
             })
         };
-        
-        // Mock server with database service
+
+        // Mock server with database service and project keys
         mockServer = {
             app,
+            config: { projectKeys: { test: 'test-key' } },
             getService: jest.fn().mockReturnValue(mockDb)
         };
-        
+
         // Clear environment
-        delete process.env.HAMLET_ADMIN_TOKEN;
+        delete process.env.HAMLET_PROJECT_KEY;
     });
 
     describe('Admin Authentication', () => {
-        test('blocks access without token in production', () => {
-            process.env.NODE_ENV = 'production';
-            const authMiddleware = createAdminAuth();
-            
-            const req = { headers: {}, query: {}, cookies: {} };
+        test('returns 503 when no project keys configured', () => {
+            const authMiddleware = createAdminAuth({});
+
+            const req = { authLevel: 'noAdmin' };
             const res = {
                 status: jest.fn().mockReturnThis(),
                 json: jest.fn()
             };
             const next = jest.fn();
-            
+
             authMiddleware(req, res, next);
-            
+
             expect(res.status).toHaveBeenCalledWith(503);
             expect(res.json).toHaveBeenCalledWith({
-                error: 'Admin interface disabled - HAMLET_ADMIN_TOKEN not configured'
+                error: 'Admin interface disabled - no project keys configured'
             });
             expect(next).not.toHaveBeenCalled();
         });
 
-        test('allows access in development without token', () => {
-            process.env.NODE_ENV = 'development';
-            process.env.HAMLET_ADMIN_TOKEN = 'test-token'; // Must set token even in dev
-            const authMiddleware = createAdminAuth();
-            
-            const req = { 
-                headers: { authorization: 'Bearer test-token' }, 
-                query: {}, 
-                cookies: {},
+        test('allows access with projectAdmin authLevel', () => {
+            const authMiddleware = createAdminAuth({ test: 'test-key' });
+
+            const req = {
+                authLevel: 'projectAdmin',
                 tenant: { host: 'localhost' }
-            };
-            const res = { 
-                status: jest.fn().mockReturnThis(), 
-                json: jest.fn() 
-            };
-            const next = jest.fn();
-            
-            authMiddleware(req, res, next);
-            
-            expect(next).toHaveBeenCalled();
-            expect(req.isAdmin).toBe(true);
-        });
-
-        test('validates token from Authorization header', () => {
-            process.env.HAMLET_ADMIN_TOKEN = 'secret123';
-            const authMiddleware = createAdminAuth();
-            
-            const req = {
-                headers: { authorization: 'Bearer secret123' },
-                query: {},
-                cookies: {}
-            };
-            const res = { status: jest.fn(), json: jest.fn() };
-            const next = jest.fn();
-            
-            authMiddleware(req, res, next);
-            
-            expect(req.isAdmin).toBe(true);
-            expect(req.adminToken).toBe('secret123');
-            expect(next).toHaveBeenCalled();
-        });
-
-        test('validates token from query parameter', () => {
-            process.env.HAMLET_ADMIN_TOKEN = 'secret123';
-            const authMiddleware = createAdminAuth();
-            
-            const req = {
-                headers: {},
-                query: { admin_token: 'secret123' },
-                cookies: {}
-            };
-            const res = { status: jest.fn(), json: jest.fn() };
-            const next = jest.fn();
-            
-            authMiddleware(req, res, next);
-            
-            expect(req.isAdmin).toBe(true);
-            expect(next).toHaveBeenCalled();
-        });
-
-        test('rejects invalid token', () => {
-            process.env.HAMLET_ADMIN_TOKEN = 'secret123';
-            const authMiddleware = createAdminAuth();
-            
-            const req = {
-                headers: { authorization: 'Bearer wrong-token' },
-                query: {},
-                cookies: {},
-                ip: '127.0.0.1'
             };
             const res = {
                 status: jest.fn().mockReturnThis(),
                 json: jest.fn()
             };
             const next = jest.fn();
-            
+
             authMiddleware(req, res, next);
-            
-            expect(res.status).toHaveBeenCalledWith(403);
+
+            expect(next).toHaveBeenCalled();
+            expect(req.isAdmin).toBe(true);
+        });
+
+        test('rejects noAdmin authLevel', () => {
+            const authMiddleware = createAdminAuth({ test: 'secret123' });
+
+            const req = { authLevel: 'noAdmin' };
+            const res = {
+                status: jest.fn().mockReturnThis(),
+                json: jest.fn()
+            };
+            const next = jest.fn();
+
+            authMiddleware(req, res, next);
+
+            expect(res.status).toHaveBeenCalledWith(401);
             expect(res.json).toHaveBeenCalledWith({
-                error: 'Admin access denied - invalid token'
+                error: 'Admin access denied',
+                hint: 'Provide project key via X-Hamlet-Project-Key header'
             });
+            expect(next).not.toHaveBeenCalled();
+        });
+
+        test('rejects hostAdmin authLevel for admin routes', () => {
+            const authMiddleware = createAdminAuth({ test: 'secret123' });
+
+            const req = { authLevel: 'hostAdmin' };
+            const res = {
+                status: jest.fn().mockReturnThis(),
+                json: jest.fn()
+            };
+            const next = jest.fn();
+
+            authMiddleware(req, res, next);
+
+            expect(res.status).toHaveBeenCalledWith(401);
             expect(next).not.toHaveBeenCalled();
         });
     });
 
     describe('Admin API', () => {
         beforeEach(() => {
-            process.env.HAMLET_ADMIN_TOKEN = 'test-token';
+            // Simulate auth-resolver setting authLevel on all requests
+            app.use((req, res, next) => {
+                const projectKeyHeader = req.get('X-Hamlet-Project-Key');
+                if (projectKeyHeader === 'test-key') {
+                    req.authLevel = 'projectAdmin';
+                } else {
+                    req.authLevel = 'noAdmin';
+                }
+                next();
+            });
             createAdminApi(mockServer);
         });
 
         test('lists resources with valid authentication', async () => {
             const response = await request(app)
                 .get('/admin/api/guest')
-                .set('Authorization', 'Bearer test-token')
+                .set('X-Hamlet-Project-Key', 'test-key')
                 .set('Host', 'test.com');
 
             expect(response.status).toBe(200);
@@ -185,9 +164,9 @@ describe('Admin Middleware', () => {
             const response = await request(app)
                 .get('/admin/api/guest')
                 .set('Host', 'test.com');
-            
+
             expect(response.status).toBe(401);
-            expect(response.body.error).toContain('Admin access denied - no token provided');
+            expect(response.body.error).toContain('Admin access denied');
         });
 
         test('handles unknown resources', async () => {
@@ -201,7 +180,7 @@ describe('Admin Middleware', () => {
 
             const response = await request(app)
                 .get('/admin/api/UnknownResource')
-                .set('Authorization', 'Bearer test-token')
+                .set('X-Hamlet-Project-Key', 'test-key')
                 .set('Host', 'test.com');
 
             // With direct SQL queries, the response is now a 500 (SQL error on unknown table)
@@ -211,7 +190,7 @@ describe('Admin Middleware', () => {
         test('uses tenant isolation', async () => {
             const response = await request(app)
                 .get('/admin/api/guest')
-                .set('Authorization', 'Bearer test-token')
+                .set('X-Hamlet-Project-Key', 'test-key')
                 .set('X-Forwarded-Host', 'tenant2.com');
 
             expect(response.status).toBe(200);

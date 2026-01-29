@@ -2,7 +2,7 @@
  * Admin API Middleware
  *
  * Exposes a generic CRUD interface for Admin UI.
- * PROTECTED by HAMLET_ADMIN_TOKEN (if set) or development-only.
+ * PROTECTED by HAMLET_PROJECT_KEY via auth-resolver (projectAdmin tier).
  */
 
 import createAdminAuth from './admin-auth.js';
@@ -91,15 +91,30 @@ export function evaluateCondition(condition, before, after) {
 export default function createAdminApi(server) {
     console.log('👷 Setting up Admin API...');
 
-    // Get the database service
+    // Get the shared database service (framework-level queries)
     const db = server.getService('database');
     if (!db) {
         console.warn('⚠️ Admin API skipped: Database service not available');
         return;
     }
 
+    /**
+     * Resolve the project-scoped database service for a request.
+     * Falls back to the shared db if project-loader isn't available.
+     */
+    function getProjectDb(req) {
+        const projectLoader = server.getService('project-loader');
+        if (projectLoader && typeof projectLoader.getProxy === 'function' && req.project) {
+            const proxy = projectLoader.getProxy(req.project);
+            if (proxy) {
+                return proxy.getService('database') || db;
+            }
+        }
+        return db;
+    }
+
     // Use the shared admin authentication middleware
-    const requireAdmin = createAdminAuth();
+    const requireAdmin = createAdminAuth(server.config?.projectKeys || {});
 
     // ========================================================================
     // Host Key Management — /_keys routes
@@ -173,26 +188,103 @@ export default function createAdminApi(server) {
         }
     });
 
+    // ========================================================================
+    // Host Mapping Management — /_hosts routes
+    // ========================================================================
+
+    // List all hostname->project mappings
+    server.app.get('/admin/api/_hosts', requireAdmin, async (req, res) => {
+        try {
+            const result = await db.query(
+                `SELECT id, hostname, project, created_at
+                 FROM hamlet_hosts
+                 ORDER BY created_at DESC`
+            );
+            res.json(result.rows);
+        } catch (error) {
+            console.error('Admin _hosts list error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Create a new host mapping
+    server.app.post('/admin/api/_hosts', requireAdmin, async (req, res) => {
+        try {
+            const { hostname, project } = req.body || {};
+
+            if (!hostname || !project) {
+                return res.status(400).json({ error: 'hostname and project are required' });
+            }
+
+            // Validate project exists in loaded projects
+            const projectLoader = server.getService('project-loader');
+            if (projectLoader && !projectLoader.hasProject(project)) {
+                return res.status(400).json({ error: `Project '${project}' is not loaded` });
+            }
+
+            const result = await db.query(
+                `INSERT INTO hamlet_hosts (hostname, project)
+                 VALUES ($1, $2)
+                 RETURNING id, hostname, project, created_at`,
+                [hostname, project]
+            );
+
+            // Invalidate host-resolver cache
+            const hostResolver = server.getService('host-resolver');
+            if (hostResolver) {
+                await hostResolver.invalidate(hostname);
+            }
+
+            res.status(201).json(result.rows[0]);
+        } catch (error) {
+            console.error('Admin _hosts create error:', error);
+            if (error.code === '23505') { // unique violation
+                return res.status(409).json({ error: `Hostname '${req.body.hostname}' already mapped` });
+            }
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Delete a host mapping
+    server.app.delete('/admin/api/_hosts/:id', requireAdmin, async (req, res) => {
+        try {
+            const { id } = req.params;
+
+            // Fetch the hostname before deleting (for cache invalidation)
+            const existing = await db.query(
+                'SELECT hostname FROM hamlet_hosts WHERE id = $1',
+                [id]
+            );
+
+            const result = await db.query(
+                'DELETE FROM hamlet_hosts WHERE id = $1 RETURNING id',
+                [id]
+            );
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Host mapping not found' });
+            }
+
+            // Invalidate host-resolver cache
+            const hostResolver = server.getService('host-resolver');
+            if (hostResolver && existing.rows.length > 0) {
+                await hostResolver.invalidate(existing.rows[0].hostname);
+            }
+
+            res.status(204).send();
+        } catch (error) {
+            console.error('Admin _hosts delete error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
     // Schema endpoint - MUST come before generic /:resource routes
     server.app.get('/admin/api/schema', requireAdmin, async (req, res) => {
         try {
-            const fs = await import('fs');
-            const path = await import('path');
-
-            // Try common locations for schema.json
-            const possiblePaths = [
-                path.join(process.cwd(), 'server', '.generated', 'schema.json'),
-                path.join(process.cwd(), '.generated', 'schema.json'),
-                path.join(process.cwd(), 'app', 'horatio', 'server', '.generated', 'schema.json')
-            ];
-
-            for (const schemaPath of possiblePaths) {
-                if (fs.existsSync(schemaPath)) {
-                    const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
-                    return res.json(schema);
-                }
+            const schema = await loadSchema(req.project);
+            if (schema) {
+                return res.json(schema);
             }
-
             res.status(404).json({ error: 'schema.json not found' });
         } catch (error) {
             console.error('Admin schema error:', error);
@@ -200,29 +292,30 @@ export default function createAdminApi(server) {
         }
     });
 
-    // Cache for loaded schema
-    let cachedSchema = null;
+    // Per-project caches for schema and admin hooks
+    const schemaCache = new Map();
+    const hooksCache = new Map();
 
-    // Cache for admin hooks
-    let cachedAdminHooks = null;
-
-    // Helper to load admin hooks
-    const loadAdminHooks = async () => {
-        if (cachedAdminHooks) return cachedAdminHooks;
+    // Helper to load admin hooks (per-project)
+    const loadAdminHooks = async (projectName) => {
+        const cacheKey = projectName || '_default';
+        if (hooksCache.has(cacheKey)) return hooksCache.get(cacheKey);
 
         const fs = await import('fs');
         const path = await import('path');
+        const appName = projectName || server.config?.application || 'horatio';
 
         const possiblePaths = [
             path.join(process.cwd(), 'server', '.generated', 'admin-hooks.json'),
             path.join(process.cwd(), '.generated', 'admin-hooks.json'),
-            path.join(process.cwd(), 'app', 'horatio', 'server', '.generated', 'admin-hooks.json')
+            path.join(process.cwd(), 'app', appName, 'server', '.generated', 'admin-hooks.json')
         ];
 
         for (const hooksPath of possiblePaths) {
             if (fs.existsSync(hooksPath)) {
-                cachedAdminHooks = JSON.parse(fs.readFileSync(hooksPath, 'utf-8'));
-                return cachedAdminHooks;
+                const hooks = JSON.parse(fs.readFileSync(hooksPath, 'utf-8'));
+                hooksCache.set(cacheKey, hooks);
+                return hooks;
             }
         }
         return null;
@@ -251,23 +344,26 @@ export default function createAdminApi(server) {
         }
     };
 
-    // Helper to load schema
-    const loadSchema = async () => {
-        if (cachedSchema) return cachedSchema;
+    // Helper to load schema (per-project)
+    const loadSchema = async (projectName) => {
+        const cacheKey = projectName || '_default';
+        if (schemaCache.has(cacheKey)) return schemaCache.get(cacheKey);
 
         const fs = await import('fs');
         const path = await import('path');
+        const appName = projectName || server.config?.application || 'horatio';
 
         const possiblePaths = [
             path.join(process.cwd(), 'server', '.generated', 'schema.json'),
             path.join(process.cwd(), '.generated', 'schema.json'),
-            path.join(process.cwd(), 'app', 'horatio', 'server', '.generated', 'schema.json')
+            path.join(process.cwd(), 'app', appName, 'server', '.generated', 'schema.json')
         ];
 
         for (const schemaPath of possiblePaths) {
             if (fs.existsSync(schemaPath)) {
-                cachedSchema = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
-                return cachedSchema;
+                const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
+                schemaCache.set(cacheKey, schema);
+                return schema;
             }
         }
         return null;
@@ -327,17 +423,18 @@ export default function createAdminApi(server) {
             const resource = req.params.resource;
             const rawHost = req.get('X-Forwarded-Host') || req.get('Host');
             const host = rawHost ? rawHost.split(':')[0] : 'localhost';
+            const pdb = getProjectDb(req);
 
             const methodResource = snakeToPascal(resource);
 
             // Try soft delete-aware method first, fallback to original
             let methodName = `find${methodResource}sByHost`;
-            if (typeof db[methodName] !== 'function') {
+            if (typeof pdb[methodName] !== 'function') {
                 methodName = `get${methodResource}sByHost`;
             }
 
-            if (typeof db[methodName] === 'function') {
-                const results = await db[methodName](host);
+            if (typeof pdb[methodName] === 'function') {
+                const results = await pdb[methodName](host);
                 // Return id and a display label (prefer name, title, or id)
                 const options = results.map(item => ({
                     id: item.id,
@@ -375,7 +472,7 @@ export default function createAdminApi(server) {
             }
 
             // Load schema for schema-aware query building
-            const schema = await loadSchema();
+            const schema = await loadSchema(req.project);
             const tableSchema = schema?.tables?.[resource];
             const { whereClause, params, nextParamIndex, tenantField } = buildSchemaAwareWhereClause(tableSchema, host);
 
@@ -423,7 +520,7 @@ export default function createAdminApi(server) {
             const rawHost = req.get('X-Forwarded-Host') || req.get('Host');
             const host = rawHost ? rawHost.split(':')[0] : 'localhost';
 
-            const schema = await loadSchema();
+            const schema = await loadSchema(req.project);
             if (!schema) {
                 return res.status(500).json({ error: 'Schema not found' });
             }
@@ -443,14 +540,15 @@ export default function createAdminApi(server) {
             }
 
             // Query related records using the FK column
+            const pdb = getProjectDb(req);
             const methodResource = snakeToPascal(relatedTable);
             let methodName = `find${methodResource}sByHost`;
-            if (typeof db[methodName] !== 'function') {
+            if (typeof pdb[methodName] !== 'function') {
                 methodName = `get${methodResource}sByHost`;
             }
 
-            if (typeof db[methodName] === 'function') {
-                const allRecords = await db[methodName](host);
+            if (typeof pdb[methodName] === 'function') {
+                const allRecords = await pdb[methodName](host);
                 // Filter to records where the FK matches our id
                 const relatedRecords = allRecords.filter(record => record[fk.column] === id);
 
@@ -477,7 +575,7 @@ export default function createAdminApi(server) {
             const rawHost = req.get('X-Forwarded-Host') || req.get('Host');
             const host = rawHost ? rawHost.split(':')[0] : 'localhost';
 
-            const schema = await loadSchema();
+            const schema = await loadSchema(req.project);
             if (!schema) {
                 return res.status(500).json({ error: 'Schema not found' });
             }
@@ -506,14 +604,15 @@ export default function createAdminApi(server) {
             }
 
             // Query the join table
+            const pdb = getProjectDb(req);
             const methodResource = snakeToPascal(m2m.joinTable);
             let methodName = `find${methodResource}sByHost`;
-            if (typeof db[methodName] !== 'function') {
+            if (typeof pdb[methodName] !== 'function') {
                 methodName = `get${methodResource}sByHost`;
             }
 
-            if (typeof db[methodName] === 'function') {
-                const allJoinRecords = await db[methodName](host);
+            if (typeof pdb[methodName] === 'function') {
+                const allJoinRecords = await pdb[methodName](host);
                 // Filter to records matching our resource ID and extract related IDs
                 const linkedIds = allJoinRecords
                     .filter(record => record[resourceFk.column] === id)
@@ -542,7 +641,7 @@ export default function createAdminApi(server) {
                 return res.status(400).json({ error: 'linkedIds must be an array' });
             }
 
-            const schema = await loadSchema();
+            const schema = await loadSchema(req.project);
             if (!schema) {
                 return res.status(500).json({ error: 'Schema not found' });
             }
@@ -570,19 +669,20 @@ export default function createAdminApi(server) {
                 return res.status(500).json({ error: 'Could not determine FK columns' });
             }
 
+            const pdb = getProjectDb(req);
             const methodResource = snakeToPascal(m2m.joinTable);
 
             // Get existing join records
             let findMethodName = `find${methodResource}sByHost`;
-            if (typeof db[findMethodName] !== 'function') {
+            if (typeof pdb[findMethodName] !== 'function') {
                 findMethodName = `get${methodResource}sByHost`;
             }
 
-            if (typeof db[findMethodName] !== 'function') {
+            if (typeof pdb[findMethodName] !== 'function') {
                 return res.status(404).json({ error: `Join table '${m2m.joinTable}' not queryable` });
             }
 
-            const allJoinRecords = await db[findMethodName](host);
+            const allJoinRecords = await pdb[findMethodName](host);
             const existingJoinRecords = allJoinRecords.filter(record => record[resourceFk.column] === id);
             const existingLinkedIds = existingJoinRecords.map(record => record[relatedFk.column]);
 
@@ -592,20 +692,20 @@ export default function createAdminApi(server) {
 
             // Remove unlinked records (soft delete)
             const killMethodName = `kill${methodResource}`;
-            if (typeof db[killMethodName] === 'function' && toRemove.length > 0) {
+            if (typeof pdb[killMethodName] === 'function' && toRemove.length > 0) {
                 for (const removeId of toRemove) {
                     const recordToRemove = existingJoinRecords.find(r => r[relatedFk.column] === removeId);
                     if (recordToRemove && recordToRemove.id) {
-                        await db[killMethodName](recordToRemove.id, host);
+                        await pdb[killMethodName](recordToRemove.id, host);
                     }
                 }
             }
 
             // Add new linked records
             const createMethodName = `create${methodResource}`;
-            if (typeof db[createMethodName] === 'function' && toAdd.length > 0) {
+            if (typeof pdb[createMethodName] === 'function' && toAdd.length > 0) {
                 for (const addId of toAdd) {
-                    await db[createMethodName]({
+                    await pdb[createMethodName]({
                         [resourceFk.column]: id,
                         [relatedFk.column]: addId,
                         host
@@ -627,18 +727,19 @@ export default function createAdminApi(server) {
             const id = req.params.id;
             const rawHost = req.get('X-Forwarded-Host') || req.get('Host');
             const host = rawHost ? rawHost.split(':')[0] : 'localhost';
+            const pdb = getProjectDb(req);
 
             // Convert snake_case resource to PascalCase for method dispatch
             const methodResource = snakeToPascal(resource);
 
             // Try soft delete-aware method first, fallback to original
             let methodName = `find${methodResource}ById`;
-            if (typeof db[methodName] !== 'function') {
+            if (typeof pdb[methodName] !== 'function') {
                 methodName = `get${methodResource}ById`;
             }
 
-            if (typeof db[methodName] === 'function') {
-                const result = await db[methodName](id, host);
+            if (typeof pdb[methodName] === 'function') {
+                const result = await pdb[methodName](id, host);
                 
                 if (!result) {
                     return res.status(404).json({ error: `${methodResource} not found` });
@@ -685,21 +786,22 @@ export default function createAdminApi(server) {
             const data = req.body;
 
             // Load schema for data normalization
-            const schema = await loadSchema();
+            const schema = await loadSchema(req.project);
             const tableSchema = schema?.tables?.[resource];
 
             // Convert snake_case resource to PascalCase for method dispatch
+            const pdb = getProjectDb(req);
             const methodResource = snakeToPascal(resource);
             const methodName = `create${methodResource}`;
 
-            if (typeof db[methodName] === 'function') {
+            if (typeof pdb[methodName] === 'function') {
                 // Remove host from form data, normalize, then add host back
                 const { host: _, ...cleanData } = data;
                 const normalizedData = normalizeRequestData(cleanData, tableSchema);
-                const result = await db[methodName]({ ...normalizedData, host });
+                const result = await pdb[methodName]({ ...normalizedData, host });
 
                 // Check OnInsert admin hooks
-                const adminHooks = await loadAdminHooks();
+                const adminHooks = await loadAdminHooks(req.project);
                 const insertHooks = adminHooks?.hooks?.filter(h => h.table === resource && h.trigger === 'OnInsert') || [];
 
                 for (const hook of insertHooks) {
@@ -731,7 +833,7 @@ export default function createAdminApi(server) {
             const data = req.body;
 
             // Load schema for data normalization
-            const schema = await loadSchema();
+            const schema = await loadSchema(req.project);
             const tableSchema = schema?.tables?.[resource];
 
             // Convert snake_case resource to PascalCase for method dispatch
@@ -740,15 +842,16 @@ export default function createAdminApi(server) {
             const getMethodName = `find${methodResource}ById`;
             const altGetMethodName = `get${methodResource}ById`;
 
-            if (typeof db[methodName] === 'function') {
+            const pdb = getProjectDb(req);
+            if (typeof pdb[methodName] === 'function') {
                 // Fetch old record for hook comparison
                 let oldRecord = null;
-                const adminHooks = await loadAdminHooks();
+                const adminHooks = await loadAdminHooks(req.project);
                 const updateHooks = adminHooks?.hooks?.filter(h => h.table === resource && h.trigger === 'OnUpdate') || [];
 
                 if (updateHooks.length > 0) {
                     // We have OnUpdate hooks for this table, fetch old record
-                    const getter = typeof db[getMethodName] === 'function' ? db[getMethodName] : db[altGetMethodName];
+                    const getter = typeof pdb[getMethodName] === 'function' ? pdb[getMethodName] : pdb[altGetMethodName];
                     if (typeof getter === 'function') {
                         oldRecord = await getter(id, host);
                     }
@@ -757,7 +860,7 @@ export default function createAdminApi(server) {
                 // Remove host from form data, normalize, then pass to update
                 const { host: _, ...cleanData } = data;
                 const normalizedData = normalizeRequestData(cleanData, tableSchema);
-                const result = await db[methodName](id, normalizedData, host);
+                const result = await pdb[methodName](id, normalizedData, host);
 
                 if (!result) {
                     return res.status(404).json({ error: `${methodResource} not found` });
@@ -793,6 +896,7 @@ export default function createAdminApi(server) {
             const id = req.params.id;
             const rawHost = req.get('X-Forwarded-Host') || req.get('Host');
             const host = rawHost ? rawHost.split(':')[0] : 'localhost';
+            const pdb = getProjectDb(req);
 
             // Convert snake_case resource to PascalCase for method dispatch
             const methodResource = snakeToPascal(resource);
@@ -814,13 +918,13 @@ export default function createAdminApi(server) {
 
                 // Find records matching the composite key
                 let findMethodName = `find${methodResource}sByHost`;
-                if (typeof db[findMethodName] !== 'function') {
+                if (typeof pdb[findMethodName] !== 'function') {
                     findMethodName = `get${methodResource}sByHost`;
                 }
                 console.log('🔍 Using find method:', findMethodName);
 
-                if (typeof db[findMethodName] === 'function') {
-                    const allRecords = await db[findMethodName](host);
+                if (typeof pdb[findMethodName] === 'function') {
+                    const allRecords = await pdb[findMethodName](host);
                     console.log('🔍 All records count:', allRecords.length);
                     if (allRecords.length > 0) {
                         console.log('🔍 Sample record:', allRecords[0]);
@@ -843,20 +947,20 @@ export default function createAdminApi(server) {
                     }
 
                     // Check for OnDelete hooks
-                    const adminHooks = await loadAdminHooks();
+                    const adminHooks = await loadAdminHooks(req.project);
                     const deleteHooks = adminHooks?.hooks?.filter(h => h.table === resource && h.trigger === 'OnDelete') || [];
 
                     // Delete matching records
                     // For records with an 'id' field, use kill method
                     // For join tables without 'id', delete directly via SQL
                     const killMethodName = `kill${methodResource}`;
-                    console.log('🔍 Using kill method:', killMethodName, 'exists:', typeof db[killMethodName] === 'function');
+                    console.log('🔍 Using kill method:', killMethodName, 'exists:', typeof pdb[killMethodName] === 'function');
 
                     let deletedCount = 0;
                     for (const record of matchingRecords) {
                         console.log('🔍 Deleting record with id:', record.id);
-                        if (record.id && typeof db[killMethodName] === 'function') {
-                            await db[killMethodName](record.id, host);
+                        if (record.id && typeof pdb[killMethodName] === 'function') {
+                            await pdb[killMethodName](record.id, host);
 
                             // Fire OnDelete hooks
                             for (const hook of deleteHooks) {
@@ -897,9 +1001,9 @@ export default function createAdminApi(server) {
                 // Regular ID-based delete
                 const methodName = `kill${methodResource}`;
 
-                if (typeof db[methodName] === 'function') {
+                if (typeof pdb[methodName] === 'function') {
                     // Check for OnDelete hooks
-                    const adminHooks = await loadAdminHooks();
+                    const adminHooks = await loadAdminHooks(req.project);
                     const deleteHooks = adminHooks?.hooks?.filter(h => h.table === resource && h.trigger === 'OnDelete') || [];
 
                     // Fetch record before deletion if we have hooks
@@ -907,13 +1011,13 @@ export default function createAdminApi(server) {
                     if (deleteHooks.length > 0) {
                         const getMethodName = `find${methodResource}ById`;
                         const altGetMethodName = `get${methodResource}ById`;
-                        const getter = typeof db[getMethodName] === 'function' ? db[getMethodName] : db[altGetMethodName];
+                        const getter = typeof pdb[getMethodName] === 'function' ? pdb[getMethodName] : pdb[altGetMethodName];
                         if (typeof getter === 'function') {
                             oldRecord = await getter(id, host);
                         }
                     }
 
-                    const result = await db[methodName](id, host);
+                    const result = await pdb[methodName](id, host);
 
                     if (!result) {
                         return res.status(404).json({ error: `${methodResource} not found` });

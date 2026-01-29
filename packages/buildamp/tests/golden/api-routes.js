@@ -16,6 +16,10 @@
 export default function registerApiRoutes(server) {
     console.log('🚀 Registering auto-generated API routes...');
 
+    // Auth enforcement helper (registered by auth-resolver middleware)
+    const requireAuth = server.requireAuth || ((level) => (req, res, next) => next());
+
+
 /**
  * GetFeedReq - Auto-generated route
  * Request payload for getting the feed.
@@ -256,7 +260,7 @@ server.app.post('/api/SubmitComment', async (req, res) => {
  * @route POST /api/SubmitItem
  * @generated from SubmitItem.elm
  */
-server.app.post('/api/SubmitItem', async (req, res) => {
+server.app.post('/api/SubmitItem', requireAuth('hostAdmin'), async (req, res) => {
     const host = req.tenant?.host || 'localhost';
 
     try {

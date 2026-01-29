@@ -2727,7 +2727,7 @@ var _VirtualDom_mapEventTuple = F2(function(func, tuple)
 var _VirtualDom_mapEventRecord = F2(function(func, record)
 {
 	return {
-		A: func(record.A),
+		z: func(record.z),
 		aj: record.aj,
 		ag: record.ag
 	}
@@ -2997,7 +2997,7 @@ function _VirtualDom_makeCallback(eventNode, initialHandler)
 		// 3 = Custom
 
 		var value = result.a;
-		var message = !tag ? value : tag < 3 ? value.a : value.A;
+		var message = !tag ? value : tag < 3 ? value.a : value.z;
 		var stopPropagation = tag == 1 ? value.b : tag == 3 && value.aj;
 		var currentEventNode = (
 			stopPropagation && event.stopPropagation(),
@@ -4000,7 +4000,7 @@ var _Browser_document = _Debugger_document || F4(function(impl, flagDecoder, deb
 			{
 				_VirtualDom_divertHrefToApp = divertHrefToApp;
 				var doc = view(model);
-				var nextNode = _VirtualDom_node('body')(_List_Nil)(doc.D);
+				var nextNode = _VirtualDom_node('body')(_List_Nil)(doc.C);
 				var patches = _VirtualDom_diff(currNode, nextNode);
 				bodyNode = _VirtualDom_applyPatches(bodyNode, currNode, patches, sendToApp);
 				currNode = nextNode;
@@ -5167,9 +5167,9 @@ var $author$project$Popup$WriterView = 0;
 var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $author$project$Popup$defaultHosts = _List_fromArray(
 	[
-		{v: '', o: '', a: 'localhost', T: 'http://localhost:3000/api'}
+		{n: '', a: 'localhost', T: 'http://localhost:3000/api'}
 	]);
-var $author$project$Popup$emptyHostForm = {v: '', o: '', a: '', T: ''};
+var $author$project$Popup$emptyHostForm = {n: '', a: '', T: ''};
 var $elm$core$List$head = function (list) {
 	if (list.b) {
 		var x = list.a;
@@ -5181,7 +5181,7 @@ var $elm$core$List$head = function (list) {
 };
 var $elm$core$Dict$RBEmpty_elm_builtin = {$: -2};
 var $elm$core$Dict$empty = $elm$core$Dict$RBEmpty_elm_builtin;
-var $author$project$Api$Port$init = {ac: 0, I: $elm$core$Dict$empty};
+var $author$project$Api$Port$init = {ac: 0, H: $elm$core$Dict$empty};
 var $elm$json$Json$Encode$string = _Json_wrap;
 var $author$project$Popup$initExtractEditor = _Platform_outgoingPort('initExtractEditor', $elm$json$Json$Encode$string);
 var $elm$json$Json$Encode$null = _Json_encodeNull;
@@ -5192,6 +5192,11 @@ var $author$project$Popup$initOwnerCommentEditor = _Platform_outgoingPort(
 	});
 var $author$project$Popup$loadHosts = _Platform_outgoingPort(
 	'loadHosts',
+	function ($) {
+		return $elm$json$Json$Encode$null;
+	});
+var $author$project$Popup$loadProjectKey = _Platform_outgoingPort(
+	'loadProjectKey',
 	function ($) {
 		return $elm$json$Json$Encode$null;
 	});
@@ -5208,7 +5213,7 @@ var $author$project$Popup$init = function (flags) {
 	var initialPortModel = $author$project$Api$Port$init;
 	var initialHost = A2(
 		$elm$core$Maybe$withDefault,
-		{v: '', o: '', a: 'localhost', T: 'http://localhost:3000/api'},
+		{n: '', a: 'localhost', T: 'http://localhost:3000/api'},
 		$elm$core$List$head($author$project$Popup$defaultHosts));
 	return _Utils_Tuple2(
 		{
@@ -5217,14 +5222,15 @@ var $author$project$Popup$init = function (flags) {
 			L: 0,
 			r: $elm$core$Maybe$Nothing,
 			X: $elm$core$Maybe$Nothing,
-			n: $author$project$Popup$emptyHostForm,
+			p: $author$project$Popup$emptyHostForm,
 			j: _List_Nil,
 			ad: false,
-			z: flags.z,
+			y: flags.y,
 			P: '',
 			u: initialPortModel,
+			I: '',
 			b: initialHost,
-			Q: $elm$core$List$head(flags.z),
+			Q: $elm$core$List$head(flags.y),
 			g: _List_Nil,
 			Z: flags.Z,
 			R: flags.R,
@@ -5236,6 +5242,7 @@ var $author$project$Popup$init = function (flags) {
 			_List_fromArray(
 				[
 					$author$project$Popup$loadHosts(0),
+					$author$project$Popup$loadProjectKey(0),
 					$author$project$Popup$initExtractEditor(flags.R),
 					$author$project$Popup$initOwnerCommentEditor(0)
 				])));
@@ -5254,12 +5261,16 @@ var $author$project$Popup$OwnerCommentContentChanged = function (a) {
 var $author$project$Popup$PortMsg = function (a) {
 	return {$: 0, a: a};
 };
+var $author$project$Popup$ProjectKeyReceived = function (a) {
+	return {$: 23, a: a};
+};
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$json$Json$Decode$value = _Json_decodeValue;
 var $author$project$Popup$extractContentChanged = _Platform_incomingPort('extractContentChanged', $elm$json$Json$Decode$value);
 var $author$project$Popup$hostsLoaded = _Platform_incomingPort('hostsLoaded', $elm$json$Json$Decode$value);
 var $author$project$Popup$inbound = _Platform_incomingPort('inbound', $elm$json$Json$Decode$value);
 var $author$project$Popup$ownerCommentContentChanged = _Platform_incomingPort('ownerCommentContentChanged', $elm$json$Json$Decode$value);
+var $author$project$Popup$projectKeyLoaded = _Platform_incomingPort('projectKeyLoaded', $elm$json$Json$Decode$string);
 var $author$project$Api$Port$Received = function (a) {
 	return {$: 1, a: a};
 };
@@ -5277,6 +5288,7 @@ var $author$project$Popup$subscriptions = function (_v0) {
 			[
 				A2($author$project$Api$Port$subscriptions, $author$project$Popup$inbound, $author$project$Popup$PortMsg),
 				$author$project$Popup$hostsLoaded($author$project$Popup$HostsReceived),
+				$author$project$Popup$projectKeyLoaded($author$project$Popup$ProjectKeyReceived),
 				$author$project$Popup$extractContentChanged($author$project$Popup$ExtractContentChanged),
 				$author$project$Popup$ownerCommentContentChanged($author$project$Popup$OwnerCommentContentChanged)
 			]));
@@ -5292,23 +5304,17 @@ var $author$project$Popup$closeWindow = _Platform_outgoingPort(
 	function ($) {
 		return $elm$json$Json$Encode$null;
 	});
-var $author$project$Popup$HostConfig = F4(
-	function (name, url, adminToken, hostKey) {
-		return {v: adminToken, o: hostKey, a: name, T: url};
+var $author$project$Popup$HostConfig = F3(
+	function (name, url, hostKey) {
+		return {n: hostKey, a: name, T: url};
 	});
-var $elm$json$Json$Decode$map4 = _Json_map4;
+var $elm$json$Json$Decode$map3 = _Json_map3;
 var $elm$json$Json$Decode$oneOf = _Json_oneOf;
-var $author$project$Popup$decodeHost = A5(
-	$elm$json$Json$Decode$map4,
+var $author$project$Popup$decodeHost = A4(
+	$elm$json$Json$Decode$map3,
 	$author$project$Popup$HostConfig,
 	A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string),
 	A2($elm$json$Json$Decode$field, 'url', $elm$json$Json$Decode$string),
-	$elm$json$Json$Decode$oneOf(
-		_List_fromArray(
-			[
-				A2($elm$json$Json$Decode$field, 'adminToken', $elm$json$Json$Decode$string),
-				$elm$json$Json$Decode$succeed('')
-			])),
 	$elm$json$Json$Decode$oneOf(
 		_List_fromArray(
 			[
@@ -5341,11 +5347,8 @@ var $author$project$Popup$encodeHost = function (host) {
 				'url',
 				$elm$json$Json$Encode$string(host.T)),
 				_Utils_Tuple2(
-				'adminToken',
-				$elm$json$Json$Encode$string(host.v)),
-				_Utils_Tuple2(
 				'hostKey',
-				$elm$json$Json$Encode$string(host.o))
+				$elm$json$Json$Encode$string(host.n))
 			]));
 };
 var $elm$json$Json$Encode$list = F2(
@@ -5388,15 +5391,15 @@ var $author$project$BuildAmp$ApiClient$getTagsResDecoder = A2(
 	$elm$json$Json$Decode$succeed($author$project$BuildAmp$ApiClient$GetTagsRes));
 var $author$project$Api$getTags = function (req) {
 	return {
-		D: $elm$json$Json$Encode$object(
+		C: $elm$json$Json$Encode$object(
 			_List_fromArray(
 				[
 					_Utils_Tuple2(
 					'host',
 					$elm$json$Json$Encode$string(req.O))
 				])),
-		E: $author$project$BuildAmp$ApiClient$getTagsResDecoder,
-		F: 'GetTags'
+		D: $author$project$BuildAmp$ApiClient$getTagsResDecoder,
+		E: 'GetTags'
 	};
 };
 var $elm$core$String$replace = F3(
@@ -5478,6 +5481,7 @@ var $elm$core$Basics$neq = _Utils_notEqual;
 var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
 var $author$project$Popup$openAdmin = _Platform_outgoingPort('openAdmin', $elm$core$Basics$identity);
 var $author$project$Popup$saveHosts = _Platform_outgoingPort('saveHosts', $elm$core$Basics$identity);
+var $author$project$Popup$saveProjectKey = _Platform_outgoingPort('saveProjectKey', $elm$json$Json$Encode$string);
 var $author$project$Api$Port$Send = F3(
 	function (a, b, c) {
 		return {$: 0, a: a, b: b, c: c};
@@ -5487,7 +5491,7 @@ var $author$project$Api$Port$send = F2(
 		var callback = function (result) {
 			if (!result.$) {
 				var json = result.a;
-				var _v1 = A2($elm$json$Json$Decode$decodeValue, req.E, json);
+				var _v1 = A2($elm$json$Json$Decode$decodeValue, req.D, json);
 				if (!_v1.$) {
 					var response = _v1.a;
 					return toMsg(
@@ -5504,7 +5508,7 @@ var $author$project$Api$Port$send = F2(
 					$elm$core$Result$Err(err));
 			}
 		};
-		return A3($author$project$Api$Port$Send, req.F, req.D, callback);
+		return A3($author$project$Api$Port$Send, req.E, req.C, callback);
 	});
 var $author$project$Popup$outbound = _Platform_outgoingPort('outbound', $elm$core$Basics$identity);
 var $author$project$Popup$sendWithUrl = F3(
@@ -5697,7 +5701,7 @@ var $author$project$BuildAmp$ApiClient$submitItemResDecoder = A2(
 	$elm$json$Json$Decode$succeed($author$project$BuildAmp$ApiClient$SubmitItemRes));
 var $author$project$Api$submitItem = function (req) {
 	return {
-		D: $elm$json$Json$Encode$object(
+		C: $elm$json$Json$Encode$object(
 			_List_fromArray(
 				[
 					_Utils_Tuple2(
@@ -5722,8 +5726,8 @@ var $author$project$Api$submitItem = function (req) {
 					'tags',
 					$elm$json$Json$Encode$list($elm$json$Json$Encode$string)(req.bt))
 				])),
-		E: $author$project$BuildAmp$ApiClient$submitItemResDecoder,
-		F: 'SubmitItem'
+		D: $author$project$BuildAmp$ApiClient$submitItemResDecoder,
+		E: 'SubmitItem'
 	};
 };
 var $elm$core$String$trim = _String_trim;
@@ -5867,7 +5871,6 @@ var $elm$core$Dict$insert = F3(
 			return x;
 		}
 	});
-var $elm$json$Json$Decode$map3 = _Json_map3;
 var $elm$json$Json$Decode$maybe = function (decoder) {
 	return $elm$json$Json$Decode$oneOf(
 		_List_fromArray(
@@ -6246,7 +6249,7 @@ var $author$project$Api$Port$update = F3(
 			var callback = msg.c;
 			var newCounter = model.ac + 1;
 			var correlationId = $elm$core$String$fromInt(newCounter);
-			var newPending = A3($elm$core$Dict$insert, correlationId, callback, model.I);
+			var newPending = A3($elm$core$Dict$insert, correlationId, callback, model.H);
 			var payload = $elm$json$Json$Encode$object(
 				_List_fromArray(
 					[
@@ -6261,7 +6264,7 @@ var $author$project$Api$Port$update = F3(
 			return _Utils_Tuple2(
 				_Utils_update(
 					model,
-					{ac: newCounter, I: newPending}),
+					{ac: newCounter, H: newPending}),
 				config.bn(payload));
 		} else {
 			var val = msg.a;
@@ -6269,7 +6272,7 @@ var $author$project$Api$Port$update = F3(
 				$elm$json$Json$Decode$map3,
 				F3(
 					function (c, b, e) {
-						return {D: b, ao: c, ar: e};
+						return {C: b, ao: c, ar: e};
 					}),
 				A2($elm$json$Json$Decode$field, 'correlationId', $elm$json$Json$Decode$string),
 				A2($elm$json$Json$Decode$field, 'body', $elm$json$Json$Decode$value),
@@ -6278,9 +6281,9 @@ var $author$project$Api$Port$update = F3(
 			var _v1 = A2($elm$json$Json$Decode$decodeValue, envelopeDecoder, val);
 			if (!_v1.$) {
 				var correlationId = _v1.a.ao;
-				var body = _v1.a.D;
+				var body = _v1.a.C;
 				var error = _v1.a.ar;
-				var _v2 = A2($elm$core$Dict$get, correlationId, model.I);
+				var _v2 = A2($elm$core$Dict$get, correlationId, model.H);
 				if (!_v2.$) {
 					var callback = _v2.a;
 					var result = function () {
@@ -6300,7 +6303,7 @@ var $author$project$Api$Port$update = F3(
 						_Utils_update(
 							model,
 							{
-								I: A2($elm$core$Dict$remove, correlationId, model.I)
+								H: A2($elm$core$Dict$remove, correlationId, model.H)
 							}),
 						cmd);
 				} else {
@@ -6319,7 +6322,7 @@ var $author$project$Popup$update = F2(
 				var _v1 = A3(
 					$author$project$Api$Port$update,
 					{
-						bn: A2($author$project$Popup$sendWithUrl, model.b.T, model.b.o)
+						bn: A2($author$project$Popup$sendWithUrl, model.b.T, model.b.n)
 					},
 					pMsg,
 					model.u);
@@ -6349,7 +6352,7 @@ var $author$project$Popup$update = F2(
 				var _v2 = A3(
 					$author$project$Api$Port$update,
 					{
-						bn: A2($author$project$Popup$sendWithUrl, newHost.T, newHost.o)
+						bn: A2($author$project$Popup$sendWithUrl, newHost.T, newHost.n)
 					},
 					portMsg,
 					model.u);
@@ -6421,7 +6424,7 @@ var $author$project$Popup$update = F2(
 									var _v3 = A3(
 										$author$project$Api$Port$update,
 										{
-											bn: A2($author$project$Popup$sendWithUrl, model.b.T, model.b.o)
+											bn: A2($author$project$Popup$sendWithUrl, model.b.T, model.b.n)
 										},
 										portMsg,
 										model.u);
@@ -6559,7 +6562,7 @@ var $author$project$Popup$update = F2(
 					var _v5 = A3(
 						$author$project$Api$Port$update,
 						{
-							bn: A2($author$project$Popup$sendWithUrl, selectedHost.T, selectedHost.o)
+							bn: A2($author$project$Popup$sendWithUrl, selectedHost.T, selectedHost.n)
 						},
 						portMsg,
 						model.u);
@@ -6588,7 +6591,7 @@ var $author$project$Popup$update = F2(
 			case 16:
 				var field = msg.a;
 				var val = msg.b;
-				var hf = model.n;
+				var hf = model.p;
 				var newHostForm = function () {
 					switch (field) {
 						case 'name':
@@ -6599,14 +6602,10 @@ var $author$project$Popup$update = F2(
 							return _Utils_update(
 								hf,
 								{T: val});
-						case 'adminToken':
-							return _Utils_update(
-								hf,
-								{v: val});
 						case 'hostKey':
 							return _Utils_update(
 								hf,
-								{o: val});
+								{n: val});
 						default:
 							return hf;
 					}
@@ -6614,10 +6613,10 @@ var $author$project$Popup$update = F2(
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
-						{n: newHostForm}),
+						{p: newHostForm}),
 					$elm$core$Platform$Cmd$none);
 			case 17:
-				var newHost = model.n;
+				var newHost = model.p;
 				var selectedHost = _Utils_eq(
 					model.b.a,
 					A2(
@@ -6649,7 +6648,7 @@ var $author$project$Popup$update = F2(
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
-						{r: $elm$core$Maybe$Nothing, n: $author$project$Popup$emptyHostForm, j: updatedHosts, b: selectedHost}),
+						{r: $elm$core$Maybe$Nothing, p: $author$project$Popup$emptyHostForm, j: updatedHosts, b: selectedHost}),
 					$author$project$Popup$saveHosts(
 						$author$project$Popup$encodeHosts(updatedHosts)));
 			case 18:
@@ -6659,7 +6658,7 @@ var $author$project$Popup$update = F2(
 						model,
 						{
 							r: $elm$core$Maybe$Just(hostConfig),
-							n: hostConfig
+							p: hostConfig
 						}),
 					$elm$core$Platform$Cmd$none);
 			case 19:
@@ -6684,9 +6683,9 @@ var $author$project$Popup$update = F2(
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
-						{r: $elm$core$Maybe$Nothing, n: $author$project$Popup$emptyHostForm}),
+						{r: $elm$core$Maybe$Nothing, p: $author$project$Popup$emptyHostForm}),
 					$elm$core$Platform$Cmd$none);
-			default:
+			case 21:
 				var hostConfig = msg.a;
 				return _Utils_Tuple2(
 					model,
@@ -6698,9 +6697,23 @@ var $author$project$Popup$update = F2(
 									'url',
 									$elm$json$Json$Encode$string(hostConfig.T)),
 									_Utils_Tuple2(
-									'adminToken',
-									$elm$json$Json$Encode$string(hostConfig.v))
+									'projectKey',
+									$elm$json$Json$Encode$string(model.I))
 								]))));
+			case 22:
+				var val = msg.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{I: val}),
+					$author$project$Popup$saveProjectKey(val));
+			default:
+				var val = msg.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{I: val}),
+					$elm$core$Platform$Cmd$none);
 		}
 	});
 var $elm$html$Html$div = _VirtualDom_node('div');
@@ -6712,11 +6725,15 @@ var $author$project$Popup$UpdateHostForm = F2(
 	function (a, b) {
 		return {$: 16, a: a, b: b};
 	});
+var $author$project$Popup$UpdateProjectKey = function (a) {
+	return {$: 22, a: a};
+};
 var $elm$html$Html$button = _VirtualDom_node('button');
 var $elm$html$Html$h3 = _VirtualDom_node('h3');
 var $elm$html$Html$h4 = _VirtualDom_node('h4');
 var $elm$html$Html$input = _VirtualDom_node('input');
 var $elm$html$Html$label = _VirtualDom_node('label');
+var $elm$core$Basics$not = _Basics_not;
 var $elm$virtual_dom$VirtualDom$Normal = function (a) {
 	return {$: 0, a: a};
 };
@@ -6787,12 +6804,10 @@ var $author$project$Popup$EditHost = function (a) {
 var $author$project$Popup$OpenAdminForHost = function (a) {
 	return {$: 21, a: a};
 };
-var $elm$core$Basics$not = _Basics_not;
-var $author$project$Popup$viewHostRow = F2(
-	function (selectedHost, host) {
+var $author$project$Popup$viewHostRow = F3(
+	function (hasProjectKey, selectedHost, host) {
 		var isSelected = _Utils_eq(host.a, selectedHost.a);
-		var hasHostKey = !$elm$core$String$isEmpty(host.o);
-		var hasAdminToken = !$elm$core$String$isEmpty(host.v);
+		var hasHostKey = !$elm$core$String$isEmpty(host.n);
 		return A2(
 			$elm$html$Html$div,
 			_List_fromArray(
@@ -6842,18 +6857,6 @@ var $author$project$Popup$viewHostRow = F2(
 								[
 									$elm$html$Html$text(host.T)
 								])),
-							hasAdminToken ? A2(
-							$elm$html$Html$div,
-							_List_fromArray(
-								[
-									A2($elm$html$Html$Attributes$style, 'font-size', '0.8em'),
-									A2($elm$html$Html$Attributes$style, 'color', '#28a745'),
-									A2($elm$html$Html$Attributes$style, 'margin-top', '2px')
-								]),
-							_List_fromArray(
-								[
-									$elm$html$Html$text('Admin access configured')
-								])) : $elm$html$Html$text(''),
 							hasHostKey ? A2(
 							$elm$html$Html$div,
 							_List_fromArray(
@@ -6877,7 +6880,7 @@ var $author$project$Popup$viewHostRow = F2(
 						]),
 					_List_fromArray(
 						[
-							hasAdminToken ? A2(
+							hasProjectKey ? A2(
 							$elm$html$Html$button,
 							_List_fromArray(
 								[
@@ -6948,19 +6951,56 @@ var $author$project$Popup$viewSettings = function (model) {
 					]),
 				_List_fromArray(
 					[
-						$elm$html$Html$text('Configured Hosts')
+						$elm$html$Html$text('Settings')
 					])),
 				A2(
-				$elm$html$Html$p,
+				$elm$html$Html$div,
 				_List_fromArray(
 					[
-						A2($elm$html$Html$Attributes$style, 'color', '#666'),
-						A2($elm$html$Html$Attributes$style, 'font-size', '0.9em'),
+						A2($elm$html$Html$Attributes$style, 'background', '#f0f7ff'),
+						A2($elm$html$Html$Attributes$style, 'padding', '15px'),
+						A2($elm$html$Html$Attributes$style, 'border-radius', '4px'),
 						A2($elm$html$Html$Attributes$style, 'margin-bottom', '15px')
 					]),
 				_List_fromArray(
 					[
-						$elm$html$Html$text('Manage your Horatio servers. Admin tokens are sent as headers for secure admin access.')
+						A2(
+						$elm$html$Html$h4,
+						_List_fromArray(
+							[
+								A2($elm$html$Html$Attributes$style, 'margin-top', '0'),
+								A2($elm$html$Html$Attributes$style, 'margin-bottom', '10px')
+							]),
+						_List_fromArray(
+							[
+								$elm$html$Html$text('Project Key')
+							])),
+						A2(
+						$elm$html$Html$p,
+						_List_fromArray(
+							[
+								A2($elm$html$Html$Attributes$style, 'color', '#666'),
+								A2($elm$html$Html$Attributes$style, 'font-size', '0.85em'),
+								A2($elm$html$Html$Attributes$style, 'margin-top', '0'),
+								A2($elm$html$Html$Attributes$style, 'margin-bottom', '8px')
+							]),
+						_List_fromArray(
+							[
+								$elm$html$Html$text('Admin token for accessing the admin UI. Applies to all hosts.')
+							])),
+						A2(
+						$elm$html$Html$input,
+						_List_fromArray(
+							[
+								$elm$html$Html$Attributes$type_('password'),
+								$elm$html$Html$Attributes$value(model.I),
+								$elm$html$Html$Events$onInput($author$project$Popup$UpdateProjectKey),
+								$elm$html$Html$Attributes$placeholder('HAMLET_PROJECT_KEY value'),
+								A2($elm$html$Html$Attributes$style, 'width', '100%'),
+								A2($elm$html$Html$Attributes$style, 'padding', '5px'),
+								A2($elm$html$Html$Attributes$style, 'box-sizing', 'border-box')
+							]),
+						_List_Nil)
 					])),
 				A2(
 				$elm$html$Html$div,
@@ -7009,7 +7049,7 @@ var $author$project$Popup$viewSettings = function (model) {
 								$elm$html$Html$input,
 								_List_fromArray(
 									[
-										$elm$html$Html$Attributes$value(model.n.a),
+										$elm$html$Html$Attributes$value(model.p.a),
 										$elm$html$Html$Events$onInput(
 										$author$project$Popup$UpdateHostForm('name')),
 										$elm$html$Html$Attributes$placeholder('My Server'),
@@ -7043,7 +7083,7 @@ var $author$project$Popup$viewSettings = function (model) {
 								$elm$html$Html$input,
 								_List_fromArray(
 									[
-										$elm$html$Html$Attributes$value(model.n.T),
+										$elm$html$Html$Attributes$value(model.p.T),
 										$elm$html$Html$Events$onInput(
 										$author$project$Popup$UpdateHostForm('url')),
 										$elm$html$Html$Attributes$placeholder('http://localhost:3000/api'),
@@ -7071,52 +7111,17 @@ var $author$project$Popup$viewSettings = function (model) {
 									]),
 								_List_fromArray(
 									[
-										$elm$html$Html$text('Admin Token (optional)')
+										$elm$html$Html$text('Host Key')
 									])),
 								A2(
 								$elm$html$Html$input,
 								_List_fromArray(
 									[
 										$elm$html$Html$Attributes$type_('password'),
-										$elm$html$Html$Attributes$value(model.n.v),
-										$elm$html$Html$Events$onInput(
-										$author$project$Popup$UpdateHostForm('adminToken')),
-										$elm$html$Html$Attributes$placeholder('For admin UI access'),
-										A2($elm$html$Html$Attributes$style, 'width', '100%'),
-										A2($elm$html$Html$Attributes$style, 'padding', '5px'),
-										A2($elm$html$Html$Attributes$style, 'box-sizing', 'border-box')
-									]),
-								_List_Nil)
-							])),
-						A2(
-						$elm$html$Html$div,
-						_List_fromArray(
-							[
-								A2($elm$html$Html$Attributes$style, 'margin-bottom', '10px')
-							]),
-						_List_fromArray(
-							[
-								A2(
-								$elm$html$Html$label,
-								_List_fromArray(
-									[
-										A2($elm$html$Html$Attributes$style, 'display', 'block'),
-										A2($elm$html$Html$Attributes$style, 'font-weight', 'bold'),
-										A2($elm$html$Html$Attributes$style, 'margin-bottom', '3px')
-									]),
-								_List_fromArray(
-									[
-										$elm$html$Html$text('Host Key (optional)')
-									])),
-								A2(
-								$elm$html$Html$input,
-								_List_fromArray(
-									[
-										$elm$html$Html$Attributes$type_('password'),
-										$elm$html$Html$Attributes$value(model.n.o),
+										$elm$html$Html$Attributes$value(model.p.n),
 										$elm$html$Html$Events$onInput(
 										$author$project$Popup$UpdateHostForm('hostKey')),
-										$elm$html$Html$Attributes$placeholder('For posting (get from admin)'),
+										$elm$html$Html$Attributes$placeholder('From admin Host Keys panel'),
 										A2($elm$html$Html$Attributes$style, 'width', '100%'),
 										A2($elm$html$Html$Attributes$style, 'padding', '5px'),
 										A2($elm$html$Html$Attributes$style, 'box-sizing', 'border-box')
@@ -7182,7 +7187,10 @@ var $author$project$Popup$viewSettings = function (model) {
 				_List_Nil,
 				A2(
 					$elm$core$List$map,
-					$author$project$Popup$viewHostRow(model.b),
+					A2(
+						$author$project$Popup$viewHostRow,
+						!$elm$core$String$isEmpty(model.I),
+						model.b),
 					model.j))
 			]));
 };
@@ -7603,7 +7611,7 @@ var $author$project$Popup$viewWriter = function (model) {
 								},
 								model.q)))
 					])),
-				$elm$core$List$isEmpty(model.z) ? A2(
+				$elm$core$List$isEmpty(model.y) ? A2(
 				$elm$html$Html$div,
 				_List_fromArray(
 					[
@@ -7644,7 +7652,7 @@ var $author$project$Popup$viewWriter = function (model) {
 						A2(
 							$elm$core$List$map,
 							$author$project$Popup$viewImage(model.Q),
-							model.z))
+							model.y))
 					])),
 				A2(
 				$elm$html$Html$button,
@@ -7721,7 +7729,7 @@ _Platform_export({'Popup':{'init':$author$project$Popup$main(
 										$elm$json$Json$Decode$andThen,
 										function (images) {
 											return $elm$json$Json$Decode$succeed(
-												{z: images, Z: selection, R: selectionHtml, bw: title, T: url});
+												{y: images, Z: selection, R: selectionHtml, bw: title, T: url});
 										},
 										A2(
 											$elm$json$Json$Decode$field,

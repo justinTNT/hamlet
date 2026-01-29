@@ -19,13 +19,11 @@ test('Admin Middleware', async (t) => {
         // Check for proper middleware export
         assert.ok(authContent.includes('export'), 'Should export middleware function');
         
-        // Check for token validation
-        assert.ok(authContent.includes('HAMLET_ADMIN_TOKEN'), 'Should use HAMLET_ADMIN_TOKEN for authentication');
-        
-        // Check for multiple token sources (header, query, cookie)
-        assert.ok(authContent.includes('header') || authContent.includes('req.headers'), 'Should check headers for token');
-        assert.ok(authContent.includes('query') || authContent.includes('req.query'), 'Should check query params for token');
-        assert.ok(authContent.includes('cookie') || authContent.includes('req.cookies'), 'Should check cookies for token');
+        // Check for project key validation
+        assert.ok(authContent.includes('HAMLET_PROJECT_KEY'), 'Should use HAMLET_PROJECT_KEY for authentication');
+
+        // Check for auth-resolver tier check
+        assert.ok(authContent.includes('authLevel') || authContent.includes('projectAdmin'), 'Should check auth tier from auth-resolver');
         
         // Check for proper error responses
         assert.ok(authContent.includes('403') || authContent.includes('401'), 'Should return proper error status');

@@ -6,14 +6,14 @@ import createAdminApi from '../../middleware/admin-api.js';
 import createAdminAuth from '../../middleware/admin-auth.js';
 
 describe('Admin Middleware - Simple Tests', () => {
-    
+
     beforeEach(() => {
-        delete process.env.HAMLET_ADMIN_TOKEN;
+        delete process.env.HAMLET_PROJECT_KEY;
         delete process.env.NODE_ENV;
     });
 
     test('createAdminAuth returns a function', () => {
-        const authMiddleware = createAdminAuth();
+        const authMiddleware = createAdminAuth({ test: 'test-key' });
         expect(typeof authMiddleware).toBe('function');
     });
 
@@ -21,99 +21,90 @@ describe('Admin Middleware - Simple Tests', () => {
         expect(typeof createAdminApi).toBe('function');
     });
 
-    test('auth middleware warns when no token is set', () => {
-        // This test passes - we can see the warning in console output
-        const authMiddleware = createAdminAuth();
+    test('auth middleware warns when no project keys configured', () => {
+        const authMiddleware = createAdminAuth({});
         expect(typeof authMiddleware).toBe('function');
     });
 
-    test('auth middleware blocks production access without token', () => {
-        process.env.NODE_ENV = 'production';
-        const authMiddleware = createAdminAuth();
-        
-        const mockReq = { headers: {}, query: {}, cookies: {} };
+    test('auth middleware blocks access without project key configured', () => {
+        const authMiddleware = createAdminAuth({});
+
+        const mockReq = { authLevel: 'noAdmin' };
         const mockRes = {
-            status: function(code) { 
-                this.statusCode = code; 
-                return this; 
+            status: function(code) {
+                this.statusCode = code;
+                return this;
             },
-            json: function(data) { 
-                this.response = data; 
-                return this; 
+            json: function(data) {
+                this.response = data;
+                return this;
             }
         };
         const mockNext = () => {};
-        
+
         authMiddleware(mockReq, mockRes, mockNext);
-        
+
         expect(mockRes.statusCode).toBe(503);
         expect(mockRes.response.error).toContain('Admin interface disabled');
     });
 
-    test('auth middleware allows development access without token', () => {
-        process.env.NODE_ENV = 'development';
-        process.env.HAMLET_ADMIN_TOKEN = 'test-token'; // Set token to avoid the warning path
-        const authMiddleware = createAdminAuth();
-        
+    test('auth middleware blocks when authLevel is not projectAdmin', () => {
+        const authMiddleware = createAdminAuth({ test: 'test-key' });
+
         let nextCalled = false;
-        const mockReq = { headers: {}, query: {}, cookies: {} };
-        const mockRes = { 
+        const mockReq = { authLevel: 'noAdmin' };
+        const mockRes = {
             status: function(code) { this.statusCode = code; return this; },
             json: function(data) { this.response = data; return this; }
         };
         const mockNext = () => { nextCalled = true; };
-        
+
         authMiddleware(mockReq, mockRes, mockNext);
-        
-        expect(nextCalled).toBe(false); // Should be false because no token provided
+
+        expect(nextCalled).toBe(false);
+        expect(mockRes.statusCode).toBe(401);
     });
 
-    test('auth middleware validates correct token', () => {
-        process.env.HAMLET_ADMIN_TOKEN = 'secret123';
-        const authMiddleware = createAdminAuth();
-        
+    test('auth middleware allows projectAdmin access', () => {
+        const authMiddleware = createAdminAuth({ test: 'secret123' });
+
         let nextCalled = false;
         const mockReq = {
-            headers: { authorization: 'Bearer secret123' },
-            query: {},
-            cookies: {}
+            authLevel: 'projectAdmin',
+            tenant: { host: 'localhost' }
         };
         const mockRes = { status: () => {}, json: () => {} };
         const mockNext = () => { nextCalled = true; };
-        
+
         authMiddleware(mockReq, mockRes, mockNext);
-        
+
         expect(nextCalled).toBe(true);
         expect(mockReq.isAdmin).toBe(true);
-        expect(mockReq.adminToken).toBe('secret123');
     });
 
-    test('auth middleware rejects invalid token', () => {
-        process.env.HAMLET_ADMIN_TOKEN = 'secret123';
-        const authMiddleware = createAdminAuth();
-        
+    test('auth middleware rejects hostAdmin level', () => {
+        const authMiddleware = createAdminAuth({ test: 'secret123' });
+
         const mockReq = {
-            headers: { authorization: 'Bearer wrong-token' },
-            query: {},
-            cookies: {},
+            authLevel: 'hostAdmin',
             ip: '127.0.0.1'
         };
         const mockRes = {
-            status: function(code) { 
-                this.statusCode = code; 
-                return this; 
+            status: function(code) {
+                this.statusCode = code;
+                return this;
             },
-            json: function(data) { 
-                this.response = data; 
-                return this; 
+            json: function(data) {
+                this.response = data;
+                return this;
             }
         };
         const mockNext = () => {};
-        
+
         authMiddleware(mockReq, mockRes, mockNext);
-        
-        expect(mockRes.statusCode).toBe(403);
-        expect(mockRes.response.error).toContain('Admin access denied - invalid token');
+
+        expect(mockRes.statusCode).toBe(401);
+        expect(mockRes.response.error).toContain('Admin access denied');
     });
 
     test('createAdminApi requires server with database service', () => {
@@ -121,7 +112,7 @@ describe('Admin Middleware - Simple Tests', () => {
             app: { get: () => {} },
             getService: () => null
         };
-        
+
         // This test passes - we can see the warning in console output
         const result = createAdminApi(mockServer);
         expect(result).toBeUndefined();

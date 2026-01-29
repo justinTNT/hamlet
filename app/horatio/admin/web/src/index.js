@@ -11,7 +11,7 @@ async function run() {
     const app = Elm.Main.init({
         node: document.getElementById('app'),
         flags: {
-            adminToken: getAdminToken(),
+            projectKey: getProjectKey(),
             baseUrl: '/admin/api',
             basePath: '/admin/ui'
         }
@@ -44,7 +44,7 @@ async function run() {
                     method,
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${getAdminToken()}`
+                        'X-Hamlet-Project-Key': getProjectKey()
                     }
                 };
                 
@@ -119,10 +119,10 @@ async function run() {
     }
     
     // Handle authentication
-    if (app.ports && app.ports.setAdminToken) {
-        app.ports.setAdminToken.subscribe((token) => {
-            localStorage.setItem('admin_token', token);
-            console.log('Admin token saved');
+    if (app.ports && app.ports.setProjectKey) {
+        app.ports.setProjectKey.subscribe((key) => {
+            localStorage.setItem('project_key', key);
+            console.log('Project key saved');
         });
     }
 
@@ -224,7 +224,7 @@ function setupHostKeysPanel(app) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${getAdminToken()}`
+                    'X-Hamlet-Project-Key': getProjectKey()
                 },
                 body: JSON.stringify({ label: label || null })
             });
@@ -243,7 +243,7 @@ function setupHostKeysPanel(app) {
 
         try {
             const resp = await fetch('/admin/api/_keys', {
-                headers: { 'Authorization': `Bearer ${getAdminToken()}` }
+                headers: { 'X-Hamlet-Project-Key': getProjectKey() }
             });
             if (!resp.ok) throw new Error(await resp.text());
 
@@ -278,7 +278,7 @@ function setupHostKeysPanel(app) {
                     try {
                         const resp = await fetch(`/admin/api/_keys/${btn.dataset.id}`, {
                             method: 'DELETE',
-                            headers: { 'Authorization': `Bearer ${getAdminToken()}` }
+                            headers: { 'X-Hamlet-Project-Key': getProjectKey() }
                         });
                         if (!resp.ok && resp.status !== 204) throw new Error(await resp.text());
                         loadHostKeys();
@@ -488,17 +488,17 @@ function parseInlineNodes(container) {
     return inlines;
 }
 
-function getAdminToken() {
-    // Try multiple sources for admin token
+function getProjectKey() {
+    // Try multiple sources for project key
     const urlParams = new URLSearchParams(window.location.search);
-    const tokenFromUrl = urlParams.get('admin_token');
-    
-    if (tokenFromUrl) {
-        localStorage.setItem('admin_token', tokenFromUrl);
-        return tokenFromUrl;
+    const keyFromUrl = urlParams.get('project_key');
+
+    if (keyFromUrl) {
+        localStorage.setItem('project_key', keyFromUrl);
+        return keyFromUrl;
     }
-    
-    return localStorage.getItem('admin_token') || '';
+
+    return localStorage.getItem('project_key') || '';
 }
 
 run();

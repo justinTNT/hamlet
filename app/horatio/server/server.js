@@ -1,7 +1,4 @@
 import { HamletServer } from '../../../packages/hamlet-server/core/server.js';
-import createAdminApi from '../../../packages/hamlet-server/middleware/admin-api.js';
-import createAdminAuth from '../../../packages/hamlet-server/middleware/admin-auth.js';
-import createDbQueries from './.generated/database-queries.js';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -16,13 +13,19 @@ const __dirname = path.dirname(__filename);
 // Custom configuration for Horatio
 const config = {
     port: process.env.PORT || 3000,
-    application: 'horatio',
+    application: 'horatio',              // backward compat
+    applications: ['horatio'],            // multi-project list
+    defaultProject: 'horatio',            // fallback for unknown hostnames
     poolSize: 5,
     features: {
         database: true, // Enable PostgreSQL integration
         kv: true,       // Enable key-value store
         sse: true,      // Enable server-sent events  
         wasm: true      // Enable BuildAmp WASM integration
+    },
+    // Per-project admin keys (routes env var through config)
+    projectKeys: {
+        horatio: process.env.HAMLET_PROJECT_KEY || undefined
     },
     // PostgreSQL configuration (from .env)
     database: {
@@ -50,11 +53,11 @@ server.app.use('/admin/ui/assets', express.static(path.join(adminDistPath, 'asse
 // Serve the main admin UI directory without authentication for static files
 server.app.use('/admin/ui', express.static(adminDistPath));
 
-// Admin UI HTML routes (with authentication)
-const adminAuth = createAdminAuth();
-
-server.app.get('/admin', adminAuth, (req, res) => {
-    res.redirect('/admin/ui/');
+// Admin UI redirect (no auth - the Elm app authenticates via API calls with X-Hamlet-Project-Key header)
+server.app.get('/admin', (req, res) => {
+    // Forward query params (e.g. ?project_key=...) so the JS entrypoint can pick them up
+    const qs = req.originalUrl.split('?')[1];
+    res.redirect('/admin/ui/' + (qs ? '?' + qs : ''));
 });
 
 // Note: Don't apply auth to /admin/ui/* because static files need to load first
@@ -62,25 +65,14 @@ server.app.get('/admin', adminAuth, (req, res) => {
 
 await server.start();
 
-// Extend database service with app-specific generated queries
-const db = server.getService('database');
-if (db) {
-    const dbQueries = createDbQueries(db.pool);
-    db.extend(dbQueries);
-    console.log('✅ Database service extended with Horatio queries');
-}
-
-// Register admin API after server starts (so database service is available)
-console.log('🔧 Registering admin API...');
-createAdminApi(server);
-
+// Database queries are now loaded per-project by ProjectLoader
 console.log(`Horatio Backend running at http://localhost:${config.port}`);
 console.log(`Server-Sent Events available at http://localhost:${config.port}/events/*`);
 console.log(`Session API available at http://localhost:${config.port}/api/session/*`);
 console.log(`Admin UI available at http://localhost:${config.port}/admin/ui`);
 console.log(`Admin API available at http://localhost:${config.port}/admin/api/*`);
-if (process.env.HAMLET_ADMIN_TOKEN) {
-    console.log(`🔒 Admin access protected by HAMLET_ADMIN_TOKEN`);
+if (process.env.HAMLET_PROJECT_KEY) {
+    console.log(`🔒 Admin access protected by HAMLET_PROJECT_KEY`);
 } else {
-    console.log(`⚠️  Admin access disabled - set HAMLET_ADMIN_TOKEN environment variable`);
+    console.log(`⚠️  Admin access disabled - set HAMLET_PROJECT_KEY environment variable`);
 }

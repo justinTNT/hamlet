@@ -4,6 +4,9 @@
  * For root-level asset requests (no folder in path), checks public/hosts/{hostname}/
  * before falling back to the default location.
  *
+ * Uses req.project (set by host-resolver) to resolve the correct project's public dir.
+ * Falls back to config.application if req.project is not set.
+ *
  * Examples:
  *   /index.html  -> first try public/hosts/example.com/index.html, then public/index.html
  *   /logo.png    -> first try public/hosts/example.com/logo.png, then public/logo.png
@@ -25,23 +28,22 @@ function sanitizeHost(host) {
 
 function isRootLevelRequest(urlPath) {
     // Root level = no directory separators except the leading slash
-    // /index.html -> true
-    // /logo.png -> true
-    // / -> true (will become /index.html)
-    // /assets/app.js -> false
-    // /src/style.css -> false
     const withoutLeadingSlash = urlPath.slice(1);
     return !withoutLeadingSlash.includes('/');
+}
+
+/**
+ * Resolve the public directory for a given project
+ */
+function resolvePublicDir(projectName) {
+    return path.join(__dirname, `../../../app/${projectName}/web/public`);
 }
 
 export default function createHostDir(server) {
     console.log('🏠 Setting up host-specific asset directory');
 
-    const appName = server.config.application || 'horatio';
-    const publicDir = server.config.publicDir ||
-                      path.join(__dirname, `../../../app/${appName}/web/public`);
-    // Host directories live under public/hosts/: public/hosts/{hostname}/
-    const hostsDir = path.join(publicDir, 'hosts');
+    const defaultAppName = server.config.application || 'horatio';
+    const defaultPublicDir = server.config.publicDir || resolvePublicDir(defaultAppName);
 
     // Intercept all GET requests early to check for host-specific assets
     server.app.use((req, res, next) => {
@@ -55,6 +57,11 @@ export default function createHostDir(server) {
             return next();
         }
 
+        // Resolve public dir per-project
+        const projectName = req.project || defaultAppName;
+        const publicDir = resolvePublicDir(projectName);
+        const hostsDir = path.join(publicDir, 'hosts');
+
         const host = sanitizeHost(req.tenant?.host || 'localhost');
         const hostDir = path.join(hostsDir, host);
 
@@ -62,7 +69,7 @@ export default function createHostDir(server) {
         const filename = (req.path === '/' || req.path === '') ? 'index.html' : req.path.slice(1);
         const hostAsset = path.join(hostDir, filename);
 
-        console.log(`🔍 host-dir: host=${host}, path=${req.path}, checking=${hostAsset}, exists=${fs.existsSync(hostAsset)}`);
+        console.log(`🔍 host-dir: host=${host}, project=${projectName}, path=${req.path}, checking=${hostAsset}, exists=${fs.existsSync(hostAsset)}`);
 
         if (fs.existsSync(hostAsset)) {
             console.log(`📄 Serving host-specific: ${host}/${filename}`);
@@ -73,22 +80,26 @@ export default function createHostDir(server) {
         next();
     });
 
+    // Service uses default public dir for backward compat; callers can also resolve per-project
+    const defaultHostsDir = path.join(defaultPublicDir, 'hosts');
+
     const hostDirService = {
         sanitizeHost,
-        hostsDir,
+        hostsDir: defaultHostsDir,
         getHostAssetPath: (host, filename) => {
             const sanitized = sanitizeHost(host);
-            return path.join(hostsDir, sanitized, filename);
+            return path.join(defaultHostsDir, sanitized, filename);
         },
         hasHostAsset: (host, filename) => {
-            const assetPath = path.join(hostsDir, sanitizeHost(host), filename);
+            const assetPath = path.join(defaultHostsDir, sanitizeHost(host), filename);
             return fs.existsSync(assetPath);
         },
         listHostAssets: (host) => {
-            const hostDir = path.join(hostsDir, sanitizeHost(host));
+            const hostDir = path.join(defaultHostsDir, sanitizeHost(host));
             if (!fs.existsSync(hostDir)) return [];
             return fs.readdirSync(hostDir);
         },
+        resolvePublicDir,
         cleanup: async () => console.log('🧹 Host directory middleware cleanup')
     };
 
