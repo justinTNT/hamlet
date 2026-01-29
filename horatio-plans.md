@@ -7,9 +7,9 @@ DONE:
 * test deeply nested comments
 * implement task_abstraction_proposal.md
 * expand Admin hooks 
+* extension: enrich content with: tiptap owner comment, html of selection
 
 TODO:
-* extension: enrich content with: tiptap owner comment, html of selection
 * multi-admin with edit queue;
 * upgrade visitor id
   - upgrade automated non-authenticated session id

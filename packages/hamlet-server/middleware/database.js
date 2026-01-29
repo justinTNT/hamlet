@@ -9,6 +9,10 @@
 import pg from 'pg';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const { Pool } = pg;
 
@@ -41,7 +45,63 @@ export default function createDatabase(server) {
             console.error('❌ Database connection failed:', err.message);
         });
 
-    // Run migrations if they exist
+    // Run framework-level migrations (hamlet_host_keys, etc.)
+    async function runFrameworkMigrations() {
+        const frameworkMigrationsDir = path.resolve(__dirname, '../migrations');
+
+        if (!fs.existsSync(frameworkMigrationsDir)) {
+            return;
+        }
+
+        try {
+            // Ensure framework_migrations tracking table exists
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS framework_migrations (
+                    filename TEXT PRIMARY KEY,
+                    applied_at TIMESTAMP DEFAULT NOW()
+                )
+            `);
+
+            const appliedResult = await pool.query(
+                'SELECT filename FROM framework_migrations ORDER BY filename'
+            );
+            const appliedMigrations = new Set(appliedResult.rows.map(row => row.filename));
+
+            const migrationFiles = fs.readdirSync(frameworkMigrationsDir)
+                .filter(file => file.endsWith('.sql'))
+                .sort();
+
+            for (const filename of migrationFiles) {
+                if (!appliedMigrations.has(filename)) {
+                    console.log(`🔄 Running framework migration: ${filename}`);
+
+                    const sql = fs.readFileSync(path.join(frameworkMigrationsDir, filename), 'utf8');
+
+                    const client = await pool.connect();
+                    try {
+                        await client.query('BEGIN');
+                        await client.query(sql);
+                        await client.query(
+                            'INSERT INTO framework_migrations (filename) VALUES ($1)',
+                            [filename]
+                        );
+                        await client.query('COMMIT');
+                        console.log(`✅ Framework migration completed: ${filename}`);
+                    } catch (error) {
+                        await client.query('ROLLBACK');
+                        throw error;
+                    } finally {
+                        client.release();
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('❌ Framework migration error:', error.message);
+            throw error;
+        }
+    }
+
+    // Run app-level migrations if they exist
     async function runMigrations() {
         const migrationsDir = path.join(process.cwd(), 'migrations');
 
@@ -224,10 +284,12 @@ export default function createDatabase(server) {
         }
     });
 
-    // Run migrations on startup
-    runMigrations().catch(err => {
-        console.error('Failed to run migrations:', err);
-    });
+    // Run migrations on startup: framework first, then app
+    runFrameworkMigrations()
+        .then(() => runMigrations())
+        .catch(err => {
+            console.error('Failed to run migrations:', err);
+        });
 
     server.registerService('database', dbService);
     return dbService;

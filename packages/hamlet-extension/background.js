@@ -59,17 +59,24 @@ async function getApiUrl() {
 }
 
 async function handleRequest(req) {
-    const { endpoint, body, correlationId, apiUrl } = req;
+    const { endpoint, body, correlationId, apiUrl, hostKey } = req;
     const baseUrl = apiUrl || await getApiUrl();
     const url = `${baseUrl}/${endpoint}`;
 
     try {
+        const headers = {
+            'Content-Type': 'application/json',
+            'X-Hamlet-Source': 'extension'
+        };
+
+        // Include host key header if provided
+        if (hostKey) {
+            headers['X-Hamlet-Host-Key'] = hostKey;
+        }
+
         const response = await fetch(url, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Hamlet-Source': 'extension'
-            },
+            headers,
             body: JSON.stringify(body)
         });
 

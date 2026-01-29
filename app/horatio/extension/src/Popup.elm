@@ -20,6 +20,9 @@ port inbound : (Encode.Value -> msg) -> Sub msg
 port saveHosts : Encode.Value -> Cmd msg
 port loadHosts : () -> Cmd msg
 port hostsLoaded : (Encode.Value -> msg) -> Sub msg
+port saveProjectKey : String -> Cmd msg
+port loadProjectKey : () -> Cmd msg
+port projectKeyLoaded : (String -> msg) -> Sub msg
 port openAdmin : Encode.Value -> Cmd msg
 port closeWindow : () -> Cmd msg
 
@@ -35,7 +38,7 @@ port ownerCommentContentChanged : (Encode.Value -> msg) -> Sub msg
 type alias HostConfig =
     { name : String
     , url : String
-    , adminToken : String
+    , hostKey : String
     }
 
 
@@ -49,7 +52,7 @@ encodeHost host =
     Encode.object
         [ ( "name", Encode.string host.name )
         , ( "url", Encode.string host.url )
-        , ( "adminToken", Encode.string host.adminToken )
+        , ( "hostKey", Encode.string host.hostKey )
         ]
 
 
@@ -64,7 +67,7 @@ decodeHost =
         (Decode.field "name" Decode.string)
         (Decode.field "url" Decode.string)
         (Decode.oneOf
-            [ Decode.field "adminToken" Decode.string
+            [ Decode.field "hostKey" Decode.string
             , Decode.succeed ""
             ]
         )
@@ -72,7 +75,7 @@ decodeHost =
 
 defaultHosts : List HostConfig
 defaultHosts =
-    [ { name = "localhost", url = "http://localhost:3000/api", adminToken = "" }
+    [ { name = "localhost", url = "http://localhost:3000/api", hostKey = "" }
     ]
 
 
@@ -128,12 +131,13 @@ type alias Model =
     , editingHost : Maybe HostConfig
     , hostForm : HostConfig
     , hostsLoaded : Bool
+    , projectKey : String
     }
 
 
 emptyHostForm : HostConfig
 emptyHostForm =
-    { name = "", url = "", adminToken = "" }
+    { name = "", url = "", hostKey = "" }
 
 
 init : Flags -> ( Model, Cmd Msg )
@@ -143,7 +147,7 @@ init flags =
 
         initialHost =
             List.head defaultHosts
-                |> Maybe.withDefault { name = "localhost", url = "http://localhost:3000/api", adminToken = "" }
+                |> Maybe.withDefault { name = "localhost", url = "http://localhost:3000/api", hostKey = "" }
     in
     ( { portModel = initialPortModel
       , status = "Loading hosts..."
@@ -164,24 +168,26 @@ init flags =
       , editingHost = Nothing
       , hostForm = emptyHostForm
       , hostsLoaded = False
+      , projectKey = ""
       }
     , Cmd.batch
         [ loadHosts ()
+        , loadProjectKey ()
         , initExtractEditor flags.selectionHtml
         , initOwnerCommentEditor ()
         ]
     )
 
 
-{-| Wrap the outbound port to include the target URL
+{-| Wrap the outbound port to include the target URL and host key
 -}
-sendWithUrl : String -> Encode.Value -> Cmd msg
-sendWithUrl targetUrl payload =
+sendWithUrl : String -> String -> Encode.Value -> Cmd msg
+sendWithUrl targetUrl hostKey payload =
     let
-        -- Add apiUrl to the payload
         wrapped =
             Encode.object
                 [ ( "apiUrl", Encode.string targetUrl )
+                , ( "hostKey", Encode.string hostKey )
                 , ( "payload", payload )
                 ]
     in
@@ -213,6 +219,8 @@ type Msg
     | DeleteHost String
     | CancelHostEdit
     | OpenAdminForHost HostConfig
+    | UpdateProjectKey String
+    | ProjectKeyReceived String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -222,7 +230,7 @@ update msg model =
             let
                 ( newPortModel, cmd ) =
                     Api.Port.update
-                        { sendPort = sendWithUrl model.selectedHost.url }
+                        { sendPort = sendWithUrl model.selectedHost.url model.selectedHost.hostKey }
                         pMsg
                         model.portModel
             in
@@ -246,7 +254,7 @@ update msg model =
 
                 ( newPortModel, cmd ) =
                     Api.Port.update
-                        { sendPort = sendWithUrl newHost.url }
+                        { sendPort = sendWithUrl newHost.url newHost.hostKey }
                         portMsg
                         model.portModel
             in
@@ -291,7 +299,7 @@ update msg model =
 
                     ( newPortModel, cmd ) =
                         Api.Port.update
-                            { sendPort = sendWithUrl model.selectedHost.url }
+                            { sendPort = sendWithUrl model.selectedHost.url model.selectedHost.hostKey }
                             portMsg
                             model.portModel
                 in
@@ -389,7 +397,7 @@ update msg model =
 
                         ( newPortModel, cmd ) =
                             Api.Port.update
-                                { sendPort = sendWithUrl selectedHost.url }
+                                { sendPort = sendWithUrl selectedHost.url selectedHost.hostKey }
                                 portMsg
                                 model.portModel
                     in
@@ -422,8 +430,8 @@ update msg model =
                             { hf | name = val }
                         "url" ->
                             { hf | url = val }
-                        "adminToken" ->
-                            { hf | adminToken = val }
+                        "hostKey" ->
+                            { hf | hostKey = val }
                         _ ->
                             hf
             in
@@ -501,10 +509,16 @@ update msg model =
             , openAdmin
                 (Encode.object
                     [ ( "url", Encode.string hostConfig.url )
-                    , ( "adminToken", Encode.string hostConfig.adminToken )
+                    , ( "adminToken", Encode.string model.projectKey )
                     ]
                 )
             )
+
+        UpdateProjectKey val ->
+            ( { model | projectKey = val }, saveProjectKey val )
+
+        ProjectKeyReceived val ->
+            ( { model | projectKey = val }, Cmd.none )
 
 
 -- VIEW
@@ -652,9 +666,23 @@ viewWriter model =
 viewSettings : Model -> Html Msg
 viewSettings model =
     div []
-        [ h3 [ style "margin-top" "0" ] [ text "Configured Hosts" ]
-        , p [ style "color" "#666", style "font-size" "0.9em", style "margin-bottom" "15px" ]
-            [ text "Manage your Horatio servers. Admin tokens are sent as headers for secure admin access." ]
+        [ h3 [ style "margin-top" "0" ] [ text "Settings" ]
+
+        -- Project Key (single value for all hosts)
+        , div [ style "background" "#f0f7ff", style "padding" "15px", style "border-radius" "4px", style "margin-bottom" "15px" ]
+            [ h4 [ style "margin-top" "0", style "margin-bottom" "10px" ] [ text "Project Key" ]
+            , p [ style "color" "#666", style "font-size" "0.85em", style "margin-top" "0", style "margin-bottom" "8px" ]
+                [ text "Admin token for accessing the admin UI. Applies to all hosts." ]
+            , input
+                [ type_ "password"
+                , value model.projectKey
+                , onInput UpdateProjectKey
+                , placeholder "HAMLET_ADMIN_TOKEN value"
+                , style "width" "100%"
+                , style "padding" "5px"
+                , style "box-sizing" "border-box"
+                ] []
+            ]
 
         -- Host form
         , div [ style "background" "#f5f5f5", style "padding" "15px", style "border-radius" "4px", style "margin-bottom" "15px" ]
@@ -683,12 +711,12 @@ viewSettings model =
                     ] []
                 ]
             , div [ style "margin-bottom" "10px" ]
-                [ label [ style "display" "block", style "font-weight" "bold", style "margin-bottom" "3px" ] [ text "Admin Token (optional)" ]
+                [ label [ style "display" "block", style "font-weight" "bold", style "margin-bottom" "3px" ] [ text "Host Key" ]
                 , input
                     [ type_ "password"
-                    , value model.hostForm.adminToken
-                    , onInput (UpdateHostForm "adminToken")
-                    , placeholder "For admin UI access"
+                    , value model.hostForm.hostKey
+                    , onInput (UpdateHostForm "hostKey")
+                    , placeholder "From admin Host Keys panel"
                     , style "width" "100%"
                     , style "padding" "5px"
                     , style "box-sizing" "border-box"
@@ -727,15 +755,15 @@ viewSettings model =
                 [ text "No hosts configured. Add one above." ]
           else
             div []
-                (List.map (viewHostRow model.selectedHost) model.hosts)
+                (List.map (viewHostRow (not (String.isEmpty model.projectKey)) model.selectedHost) model.hosts)
         ]
 
 
-viewHostRow : HostConfig -> HostConfig -> Html Msg
-viewHostRow selectedHost host =
+viewHostRow : Bool -> HostConfig -> HostConfig -> Html Msg
+viewHostRow hasProjectKey selectedHost host =
     let
         isSelected = host.name == selectedHost.name
-        hasAdminToken = not (String.isEmpty host.adminToken)
+        hasHostKey = not (String.isEmpty host.hostKey)
     in
     div
         [ style "display" "flex"
@@ -749,14 +777,14 @@ viewHostRow selectedHost host =
         [ div [ style "flex-grow" "1" ]
             [ div [ style "font-weight" "bold" ] [ text host.name ]
             , div [ style "font-size" "0.85em", style "color" "#666" ] [ text host.url ]
-            , if hasAdminToken then
-                div [ style "font-size" "0.8em", style "color" "#28a745", style "margin-top" "2px" ]
-                    [ text "Admin access configured" ]
+            , if hasHostKey then
+                div [ style "font-size" "0.8em", style "color" "#17a2b8", style "margin-top" "2px" ]
+                    [ text "Host key configured" ]
               else
                 text ""
             ]
         , div [ style "display" "flex", style "gap" "5px", style "flex-shrink" "0" ]
-            [ if hasAdminToken then
+            [ if hasProjectKey then
                 button
                     [ onClick (OpenAdminForHost host)
                     , style "padding" "4px 8px"
@@ -869,6 +897,7 @@ subscriptions _ =
     Sub.batch
         [ Api.Port.subscriptions inbound PortMsg
         , hostsLoaded HostsReceived
+        , projectKeyLoaded ProjectKeyReceived
         , extractContentChanged ExtractContentChanged
         , ownerCommentContentChanged OwnerCommentContentChanged
         ]

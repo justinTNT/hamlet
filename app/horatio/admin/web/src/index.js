@@ -163,7 +163,136 @@ async function run() {
         });
     }
 
+    // Host Keys management panel
+    setupHostKeysPanel(app);
+
     console.log('Admin interface ready');
+}
+
+/**
+ * Host Keys Management Panel
+ * Provides CRUD for hamlet_host_keys via /admin/api/_keys
+ */
+function setupHostKeysPanel(app) {
+    // Add a "Host Keys" button to the page that opens the panel
+    const panel = document.createElement('div');
+    panel.id = 'host-keys-panel';
+    panel.style.cssText = 'display:none; position:fixed; top:0; right:0; width:420px; height:100vh; background:#fff; box-shadow:-2px 0 8px rgba(0,0,0,.15); z-index:1000; overflow-y:auto; padding:20px; box-sizing:border-box;';
+    panel.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h2 style="margin:0;">Host Keys</h2>
+            <button id="hk-close" style="border:none; background:none; font-size:20px; cursor:pointer;">&times;</button>
+        </div>
+        <div style="margin-bottom:16px;">
+            <input id="hk-label" type="text" placeholder="Key label (optional)" style="width:70%; padding:6px; margin-right:8px; box-sizing:border-box;">
+            <button id="hk-create" style="padding:6px 14px; background:#007bff; color:#fff; border:none; cursor:pointer; border-radius:3px;">Create</button>
+        </div>
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+                <tr style="text-align:left; border-bottom:2px solid #ddd;">
+                    <th style="padding:6px;">Label</th>
+                    <th style="padding:6px;">Key</th>
+                    <th style="padding:6px;">Status</th>
+                    <th style="padding:6px;"></th>
+                </tr>
+            </thead>
+            <tbody id="hk-list"></tbody>
+        </table>
+    `;
+    document.body.appendChild(panel);
+
+    // Toggle button - insert after page loads
+    const toggleBtn = document.createElement('button');
+    toggleBtn.textContent = 'Host Keys';
+    toggleBtn.style.cssText = 'position:fixed; bottom:16px; right:16px; z-index:999; padding:8px 16px; background:#343a40; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:13px;';
+    toggleBtn.onclick = () => {
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        if (panel.style.display === 'block') loadHostKeys();
+    };
+    document.body.appendChild(toggleBtn);
+
+    // Close button
+    panel.querySelector('#hk-close').onclick = () => {
+        panel.style.display = 'none';
+    };
+
+    // Create key
+    panel.querySelector('#hk-create').onclick = async () => {
+        const label = panel.querySelector('#hk-label').value.trim();
+        try {
+            const resp = await fetch('/admin/api/_keys', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getAdminToken()}`
+                },
+                body: JSON.stringify({ label: label || null })
+            });
+            if (!resp.ok) throw new Error(await resp.text());
+            panel.querySelector('#hk-label').value = '';
+            loadHostKeys();
+        } catch (err) {
+            console.error('Failed to create host key:', err);
+            alert('Failed to create key: ' + err.message);
+        }
+    };
+
+    async function loadHostKeys() {
+        const tbody = panel.querySelector('#hk-list');
+        tbody.innerHTML = '<tr><td colspan="4" style="padding:6px; color:#666;">Loading...</td></tr>';
+
+        try {
+            const resp = await fetch('/admin/api/_keys', {
+                headers: { 'Authorization': `Bearer ${getAdminToken()}` }
+            });
+            if (!resp.ok) throw new Error(await resp.text());
+
+            const keys = await resp.json();
+            if (keys.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="padding:6px; color:#666; font-style:italic;">No keys created yet.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = keys.map(k => {
+                const isRevoked = !!k.revoked_at;
+                const statusBadge = isRevoked
+                    ? '<span style="color:#dc3545;">Revoked</span>'
+                    : '<span style="color:#28a745;">Active</span>';
+                const revokeBtn = isRevoked
+                    ? ''
+                    : `<button class="hk-revoke" data-id="${k.id}" style="padding:3px 8px; background:#dc3545; color:#fff; border:none; cursor:pointer; border-radius:3px; font-size:12px;">Revoke</button>`;
+                const keyDisplay = `<code style="font-size:11px; word-break:break-all;">${k.key}</code>`;
+
+                return `<tr style="border-bottom:1px solid #eee;">
+                    <td style="padding:6px;">${k.label || '<em style="color:#999;">none</em>'}</td>
+                    <td style="padding:6px;">${keyDisplay}</td>
+                    <td style="padding:6px;">${statusBadge}</td>
+                    <td style="padding:6px;">${revokeBtn}</td>
+                </tr>`;
+            }).join('');
+
+            // Wire revoke buttons
+            tbody.querySelectorAll('.hk-revoke').forEach(btn => {
+                btn.onclick = async () => {
+                    if (!confirm('Revoke this key? API requests using it will be denied.')) return;
+                    try {
+                        const resp = await fetch(`/admin/api/_keys/${btn.dataset.id}`, {
+                            method: 'DELETE',
+                            headers: { 'Authorization': `Bearer ${getAdminToken()}` }
+                        });
+                        if (!resp.ok && resp.status !== 204) throw new Error(await resp.text());
+                        loadHostKeys();
+                    } catch (err) {
+                        console.error('Failed to revoke key:', err);
+                        alert('Failed to revoke: ' + err.message);
+                    }
+                };
+            });
+        } catch (err) {
+            console.error('Failed to load host keys:', err);
+            tbody.innerHTML = `<tr><td colspan="4" style="padding:6px; color:#dc3545;">Error: ${err.message}</td></tr>`;
+        }
+    }
 }
 
 /**

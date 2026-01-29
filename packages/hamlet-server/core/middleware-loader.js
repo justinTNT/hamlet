@@ -32,6 +32,8 @@ export class MiddlewareLoader {
         // Load optional features
         if (features.hasDatabase) {
             await this.loadMiddleware('database');
+            // Auth resolver depends on database for host key lookups
+            await this.loadMiddleware('auth-resolver');
         }
         
         if (features.hasKeyValueStore) {

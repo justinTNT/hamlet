@@ -17,6 +17,25 @@ const __dirname = path.dirname(__filename);
 
 
 
+/**
+ * Extract auth level from parsed API module.
+ * Reads the Auth type alias's `level` field value.
+ * Returns camelCase level string or null.
+ */
+function extractAuthLevel(elmApi) {
+    if (!elmApi || !elmApi.auth || !elmApi.auth.fields) return null;
+
+    const levelField = elmApi.auth.fields.find(f =>
+        f.name === 'level' || f.camelName === 'level'
+    );
+    if (!levelField) return null;
+
+    // The elmType will be something like "HostAdmin" or "ProjectAdmin"
+    const raw = levelField.elmType || levelField.originalType || '';
+    // Convert PascalCase to camelCase: HostAdmin -> hostAdmin
+    return raw.charAt(0).toLowerCase() + raw.slice(1);
+}
+
 // Generate Express route for an API endpoint
 function generateRoute(api) {
     const { name, path: apiPath, fields, _elm } = api;
@@ -60,9 +79,13 @@ function generateRoute(api) {
         ` */`
     ].filter(Boolean).join('\n');
 
+    // Auth middleware if endpoint declares Auth type
+    const authLevel = extractAuthLevel(_elm);
+    const authMiddleware = authLevel ? `requireAuth('${authLevel}'), ` : '';
+
     return `
 ${jsdocLines}
-server.app.post('/api/${apiPath}', async (req, res) => {
+server.app.post('/api/${apiPath}', ${authMiddleware}async (req, res) => {
     const host = req.tenant?.host || 'localhost';
 
     try {
@@ -1014,6 +1037,9 @@ function generateApiRoutes(config = {}) {
     // Generate Elm backend types for each API (including union types)
     const elmBackendCode = generateElmBackendTypes(allApis, allUnionTypes);
 
+    // Check if any endpoint requires auth
+    const hasAuthEndpoints = rawElmApis.some(api => extractAuthLevel(api) != null);
+
     const outputContent = `/**
  * Auto-Generated API Routes
  * Generated from Elm API definitions in shared/Api/
@@ -1031,6 +1057,7 @@ function generateApiRoutes(config = {}) {
  */
 export default function registerApiRoutes(server) {
     console.log('🚀 Registering auto-generated API routes...');
+${hasAuthEndpoints ? `\n    // Auth enforcement helper (registered by auth-resolver middleware)\n    const requireAuth = server.requireAuth || ((level) => (req, res, next) => next());\n` : ''}
 
 ${allRoutes}
 

@@ -1014,6 +1014,7 @@ export function parseApiModule(content, filename) {
         request: null,
         response: null,
         serverContext: null,
+        auth: null,
         helperTypes: [],
         unionTypes: parsed.unionTypes, // Include union types!
         moduleDocComment: parsed.moduleDocComment,
@@ -1049,6 +1050,8 @@ export function parseApiModule(content, filename) {
             result.response = typeInfo;
         } else if (typeAlias.name === 'ServerContext') {
             result.serverContext = typeInfo;
+        } else if (typeAlias.name === 'Auth') {
+            result.auth = typeInfo;
         } else {
             result.helperTypes.push(typeInfo);
         }

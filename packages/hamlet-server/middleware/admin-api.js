@@ -101,6 +101,78 @@ export default function createAdminApi(server) {
     // Use the shared admin authentication middleware
     const requireAdmin = createAdminAuth();
 
+    // ========================================================================
+    // Host Key Management — /_keys routes
+    // ========================================================================
+
+    // List active keys for the current host
+    server.app.get('/admin/api/_keys', requireAdmin, async (req, res) => {
+        try {
+            const rawHost = req.get('X-Forwarded-Host') || req.get('Host');
+            const host = rawHost ? rawHost.split(':')[0] : 'localhost';
+
+            const result = await db.query(
+                `SELECT id, target_host, key, label, created_at, revoked_at
+                 FROM hamlet_host_keys
+                 WHERE target_host = $1
+                 ORDER BY created_at DESC`,
+                [host]
+            );
+
+            res.json(result.rows);
+        } catch (error) {
+            console.error('Admin _keys list error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Create a new host key
+    server.app.post('/admin/api/_keys', requireAdmin, async (req, res) => {
+        try {
+            const rawHost = req.get('X-Forwarded-Host') || req.get('Host');
+            const host = rawHost ? rawHost.split(':')[0] : 'localhost';
+            const { label } = req.body || {};
+
+            const result = await db.query(
+                `INSERT INTO hamlet_host_keys (target_host, key, label)
+                 VALUES ($1, gen_random_uuid()::text, $2)
+                 RETURNING id, target_host, key, label, created_at`,
+                [host, label || null]
+            );
+
+            res.status(201).json(result.rows[0]);
+        } catch (error) {
+            console.error('Admin _keys create error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Revoke a host key (soft-delete via revoked_at)
+    server.app.delete('/admin/api/_keys/:id', requireAdmin, async (req, res) => {
+        try {
+            const { id } = req.params;
+            const rawHost = req.get('X-Forwarded-Host') || req.get('Host');
+            const host = rawHost ? rawHost.split(':')[0] : 'localhost';
+
+            const result = await db.query(
+                `UPDATE hamlet_host_keys
+                 SET revoked_at = NOW()
+                 WHERE id = $1 AND target_host = $2 AND revoked_at IS NULL
+                 RETURNING id`,
+                [id, host]
+            );
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Key not found or already revoked' });
+            }
+
+            res.status(204).send();
+        } catch (error) {
+            console.error('Admin _keys revoke error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
     // Schema endpoint - MUST come before generic /:resource routes
     server.app.get('/admin/api/schema', requireAdmin, async (req, res) => {
         try {

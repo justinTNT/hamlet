@@ -75,6 +75,32 @@ type alias MaxLength a =
 
 
 
+-- AUTH LEVELS
+-- Declare in a `type alias Auth` to gate an endpoint.
+-- Endpoints without Auth are public (NoAdmin).
+--
+-- type alias Auth = { level : HostAdmin }
+
+
+{-| No admin privileges required (default).
+-}
+type alias NoAdmin =
+    {}
+
+
+{-| Host-level admin — requires a valid X-Hamlet-Host-Key.
+-}
+type alias HostAdmin =
+    {}
+
+
+{-| Project-level admin — requires a valid X-Hamlet-Project-Key.
+-}
+type alias ProjectAdmin =
+    {}
+
+
+
 -- COMPOSED EXAMPLE
 -- { text : Required (Trim (MinLength (MaxLength String))) }
 -- Parser unwraps: Required → Trim → MinLength → MaxLength → String

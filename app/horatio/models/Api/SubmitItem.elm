@@ -12,6 +12,12 @@ import Interface.Schema exposing (RichContent)
 import Api.SubmitComment exposing (CommentItem)
 
 
+{-| Auth requirement — host-level key needed for posting.
+-}
+type alias Auth =
+    { level : HostAdmin }
+
+
 {-| Request payload for submitting an item.
 -}
 type alias Request =

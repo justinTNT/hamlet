@@ -138,11 +138,12 @@ function htmlToTiptapJson(html) {
 
 function setupPorts(app) {
     app.ports.outbound.subscribe(function (msg) {
-        // Message format: { apiUrl: string, payload: { endpoint, body, correlationId } }
-        const { apiUrl, payload } = msg;
+        // Message format: { apiUrl: string, hostKey: string, payload: { endpoint, body, correlationId } }
+        const { apiUrl, hostKey, payload } = msg;
         const request = {
             ...payload,
-            apiUrl: apiUrl
+            apiUrl: apiUrl,
+            hostKey: hostKey || ''
         };
 
         console.log("Popup sending message:", request);
@@ -193,6 +194,19 @@ function setupPorts(app) {
         chrome.storage.local.get(['hosts'], function (result) {
             console.log("Hosts loaded:", result.hosts);
             app.ports.hostsLoaded.send(result.hosts || []);
+        });
+    });
+
+    // Project key ports (single value for all hosts)
+    app.ports.saveProjectKey.subscribe(function (key) {
+        chrome.storage.local.set({ projectKey: key }, function () {
+            console.log("Project key saved");
+        });
+    });
+
+    app.ports.loadProjectKey.subscribe(function () {
+        chrome.storage.local.get(['projectKey'], function (result) {
+            app.ports.projectKeyLoaded.send(result.projectKey || '');
         });
     });
 
