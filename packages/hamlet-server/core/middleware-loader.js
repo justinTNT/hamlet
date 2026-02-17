@@ -16,6 +16,7 @@ export class MiddlewareLoader {
             hasKeyValueStore: this.server.config.features?.kv !== false,
             hasServerSentEvents: this.server.config.features?.sse !== false,
             hasDatabase: this.server.config.features?.database === true,
+            hasBlob: this.server.config.features?.blob === true,
         };
     }
 
@@ -36,6 +37,10 @@ export class MiddlewareLoader {
             await this.loadMiddleware('auth-resolver');
             // Host resolver: maps hostname -> project (depends on database + tenant isolation)
             await this.loadMiddleware('host-resolver');
+        }
+
+        if (features.hasBlob) {
+            await this.loadMiddleware('blob-storage');
         }
 
         if (features.hasKeyValueStore) {

@@ -127,6 +127,159 @@ ${validationChecks}
 }
 
 /**
+ * Check if an API definition represents an upload endpoint
+ * (has a field with upload annotation)
+ */
+function isUploadEndpoint(api) {
+    return api.fields.some(f => f.annotations.upload);
+}
+
+/**
+ * Get the accept mime pattern from an upload endpoint's fields
+ */
+function getUploadAcceptPattern(api) {
+    for (const f of api.fields) {
+        if (f.annotations.accept) {
+            return f.annotations.accept;
+        }
+    }
+    return 'image/*'; // default
+}
+
+/**
+ * Generate Express route for an upload (multipart) API endpoint.
+ * Uses busboy for streaming file upload + blob service for storage.
+ */
+function generateUploadRoute(api) {
+    const { name, path: apiPath, _elm } = api;
+    const acceptPattern = getUploadAcceptPattern(api);
+
+    // Auth middleware if endpoint declares Auth type
+    const authLevel = extractAuthLevel(_elm);
+    const authMiddleware = authLevel ? `requireAuth('${authLevel}'), ` : '';
+
+    return `
+/**
+ * ${name} - Auto-generated upload route
+ * @route POST /api/${apiPath}
+ * @generated from ${api.filename}
+ */
+server.app.post('/api/${apiPath}', ${authMiddleware}async (req, res) => {
+    const host = req.tenant?.host || 'localhost';
+
+    const contentType = req.headers['content-type'] || '';
+    if (!contentType.includes('multipart/form-data')) {
+        return res.status(400).json({ error: 'Expected multipart/form-data' });
+    }
+
+    const blobService = server.getService('blob');
+    if (!blobService) {
+        return res.status(500).json({ error: 'Blob service not available' });
+    }
+
+    try {
+        const { default: Busboy } = await import('busboy');
+        const blobConfig = blobService.config || {};
+        const maxSizeBytes = blobConfig.maxSizeBytes || 10 * 1024 * 1024;
+
+        const bb = Busboy({
+            headers: req.headers,
+            limits: { fileSize: maxSizeBytes, files: 1 }
+        });
+
+        let fileProcessed = false;
+        let uploadResult = null;
+        let uploadError = null;
+
+        bb.on('file', (fieldname, stream, info) => {
+            const { filename, mimeType } = info;
+
+            if (fileProcessed) {
+                stream.resume();
+                return;
+            }
+            fileProcessed = true;
+
+            // Validate mime type against Accept pattern
+            const acceptPattern = ${JSON.stringify(acceptPattern)};
+            if (!blobService.isMimeAllowed(mimeType, [acceptPattern])) {
+                stream.resume();
+                uploadError = { status: 415, message: \`Mime type not allowed: \${mimeType}. Expected: ${acceptPattern}\` };
+                return;
+            }
+
+            let truncated = false;
+            stream.on('limit', () => {
+                truncated = true;
+            });
+
+            blobService.put(host, stream, { filename, mimeType })
+                .then(result => {
+                    if (truncated) {
+                        blobService.delete(host, result.id).catch(() => {});
+                        uploadError = { status: 413, message: 'File exceeds size limit' };
+                    } else {
+                        uploadResult = result;
+                    }
+                })
+                .catch(err => {
+                    if (err.message === 'FILE_TOO_LARGE') {
+                        uploadError = { status: 413, message: 'File exceeds size limit' };
+                    } else {
+                        uploadError = { status: 500, message: err.message };
+                    }
+                });
+        });
+
+        bb.on('close', () => {
+            if (uploadError) {
+                return res.status(uploadError.status).json({ error: uploadError.message });
+            }
+            if (!uploadResult) {
+                return res.status(400).json({ error: 'No file uploaded' });
+            }
+            res.status(201).json(uploadResult);
+        });
+
+        bb.on('error', (err) => {
+            console.error(\`Error handling ${apiPath} upload:\`, err);
+            res.status(500).json({ error: 'Upload failed' });
+        });
+
+        req.pipe(bb);
+
+    } catch (error) {
+        console.error(\`Error handling ${apiPath}:\`, error);
+        res.status(500).json({ error: error.message });
+    }
+});`.trim();
+}
+
+/**
+ * Generate Elm HTTP function for upload endpoint (file-based).
+ * Uses Http.multipartBody with Http.filePart.
+ */
+function generateElmUploadFunction(api) {
+    const functionName = `${api.path.toLowerCase()}`;
+    const responseType = `${api.path}Res`;
+    const decoderName = `${lcFirst(api.path)}ResDecoder`;
+
+    return `{-| Upload file to ${api.path} endpoint
+-}
+${functionName} : File.File -> (Result Http.Error ${responseType} -> msg) -> Cmd msg
+${functionName} file toMsg =
+    Http.request
+        { method = "POST"
+        , headers = []
+        , url = "/api/${api.path}"
+        , body = Http.multipartBody [ Http.filePart "file" file ]
+        , expect = Http.expectJson toMsg ${decoderName}
+        , timeout = Nothing
+        , tracker = Nothing
+        }`;
+}
+
+/**
  * Map an Elm model type to its generated Elm wire type.
  * RichContent is a String alias in the model but is JSON on the wire.
  */
@@ -292,15 +445,22 @@ function generateElmApiClient(allApis, rawElmApis = [], dbReferences = new Set()
     // Combine all types that need definitions and decoders
     const allResponseTypes = [...helperTypes, ...responseTypes];
 
+    // Check if any endpoint is an upload endpoint (needs File import)
+    const hasUploadEndpoints = allApis.some(isUploadEndpoint);
+
     // Generate module exports
     const moduleDeclarations = [];
 
-    // Request types and encoders
+    // Request types and encoders (skip for upload endpoints — they use File, not JSON)
     for (const api of allApis) {
         const functionName = api.path.toLowerCase();
-        const typeName = api.struct_name;
-        const encoderName = `encode${api.struct_name}`;
-        moduleDeclarations.push(`${functionName}, ${typeName}, ${encoderName}`);
+        if (isUploadEndpoint(api)) {
+            moduleDeclarations.push(`${functionName}`);
+        } else {
+            const typeName = api.struct_name;
+            const encoderName = `encode${api.struct_name}`;
+            moduleDeclarations.push(`${functionName}, ${typeName}, ${encoderName}`);
+        }
     }
 
     // Response types and decoders
@@ -309,16 +469,17 @@ function generateElmApiClient(allApis, rawElmApis = [], dbReferences = new Set()
         moduleDeclarations.push(`${resType.name}, ${decoderName}`);
     }
 
-    // Generate request type definitions
-    const requestTypeDefinitions = allApis.map(generateElmTypeDefinition).join('\n\n');
+    // Generate request type definitions (skip upload endpoints)
+    const nonUploadApis = allApis.filter(api => !isUploadEndpoint(api));
+    const requestTypeDefinitions = nonUploadApis.map(generateElmTypeDefinition).join('\n\n');
 
     // Generate response type definitions using the backend generator functions
     const responseTypeDefinitions = allResponseTypes.map(t =>
         generateBackendTypeAlias(t.name, t.fields)
     ).join('\n\n');
 
-    // Generate request encoders
-    const requestEncoders = allApis.map(generateElmEncoder).join('\n\n');
+    // Generate request encoders (skip upload endpoints)
+    const requestEncoders = nonUploadApis.map(generateElmEncoder).join('\n\n');
 
     // Generate response decoders
     const responseDecoders = allResponseTypes.map(t =>
@@ -326,7 +487,11 @@ function generateElmApiClient(allApis, rawElmApis = [], dbReferences = new Set()
     ).join('\n\n');
 
     // Generate HTTP functions (with typed responses where available)
+    // Upload endpoints get file-based functions instead of JSON-based
     const httpFunctions = allApis.map(api => {
+        if (isUploadEndpoint(api)) {
+            return generateElmUploadFunction(api);
+        }
         const rawApi = rawApiMap.get(api.path);
         const hasTypedResponse = rawApi && rawApi.response && rawApi.response.fields;
         return generateElmHttpFunction(api, hasTypedResponse);
@@ -348,7 +513,7 @@ module BuildAmp.ApiClient exposing
     ( ${moduleDeclarations.join('\n    , ')}
     )
 
-import Http
+${hasUploadEndpoints ? 'import File\n' : ''}import Http
 import Json.Decode
 import Json.Encode
 ${crossModelImports}
@@ -960,6 +1125,12 @@ function convertElmApiToGeneratorFormat(elmApi) {
         if (annotations.trim) {
             result.trim = true;
         }
+        if (annotations.upload) {
+            result.upload = true;
+        }
+        if (annotations.accept) {
+            result.accept = annotations.accept;
+        }
         return result;
     };
 
@@ -1028,8 +1199,10 @@ function generateApiRoutes(config = {}) {
         console.log(`🔗 Found cross-model DB references: ${dbReferencesArray.join(', ')}`);
     }
 
-    // Generate JavaScript routes for each API
-    const allRoutes = allApis.map(generateRoute).join('\n\n');
+    // Generate JavaScript routes for each API (upload endpoints get busboy-based routes)
+    const allRoutes = allApis.map(api =>
+        isUploadEndpoint(api) ? generateUploadRoute(api) : generateRoute(api)
+    ).join('\n\n');
 
     // Generate Elm client code for each API (with response types and cross-model imports)
     const elmClientCode = generateElmApiClient(allApis, rawElmApis, allDbReferences);
@@ -1452,6 +1625,11 @@ export const _test = {
     generateElmBackendTypes,
     generateUnionTypesCode,
     convertElmApiToGeneratorFormat,
+    // Upload endpoint generation
+    isUploadEndpoint,
+    getUploadAcceptPattern,
+    generateUploadRoute,
+    generateElmUploadFunction,
     // Backend API module generation
     generateElmBackend,
     generateBackendTypeAlias,

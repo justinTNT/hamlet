@@ -20,8 +20,9 @@ const config = {
     features: {
         database: true, // Enable PostgreSQL integration
         kv: true,       // Enable key-value store
-        sse: true,      // Enable server-sent events  
-        wasm: true      // Enable BuildAmp WASM integration
+        sse: true,      // Enable server-sent events
+        wasm: true,     // Enable BuildAmp WASM integration
+        blob: true      // Enable blob storage for file uploads
     },
     // Per-project admin keys (routes env var through config)
     projectKeys: {

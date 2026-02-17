@@ -882,7 +882,7 @@ export function parseElmSchemaDirFull(schemaDir) {
 // API PARSING
 // =============================================================================
 
-const API_WRAPPERS = ['Required', 'Trim'];
+const API_WRAPPERS = ['Required', 'Trim', 'Upload', 'Accept'];
 
 /**
  * Parse validation tags from a comment string
@@ -975,8 +975,24 @@ function unwrapApiAnnotations(elmType) {
         let foundWrapper = false;
         for (const wrapper of API_WRAPPERS) {
             if (current.startsWith(wrapper + ' ') || current.startsWith(wrapper + '(')) {
-                annotations[wrapper.toLowerCase()] = true;
-                current = extractInnerType(current, wrapper);
+                const inner = extractInnerType(current, wrapper);
+
+                if (wrapper === 'Accept') {
+                    // Accept carries a string literal: Accept "image/*"
+                    // Extract the quoted string as the accept pattern
+                    const stringMatch = inner.match(/^"([^"]+)"$/);
+                    if (stringMatch) {
+                        annotations.accept = stringMatch[1];
+                        // Accept wraps a string literal, so base type is consumed
+                        current = 'String';
+                    } else {
+                        annotations.accept = inner;
+                        current = inner;
+                    }
+                } else {
+                    annotations[wrapper.toLowerCase()] = true;
+                    current = inner;
+                }
                 foundWrapper = true;
                 break;
             }

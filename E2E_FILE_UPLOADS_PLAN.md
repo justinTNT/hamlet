@@ -1,142 +1,219 @@
 # End-to-End File Upload Implementation Plan
 
 ## Goal
-Enable **Type-Safe, Blob-Agnostic File Uploads** for Hamlet apps.
-This plan prioritizes infrastructure (Blob Adapter) -> Service Logic -> API -> Frontend.
+Enable **Blob-Agnostic File Uploads** for Hamlet apps.
+Infrastructure (Blob Adapter) → Routes (Upload + Download) → TipTap Integration.
 
 ## User Review Required
 > [!IMPORTANT]
 > **Blob Storage Location**:
-> For **Bun (Local)**, uploads will go to `app/{project}/storage/uploads`.
-> For **Production**, you will swap the adapter for S3/R2 later.
+> For **Local dev**, uploads go to `storage/blobs/{host}/` relative to CWD.
+> For **Production**, swap the adapter for S3/R2 later.
 >
 > **Database**:
-> A new `file_uploads` table is required. This plan includes the SQL migration.
+> A new framework migration adds the `blob_metadata` table (tracked in `framework_migrations`).
 
 ---
 
-## Phase 1: Infrastructure (The Blob Adapter)
-We implement the "Shim" for file storage. This decouples "saving a file" from "the filesystem".
+## Phase 1: Blob Storage Middleware
+
+A single middleware that owns the storage adapter, the metadata table, and the HTTP routes.
+Follows the `key-value-store.js` pattern: registers a service, implements cleanup.
 
 ### `packages/hamlet-server`
-#### [NEW] [middleware/blob-storage.js](file:///Users/jtnt/Play/hamlet/packages/hamlet-server/middleware/blob-storage.js)
-- **Interface**: `put(tenant, key, stream)`, `get(tenant, key)`, `delete(tenant, key)`.
-- **Implementation**: `LocalBlobStore` using `fs` (Bun-compatible).
-- **Registration**: Registers as `server.services.blob` (accessible by other middleware).
 
-#### [MODIFY] [core/server.js](file:///Users/jtnt/Play/hamlet/packages/hamlet-server/core/server.js)
-- Load `blob-storage` middleware by default (or via config).
+#### [NEW] `middleware/blob-storage.js`
+
+**Service interface** (registered as `blob`):
+```js
+{
+    put(host, stream, metadata)   → { id, url }
+    get(host, id)                 → { stream, mime, filename }
+    meta(host, id)                → { id, originalName, mimeType, sizeBytes, createdAt }
+    delete(host, id)              → void
+    cleanup()                     → void
+}
+```
+
+- `put` generates a UUID v4 as the blob ID (consistent with existing ID generation).
+- Files land in `storage/blobs/{host}/{id}` on the local adapter.
+- Metadata row inserted into `blob_metadata` in the same call.
+
+**HTTP routes** (mounted by the middleware itself, like admin-api does):
+```
+POST   /api/blobs          — multipart upload  → { id, url }
+GET    /api/blobs/:id      — stream download (Content-Type from metadata)
+DELETE /api/blobs/:id      — remove blob + metadata
+```
+
+**Multipart handling**: Use `busboy` (streaming, no temp files, works with Node and Bun).
+The upload route is mounted directly on `server.app` before `bodyParser.json()` runs,
+or uses `express.raw()` scoped to `/api/blobs` to avoid the JSON parser conflict.
+
+**Auth**: Upload and delete require `hostAdmin` or above. Download is unauthenticated
+(blob IDs are unguessable UUIDs, same model as signed URLs without expiry).
+
+**Limits** (configurable via `server.config.blob`):
+| Setting        | Default   |
+|----------------|-----------|
+| `maxSizeBytes` | 10 MB     |
+| `allowedMimes` | `image/*` |
+
+#### [NEW] `migrations/003_blob_metadata.sql`
+
+Framework migration (tracked in `framework_migrations`, shared across all projects):
+```sql
+CREATE TABLE IF NOT EXISTS blob_metadata (
+    id TEXT PRIMARY KEY,
+    host TEXT NOT NULL,
+    original_name TEXT NOT NULL,
+    mime_type TEXT,
+    size_bytes INTEGER,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_blob_metadata_host ON blob_metadata(host);
+```
+
+No foreign key to `hamlet_hosts` — blobs can exist for any tenant hostname,
+same as other host-scoped tables.
+
+#### [MODIFY] `core/middleware-loader.js`
+
+Add feature detection and loading:
+```js
+detectFeatures() {
+    return {
+        // ...existing...
+        hasBlob: this.server.config.features?.blob === true,
+    };
+}
+
+async loadRequiredMiddleware() {
+    // ...after host-resolver, before kv...
+    if (features.hasBlob) {
+        await this.loadMiddleware('blob-storage');
+    }
+    // ...
+}
+```
+
+Blob depends on database (for metadata table) so it loads after the database block.
+
+#### [MODIFY] `package.json`
+
+Add dependency: `busboy`.
+
+### `app/horatio/server/server.js`
+
+Add feature flag:
+```js
+features: {
+    database: true,
+    kv: true,
+    sse: true,
+    wasm: true,
+    blob: true     // ← new
+}
+```
 
 ---
 
-## Phase 2: Backend Logic (The Upload Service)
-We need to track *what* files we have, not just store bytes.
+## Phase 2: TipTap Image Integration
 
-### `app/horatio` (and templates)
-#### [NEW] [migrations/00X_create_file_uploads.sql](file:///Users/jtnt/Play/hamlet/app/horatio/db/migrations/20260117_create_file_uploads.sql)
-- Table: `file_uploads`
-- Columns: `id`, `original_name`, `mime_type`, `size`, `blob_key`, `host`, `created_at`.
-- Indices: `blob_key`, `host`.
+Wire the rich-text editor to the blob upload infrastructure.
 
 ### `packages/hamlet-server`
-#### [NEW] [middleware/upload-service.js](file:///Users/jtnt/Play/hamlet/packages/hamlet-server/middleware/upload-service.js)
-- **Purpose**: High-level API for handling uploads.
-- **Methods**:
-    - `acceptUpload(tenant, fileStream, metadata)`:
-        1. Generates `file_id`.
-        2. Streams to `BlobStore`.
-        3. Inserts into `file_uploads`.
-        4. Returns `file_id`.
-- **Registration**: Registers as `server.services.uploads`.
 
----
+#### [MODIFY] `package.json`
+Add dependency: `@tiptap/extension-image`
 
-## Phase 3: API Endpoint (The Connector)
-The HTTP interface that accepts the multipart POST.
+#### [MODIFY] `rich-text/tiptap-editor.js`
 
-### `packages/hamlet-server`
-#### [NEW] [middleware/upload-routes.js](file:///Users/jtnt/Play/hamlet/packages/hamlet-server/middleware/upload-routes.js)
-- **Route**: `POST /api/uploads`
-- **Logic**:
-    - Uses `busboy` (or `multer` if simpler for Bun) to parse multipart.
-    - Validates request (size, mime type checking).
-    - Calls `server.services.uploads.acceptUpload()`.
-    - Returns JSON `{ file_id: "...", url: "..." }`.
+Current toolbar groups: formatting, headings, lists/blocks, alignment, colours.
 
----
-
-## Phase 4: Frontend Integration (The Ergonomics)
-How the browser talks to Phase 3.
-
-### `packages/buildamp` (Future Generator Work)
-- **Goal**: Generate `Api.Upload` Elm module.
-- **Status**: This plan focuses on ensuring the **Backend (Phases 1-3)** is ready to accept what the frontend sends.
-- **Manual Test**: We will verify Phase 3 using `curl` or a simple HTML form first.
-
----
-
-## Phase 5: TipTap Image Integration
-Now that we have shared rich-text editing via `hamlet-server/rich-text`, we wire it up to the upload infrastructure.
-
-### `packages/hamlet-server`
-#### [MODIFY] [package.json](file:///Users/jtnt/Play/hamlet/packages/hamlet-server/package.json)
-- Add dependency: `@tiptap/extension-image`
-
-#### [MODIFY] [rich-text/tiptap-editor.js](file:///Users/jtnt/Play/hamlet/packages/hamlet-server/rich-text/tiptap-editor.js)
-- Import and configure `Image` extension
-- Add 🖼️ toolbar button (between link and headings)
-- Button click triggers file picker for images (`accept="image/*"`)
+Changes:
+- Import and register `Image` extension (with `inline: false`).
+- Add image button to toolbar group 2 (between link and H1).
+- Button click opens a file picker (`accept="image/*"`).
 - On file select:
-  1. Create `FormData` with file
-  2. `POST /api/uploads`
+  1. Build `FormData`, append file.
+  2. `POST /api/blobs` with appropriate auth header.
   3. On success: `editor.chain().focus().setImage({ src: response.url }).run()`
-  4. On error: Show alert or status message
+  4. On error: console.error (no UI chrome needed yet).
+- The editor already receives config via its constructor options; add an optional
+  `uploadEndpoint` field (default: `'/api/blobs'`).
 
-#### [MODIFY] [rich-text/styles.css](file:///Users/jtnt/Play/hamlet/packages/hamlet-server/rich-text/styles.css)
-- Style for images in editor (max-width, cursor, selection ring)
-- Optional: drag handle for repositioning
+#### [MODIFY] `rich-text/styles.css`
 
-### Configuration
-The editor needs to know the upload endpoint. Options:
-1. **Convention**: Always `/api/uploads` (simplest)
-2. **Config option**: `createRichTextEditor({ uploadEndpoint: '/api/uploads', ... })`
+Add image styles:
+```css
+.hamlet-rt-editor img {
+    max-width: 100%;
+    height: auto;
+    cursor: default;
+}
+.hamlet-rt-editor img.ProseMirror-selectednode {
+    outline: 2px solid var(--hamlet-accent, #3b82f6);
+}
+```
 
 ### Flow
 ```
-User clicks 🖼️ → File picker (images only) →
-Upload to /api/uploads →
-Get { file_id, url } →
+User clicks image button → file picker (images only) →
+POST /api/blobs →
+{ id, url } →
 editor.chain().setImage({ src: url }).run()
 ```
 
-### Future Enhancements (not in this phase)
-- Drag & drop images into editor
-- Paste images from clipboard
-- Upload progress indicator
-- Image resize handles
+---
+
+## Verification
+
+### Automated Tests
+
+**Blob adapter** (`tests/middleware/blob-storage.test.js`):
+- `put` writes file to disk and inserts metadata row.
+- `get` returns readable stream with correct mime type.
+- `meta` returns metadata without streaming.
+- `delete` removes file and metadata row.
+- Tenant isolation: host A cannot read host B's blob.
+- Rejects files exceeding `maxSizeBytes`.
+- Rejects disallowed mime types.
+
+**Upload route** (supertest):
+- `POST /api/blobs` with multipart form data → 201, returns `{ id, url }`.
+- `GET /api/blobs/:id` streams file back with correct Content-Type.
+- `DELETE /api/blobs/:id` → 204, subsequent GET → 404.
+- Missing auth → 401.
+- Oversized file → 413.
+
+### Manual Verification
+
+1. Start server, confirm `blob-storage` appears in loaded features.
+2. `curl -F "file=@test.png" -H "X-Hamlet-Host-Key: ..." http://localhost:3000/api/blobs`
+3. Verify file exists in `storage/blobs/localhost/`.
+4. Verify `blob_metadata` row in psql.
+5. Open admin UI, edit a RichContent field, click image button, upload, save, reload.
 
 ---
 
-## Verification Plan
+## Files Summary
 
-### Automated Tests
-1.  **Blob Adapter Test**: fast/unit test.
-    - Write "hello.txt" -> Read "hello.txt" -> Delete -> Verify Gone.
-2.  **Service Integration Test**:
-    - Mock `BlobAdapter`.
-    - Call `acceptUpload`.
-    - Verify DB row created + Blob method called.
+| File | Change |
+|------|--------|
+| `packages/hamlet-server/middleware/blob-storage.js` | **NEW** — adapter, service, routes |
+| `packages/hamlet-server/migrations/003_blob_metadata.sql` | **NEW** — framework migration |
+| `packages/hamlet-server/core/middleware-loader.js` | Add `hasBlob` feature detection + loading |
+| `packages/hamlet-server/package.json` | Add `busboy`, `@tiptap/extension-image` |
+| `packages/hamlet-server/rich-text/tiptap-editor.js` | Image extension + upload button |
+| `packages/hamlet-server/rich-text/styles.css` | Image display styles |
+| `app/horatio/server/server.js` | Add `blob: true` feature flag |
+| `packages/hamlet-server/tests/middleware/blob-storage.test.js` | **NEW** — adapter + route tests |
 
-### Manual Verification (Phases 1-4)
-1.  Start Server (Bun).
-2.  Run migration.
-3.  `curl -F "file=@test.png" http://localhost:3000/api/uploads`
-4.  Check `storage/uploads` folder for file.
-5.  Check `psql` for `file_uploads` row.
-
-### Manual Verification (Phase 5 - TipTap)
-1.  Open admin UI with a RichContent field
-2.  Click 🖼️ button in toolbar
-3.  Select an image file
-4.  Verify image appears in editor
-5.  Save record, reload, verify image persists
+## Not In Scope
+- Drag & drop / paste images into editor
+- Upload progress indicator
+- Image resize handles
+- S3/R2 adapter (swap later — same interface)
+- BuildAmp generator for upload types (manual Elm for now)

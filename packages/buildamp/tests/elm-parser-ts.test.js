@@ -490,6 +490,33 @@ type Status
         assert.strictEqual(result.unionTypes.length, 1);
         assert.strictEqual(result.unionTypes[0].name, 'Status');
     });
+
+    test('parseApiModule parses Upload (Accept "image/*") annotation', () => {
+        const source = `
+module Api.UploadImage exposing (..)
+
+import Interface.Api exposing (Upload, Accept)
+
+type alias Request =
+    { file : Upload (Accept "image/*")
+    }
+
+type alias Response =
+    { id : String
+    , url : String
+    }
+`;
+        const result = parseApiModule(source, 'UploadImage.elm');
+
+        assert.ok(result);
+        assert.strictEqual(result.name, 'UploadImage');
+        assert.strictEqual(result.request.fields.length, 1);
+
+        const fileField = result.request.fields[0];
+        assert.strictEqual(fileField.camelName, 'file');
+        assert.ok(fileField.annotations.upload, 'Should have upload annotation');
+        assert.strictEqual(fileField.annotations.accept, 'image/*', 'Should extract accept mime pattern');
+    });
 });
 
 // =============================================================================

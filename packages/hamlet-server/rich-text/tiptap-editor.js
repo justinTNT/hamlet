@@ -6,14 +6,314 @@
  */
 
 import { Editor } from '@tiptap/core'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
+import Image from '@tiptap/extension-image'
 import TextAlign from '@tiptap/extension-text-align'
 import { Color } from '@tiptap/extension-color'
 import TextStyle from '@tiptap/extension-text-style'
 import Highlight from '@tiptap/extension-highlight'
 
 const editors = new Map()
+
+// =============================================================================
+// IMAGE UPLOAD HELPER
+// =============================================================================
+
+/**
+ * A single data-URI placeholder shown while uploading.
+ * 1×1 transparent GIF — the CSS class handles the visual.
+ */
+const PLACEHOLDER_SRC = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+
+let placeholderId = 0
+
+/**
+ * Upload a file to the blob endpoint and insert the image into the editor.
+ * Shows a placeholder with a progress bar while uploading.
+ *
+ * @param {Editor} editor - The TipTap editor
+ * @param {File} file - The image file to upload
+ * @param {HTMLElement} container - The editor container (holds _hamletUploadEndpoint)
+ * @param {number} [insertPos] - Optional ProseMirror position to insert at
+ */
+function uploadAndInsertImage(editor, file, container, insertPos) {
+    const endpoint = container._hamletUploadEndpoint || '/api/blobs'
+    const id = `upload-${++placeholderId}`
+
+    // Determine insert position
+    const pos = insertPos != null ? insertPos : editor.state.selection.anchor
+
+    // Insert placeholder node
+    const { tr } = editor.state
+    const placeholderNode = editor.state.schema.nodes.image.create({
+        src: PLACEHOLDER_SRC,
+        alt: 'Uploading…',
+        'data-upload-id': id,
+    })
+    tr.insert(pos, placeholderNode)
+    editor.view.dispatch(tr)
+
+    // Upload via XHR for progress events
+    const xhr = new XMLHttpRequest()
+    const formData = new FormData()
+    formData.append('file', file)
+
+    xhr.upload.addEventListener('progress', (e) => {
+        if (!e.lengthComputable) return
+        const pct = Math.round((e.loaded / e.total) * 100)
+        // Update the progress overlay on the placeholder
+        const placeholderEl = container.querySelector(`img[data-upload-id="${id}"]`)
+        if (placeholderEl) {
+            const wrapper = placeholderEl.closest('.hamlet-rt-img-upload')
+            if (wrapper) {
+                const bar = wrapper.querySelector('.hamlet-rt-upload-bar')
+                if (bar) bar.style.width = `${pct}%`
+            }
+        }
+    })
+
+    xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+                const data = JSON.parse(xhr.responseText)
+                // Find and replace the placeholder with the real image
+                replacePlaceholder(editor, id, data.url)
+            } catch (err) {
+                console.error('[hamlet-rt] Failed to parse upload response:', err)
+                removePlaceholder(editor, id)
+            }
+        } else {
+            console.error(`[hamlet-rt] Upload failed: ${xhr.status}`)
+            removePlaceholder(editor, id)
+        }
+    })
+
+    xhr.addEventListener('error', () => {
+        console.error('[hamlet-rt] Upload network error')
+        removePlaceholder(editor, id)
+    })
+
+    xhr.open('POST', endpoint)
+    xhr.send(formData)
+}
+
+/**
+ * Replace a placeholder image node with the final URL.
+ */
+function replacePlaceholder(editor, uploadId, url) {
+    const { doc, tr } = editor.state
+    doc.descendants((node, pos) => {
+        if (node.type.name === 'image' && node.attrs['data-upload-id'] === uploadId) {
+            tr.setNodeMarkup(pos, null, {
+                ...node.attrs,
+                src: url,
+                alt: null,
+                'data-upload-id': null,
+            })
+            return false // stop searching
+        }
+    })
+    editor.view.dispatch(tr)
+}
+
+/**
+ * Remove a placeholder image node (on upload failure).
+ */
+function removePlaceholder(editor, uploadId) {
+    const { doc, tr } = editor.state
+    doc.descendants((node, pos) => {
+        if (node.type.name === 'image' && node.attrs['data-upload-id'] === uploadId) {
+            tr.delete(pos, pos + node.nodeSize)
+            return false
+        }
+    })
+    editor.view.dispatch(tr)
+}
+
+/**
+ * Extract image files from a DataTransfer (drop or paste).
+ */
+function getImageFiles(dataTransfer) {
+    const files = []
+    if (dataTransfer?.files) {
+        for (const file of dataTransfer.files) {
+            if (file.type.startsWith('image/')) {
+                files.push(file)
+            }
+        }
+    }
+    return files
+}
+
+// =============================================================================
+// RESIZABLE IMAGE NODE VIEW
+// =============================================================================
+
+/**
+ * Creates a ProseMirror NodeView that wraps images in a resizable container.
+ * Corner handles allow drag-to-resize. Width is stored as a node attribute.
+ */
+function createResizableImageView(node, view, getPos) {
+    // Outer wrapper
+    const wrapper = document.createElement('div')
+    wrapper.className = 'hamlet-rt-img-wrapper'
+
+    // If this is an upload placeholder, add the upload overlay
+    const isUploading = node.attrs['data-upload-id'] != null && node.attrs.src === PLACEHOLDER_SRC
+    if (isUploading) {
+        wrapper.classList.add('hamlet-rt-img-upload')
+    }
+
+    // The <img> element
+    const img = document.createElement('img')
+    img.src = node.attrs.src
+    if (node.attrs.alt) img.alt = node.attrs.alt
+    if (node.attrs.title) img.title = node.attrs.title
+    if (node.attrs['data-upload-id']) {
+        img.setAttribute('data-upload-id', node.attrs['data-upload-id'])
+    }
+    // Apply persisted width
+    if (node.attrs.width) {
+        img.style.width = node.attrs.width
+    }
+
+    wrapper.appendChild(img)
+
+    // Upload progress bar overlay
+    if (isUploading) {
+        const overlay = document.createElement('div')
+        overlay.className = 'hamlet-rt-upload-overlay'
+        const bar = document.createElement('div')
+        bar.className = 'hamlet-rt-upload-bar'
+        overlay.appendChild(bar)
+        wrapper.appendChild(overlay)
+    }
+
+    // Resize handle (bottom-right corner)
+    if (!isUploading) {
+        const handle = document.createElement('div')
+        handle.className = 'hamlet-rt-resize-handle'
+
+        let startX, startWidth
+
+        handle.addEventListener('mousedown', (e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            startX = e.clientX
+            startWidth = img.offsetWidth
+
+            wrapper.classList.add('hamlet-rt-resizing')
+
+            const onMouseMove = (e) => {
+                const dx = e.clientX - startX
+                const newWidth = Math.max(50, startWidth + dx)
+                img.style.width = `${newWidth}px`
+            }
+
+            const onMouseUp = () => {
+                document.removeEventListener('mousemove', onMouseMove)
+                document.removeEventListener('mouseup', onMouseUp)
+                wrapper.classList.remove('hamlet-rt-resizing')
+
+                // Persist the width into the ProseMirror node attrs
+                const pos = getPos()
+                if (pos != null) {
+                    const tr = view.state.tr.setNodeMarkup(pos, null, {
+                        ...node.attrs,
+                        width: `${img.offsetWidth}px`,
+                    })
+                    view.dispatch(tr)
+                }
+            }
+
+            document.addEventListener('mousemove', onMouseMove)
+            document.addEventListener('mouseup', onMouseUp)
+        })
+
+        wrapper.appendChild(handle)
+    }
+
+    return {
+        dom: wrapper,
+        update(updatedNode) {
+            if (updatedNode.type.name !== 'image') return false
+            img.src = updatedNode.attrs.src
+            if (updatedNode.attrs.alt) img.alt = updatedNode.attrs.alt
+            else img.removeAttribute('alt')
+            if (updatedNode.attrs.title) img.title = updatedNode.attrs.title
+            if (updatedNode.attrs['data-upload-id']) {
+                img.setAttribute('data-upload-id', updatedNode.attrs['data-upload-id'])
+            } else {
+                img.removeAttribute('data-upload-id')
+            }
+            if (updatedNode.attrs.width) {
+                img.style.width = updatedNode.attrs.width
+            }
+
+            // Transition from uploading to uploaded
+            const wasUploading = wrapper.classList.contains('hamlet-rt-img-upload')
+            const nowUploading = updatedNode.attrs['data-upload-id'] != null && updatedNode.attrs.src === PLACEHOLDER_SRC
+            if (wasUploading && !nowUploading) {
+                wrapper.classList.remove('hamlet-rt-img-upload')
+                const overlay = wrapper.querySelector('.hamlet-rt-upload-overlay')
+                if (overlay) overlay.remove()
+
+                // Add resize handle now that upload is done
+                if (!wrapper.querySelector('.hamlet-rt-resize-handle')) {
+                    const handle = document.createElement('div')
+                    handle.className = 'hamlet-rt-resize-handle'
+                    let startX, startWidth
+
+                    handle.addEventListener('mousedown', (e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        startX = e.clientX
+                        startWidth = img.offsetWidth
+                        wrapper.classList.add('hamlet-rt-resizing')
+
+                        const onMouseMove = (ev) => {
+                            const dx = ev.clientX - startX
+                            const newWidth = Math.max(50, startWidth + dx)
+                            img.style.width = `${newWidth}px`
+                        }
+                        const onMouseUp = () => {
+                            document.removeEventListener('mousemove', onMouseMove)
+                            document.removeEventListener('mouseup', onMouseUp)
+                            wrapper.classList.remove('hamlet-rt-resizing')
+                            const pos = getPos()
+                            if (pos != null) {
+                                const tr = view.state.tr.setNodeMarkup(pos, null, {
+                                    ...updatedNode.attrs,
+                                    width: `${img.offsetWidth}px`,
+                                })
+                                view.dispatch(tr)
+                            }
+                        }
+                        document.addEventListener('mousemove', onMouseMove)
+                        document.addEventListener('mouseup', onMouseUp)
+                    })
+                    wrapper.appendChild(handle)
+                }
+            }
+
+            // Update node reference for closures
+            node = updatedNode
+            return true
+        },
+        selectNode() {
+            wrapper.classList.add('ProseMirror-selectednode')
+        },
+        deselectNode() {
+            wrapper.classList.remove('ProseMirror-selectednode')
+        },
+        destroy() {
+            // cleanup handled by GC
+        },
+    }
+}
 
 // Predefined colors for text and highlight
 const TEXT_COLORS = [
@@ -134,6 +434,17 @@ function createToolbar(editor, container) {
                     editor.chain().focus().unsetLink().run()
                 }
             }, active: () => editor.isActive('link'), title: 'Link' },
+            { label: '🖼', cmd: () => {
+                const input = document.createElement('input')
+                input.type = 'file'
+                input.accept = 'image/*'
+                input.onchange = () => {
+                    const file = input.files[0]
+                    if (!file) return
+                    uploadAndInsertImage(editor, file, container)
+                }
+                input.click()
+            }, active: () => false, title: 'Image' },
         ],
         // Headings
         [
@@ -213,9 +524,10 @@ function createToolbar(editor, container) {
  * @param {string} options.elementId - The ID of the container element
  * @param {string} options.initialContent - Initial content as JSON string (ProseMirror format)
  * @param {function} options.onChange - Callback when content changes, receives JSON string
+ * @param {string} [options.uploadEndpoint] - Custom upload endpoint URL (default: '/api/blobs')
  * @returns {Editor|null} The TipTap editor instance, or null if container not found
  */
-export function createRichTextEditor({ elementId, initialContent, onChange }) {
+export function createRichTextEditor({ elementId, initialContent, onChange, uploadEndpoint }) {
     const container = document.getElementById(elementId)
     if (!container) {
         console.warn(`[hamlet-rt] Container not found: ${elementId}`)
@@ -252,6 +564,28 @@ export function createRichTextEditor({ elementId, initialContent, onChange }) {
                     class: 'hamlet-rt-link',
                 },
             }),
+            Image.extend({
+                addAttributes() {
+                    return {
+                        ...this.parent?.(),
+                        width: {
+                            default: null,
+                            parseHTML: el => el.style.width || el.getAttribute('width') || null,
+                            renderHTML: attrs => attrs.width ? { style: `width: ${attrs.width}` } : {},
+                        },
+                        'data-upload-id': {
+                            default: null,
+                            parseHTML: el => el.getAttribute('data-upload-id'),
+                            renderHTML: attrs => attrs['data-upload-id'] ? { 'data-upload-id': attrs['data-upload-id'] } : {},
+                        },
+                    }
+                },
+                addNodeView() {
+                    return ({ node, view, getPos }) => createResizableImageView(node, view, getPos)
+                },
+            }).configure({
+                inline: false,
+            }),
             TextAlign.configure({
                 types: ['heading', 'paragraph'],
                 alignments: ['left', 'center', 'right', 'justify'],
@@ -263,6 +597,32 @@ export function createRichTextEditor({ elementId, initialContent, onChange }) {
             }),
         ],
         content,
+        editorProps: {
+            handleDrop(view, event, slice, moved) {
+                if (moved) return false // internal drag, let ProseMirror handle it
+                const files = getImageFiles(event.dataTransfer)
+                if (files.length === 0) return false
+                event.preventDefault()
+
+                const coords = view.posAtCoords({ left: event.clientX, top: event.clientY })
+                const insertPos = coords ? coords.pos : view.state.selection.anchor
+
+                for (const file of files) {
+                    uploadAndInsertImage(editor, file, container, insertPos)
+                }
+                return true
+            },
+            handlePaste(view, event) {
+                const files = getImageFiles(event.clipboardData)
+                if (files.length === 0) return false
+                event.preventDefault()
+
+                for (const file of files) {
+                    uploadAndInsertImage(editor, file, container)
+                }
+                return true
+            },
+        },
         onUpdate: ({ editor }) => {
             if (onChange) {
                 onChange(JSON.stringify(editor.getJSON()))
@@ -271,6 +631,9 @@ export function createRichTextEditor({ elementId, initialContent, onChange }) {
     })
 
     container.classList.add('hamlet-rt-editor')
+    if (uploadEndpoint) {
+        container._hamletUploadEndpoint = uploadEndpoint
+    }
     createToolbar(editor, container)
     container.appendChild(editorEl)
 
@@ -374,6 +737,20 @@ export function createRichTextViewer({ elementId, content }) {
                     target: '_blank',
                     rel: 'noopener noreferrer',
                 },
+            }),
+            Image.extend({
+                addAttributes() {
+                    return {
+                        ...this.parent?.(),
+                        width: {
+                            default: null,
+                            parseHTML: el => el.style.width || el.getAttribute('width') || null,
+                            renderHTML: attrs => attrs.width ? { style: `width: ${attrs.width}` } : {},
+                        },
+                    }
+                },
+            }).configure({
+                inline: false,
             }),
             TextAlign.configure({
                 types: ['heading', 'paragraph'],

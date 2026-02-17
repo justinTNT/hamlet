@@ -101,6 +101,29 @@ type alias ProjectAdmin =
 
 
 
+-- FILE UPLOAD ANNOTATIONS
+
+
+{-| Marks an endpoint as a multipart file upload.
+
+    { file : Upload (Accept "image/*") }
+
+-}
+type alias Upload a =
+    a
+
+
+{-| Mime type constraint for file uploads.
+    The string argument carries the allowed pattern (e.g. "image/*").
+
+    { file : Upload (Accept "image/*") }
+
+-}
+type alias Accept a =
+    a
+
+
+
 -- COMPOSED EXAMPLE
 -- { text : Required (Trim (MinLength (MaxLength String))) }
 -- Parser unwraps: Required → Trim → MinLength → MaxLength → String

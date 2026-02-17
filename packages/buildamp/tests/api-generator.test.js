@@ -863,3 +863,110 @@ describe('Backend API - Wire Format Compatibility', () => {
         assert.ok(result.includes('Json.Encode.object'), 'Should use Json.Encode.object');
     });
 });
+
+// =============================================================================
+// UPLOAD ENDPOINT DETECTION
+// =============================================================================
+
+describe('API Generator - Upload Endpoints', () => {
+    const {
+        isUploadEndpoint,
+        getUploadAcceptPattern,
+        generateUploadRoute,
+        generateElmUploadFunction
+    } = _test;
+
+    test('isUploadEndpoint detects upload fields', () => {
+        const api = {
+            fields: [
+                { name: 'file', annotations: { upload: true, accept: 'image/*' } }
+            ]
+        };
+        assert.ok(isUploadEndpoint(api));
+    });
+
+    test('isUploadEndpoint returns false for normal endpoints', () => {
+        const api = {
+            fields: [
+                { name: 'text', annotations: { required: true } }
+            ]
+        };
+        assert.ok(!isUploadEndpoint(api));
+    });
+
+    test('getUploadAcceptPattern extracts mime pattern', () => {
+        const api = {
+            fields: [
+                { name: 'file', annotations: { upload: true, accept: 'image/*' } }
+            ]
+        };
+        assert.strictEqual(getUploadAcceptPattern(api), 'image/*');
+    });
+
+    test('getUploadAcceptPattern defaults to image/*', () => {
+        const api = {
+            fields: [
+                { name: 'file', annotations: { upload: true } }
+            ]
+        };
+        assert.strictEqual(getUploadAcceptPattern(api), 'image/*');
+    });
+
+    test('generateUploadRoute creates busboy-based route', () => {
+        const api = {
+            name: 'UploadImageReq',
+            path: 'UploadImage',
+            fields: [
+                { name: 'file', annotations: { upload: true, accept: 'image/*' } }
+            ],
+            filename: 'UploadImage.elm',
+            _elm: {}
+        };
+        const result = generateUploadRoute(api);
+
+        assert.ok(result.includes("server.app.post('/api/UploadImage'"));
+        assert.ok(result.includes('multipart/form-data'));
+        assert.ok(result.includes('Busboy'));
+        assert.ok(result.includes("getService('blob')"));
+        assert.ok(result.includes('image/*'));
+    });
+
+    test('generateElmUploadFunction creates file-based HTTP function', () => {
+        const api = {
+            path: 'UploadImage',
+            struct_name: 'UploadImageReq',
+            fields: [
+                { name: 'file', annotations: { upload: true, accept: 'image/*' } }
+            ]
+        };
+        const result = generateElmUploadFunction(api);
+
+        assert.ok(result.includes('File.File'));
+        assert.ok(result.includes('Http.multipartBody'));
+        assert.ok(result.includes('Http.filePart "file" file'));
+        assert.ok(result.includes('/api/UploadImage'));
+        assert.ok(result.includes('UploadImageRes'));
+    });
+
+    test('convertElmApiToGeneratorFormat preserves upload annotations', () => {
+        const elmApi = {
+            name: 'UploadImage',
+            request: {
+                fields: [{
+                    name: 'file',
+                    camelName: 'file',
+                    elmType: 'String',
+                    originalType: 'Upload (Accept "image/*")',
+                    annotations: { upload: true, accept: 'image/*' },
+                    validationTags: {},
+                    docComment: null
+                }]
+            },
+            filename: 'UploadImage.elm'
+        };
+
+        const result = convertElmApiToGeneratorFormat(elmApi);
+        assert.ok(result.fields[0].annotations.upload);
+        assert.strictEqual(result.fields[0].annotations.accept, 'image/*');
+    });
+});
